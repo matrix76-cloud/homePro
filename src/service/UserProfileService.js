@@ -84,3 +84,14 @@ export async function linkPhoneToUid({ uid, phoneE164, provider }) {
 
     return { primaryUid: resolvedPrimaryUid };
 }
+
+export async function getPrimaryUidByPhone(phoneE164) {
+    const p = safeTrim(phoneE164);
+    if (!p) return null;
+
+    const ref = doc(db, "phones", p);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+
+    return snap.data()?.primaryUid || null;
+}

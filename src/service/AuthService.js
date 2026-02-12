@@ -6,6 +6,7 @@ import {
     browserLocalPersistence,
     browserSessionPersistence,
     GoogleAuthProvider,
+    OAuthProvider,
     signInWithCredential,
     signInWithCustomToken,
     signInWithPopup,
@@ -15,6 +16,7 @@ import {
     signOut,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
+    sendPasswordResetEmail,
 } from "firebase/auth";
 
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -207,22 +209,51 @@ export async function consumeRedirectResultIfAny() {
     }
 }
 
+async function webSignInWithApple({ keepLogin }) {
+    const auth = getAuthInstance();
+    await applyPersistence(auth, keepLogin);
+
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+
+    try {
+        const userCred = await signInWithPopup(auth, provider);
+        const uid = safeTrim(userCred?.user?.uid);
+        const email = safeTrim(userCred?.user?.email || "");
+
+        if (!uid) {
+            return { success: false, provider: "apple", error_code: "no_uid", error_message: "Apple 로그인 후 uid가 없습니다." };
+        }
+
+        await ensureUserDoc({ uid, email });
+        saveSession({ uid, email, keepLogin });
+
+        return { success: true, provider: "apple", uid, user: userCred.user, strategy: "web_popup" };
+    } catch (e) {
+        if (isPopupBlockedError(e)) {
+            await signInWithRedirect(auth, provider);
+            return { success: true, provider: "apple", uid: "", user: null, strategy: "web_redirect_started" };
+        }
+        return { success: false, provider: "apple", error_code: e?.code || "web_apple_signin_error", error_message: e?.message || String(e) };
+    }
+}
+
 export async function signInWithSocial({ provider, keepLogin = true }) {
     const p = safeTrim(provider).toLowerCase();
-    if (p !== "google" && p !== "kakao") {
+    if (p !== "google" && p !== "kakao" && p !== "apple") {
         return { success: false, provider: p, error_code: "invalid_provider" };
     }
 
     if (!isInRnWebView()) {
-        if (p !== "google") {
-            return {
-                success: false,
-                provider: p,
-                error_code: "web_google_only",
-                error_message: "웹에서는 현재 구글 로그인만 가능합니다.",
-            };
-        }
-        return await webSignInWithGoogle({ keepLogin });
+        if (p === "google") return await webSignInWithGoogle({ keepLogin });
+        if (p === "apple") return await webSignInWithApple({ keepLogin });
+        return {
+            success: false,
+            provider: p,
+            error_code: "web_unsupported",
+            error_message: "웹에서는 구글/애플 로그인만 가능합니다.",
+        };
     }
 
     const auth = getAuthInstance();
@@ -337,6 +368,31 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
             saveSession({ uid, email: emailFinal, keepLogin });
 
             return { success: true, provider: "kakao", uid, kakaoId, user: userCred.user };
+        }
+
+        if (p === "apple") {
+            const idToken = safeTrim(res?.idToken || res?.tokens?.idToken || "");
+            const rawNonce = safeTrim(res?.rawNonce || res?.tokens?.rawNonce || "");
+
+            if (!idToken) {
+                return { success: false, provider: "apple", error_code: "no_idToken", error_message: "RN Apple 로그인 성공했는데 idToken이 없습니다.", raw: res };
+            }
+
+            const appleProvider = new OAuthProvider("apple.com");
+            const cred = appleProvider.credential({ idToken, rawNonce: rawNonce || undefined });
+            const userCred = await signInWithCredential(auth, cred);
+
+            const uid = safeTrim(userCred?.user?.uid);
+            const email = safeTrim(userCred?.user?.email || "");
+
+            if (!uid) {
+                return { success: false, provider: "apple", error_code: "no_uid", error_message: "Apple signInWithCredential 이후 uid가 없습니다." };
+            }
+
+            await ensureUserDoc({ uid, email });
+            saveSession({ uid, email, keepLogin });
+
+            return { success: true, provider: "apple", uid, user: userCred.user };
         }
 
         return { success: false, provider: p, error_code: "unreachable" };
@@ -477,5 +533,24 @@ export async function signUpWithEmailPassword({ email, password, keepLogin = tru
         else if (code.includes("auth/weak-password")) msg = "비밀번호가 너무 약합니다. 6자 이상으로 설정해주세요.";
 
         return { success: false, provider: "email", error_code: code || "email_signup_error", error_message: msg };
+    }
+}
+
+export async function sendPasswordResetEmailByAddress(email) {
+    const e = safeTrim(email);
+    if (!e) return { success: false, error_code: "missing_email", error_message: "이메일을 입력해주세요." };
+
+    try {
+        const auth = getAuthInstance();
+        await sendPasswordResetEmail(auth, e);
+        return { success: true };
+    } catch (err) {
+        const code = String(err?.code || "");
+        let msg = err?.message || "비밀번호 재설정 이메일 발송에 실패했습니다.";
+
+        if (code.includes("auth/user-not-found")) msg = "가입되지 않은 이메일입니다.";
+        else if (code.includes("auth/invalid-email")) msg = "이메일 형식이 올바르지 않습니다.";
+
+        return { success: false, error_code: code || "reset_email_error", error_message: msg };
     }
 }

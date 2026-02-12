@@ -134,6 +134,7 @@ export default function MobileLinkPhonecontainer() {
                     to: onlyDigits(phone),
                     templateId: "VERIFY_CODE",
                     app: SMS_APP_KEY,
+                    label: "홈프로",
                     variables: { code: otp },
                 }),
             });

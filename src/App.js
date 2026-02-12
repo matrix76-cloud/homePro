@@ -19,6 +19,7 @@ import MobileMainpage from "./page/main/MobileMainpage";
 import MobileConfigpage from "./page/main/MobileConfigpage";
 import MobileChatpage from "./page/main/MobileChatpage";
 import MobileContractpage from "./page/main/MobileContractpage";
+import MobileFindAccountpage from "./page/main/MobileFindAccountpage";
 import OrderCreatePage from "./page/order/OrderCreatePage";
 import OrderListPage from "./page/order/OrderListPage";
 import OrderDetailPage from "./page/order/OrderDetailPage";
@@ -107,6 +108,7 @@ const AnimatedRoutes = () => {
           <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
           <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
           <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
+          <Route path="/MobileFindAccount" element={wrap(<MobileFindAccountpage />)} />
 
           {/* Pro */}
           <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
