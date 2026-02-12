@@ -108,7 +108,7 @@ const ServiceDetailPage = () => {
           <Card>
             <SectionTitle>전문 분야</SectionTitle>
             <CatInfoRow>
-              <CatIconWrap>{cat.icon}</CatIconWrap>
+              <CatIconWrap>{cat.shortName.charAt(0)}</CatIconWrap>
               <CatInfoText>
                 <CatNameText>{cat.name}</CatNameText>
                 <CatDescText>{cat.description}</CatDescText>
@@ -166,7 +166,7 @@ export default ServiceDetailPage;
 const PageWrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
-  padding-bottom: 80px;
+  padding: 0 0 80px;
 `;
 
 /* 히어로 사진 */
@@ -198,8 +198,8 @@ const HeroPhotoBadge = styled.div`
 /* 카드 */
 const Card = styled.div`
   background: ${THEME.surface};
-  margin: 10px 16px;
-  border-radius: 16px;
+  margin: 10px 12px;
+  border-radius: 4px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
 `;
@@ -373,10 +373,12 @@ const CatInfoRow = styled.div`
 `;
 
 const CatIconWrap = styled.div`
-  font-size: 28px;
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.primary};
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: 4px;
   background: ${THEME.background};
   display: flex;
   align-items: center;

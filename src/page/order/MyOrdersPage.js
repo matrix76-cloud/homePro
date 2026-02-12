@@ -24,7 +24,8 @@ const MY_ORDERS = [
   { id: "mo5", status: "취소", categoryId: "boiler", subcategory: "보일러 수리", title: "보일러 점검 및 수리", location: "서울 노원구", date: "02.05", price: "견적요청", customer: "강**", matchType: "다중" },
 ];
 
-const MyOrdersPage = () => {
+/* 탭 내장용 콘텐츠 컴포넌트 */
+export const MyOrdersContent = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("전체");
 
@@ -33,34 +34,19 @@ const MyOrdersPage = () => {
     : MY_ORDERS.filter((o) => o.status === activeTab);
 
   return (
-    <SimpleBackLayout NAME="나의 오더" hideFooter>
-      <PageWrap>
+    <PageWrap>
         {/* 상태 탭 */}
         <TabRow>
-          {STATUS_TABS.map((tab) => (
-            <TabItem key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
-              {tab}
-            </TabItem>
-          ))}
+          {STATUS_TABS.map((tab) => {
+            const count = tab === "전체" ? MY_ORDERS.length : MY_ORDERS.filter((o) => o.status === tab).length;
+            return (
+              <TabItem key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
+                {tab}
+                <TabCount $active={activeTab === tab}>{count}</TabCount>
+              </TabItem>
+            );
+          })}
         </TabRow>
-
-        {/* 통계 */}
-        <StatRow>
-          <StatItem>
-            <StatNum>{MY_ORDERS.filter((o) => o.status === "진행중").length}</StatNum>
-            <StatLabel>진행중</StatLabel>
-          </StatItem>
-          <StatDivider />
-          <StatItem>
-            <StatNum>{MY_ORDERS.filter((o) => o.status === "배차완료").length}</StatNum>
-            <StatLabel>배차완료</StatLabel>
-          </StatItem>
-          <StatDivider />
-          <StatItem>
-            <StatNum>{MY_ORDERS.filter((o) => o.status === "작업완료").length}</StatNum>
-            <StatLabel>작업완료</StatLabel>
-          </StatItem>
-        </StatRow>
 
         {/* 오더 리스트 */}
         {filtered.length === 0 ? (
@@ -80,14 +66,14 @@ const MyOrdersPage = () => {
                 </CardTop>
                 <CardTitle>{order.title}</CardTitle>
                 <TagRow>
-                  <Tag>{cat?.icon} {cat?.shortName}</Tag>
+                  <Tag>{cat?.shortName}</Tag>
                   <Tag>{order.subcategory}</Tag>
                   <MatchTag>[{order.matchType}]</MatchTag>
                 </TagRow>
                 <CardBottom>
                   <BottomLeft>
-                    <BottomText>📍 {order.location}</BottomText>
-                    <BottomText>👤 {order.customer}</BottomText>
+                    <BottomText>{order.location}</BottomText>
+                    <BottomText>{order.customer}</BottomText>
                   </BottomLeft>
                   <PriceText>{order.price}</PriceText>
                 </CardBottom>
@@ -95,10 +81,15 @@ const MyOrdersPage = () => {
             );
           })
         )}
-      </PageWrap>
-    </SimpleBackLayout>
+    </PageWrap>
   );
 };
+
+const MyOrdersPage = () => (
+  <SimpleBackLayout NAME="나의 오더" hideFooter>
+    <MyOrdersContent />
+  </SimpleBackLayout>
+);
 
 export default MyOrdersPage;
 
@@ -114,52 +105,40 @@ const PageWrap = styled.div`
 const TabRow = styled.div`
   display: flex;
   background: ${THEME.surface};
-  border-bottom: 1px solid ${THEME.border};
-  padding: 0 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  &::-webkit-scrollbar { display: none; }
+  border-bottom: 2px solid ${THEME.border};
+  padding: 0 12px;
 `;
 
 const TabItem = styled.div`
-  padding: 14px 14px;
-  font-size: 14px;
-  font-weight: ${({ $active }) => ($active ? "700" : "500")};
-  color: ${({ $active }) => ($active ? THEME.text : THEME.muted)};
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: ${({ $active }) => ($active ? 800 : 600)};
+  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
-  &:active { opacity: 0.6; }
+  margin-bottom: -2px;
+  &:active { opacity: 0.7; }
 `;
 
-const StatRow = styled.div`
-  display: flex;
-  align-items: center;
-  background: ${THEME.surface};
-  padding: 16px 20px;
-  margin-bottom: 8px;
-`;
-
-const StatItem = styled.div`
-  flex: 1;
+const TabCount = styled.span`
+  font-size: 12px;
+  font-weight: 800;
+  color: ${({ $active }) => $active ? "#fff" : THEME.muted};
+  background: ${({ $active }) => $active ? THEME.primary : THEME.border};
+  border-radius: 4px;
+  padding: 2px 8px;
+  min-width: 20px;
   text-align: center;
 `;
 
-const StatNum = styled.div`
-  font-size: 22px;
-  font-weight: 800;
-  color: ${THEME.primary};
-`;
-
-const StatLabel = styled.div`
-  font-size: 12px;
-  font-weight: 600;
-  color: ${THEME.muted};
-  margin-top: 4px;
-`;
-
-const StatDivider = styled.div`
+const _StatDivider = styled.div`
   width: 1px;
   height: 32px;
   background: ${THEME.border};
@@ -167,8 +146,10 @@ const StatDivider = styled.div`
 
 const OrderCard = styled.div`
   background: ${THEME.surface};
+  margin: 6px 12px;
   padding: 16px;
-  border-bottom: 1px solid ${THEME.border};
+  border-radius: 4px;
+  border: 1px solid ${THEME.border};
   cursor: pointer;
   &:active { background: ${THEME.background}; }
 `;

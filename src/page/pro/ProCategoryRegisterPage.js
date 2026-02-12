@@ -197,8 +197,7 @@ const ProCategoryRegisterPage = () => {
                                             $disabled={isRegistered}
                                             onClick={() => handleSelectCat(cat.id)}
                                         >
-                                            <CatIcon>{cat.icon}</CatIcon>
-                                            <CatName $disabled={isRegistered}>{cat.shortName}</CatName>
+                                            <CatName $disabled={isRegistered} $selected={isSelected}>{cat.shortName}</CatName>
                                             {isRegistered && (
                                                 <CheckMark>
                                                     <IoCheckmarkCircle size={18} color={THEME.success} />
@@ -406,16 +405,17 @@ const StepIndicator = styled.div`
     justify-content: center;
     gap: 0;
     margin-bottom: -16px;
+    padding: 0 16px;
 `;
 
 const StepDot = styled.div`
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     flex-shrink: 0;
     background: ${({ $active, $done }) =>
@@ -426,7 +426,7 @@ const StepDot = styled.div`
 `;
 
 const StepLine = styled.div`
-    width: 48px;
+    flex: 1;
     height: 3px;
     background: ${({ $done }) => ($done ? THEME.success : THEME.border)};
     transition: background 0.2s;
@@ -435,7 +435,7 @@ const StepLine = styled.div`
 const StepLabelRow = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 0 12px;
+    padding: 0 16px;
 `;
 
 const StepLabel = styled.div`
@@ -457,23 +457,24 @@ const SectionTitle = styled.div`
     margin-bottom: 14px;
 `;
 
-/* ─── Step 1: Category Grid ─── */
+/* ─── Step 1: Category Table ─── */
 const CatGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    border-top: 1px solid ${THEME.border};
+    border-left: 1px solid ${THEME.border};
 `;
 
 const CatItem = styled.div`
     position: relative;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    padding: 14px 8px 10px;
-    border-radius: 14px;
+    justify-content: center;
+    padding: 14px 8px;
+    border-right: 1px solid ${THEME.border};
+    border-bottom: 1px solid ${THEME.border};
     background: ${({ $selected, $disabled }) =>
-        $disabled ? THEME.background : $selected ? "#EBF5FF" : THEME.surface};
-    border: 2px solid ${({ $selected }) => ($selected ? THEME.primary : THEME.border)};
+        $disabled ? THEME.background : $selected ? THEME.primary : "#fff"};
     cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
     opacity: ${({ $disabled }) => ($disabled ? 0.55 : 1)};
     transition: all 0.15s;
@@ -482,24 +483,18 @@ const CatItem = styled.div`
     }
 `;
 
-const CatIcon = styled.div`
-    font-size: 26px;
-    margin-bottom: 6px;
-`;
-
 const CatName = styled.div`
-    font-size: 12px;
-    font-weight: 600;
-    color: ${({ $disabled }) => ($disabled ? THEME.muted : THEME.text)};
+    font-size: 13px;
+    font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
+    color: ${({ $disabled, $selected }) => $disabled ? THEME.muted : $selected ? "#fff" : THEME.text};
     text-align: center;
-    line-height: 1.3;
     word-break: keep-all;
 `;
 
 const CheckMark = styled.div`
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 4px;
+    right: 4px;
 `;
 
 /* ─── Step 2: Detail Form ─── */

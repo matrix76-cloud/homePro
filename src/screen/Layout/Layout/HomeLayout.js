@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import CommonHeaderHome from "../Header/CommonHeaderHome";
 import MobileFooter from "../Footer/MobileFooter";
@@ -26,6 +27,7 @@ const Main = styled.main`
 `;
 
 const HomeLayout = (props) => {
+  const navigate = useNavigate();
   const [showRegion, setShowRegion] = useState(false);
   const { user, dispatch } = useContext(UserContext);
 
@@ -49,6 +51,7 @@ const HomeLayout = (props) => {
       <CommonHeaderHome
         onNotificationClick={props.onNotificationClick}
         onLocationClick={() => setShowRegion(true)}
+        onSearchClick={() => navigate("/search")}
       />
       <Main>{props.children}</Main>
       <MobileFooter type={MOBILEMAINMENU.HOME} />

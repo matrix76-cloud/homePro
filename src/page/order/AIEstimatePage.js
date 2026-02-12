@@ -39,7 +39,8 @@ const AI_ESTIMATE_DATA = {
 
 const DEFAULT_ESTIMATE = { base: 100000, items: [{ name: "기본 작업비", price: 70000 }, { name: "출장비", price: 30000 }], time: "1~2시간", tip: "상세 내용에 따라 견적이 달라질 수 있습니다." };
 
-const AIEstimatePage = () => {
+/* 탭 내장용 콘텐츠 컴포넌트 */
+export const AIEstimateContent = () => {
   const navigate = useNavigate();
   const [selectedCat, setSelectedCat] = useState("");
   const [selectedSubs, setSelectedSubs] = useState([]);
@@ -77,8 +78,7 @@ const AIEstimatePage = () => {
   const formatPrice = (n) => n === 0 ? "상담 후 결정" : n.toLocaleString() + "원";
 
   return (
-    <SimpleBackLayout NAME="AI 견적" hideFooter>
-      <PageWrap>
+    <PageWrap>
         {/* 헤더 */}
         <HeaderCard>
           <AIIconWrap>
@@ -98,7 +98,7 @@ const AIEstimatePage = () => {
                 $active={selectedCat === cat.id}
                 onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}
               >
-                <span>{cat.icon}</span> {cat.shortName}
+                {cat.shortName}
               </CatChip>
             ))}
           </CatGrid>
@@ -178,7 +178,7 @@ const AIEstimatePage = () => {
                 <ResultIcon><IoSparkles size={20} color={THEME.primary} /></ResultIcon>
                 <ResultHeaderText>
                   <ResultTitle>AI 예상 견적</ResultTitle>
-                  <ResultCat>{category?.icon} {category?.name}</ResultCat>
+                  <ResultCat>{category?.name}</ResultCat>
                 </ResultHeaderText>
               </ResultHeader>
 
@@ -208,7 +208,7 @@ const AIEstimatePage = () => {
               </InfoRow>
 
               <TipBox>
-                <TipIcon>💡</TipIcon>
+                <TipIcon>Tip</TipIcon>
                 <TipText>{result.tip}</TipText>
               </TipBox>
 
@@ -228,17 +228,22 @@ const AIEstimatePage = () => {
             </RetryBtn>
           </>
         )}
-      </PageWrap>
-    </SimpleBackLayout>
+    </PageWrap>
   );
 };
+
+const AIEstimatePage = () => (
+  <SimpleBackLayout NAME="AI 견적" hideFooter>
+    <AIEstimateContent />
+  </SimpleBackLayout>
+);
 
 export default AIEstimatePage;
 
 /* ===================== styles ===================== */
 
 const PageWrap = styled.div`
-  padding: 0 0 40px;
+  padding: 0 12px 40px;
   display: flex;
   flex-direction: column;
 `;
@@ -246,6 +251,7 @@ const PageWrap = styled.div`
 const HeaderCard = styled.div`
   background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark});
   padding: 28px 20px;
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -345,7 +351,7 @@ const Spinner = styled.div`
 `;
 
 const AnalyzeBtn = styled.button`
-  margin: 20px 16px 0;
+  margin: 20px 0 0;
   padding: 16px;
   border: none;
   border-radius: 14px;
@@ -364,7 +370,7 @@ const AnalyzeBtn = styled.button`
 `;
 
 const ResultCard = styled.div`
-  margin: 20px 16px 0;
+  margin: 20px 0 0;
   background: ${THEME.surface};
   border-radius: 16px;
   padding: 20px;
@@ -516,7 +522,7 @@ const Disclaimer = styled.div`
 `;
 
 const RealEstimateBtn = styled.button`
-  margin: 16px 16px 0;
+  margin: 16px 0 0;
   padding: 16px;
   border: none;
   border-radius: 14px;
@@ -530,7 +536,7 @@ const RealEstimateBtn = styled.button`
 `;
 
 const RetryBtn = styled.button`
-  margin: 8px 16px 0;
+  margin: 8px 0 0;
   padding: 14px;
   border: 1.5px solid ${THEME.border};
   border-radius: 14px;

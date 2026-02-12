@@ -9,6 +9,9 @@ import { proCategoriesAtom } from "../../store/store";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline } from "react-icons/io5";
 import { MOCK_ORDERS } from "../order/OrderListPage";
+import { MyOrdersContent } from "../order/MyOrdersPage";
+import { AIEstimateContent } from "../order/AIEstimatePage";
+import { OrderCreateContent } from "../order/OrderCreatePage";
 
 /* ─── 오더 상태 ─── */
 const STATUS_TABS = ["접수", "지원가능", "배차/대기", "취소", "완료"];
@@ -64,7 +67,7 @@ const UserMain = ({ navigate, nickname }) => (
       <CategoryGrid>
         {CATEGORIES.map((cat) => (
           <CategoryItem key={cat.id} onClick={() => navigate(`/category/${cat.id}`)}>
-            <CatIcon>{cat.icon}</CatIcon>
+            <CatIcon>{cat.shortName.charAt(0)}</CatIcon>
             <CatName>{cat.shortName}</CatName>
           </CategoryItem>
         ))}
@@ -96,8 +99,9 @@ const UserMain = ({ navigate, nickname }) => (
    전문가 모드 메인 — 기획안 구조
    ================================================================ */
 const ProMain = ({ navigate, nickname, proCategories }) => {
+  const [activeTab, setActiveTab] = useState("all_orders");
   const [activeStatusTab, setActiveStatusTab] = useState("접수");
-  const [activeCatFilters, setActiveCatFilters] = useState([]);   // [] = 전체
+  const [activeCatFilters, setActiveCatFilters] = useState([]);
   const [activeDistFilters, setActiveDistFilters] = useState(["전체"]);
 
   // 전체 오더 취합
@@ -139,96 +143,108 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
       {/* ── 상단 액션 탭 바 ── */}
       <ActionBar>
         {ACTION_TABS.map((tab) => (
-          <ActionTab key={tab.key} onClick={() => {
-            if (tab.key === "my_orders") navigate("/order/my-orders");
-            if (tab.key === "ai") navigate("/order/ai-estimate");
-            if (tab.key === "worker") navigate("/order/create");
-            if (tab.key === "invite") { /* TODO: 초대코드 */ }
-          }}>
-            <ActionLabel $active={tab.key === "all_orders"}>{tab.label}</ActionLabel>
+          <ActionTab key={tab.key} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
+            <ActionLabel $active={activeTab === tab.key}>{tab.label}</ActionLabel>
           </ActionTab>
         ))}
       </ActionBar>
 
-      {/* ── 1행: 거리/날짜 필터 (중복선택) ── */}
-      <FilterRow>
-        {DISTANCE_OPTIONS.map((d) => {
-          const isActive = activeDistFilters.includes(d);
-          const handleClick = () => {
-            if (d === "전체") {
-              setActiveDistFilters(["전체"]);
-            } else {
-              const without = activeDistFilters.filter((v) => v !== "전체");
-              const next = isActive ? without.filter((v) => v !== d) : [...without, d];
-              setActiveDistFilters(next.length === 0 ? ["전체"] : next);
-            }
-          };
-          return (
-            <FilterChip key={d} $active={isActive} onClick={handleClick}>
-              {d}
+      {/* ══════ 전체오더 탭 ══════ */}
+      {activeTab === "all_orders" && (
+        <>
+          <FilterRow>
+            {DISTANCE_OPTIONS.map((d) => {
+              const isActive = activeDistFilters.includes(d);
+              const handleClick = () => {
+                if (d === "전체") {
+                  setActiveDistFilters(["전체"]);
+                } else {
+                  const without = activeDistFilters.filter((v) => v !== "전체");
+                  const next = isActive ? without.filter((v) => v !== d) : [...without, d];
+                  setActiveDistFilters(next.length === 0 ? ["전체"] : next);
+                }
+              };
+              return (
+                <FilterChip key={d} $active={isActive} onClick={handleClick}>
+                  {d}
+                </FilterChip>
+              );
+            })}
+          </FilterRow>
+
+          <FilterRow>
+            <FilterChip $active={activeCatFilters.length === 0} onClick={() => setActiveCatFilters([])}>
+              전체
             </FilterChip>
-          );
-        })}
-      </FilterRow>
+            {filterCats.map((cat) => {
+              const isActive = activeCatFilters.includes(cat.id);
+              const handleClick = () => {
+                const next = isActive
+                  ? activeCatFilters.filter((v) => v !== cat.id)
+                  : [...activeCatFilters, cat.id];
+                setActiveCatFilters(next);
+              };
+              return (
+                <FilterChip key={cat.id} $active={isActive} onClick={handleClick}>
+                  {cat.shortName}
+                </FilterChip>
+              );
+            })}
+          </FilterRow>
 
-      {/* ── 2행: 카테고리 필터 (중복선택) ── */}
-      <FilterRow>
-        <FilterChip $active={activeCatFilters.length === 0} onClick={() => setActiveCatFilters([])}>
-          전체
-        </FilterChip>
-        {filterCats.map((cat) => {
-          const isActive = activeCatFilters.includes(cat.id);
-          const handleClick = () => {
-            const next = isActive
-              ? activeCatFilters.filter((v) => v !== cat.id)
-              : [...activeCatFilters, cat.id];
-            setActiveCatFilters(next);
-          };
-          return (
-            <FilterChip key={cat.id} $active={isActive} onClick={handleClick}>
-              {cat.shortName}
-            </FilterChip>
-          );
-        })}
-      </FilterRow>
+          <StatusTabRow>
+            {STATUS_TABS.map((tab) => (
+              <StatusTab key={tab} $active={activeStatusTab === tab} onClick={() => setActiveStatusTab(tab)}>
+                {tab}
+                <StatusCount $active={activeStatusTab === tab}>{statusCounts[tab] || 0}</StatusCount>
+              </StatusTab>
+            ))}
+          </StatusTabRow>
 
-      {/* ── 상태 탭 ── */}
-      <StatusTabRow>
-        {STATUS_TABS.map((tab) => (
-          <StatusTab key={tab} $active={activeStatusTab === tab} onClick={() => setActiveStatusTab(tab)}>
-            {tab}
-            {statusCounts[tab] > 0 && <StatusCount $active={activeStatusTab === tab}>{statusCounts[tab]}</StatusCount>}
-          </StatusTab>
-        ))}
-      </StatusTabRow>
+          {filteredOrders.length === 0 ? (
+            <EmptyWrap>
+              <EmptyText>{activeStatusTab} 상태의 오더가 없습니다</EmptyText>
+              <EmptySubText>새로운 요청이 들어오면 알려드릴게요!</EmptySubText>
+            </EmptyWrap>
+          ) : (
+            filteredOrders.map((order) => {
+              const cat = CATEGORIES.find((c) => c.id === order.categoryId);
+              const isUrgent = order.workDate === "긴급";
+              const isToday = order.workDate === "당일";
+              return (
+                <OrderCard key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
+                  <OrderRow>
+                    <DateCell $urgent={isUrgent} $today={isToday}>{order.workDate}</DateCell>
+                    <CatCell>{order.categoryName}</CatCell>
+                    <SubCell>{order.subcategory}<MatchTag>[{order.matchType}]</MatchTag></SubCell>
+                  </OrderRow>
+                  <OrderRow2>
+                    <LocationCell>{order.location}</LocationCell>
+                    <PriceCell>{order.price}</PriceCell>
+                  </OrderRow2>
+                </OrderCard>
+              );
+            })
+          )}
+        </>
+      )}
 
-      {/* ── 오더 카드 리스트 ── */}
-      {filteredOrders.length === 0 ? (
-        <EmptyWrap>
-          <EmptyIcon>📋</EmptyIcon>
-          <EmptyText>{activeStatusTab} 상태의 오더가 없습니다</EmptyText>
-          <EmptySubText>새로운 요청이 들어오면 알려드릴게요!</EmptySubText>
-        </EmptyWrap>
-      ) : (
-        filteredOrders.map((order) => {
-          const cat = CATEGORIES.find((c) => c.id === order.categoryId);
-          const isUrgent = order.workDate === "긴급";
-          const isToday = order.workDate === "당일";
-          return (
-            <OrderCard key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
-              {/* 날짜 + 카테고리 + 세부[호출방식] + 위치 + 금액 */}
-              <OrderRow>
-                <DateCell $urgent={isUrgent} $today={isToday}>{order.workDate}</DateCell>
-                <CatCell>{order.categoryName}</CatCell>
-                <SubCell>{order.subcategory}<MatchTag>[{order.matchType}]</MatchTag></SubCell>
-              </OrderRow>
-              <OrderRow2>
-                <LocationCell>{order.location}</LocationCell>
-                <PriceCell>{order.price}</PriceCell>
-              </OrderRow2>
-            </OrderCard>
-          );
-        })
+      {/* ══════ 나의오더 탭 ══════ */}
+      {activeTab === "my_orders" && <MyOrdersContent />}
+
+      {/* ══════ 인력호출 탭 ══════ */}
+      {activeTab === "worker" && <OrderCreateContent />}
+
+      {/* ══════ AI견적 탭 ══════ */}
+      {activeTab === "ai" && <AIEstimateContent />}
+
+      {/* ══════ 초대코드 탭 ══════ */}
+      {activeTab === "invite" && (
+        <TabPlaceholder>
+          <TabPlaceholderTitle>초대코드</TabPlaceholderTitle>
+          <TabPlaceholderDesc>친구를 초대하고 혜택을 받으세요</TabPlaceholderDesc>
+          <TabPlaceholderBtn>초대코드 복사</TabPlaceholderBtn>
+        </TabPlaceholder>
       )}
 
       <BottomSpacer />
@@ -363,13 +379,22 @@ const CategoryItem = styled.div`
   flex-direction: column;
   align-items: center;
   padding: 14px 4px 10px;
-  border-radius: 12px;
+  border-radius: 4px;
   cursor: pointer;
   &:active { background: ${THEME.background}; }
 `;
 
 const CatIcon = styled.div`
-  font-size: 28px;
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: ${THEME.background};
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 6px;
 `;
 
@@ -437,10 +462,11 @@ const BottomSpacer = styled.div`
 const ActionBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 8px 12px;
-  background: ${THEME.surface};
-  border-bottom: 1px solid ${THEME.border};
+  gap: 4px;
+  padding: 6px;
+  margin: 8px 12px;
+  background: ${THEME.background};
+  border-radius: 4px;
 `;
 
 const ActionTab = styled.div`
@@ -449,14 +475,17 @@ const ActionTab = styled.div`
   align-items: center;
   justify-content: center;
   padding: 10px 4px;
+  border-radius: 4px;
+  background: ${({ $active }) => $active ? THEME.primary : "transparent"};
   cursor: pointer;
-  &:active { opacity: 0.6; }
+  transition: background 0.15s;
+  &:active { opacity: 0.7; }
 `;
 
 const ActionLabel = styled.div`
   font-size: 13px;
-  font-weight: ${({ $active }) => $active ? 800 : 600};
-  color: ${({ $active }) => $active ? THEME.primary : THEME.text};
+  font-weight: ${({ $active }) => $active ? 700 : 500};
+  color: ${({ $active }) => $active ? "#fff" : THEME.muted};
   white-space: nowrap;
 `;
 
@@ -491,15 +520,17 @@ const StatusTabRow = styled.div`
   display: flex;
   background: ${THEME.surface};
   border-bottom: 2px solid ${THEME.border};
+  padding: 0 12px;
 `;
 
 const StatusTab = styled.div`
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 12px 4px;
+  padding: 12px 0;
   font-size: 13px;
   font-weight: ${({ $active }) => $active ? 800 : 600};
   color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
@@ -511,23 +542,24 @@ const StatusTab = styled.div`
 `;
 
 const StatusCount = styled.span`
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   color: ${({ $active }) => $active ? "#fff" : THEME.muted};
   background: ${({ $active }) => $active ? THEME.primary : THEME.border};
-  border-radius: 10px;
-  padding: 1px 6px;
-  min-width: 16px;
+  border-radius: 4px;
+  padding: 2px 8px;
+  min-width: 20px;
   text-align: center;
 `;
 
 /* 오더 카드 (기획안 테이블 스타일) */
 const OrderCard = styled.div`
   background: ${THEME.surface};
-  margin: 0 0 1px;
+  margin: 6px 12px;
   padding: 14px 16px;
+  border-radius: 4px;
   cursor: pointer;
-  border-bottom: 1px solid ${THEME.border};
+  border: 1px solid ${THEME.border};
   &:active { background: ${THEME.background}; }
 `;
 
@@ -595,11 +627,7 @@ const EmptyWrap = styled.div`
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-`;
-
-const EmptyIcon = styled.div`
-  font-size: 48px;
-  margin-bottom: 16px;
+  margin: 0 12px;
 `;
 
 const EmptyText = styled.div`
@@ -613,4 +641,40 @@ const EmptySubText = styled.div`
   font-weight: 500;
   color: ${THEME.muted};
   margin-top: 4px;
+`;
+
+/* 탭 플레이스홀더 */
+const TabPlaceholder = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 8px;
+`;
+
+const TabPlaceholderTitle = styled.div`
+  font-size: 18px;
+  font-weight: 800;
+  color: ${THEME.text};
+`;
+
+const TabPlaceholderDesc = styled.div`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${THEME.muted};
+`;
+
+const TabPlaceholderBtn = styled.button`
+  margin-top: 16px;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 4px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
 `;

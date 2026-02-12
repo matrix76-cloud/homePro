@@ -37,6 +37,7 @@ import NoticePage from "./page/notice/NoticePage";
 import SupportPage from "./page/support/SupportPage";
 import CalendarPage from "./page/calendar/CalendarPage";
 import ScheduleCreatePage from "./page/calendar/ScheduleCreatePage";
+import SearchPage from "./page/search/SearchPage";
 
 /* ===================== motion wrappers ===================== */
 
@@ -194,6 +195,9 @@ const AnimatedRoutes = () => {
           <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
           <Route path="/order/list" element={wrap(<OrderListPage />)} />
           <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
+
+          {/* Search */}
+          <Route path="/search" element={wrap(<SearchPage />)} />
 
           {/* Calendar */}
           <Route path="/calendar" element={wrap(<CalendarPage />)} />

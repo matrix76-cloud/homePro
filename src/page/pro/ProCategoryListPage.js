@@ -27,7 +27,7 @@ const ProCategoryListPage = () => {
                         {myCats.map((cat) => (
                             <CatRow key={cat.id} onClick={() => navigate(`/pro/category-detail/${cat.id}`)}>
                                 <CatLeft>
-                                    <CatIcon>{cat.icon}</CatIcon>
+                                    <CatIcon>{cat.shortName.charAt(0)}</CatIcon>
                                     <CatInfo>
                                         <CatName>{cat.name}</CatName>
                                         <CatStatus>승인완료</CatStatus>
@@ -112,10 +112,12 @@ const CatLeft = styled.div`
 `;
 
 const CatIcon = styled.div`
-    font-size: 28px;
+    font-size: 16px;
+    font-weight: 700;
+    color: ${THEME.primary};
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: 4px;
     background: ${THEME.background};
     display: flex;
     align-items: center;

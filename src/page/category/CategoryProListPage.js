@@ -178,7 +178,7 @@ const CategoryProListPage = () => {
         {/* 카테고리 헤더 */}
         {category && (
           <CatHeader>
-            <CatIconWrap>{category.icon}</CatIconWrap>
+            <CatIconWrap>{category.shortName.charAt(0)}</CatIconWrap>
             <CatInfo>
               <CatName>{category.name}</CatName>
               <CatDesc>{category.description}</CatDesc>
@@ -253,7 +253,7 @@ const CategoryProListPage = () => {
           ))
         ) : (
           <EmptyWrap>
-            <EmptyIcon>{category?.icon || "📋"}</EmptyIcon>
+            <EmptyIcon>{category?.shortName?.charAt(0) || "?"}</EmptyIcon>
             <EmptyTitle>아직 등록된 전문가가 없어요</EmptyTitle>
             <EmptyDesc>곧 전문가들이 등록할 예정이에요!</EmptyDesc>
           </EmptyWrap>
@@ -272,6 +272,7 @@ export default CategoryProListPage;
 const PageWrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
+  padding: 0 0 12px;
 `;
 
 const CatHeader = styled.div`
@@ -283,10 +284,12 @@ const CatHeader = styled.div`
 `;
 
 const CatIconWrap = styled.div`
-  font-size: 32px;
+  font-size: 18px;
+  font-weight: 700;
+  color: ${THEME.primary};
   width: 52px;
   height: 52px;
-  border-radius: 14px;
+  border-radius: 4px;
   background: ${THEME.background};
   display: flex;
   align-items: center;
@@ -352,8 +355,8 @@ const SortBtn = styled.button`
 /* 서비스 카드 */
 const ServiceCard = styled.div`
   background: ${THEME.surface};
-  border-radius: 16px;
-  margin: 10px 16px;
+  border-radius: 4px;
+  margin: 10px 12px;
   overflow: hidden;
   box-shadow: ${THEME.cardShadow};
   cursor: pointer;

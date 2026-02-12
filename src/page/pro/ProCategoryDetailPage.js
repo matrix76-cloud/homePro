@@ -60,7 +60,7 @@ const ProCategoryDetailPage = () => {
                 {/* 카테고리 정보 */}
                 <Card>
                     <CatHeader>
-                        <CatIcon>{cat.icon}</CatIcon>
+                        <CatIcon>{cat.shortName.charAt(0)}</CatIcon>
                         <CatInfo>
                             <CatName>{cat.name}</CatName>
                             <CatDesc>{cat.description}</CatDesc>
@@ -141,10 +141,12 @@ const CatHeader = styled.div`
 `;
 
 const CatIcon = styled.div`
-    font-size: 32px;
+    font-size: 18px;
+    font-weight: 700;
+    color: ${THEME.primary};
     width: 52px;
     height: 52px;
-    border-radius: 14px;
+    border-radius: 4px;
     background: ${THEME.background};
     display: flex;
     align-items: center;

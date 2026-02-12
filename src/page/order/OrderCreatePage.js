@@ -16,8 +16,9 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 
 const Section = styled.div`
   background: #fff;
-  margin-top: 12px;
+  margin: 12px 12px 0;
   padding: 20px;
+  border-radius: 4px;
 `;
 
 const Label = styled.div`
@@ -41,7 +42,7 @@ const ChipGrid = styled.div`
 
 const Chip = styled.button`
   padding: 8px 16px;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
@@ -59,7 +60,7 @@ const TextArea = styled.textarea`
   min-height: 100px;
   padding: 12px;
   border: 1px solid ${THEME.border};
-  border-radius: 10px;
+  border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
@@ -73,7 +74,7 @@ const Input = styled.input`
   width: 100%;
   padding: 12px;
   border: 1px solid ${THEME.border};
-  border-radius: 10px;
+  border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
   outline: none;
@@ -90,7 +91,7 @@ const RadioGroup = styled.div`
 const RadioButton = styled.button`
   flex: 1;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: 4px;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -117,7 +118,7 @@ const SubmitButton = styled.button`
   background: ${THEME.primary};
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 4px;
   font-size: 17px;
   font-weight: 700;
   cursor: pointer;
@@ -139,7 +140,7 @@ const PhotoGrid = styled.div`
 const PhotoBox = styled.div`
   aspect-ratio: 1;
   border: 1px dashed ${THEME.border};
-  border-radius: 8px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -149,7 +150,29 @@ const PhotoBox = styled.div`
   background: #fff;
 `;
 
-const OrderCreatePage = () => {
+const CatTable = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid ${THEME.border};
+  border-left: 1px solid ${THEME.border};
+`;
+
+const CatCell = styled.div`
+  padding: 14px 8px;
+  border-right: 1px solid ${THEME.border};
+  border-bottom: 1px solid ${THEME.border};
+  text-align: center;
+  font-size: 13px;
+  font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
+  color: ${({ $selected }) => ($selected ? "#fff" : THEME.text)};
+  background: ${({ $selected }) => ($selected ? THEME.primary : "#fff")};
+  cursor: pointer;
+  word-break: keep-all;
+  &:active { opacity: 0.8; }
+`;
+
+/* 탭 내장용 콘텐츠 컴포넌트 */
+export const OrderCreateContent = () => {
   const navigate = useNavigate();
   const { categoryId } = useParams();
   const { user } = useContext(UserContext);
@@ -184,14 +207,14 @@ const OrderCreatePage = () => {
   };
 
   return (
-    <SimpleBackLayout NAME="견적서 요청">
+    <>
       {/* 1. 카테고리 선택 */}
       {!categoryId && (
         <Section>
           <Label>카테고리 선택</Label>
-          <ChipGrid>
+          <CatTable>
             {CATEGORIES.map((cat) => (
-              <Chip
+              <CatCell
                 key={cat.id}
                 $selected={selectedCategory === cat.id}
                 onClick={() => {
@@ -199,10 +222,10 @@ const OrderCreatePage = () => {
                   setSelectedSub([]);
                 }}
               >
-                {cat.icon} {cat.name}
-              </Chip>
+                {cat.shortName}
+              </CatCell>
             ))}
-          </ChipGrid>
+          </CatTable>
         </Section>
       )}
 
@@ -211,7 +234,7 @@ const OrderCreatePage = () => {
         <>
           {categoryId && (
             <Section>
-              <Label>{category.icon} {category.name}</Label>
+              <Label>{category.name}</Label>
               <SubLabel>{category.description}</SubLabel>
             </Section>
           )}
@@ -490,8 +513,14 @@ const OrderCreatePage = () => {
           </Section>
         </>
       )}
-    </SimpleBackLayout>
+    </>
   );
 };
+
+const OrderCreatePage = () => (
+  <SimpleBackLayout NAME="견적서 요청">
+    <OrderCreateContent />
+  </SimpleBackLayout>
+);
 
 export default OrderCreatePage;
