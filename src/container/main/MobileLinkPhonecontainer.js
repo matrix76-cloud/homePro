@@ -7,9 +7,8 @@ import { linkPhoneToUid } from "../../service/UserProfileService";
 import { UserContext } from "../../context/User";
 import { THEME } from "../../config/homeproConfig";
 
-const SMS_GATEWAY_URL = "http://34.64.211.220:8080/sendSms";
-const SMS_GATEWAY_KEY = "sms-gateway-shared-key-2025";
-const SMS_APP_KEY = "homepro";
+const SMS_CF_URL = "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend";
+const SMS_LABEL = "홈프로";
 
 const TEST_RANGE_START = "01062141000";
 const TEST_RANGE_END = "01062142000";
@@ -124,27 +123,18 @@ export default function MobileLinkPhonecontainer() {
 
             setDevCode("");
 
-            const resp = await fetch(SMS_GATEWAY_URL, {
+            const resp = await fetch(SMS_CF_URL, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${SMS_GATEWAY_KEY}`,
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    to: onlyDigits(phone),
-                    templateId: "VERIFY_CODE",
-                    app: SMS_APP_KEY,
-                    label: "홈프로",
-                    variables: { code: otp },
+                    phone: onlyDigits(phone),
+                    authcode: otp,
+                    label: SMS_LABEL,
                 }),
             });
 
-            let data = null;
-            try { data = await resp.json(); } catch { data = null; }
-
-            if (!resp.ok || data?.ok === false) {
-                const msg = (data && (data.error || data.result?.message)) || `발송 실패(${resp.status})`;
-                window.alert(`인증 코드를 전송하지 못했습니다. ${msg}`);
+            if (!resp.ok) {
+                window.alert(`인증 코드를 전송하지 못했습니다. 발송 실패(${resp.status})`);
                 resetOtpState();
                 return;
             }

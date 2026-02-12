@@ -162,12 +162,14 @@ const MobileLoginpage = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2500);
+  };
 
   const handleEmailLogin = async () => {
-    // TODO: 테스트용 바이패스 — 나중에 제거
-    navigate("/MobileMain", { replace: true });
-    return;
-
     if (!email || !password) {
       setError("이메일과 비밀번호를 입력해주세요.");
       return;
@@ -186,19 +188,8 @@ const MobileLoginpage = () => {
     }
   };
 
-  const handleSocialLogin = async (provider) => {
-    setLoading(true);
-    setError("");
-
-    const res = await signInWithSocial({ provider });
-    setLoading(false);
-
-    if (res.success && res.uid) {
-      dispatch({ USERS_ID: res.uid });
-      navigate("/MobileMain", { replace: true });
-    } else if (!res.success) {
-      setError(res.error_message || "로그인에 실패했습니다.");
-    }
+  const handleSocialLogin = (provider) => {
+    showToast("소셜 로그인 기능 준비중입니다.");
   };
 
   return (
@@ -268,8 +259,32 @@ const MobileLoginpage = () => {
         아직 계정이 없으신가요?{" "}
         <SignupLink onClick={() => navigate("/MobileSignup")}>회원가입</SignupLink>
       </SignupRow>
+
+      {toast && <Toast>{toast}</Toast>}
     </Container>
   );
 };
 
 export default MobileLoginpage;
+
+const Toast = styled.div`
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  z-index: 9999;
+  white-space: nowrap;
+  animation: toastFade 2.5s ease;
+  @keyframes toastFade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+`;

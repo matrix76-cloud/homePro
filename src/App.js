@@ -7,7 +7,7 @@ import styled, { createGlobalStyle } from "styled-components";
 
 import { UserContext } from "./context/User";
 import useWebMessageListener from "./hooks/useWebMessageListener";
-import { attachMessageListener } from "./bridge/webviewBridge";
+import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
 
 /* Pages */
 import MobileSplashpage from "./page/main/MobileSplashpage";
@@ -92,6 +92,65 @@ const AnimatedRoutes = () => {
     const detach = attachMessageListener();
     return () => detach?.();
   }, []);
+
+  // RN → Web 메시지 수신 핸들러
+  useWebMessageListener((data) => {
+    const p = data?.payload || {};
+
+    switch (data.type) {
+      case "FCM_TOKEN":
+      case "PUSH_TOKEN": {
+        const tk = p.token || p.fcmToken || "";
+        if (tk) dispatch({ pushGranted: true, USERINFO: { ...user?.USERINFO, token: tk } });
+        break;
+      }
+
+      case "CURRENTPOSITION": {
+        dispatch({
+          locationGranted: true,
+          USERINFO: { ...user?.USERINFO, latitude: p.latitude, longitude: p.longitude },
+        });
+        break;
+      }
+
+      case "PERMISSION_CONFIRMED": {
+        dispatch({
+          locationGranted: p.locationGranted,
+          pushGranted: p.pushGranted,
+          USERINFO: { ...user?.USERINFO, latitude: p.latitude, longitude: p.longitude, token: p.token },
+        });
+        break;
+      }
+
+      case "PERMISSION_REVOKED": {
+        dispatch({
+          locationGranted: p.locationGranted ?? false,
+          pushGranted: p.pushGranted ?? false,
+        });
+        break;
+      }
+
+      case "BACK_REQUEST": {
+        if (window.history.length > 1) {
+          window.history.back();
+        }
+        break;
+      }
+
+      case "APP_EXIT_REQUEST": {
+        postToRN("EXIT_APP", { at: Date.now() });
+        break;
+      }
+
+      case "PUSH_EVENT": {
+        console.log("[PUSH]", p?.title, p?.body);
+        break;
+      }
+
+      default:
+        break;
+    }
+  });
 
   return (
     <AnimatePresence mode="wait">

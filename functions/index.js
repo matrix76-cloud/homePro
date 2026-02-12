@@ -68,6 +68,53 @@ exports.kakaoAuth = onCall(async (request) => {
 });
 
 /**
+ * SMS 인증코드 발송 (AuthCodeSend)
+ * Body: { phone, authcode, label }
+ */
+const express = require("express");
+const cors = require("cors");
+const app = express();
+app.use(cors({ origin: true }));
+app.use(express.json());
+
+app.post("/AuthCodeSend", async (req, res) => {
+    const body = req.body || {};
+    const phone = String(body.phone || "").replace(/\D/g, "");
+    const code = String(body.authcode || "");
+    const label = String(body.label || "홈프로");
+
+    if (!phone || !code) {
+        return res.status(400).json({ ok: false, error: "phone, authcode 필수" });
+    }
+
+    try {
+        const resp = await fetch("http://34.64.211.220:8080/sendSms", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer sms-gateway-shared-key-2025",
+            },
+            body: JSON.stringify({
+                to: phone,
+                templateId: "VERIFY_CODE",
+                label,
+                variables: { code },
+            }),
+        });
+
+        let result = null;
+        try { result = await resp.json(); } catch { result = null; }
+
+        return res.status(200).json({ ok: true, result });
+    } catch (error) {
+        console.error("SMS 발송 실패:", error.message);
+        return res.status(500).json({ ok: false, error: error.message });
+    }
+});
+
+exports.api = require("firebase-functions").region("asia-northeast3").https.onRequest(app);
+
+/**
  * 헬스체크
  */
 exports.healthCheck = onRequest((req, res) => {
