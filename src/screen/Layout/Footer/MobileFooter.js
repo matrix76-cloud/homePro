@@ -57,7 +57,20 @@ const MobileFooter = ({ type }) => {
           if (tab.isCenter) {
             return (
               <button key={tab.key} className="button" onClick={() => handleTab(tab)} style={{ position: "relative" }}>
-                <IoAddCircle size={44} color={THEME.primary} />
+                <div style={{
+                  position: "absolute",
+                  top: "-22px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 60,
+                  height: 60,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 -1px 4px rgba(0,0,0,0.06)",
+                }}>
+                  <IoAddCircle size={56} color={THEME.primary} />
+                </div>
               </button>
             );
           }
