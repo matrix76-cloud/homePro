@@ -191,7 +191,7 @@ const HeroPhotoBadge = styled.div`
   border-radius: 14px;
   background: rgba(255,255,255,0.7);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: rgba(0,0,0,0.5);
 `;
 
@@ -224,7 +224,7 @@ const ProProfileInfo = styled.div`
 
 const ProNameLarge = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
@@ -238,7 +238,7 @@ const ProMetaRow = styled.div`
 
 const ProMetaText = styled.span`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -259,13 +259,13 @@ const RatingRow = styled.div`
 
 const RatingNum = styled.span`
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
 const RatingCount = styled.span`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-left: 2px;
 `;
@@ -282,14 +282,14 @@ const VerifiedBadge = styled.div`
 
 const VerifiedText = styled.span`
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.success};
 `;
 
 /* 섹션 */
 const SectionTitle = styled.div`
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
@@ -304,7 +304,7 @@ const SectionHeader = styled.div`
 /* 서비스 소개 */
 const ServiceTitleText = styled.div`
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   margin-top: 12px;
   line-height: 1.4;
@@ -312,7 +312,7 @@ const ServiceTitleText = styled.div`
 
 const ServiceDescText = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 8px;
   line-height: 1.6;
@@ -329,7 +329,7 @@ const TagChip = styled.span`
   padding: 5px 12px;
   border-radius: 8px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   background: ${THEME.purpleLight};
   color: ${THEME.purple};
 `;
@@ -347,19 +347,19 @@ const PriceBox = styled.div`
 
 const PriceLabel = styled.div`
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.textSecondary};
 `;
 
 const PriceValue = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.primary};
 `;
 
 const PriceNote = styled.div`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 8px;
 `;
@@ -374,7 +374,7 @@ const CatInfoRow = styled.div`
 
 const CatIconWrap = styled.div`
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.primary};
   width: 48px;
   height: 48px;
@@ -392,13 +392,13 @@ const CatInfoText = styled.div`
 
 const CatNameText = styled.div`
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
 const CatDescText = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
   line-height: 1.4;
@@ -407,7 +407,7 @@ const CatDescText = styled.div`
 /* 리뷰 */
 const ReviewTotal = styled.div`
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.primary};
 `;
 
@@ -426,7 +426,7 @@ const ReviewTop = styled.div`
 
 const ReviewerName = styled.span`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -437,14 +437,14 @@ const ReviewStars = styled.div`
 
 const ReviewDate = styled.span`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-left: auto;
 `;
 
 const ReviewText = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 8px;
   line-height: 1.5;
@@ -454,7 +454,7 @@ const MoreBtn = styled.div`
   text-align: center;
   padding: 14px 0 4px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.primary};
   cursor: pointer;
   &:active { opacity: 0.6; }
@@ -499,7 +499,7 @@ const RequestBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.9; }
@@ -515,7 +515,7 @@ const EmptyWrap = styled.div`
 
 const EmptyText = styled.div`
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 

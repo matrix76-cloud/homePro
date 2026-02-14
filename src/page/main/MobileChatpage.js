@@ -67,7 +67,7 @@ const IconCircle = styled.div`
 
 const EmptyTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
   margin-bottom: 8px;
@@ -75,7 +75,7 @@ const EmptyTitle = styled.div`
 
 const EmptyDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   text-align: center;
   line-height: 1.6;

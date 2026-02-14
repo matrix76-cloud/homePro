@@ -30,6 +30,7 @@ import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
 import ProCategoryListPage from "./page/pro/ProCategoryListPage";
 import ProCategoryDetailPage from "./page/pro/ProCategoryDetailPage";
+import ProCategoryEditPage from "./page/pro/ProCategoryEditPage";
 import TermsPage from "./page/legal/TermsPage";
 import PrivacyPage from "./page/legal/PrivacyPage";
 import LocationTermsPage from "./page/legal/LocationTermsPage";
@@ -174,6 +175,7 @@ const AnimatedRoutes = () => {
           <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
           <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
           <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />
+          <Route path="/pro/category-edit/:categoryId" element={wrap(<ProCategoryEditPage />)} />
 
           {/* Category & Service */}
           <Route path="/category/:categoryId" element={wrap(<CategoryProListPage />)} />

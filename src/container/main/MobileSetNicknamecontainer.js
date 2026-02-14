@@ -160,7 +160,7 @@ const Wrap = styled.div`
 
 const Title = styled.div`
   font-size: 22px !important;
-  font-weight: 800;
+  font-weight: 400;
   letter-spacing: -0.04em;
   color: rgba(17, 24, 39, 0.92);
 `;
@@ -168,7 +168,7 @@ const Title = styled.div`
 const Desc = styled.div`
   margin-top: 6px;
   font-size: 13px !important;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.55);
 `;
@@ -199,13 +199,13 @@ const LabelRow = styled.div`
 const Label = styled.label`
   font-size: 14px !important;
   color: rgba(17, 24, 39, 0.92);
-  font-weight: 700;
+  font-weight: 400;
 `;
 
 const RequiredMark = styled.span`
   color: #ff4b4b;
   font-size: 14px !important;
-  font-weight: 800;
+  font-weight: 400;
 `;
 
 const InlineRow = styled.div`
@@ -239,7 +239,7 @@ const CharCount = styled.span`
   right: 0;
   bottom: 12px;
   font-size: 12px !important;
-  font-weight: 700;
+  font-weight: 400;
   color: ${({ $over }) => ($over ? "#ef4444" : "rgba(17, 24, 39, 0.4)")};
 `;
 
@@ -251,7 +251,7 @@ const SmallBtn = styled.button`
   font-size: 14px !important;
   cursor: pointer;
   color: rgba(17, 24, 39, 0.92);
-  font-weight: 700;
+  font-weight: 400;
   flex-shrink: 0;
 
   &:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -262,7 +262,7 @@ const HelperText = styled.p`
   margin: 0;
   font-size: 13px !important;
   color: rgba(17, 24, 39, 0.48);
-  font-weight: 600;
+  font-weight: 400;
 `;
 
 const Preview = styled.div`
@@ -273,11 +273,11 @@ const Preview = styled.div`
   border: 1px dashed rgba(15, 23, 42, 0.12);
   font-size: 14px !important;
   color: rgba(17, 24, 39, 0.75);
-  font-weight: 600;
+  font-weight: 400;
 
   strong {
     color: ${THEME.primary};
-    font-weight: 800;
+    font-weight: 400;
   }
 `;
 
@@ -302,7 +302,7 @@ const PrimaryBtn = styled.button`
   border: none;
   background: ${THEME.primary}eb;
   color: #ffffff;
-  font-weight: 900;
+  font-weight: 400;
 
   &:disabled { opacity: 0.6; cursor: not-allowed; }
   &:active { transform: translateY(1px); }

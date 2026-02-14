@@ -1,24 +1,27 @@
 /* eslint-disable */
-import React, { useContext, useState, useMemo } from "react";
+import React, { useContext, useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { CATEGORIES, THEME } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
+import { getProCategoryIds } from "../../service/ProService";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
-import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline } from "react-icons/io5";
-import { MOCK_ORDERS } from "../order/OrderListPage";
+import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
+import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoFilterOutline, IoCheckmarkCircle, IoCloseOutline } from "react-icons/io5";
+import { subscribeToAllOrders, formatOrderTime } from "../../service/OrderService";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
 /* ─── 오더 상태 ─── */
-const STATUS_TABS = ["접수", "지원가능", "배차/대기", "취소", "완료"];
+const STATUS_TABS = ["접수", "지원", "배차", "대기", "취소", "완료"];
 const STATUS_STYLE = {
   "접수": { bg: THEME.purpleLight, color: THEME.purple },
-  "지원가능": { bg: "#DBEAFE", color: THEME.primary },
-  "배차/대기": { bg: "#FEF3C7", color: "#B45309" },
+  "지원": { bg: "#DBEAFE", color: THEME.primary },
+  "배차": { bg: "#FEF3C7", color: "#B45309" },
+  "대기": { bg: "#FFF7ED", color: "#C2410C" },
   "취소": { bg: "#FEE2E2", color: THEME.danger },
   "완료": { bg: "#D1FAE5", color: THEME.success },
 };
@@ -103,29 +106,38 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
   const [activeStatusTab, setActiveStatusTab] = useState("접수");
   const [activeCatFilters, setActiveCatFilters] = useState([]);
   const [activeDistFilters, setActiveDistFilters] = useState(["전체"]);
+  const [showCatSheet, setShowCatSheet] = useState(false);
+  const [rawOrders, setRawOrders] = useState([]);
 
-  // 전체 오더 취합
+  // Firestore 실시간 구독
+  useEffect(() => {
+    const unsub = subscribeToAllOrders((orders) => setRawOrders(orders));
+    return () => unsub();
+  }, []);
+
+  // proCategories 필터 적용 + 카테고리 메타 부착
   const allOrders = useMemo(() => {
-    const catIds = proCategories.length > 0 ? proCategories : Object.keys(MOCK_ORDERS);
-    const orders = [];
-    catIds.forEach((catId) => {
-      const list = MOCK_ORDERS[catId] || [];
-      const cat = CATEGORIES.find((c) => c.id === catId);
-      list.forEach((o) => orders.push({ ...o, categoryId: catId, categoryName: cat?.shortName, categoryIcon: cat?.icon }));
-    });
-    return orders;
-  }, [proCategories]);
+    return rawOrders
+      .filter((o) => proCategories.length === 0 || proCategories.includes(o.categoryId))
+      .map((o) => {
+        const cat = CATEGORIES.find((c) => c.id === o.categoryId);
+        return { ...o, categoryName: cat?.shortName, categoryIcon: cat?.icon };
+      });
+  }, [rawOrders, proCategories]);
 
   // 상태 + 카테고리 필터 적용
   const filteredOrders = allOrders.filter((o) => {
-    const statusMatch = o.orderStatus === activeStatusTab || (activeStatusTab === "배차/대기" && o.orderStatus === "배차대기");
+    const statusMatch = o.orderStatus === activeStatusTab;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
     return statusMatch && catMatch;
   });
 
-  const filterCats = CATEGORIES.filter((c) =>
-    proCategories.length > 0 ? proCategories.includes(c.id) : Object.keys(MOCK_ORDERS).includes(c.id)
-  );
+  // proCategories 설정이 있으면 해당 카테고리만, 없으면 전체 카테고리 표시
+  const filterCats = useMemo(() => {
+    return proCategories.length > 0
+      ? CATEGORIES.filter((c) => proCategories.includes(c.id))
+      : CATEGORIES;
+  }, [proCategories]);
 
   // 상태별 카운트
   const statusCounts = useMemo(() => {
@@ -133,7 +145,6 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
     STATUS_TABS.forEach((s) => { counts[s] = 0; });
     allOrders.forEach((o) => {
       if (counts[o.orderStatus] !== undefined) counts[o.orderStatus]++;
-      if (o.orderStatus === "배차대기" && counts["배차/대기"] !== undefined) counts["배차/대기"]++;
     });
     return counts;
   }, [allOrders]);
@@ -172,25 +183,24 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
             })}
           </FilterRow>
 
-          <FilterRow>
-            <FilterChip $active={activeCatFilters.length === 0} onClick={() => setActiveCatFilters([])}>
-              전체
-            </FilterChip>
-            {filterCats.map((cat) => {
-              const isActive = activeCatFilters.includes(cat.id);
-              const handleClick = () => {
-                const next = isActive
-                  ? activeCatFilters.filter((v) => v !== cat.id)
-                  : [...activeCatFilters, cat.id];
-                setActiveCatFilters(next);
-              };
+          <CatFilterRow>
+            {activeCatFilters.slice(0, 2).map((catId) => {
+              const c = filterCats.find((fc) => fc.id === catId);
+              if (!c) return null;
               return (
-                <FilterChip key={cat.id} $active={isActive} onClick={handleClick}>
-                  {cat.shortName}
-                </FilterChip>
+                <CatChip key={catId} onClick={() => setActiveCatFilters((prev) => prev.filter((v) => v !== catId))}>
+                  {c.shortName} <IoCloseOutline size={13} />
+                </CatChip>
               );
             })}
-          </FilterRow>
+            {activeCatFilters.length > 2 && (
+              <PlusBadge onClick={() => setShowCatSheet(true)}>+{activeCatFilters.length - 2}</PlusBadge>
+            )}
+            <CatFilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
+              <IoFilterOutline size={14} />
+              카테고리
+            </CatFilterBtn>
+          </CatFilterRow>
 
           <StatusTabRow>
             {STATUS_TABS.map((tab) => (
@@ -209,12 +219,11 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
           ) : (
             filteredOrders.map((order) => {
               const cat = CATEGORIES.find((c) => c.id === order.categoryId);
-              const isUrgent = order.workDate === "긴급";
-              const isToday = order.workDate === "당일";
+              const timeLabel = formatOrderTime(order.createdAt);
               return (
                 <OrderCard key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
                   <OrderRow>
-                    <DateCell $urgent={isUrgent} $today={isToday}>{order.workDate}</DateCell>
+                    <DateCell>{timeLabel}</DateCell>
                     <CatCell>{order.categoryName}</CatCell>
                     <SubCell>{order.subcategory}<MatchTag>[{order.matchType}]</MatchTag></SubCell>
                   </OrderRow>
@@ -248,6 +257,41 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
       )}
 
       <BottomSpacer />
+
+      {/* 카테고리 필터 바텀시트 */}
+      {showCatSheet && (
+        <SheetOverlay onClick={() => setShowCatSheet(false)}>
+          <SheetContent onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>카테고리 선택</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowCatSheet(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </SheetCloseBtn>
+            </SheetHeader>
+            <SheetList>
+              {filterCats.map((cat) => {
+                const checked = activeCatFilters.includes(cat.id);
+                const toggle = () => {
+                  setActiveCatFilters((prev) =>
+                    checked ? prev.filter((v) => v !== cat.id) : [...prev, cat.id]
+                  );
+                };
+                return (
+                  <SheetItem key={cat.id} onClick={toggle}>
+                    <SheetItemName>{cat.shortName}</SheetItemName>
+                    {checked && <IoCheckmarkCircle size={22} color={THEME.primary} />}
+                  </SheetItem>
+                );
+              })}
+            </SheetList>
+            <SheetActions>
+              <SheetResetBtn onClick={() => setActiveCatFilters([])}>초기화</SheetResetBtn>
+              <SheetConfirmBtn onClick={() => setShowCatSheet(false)}>확인</SheetConfirmBtn>
+            </SheetActions>
+          </SheetContent>
+        </SheetOverlay>
+      )}
     </PageWrap>
   );
 };
@@ -258,17 +302,57 @@ const ProMain = ({ navigate, nickname, proCategories }) => {
 const MobileMainpage = () => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
-  const [proCategories] = useAtom(proCategoriesAtom);
+  const [proCategories, setProCategories] = useAtom(proCategoriesAtom);
   const nickname = user?.USERINFO?.nickname || "고수님";
+  const { showUpdateBanner, versionName } = useForceReloadIfVersionChanged();
+  const uid = user?.USERS_ID;
+
+  useEffect(() => {
+    if (!uid) return;
+    getProCategoryIds(uid).then(setProCategories).catch(console.error);
+  }, [uid]);
 
   return (
-    <HomeLayout>
-      <ProMain navigate={navigate} nickname={nickname} proCategories={proCategories} />
-    </HomeLayout>
+    <>
+      {showUpdateBanner && (
+        <UpdateToast>
+          <UpdateText>{versionName ? `v${versionName}` : ""} 업데이트 중... 곧 새로고침돼요!</UpdateText>
+        </UpdateToast>
+      )}
+      <HomeLayout>
+        <ProMain navigate={navigate} nickname={nickname} proCategories={proCategories} />
+      </HomeLayout>
+    </>
   );
 };
 
 export default MobileMainpage;
+
+/* ===================== 업데이트 배너 ===================== */
+
+const UpdateToast = styled.div`
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  right: 16px;
+  background: ${THEME.text};
+  padding: 14px 20px;
+  border-radius: 4px;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  text-align: left;
+  animation: slideUp 0.3s ease-out;
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+`;
+
+const UpdateText = styled.div`
+  font-size: 14px;
+  font-weight: 400;
+  color: #fff;
+`;
 
 /* ===================== 공통 styles ===================== */
 
@@ -290,7 +374,7 @@ const Card = styled.div`
 
 const CardTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -299,12 +383,12 @@ const CardDesc = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   margin-top: 4px;
-  font-weight: 500;
+  font-weight: 400;
 `;
 
 const Greeting = styled.div`
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -313,7 +397,7 @@ const GreetingSub = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   margin-top: 4px;
-  font-weight: 500;
+  font-weight: 400;
 `;
 
 const SearchBar = styled.div`
@@ -330,7 +414,7 @@ const SearchBar = styled.div`
 
 const SearchPlaceholder = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -349,13 +433,13 @@ const StatItem = styled.div`
 
 const StatNum = styled.div`
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const StatLabel = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
@@ -386,7 +470,7 @@ const CategoryItem = styled.div`
 
 const CatIcon = styled.div`
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.primary};
   width: 40px;
   height: 40px;
@@ -428,7 +512,7 @@ const StepNum = styled.div`
   background: ${THEME.primary};
   color: #fff;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -441,13 +525,13 @@ const StepText = styled.div`
 
 const StepTitle = styled.div`
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const StepDesc = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
@@ -484,7 +568,7 @@ const ActionTab = styled.div`
 
 const ActionLabel = styled.div`
   font-size: 13px;
-  font-weight: ${({ $active }) => $active ? 700 : 500};
+  font-weight: 600;
   color: ${({ $active }) => $active ? "#fff" : THEME.muted};
   white-space: nowrap;
 `;
@@ -500,15 +584,78 @@ const FilterRow = styled.div`
   &::-webkit-scrollbar { display: none; }
 `;
 
+const TEAL = "#0D9488";
+const TEAL_LIGHT = "#F0FDFA";
+
+const CatFilterRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: ${THEME.surface};
+  justify-content: flex-start;
+`;
+
+const CatFilterBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  margin-left: auto;
+  border: 1.5px solid ${({ $active }) => $active ? TEAL : THEME.border};
+  background: ${({ $active }) => $active ? TEAL_LIGHT : THEME.surface};
+  color: ${({ $active }) => $active ? TEAL : THEME.textSecondary};
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  &:active { opacity: 0.8; }
+`;
+
+const CatChip = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1.5px solid ${TEAL};
+  background: ${TEAL};
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  &:active { opacity: 0.8; }
+`;
+
+const PlusBadge = styled.button`
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1.5px solid ${TEAL};
+  background: ${TEAL};
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:active { opacity: 0.8; }
+`;
+
 const FilterChip = styled.button`
   flex-shrink: 0;
   padding: 7px 12px;
   border-radius: 6px;
-  border: 1.5px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
-  background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
+  border: 1.5px solid ${({ $active }) => $active ? TEAL : THEME.border};
+  background: ${({ $active }) => $active ? TEAL : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -532,7 +679,7 @@ const StatusTab = styled.div`
   gap: 4px;
   padding: 12px 0;
   font-size: 13px;
-  font-weight: ${({ $active }) => $active ? 800 : 600};
+  font-weight: 600;
   color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
   border-bottom: 2px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
   cursor: pointer;
@@ -543,7 +690,7 @@ const StatusTab = styled.div`
 
 const StatusCount = styled.span`
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${({ $active }) => $active ? "#fff" : THEME.muted};
   background: ${({ $active }) => $active ? THEME.primary : THEME.border};
   border-radius: 4px;
@@ -571,22 +718,22 @@ const OrderRow = styled.div`
 
 const DateCell = styled.div`
   font-size: 13px;
-  font-weight: 800;
-  color: ${({ $urgent }) => $urgent ? THEME.danger : ({ $today }) => $today ? THEME.accent : THEME.text};
+  font-weight: 600;
+  color: ${THEME.text};
   min-width: 48px;
   flex-shrink: 0;
 `;
 
 const CatCell = styled.div`
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: ${THEME.text};
   flex-shrink: 0;
 `;
 
 const SubCell = styled.div`
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   overflow: hidden;
   text-overflow: ellipsis;
@@ -596,7 +743,7 @@ const SubCell = styled.div`
 
 const MatchTag = styled.span`
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.purple};
   margin-left: 2px;
 `;
@@ -610,13 +757,13 @@ const OrderRow2 = styled.div`
 
 const LocationCell = styled.div`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const PriceCell = styled.div`
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.primary};
 `;
 
@@ -632,13 +779,13 @@ const EmptyWrap = styled.div`
 
 const EmptyText = styled.div`
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const EmptySubText = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
@@ -655,13 +802,13 @@ const TabPlaceholder = styled.div`
 
 const TabPlaceholderTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const TabPlaceholderDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -673,7 +820,125 @@ const TabPlaceholderBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
+`;
+
+/* ===================== 카테고리 바텀시트 ===================== */
+
+const SheetOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+`;
+
+const SheetContent = styled.div`
+  width: 100%;
+  max-height: 70vh;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: sheetUp 0.25s ease-out;
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+`;
+
+const SheetHandle = styled.div`
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: ${THEME.border};
+  margin: 10px auto 0;
+`;
+
+const SheetHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+`;
+
+const SheetTitle = styled.div`
+  font-size: 17px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const SheetCloseBtn = styled.button`
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  &:active { opacity: 0.6; }
+`;
+
+const SheetList = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px;
+  -webkit-overflow-scrolling: touch;
+`;
+
+const SheetItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid ${THEME.border};
+  cursor: pointer;
+  &:active { background: ${THEME.background}; }
+`;
+
+const SheetItemName = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const SheetActions = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px 20px;
+  border-top: 1px solid ${THEME.border};
+`;
+
+const SheetResetBtn = styled.button`
+  flex: 1;
+  padding: 14px;
+  border: 1.5px solid ${THEME.border};
+  border-radius: 4px;
+  background: #fff;
+  color: ${THEME.textSecondary};
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { background: ${THEME.background}; }
+`;
+
+const SheetConfirmBtn = styled.button`
+  flex: 2;
+  padding: 14px;
+  border: none;
+  border-radius: 4px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.85; }

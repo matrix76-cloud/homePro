@@ -51,21 +51,21 @@ const ProfileInfo = styled.div`
 
 const ProfileName = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
 
 const ProfileSub = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
 
 const ProfileEditLabel = styled.div`
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.primary};
 `;
 
@@ -98,7 +98,7 @@ const ModalHeader = styled.div`
 
 const ModalTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
@@ -143,7 +143,7 @@ const ModalInput = styled.input`
   border: 2px solid ${THEME.border};
   border-radius: 12px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 400;
   font-family: inherit;
   color: ${THEME.text};
   outline: none;
@@ -167,7 +167,7 @@ const ModalSaveBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.9; }
@@ -184,7 +184,7 @@ const LogoutButton = styled.button`
   border-radius: 16px;
   color: ${THEME.danger};
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
   box-shadow: ${THEME.cardShadow};
@@ -226,14 +226,14 @@ const CalendarText = styled.div``;
 
 const CalTitle = styled.div`
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.primary};
   letter-spacing: -0.02em;
 `;
 
 const CalDesc = styled.div`
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.text};
   margin-top: 2px;
 `;
@@ -268,7 +268,7 @@ const CardHeader = styled.div`
 
 const CardTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -277,7 +277,7 @@ const CardDesc = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   margin-top: 4px;
-  font-weight: 500;
+  font-weight: 400;
 `;
 
 const ArrowBtn = styled.button`
@@ -317,13 +317,13 @@ const PostBadge = styled.div`
   background: ${THEME.purpleLight};
   color: ${THEME.purple};
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 10px;
 `;
 
 const PostTitle = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: ${THEME.text};
   line-height: 1.4;
   letter-spacing: -0.02em;
@@ -331,7 +331,7 @@ const PostTitle = styled.div`
 
 const PostDesc = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
   line-height: 1.3;
@@ -343,7 +343,7 @@ const PostDesc = styled.div`
 const PostDate = styled.div`
   margin-top: 10px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -370,7 +370,7 @@ const GuideCard = styled.div`
 
 const GuideText = styled.div`
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 500;
   color: ${THEME.text};
   letter-spacing: -0.02em;
   line-height: 1.45;
@@ -416,13 +416,13 @@ const SingleCardText = styled.div`
 
 const SingleCardTitle = styled.div`
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const SingleCardDesc = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
@@ -443,7 +443,7 @@ const SupportItem = styled.div`
 
 const SupportLabel = styled.div`
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: ${THEME.text};
 `;
 
@@ -478,13 +478,13 @@ const InfoItem = styled.div`
 
 const InfoLabel2 = styled.div`
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const InfoValue2 = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: ${THEME.text};
 `;
 
@@ -501,7 +501,7 @@ const ReferralBox = styled.div`
 const ReferralCode = styled.div`
   flex: 1;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.primary};
   letter-spacing: 0.05em;
 `;
@@ -513,7 +513,7 @@ const CopyBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.8; }
@@ -534,13 +534,13 @@ const ReferralStatItem = styled.div`
 
 const ReferralNum = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const ReferralLabel = styled.div`
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
@@ -572,7 +572,7 @@ const EmptyBiz = styled.div`
 
 const EmptyBizText = styled.div`
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -581,7 +581,7 @@ const BizCatChip = styled.div`
   border-radius: 10px;
   background: ${THEME.background};
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   color: ${THEME.text};
   cursor: pointer;
   &:active { opacity: 0.7; }
@@ -598,14 +598,14 @@ const SubBadge = styled.span`
   padding: 5px 12px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   background: ${({ $active }) => ($active ? "#DBEAFE" : THEME.background)};
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
 `;
 
 const SubText = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -622,13 +622,13 @@ const CashItem = styled.div`
 
 const CashAmount = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
 const CashLabel = styled.div`
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
@@ -650,7 +650,7 @@ const ToggleRow = styled.div`
 
 const ToggleLabel = styled.div`
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: ${THEME.text};
 `;
 

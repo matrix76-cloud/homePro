@@ -186,7 +186,7 @@ const Header = styled.div`
 
 const HeaderTitle = styled.div`
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -217,7 +217,7 @@ const Section = styled.div`
 
 const Label = styled.div`
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   margin-bottom: 10px;
 `;
@@ -228,7 +228,7 @@ const Input = styled.input`
   border: 1px solid ${THEME.border};
   border-radius: 10px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.text};
   background: ${THEME.surface};
   outline: none;
@@ -242,7 +242,7 @@ const TextArea = styled.textarea`
   border: 1px solid ${THEME.border};
   border-radius: 10px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.text};
   background: ${THEME.surface};
   outline: none;
@@ -270,7 +270,7 @@ const SelectBox = styled.div`
 
 const SelectText = styled.div`
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.text};
   flex: 1;
 `;
@@ -286,7 +286,7 @@ const Select = styled.select`
   border: none;
   background: transparent;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.text};
   outline: none;
   appearance: none;
@@ -346,7 +346,7 @@ const InfoIcon = styled.div`
   background: ${THEME.muted};
   color: #fff;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 400;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -355,7 +355,7 @@ const InfoIcon = styled.div`
 
 const InfoText = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.5;
   white-space: pre-line;
@@ -381,7 +381,7 @@ const CompleteBtn = styled.button`
   background: ${({ disabled }) => disabled ? THEME.border : THEME.purple};
   color: #fff;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: ${({ disabled }) => disabled ? "default" : "pointer"};
   &:active {
     background: ${({ disabled }) => disabled ? THEME.border : THEME.primaryDark};

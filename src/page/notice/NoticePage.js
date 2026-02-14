@@ -107,7 +107,7 @@ const Badge = styled.span`
     padding: 2px 8px;
     border-radius: 6px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 400;
     margin-bottom: 6px;
     background: ${({ $type }) =>
         $type === "이벤트" ? "#FEF3C7" :
@@ -121,7 +121,7 @@ const Badge = styled.span`
 
 const NoticeTitle = styled.div`
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 400;
     color: ${THEME.text};
     line-height: 1.4;
     word-break: keep-all;

@@ -77,7 +77,7 @@ const LocationWrap = styled.div`
 
 const LocationText = styled.div`
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   max-width: 140px;
   white-space: nowrap;

@@ -194,7 +194,7 @@ const TodayBtn = styled.button`
   background: none;
   border: none;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   cursor: pointer;
   padding: 6px 12px;
@@ -222,7 +222,7 @@ const NavBtn = styled.button`
 
 const MonthTitle = styled.div`
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -237,7 +237,7 @@ const DayHeader = styled.div`
 const DayCell = styled.div`
   text-align: center;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${({ $isSun }) => $isSun ? "#EF4444" : ({ $isSat }) => $isSat ? "#3B82F6" : THEME.muted};
   padding: 8px 0;
 `;
@@ -271,7 +271,7 @@ const DateNum = styled.div`
   align-items: center;
   justify-content: center;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${({ $isToday, $isSun, $isSat }) =>
     $isToday ? "#fff" : $isSun ? "#EF4444" : $isSat ? "#3B82F6" : THEME.text};
   background: ${({ $isToday }) => $isToday ? THEME.purple : "transparent"};
@@ -279,7 +279,7 @@ const DateNum = styled.div`
 
 const HolidayLabel = styled.div`
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 400;
   color: #EF4444;
   margin-top: 2px;
   line-height: 1;
@@ -287,7 +287,7 @@ const HolidayLabel = styled.div`
 
 const EventCount = styled.div`
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 1px;
 `;
@@ -303,7 +303,7 @@ const BottomBar = styled.div`
 
 const SelectedDateText = styled.div`
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
@@ -327,7 +327,7 @@ const Fab = styled.button`
 const NoSchedule = styled.div`
   text-align: center;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   padding: 12px 0 24px;
 `;

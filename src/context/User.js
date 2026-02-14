@@ -59,30 +59,33 @@ const UserProvider = ({ children }) => {
 
   const dispatch = (payload) => {
     if (payload === null) {
-      setUser(null);
+      setUser(initialUser);
       return;
     }
 
-    setUser((prev) => ({
-      ...prev,
-      ...payload,
-      USERINFO: {
-        ...(prev.USERINFO ?? {}),
-        ...(payload.USERINFO ?? {}),
-      },
-      subscription: {
-        ...(prev.subscription ?? {}),
-        ...(payload.subscription ?? {}),
-      },
-      referral: {
-        ...(prev.referral ?? {}),
-        ...(payload.referral ?? {}),
-      },
-      cash: {
-        ...(prev.cash ?? {}),
-        ...(payload.cash ?? {}),
-      },
-    }));
+    setUser((prev) => {
+      const base = prev ?? initialUser;
+      return {
+        ...base,
+        ...payload,
+        USERINFO: {
+          ...(base.USERINFO ?? {}),
+          ...(payload.USERINFO ?? {}),
+        },
+        subscription: {
+          ...(base.subscription ?? {}),
+          ...(payload.subscription ?? {}),
+        },
+        referral: {
+          ...(base.referral ?? {}),
+          ...(payload.referral ?? {}),
+        },
+        cash: {
+          ...(base.cash ?? {}),
+          ...(payload.cash ?? {}),
+        },
+      };
+    });
   };
 
   return (

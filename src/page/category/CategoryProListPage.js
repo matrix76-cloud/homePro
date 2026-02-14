@@ -285,7 +285,7 @@ const CatHeader = styled.div`
 
 const CatIconWrap = styled.div`
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.primary};
   width: 52px;
   height: 52px;
@@ -304,14 +304,14 @@ const CatInfo = styled.div`
 
 const CatName = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
 
 const CatDesc = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
   line-height: 1.4;
@@ -330,7 +330,7 @@ const FilterBar = styled.div`
 
 const ServiceCount = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -344,7 +344,7 @@ const SortBtn = styled.button`
   border-radius: 6px;
   border: none;
   font-size: 12px;
-  font-weight: ${({ $active }) => ($active ? "700" : "500")};
+  font-weight: 400;
   font-family: inherit;
   background: ${({ $active }) => ($active ? THEME.primary : "transparent")};
   color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
@@ -387,7 +387,7 @@ const PhotoBadge = styled.div`
   border-radius: 12px;
   background: rgba(255,255,255,0.7);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: rgba(0,0,0,0.5);
 `;
 
@@ -416,13 +416,13 @@ const ProInfo = styled.div`
 
 const ProName = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
 const ProMeta = styled.div`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 1px;
 `;
@@ -436,19 +436,19 @@ const RatingWrap = styled.div`
 
 const RatingText = styled.span`
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
 const ReviewCount = styled.span`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const ServiceTitle = styled.div`
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
   line-height: 1.4;
@@ -456,7 +456,7 @@ const ServiceTitle = styled.div`
 
 const ServiceDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 6px;
   line-height: 1.5;
@@ -477,7 +477,7 @@ const Tag = styled.span`
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
 `;
@@ -493,7 +493,7 @@ const BottomRow = styled.div`
 
 const PriceText = styled.div`
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.primary};
 `;
 
@@ -502,7 +502,7 @@ const DetailBtn = styled.div`
   align-items: center;
   gap: 2px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -522,14 +522,14 @@ const EmptyIcon = styled.div`
 
 const EmptyTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
 
 const EmptyDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 8px;
 `;
@@ -542,7 +542,7 @@ const HeaderReqBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.85; }

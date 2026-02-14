@@ -195,7 +195,7 @@ const Head = styled.div`
 
 const H1 = styled.div`
   font-size: 20px !important;
-  font-weight: 900;
+  font-weight: 400;
   letter-spacing: -0.03em;
   color: rgba(17, 24, 39, 0.92);
 `;
@@ -223,7 +223,7 @@ const Field = styled.div`
 
 const Label = styled.div`
   font-size: 12.5px !important;
-  font-weight: 800;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.72);
 `;
@@ -237,7 +237,7 @@ const Input = styled.input`
   background: rgba(255, 255, 255, 0.88);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
   font-size: 15px !important;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.9);
   outline: none;
@@ -245,7 +245,7 @@ const Input = styled.input`
 
   &::placeholder {
     color: rgba(17, 24, 39, 0.35);
-    font-weight: 600;
+    font-weight: 400;
   }
 
   &:focus {
@@ -271,7 +271,7 @@ const PrimaryBtn = styled.button`
   box-shadow: 0 10px 22px ${THEME.primary}22;
   color: rgba(255, 255, 255, 0.92);
   font-size: 15px !important;
-  font-weight: 900;
+  font-weight: 400;
   letter-spacing: -0.03em;
   cursor: pointer;
 
@@ -289,7 +289,7 @@ const GhostBtn = styled.button`
   box-shadow: 0 10px 18px rgba(17, 24, 39, 0.06);
   color: rgba(17, 24, 39, 0.86);
   font-size: 15px !important;
-  font-weight: 900;
+  font-weight: 400;
   letter-spacing: -0.03em;
   cursor: pointer;
 
@@ -317,7 +317,7 @@ const OverlayInner = styled.div`
 
 const OverlayText = styled.div`
   font-size: 13px !important;
-  font-weight: 700;
+  font-weight: 400;
   color: rgba(17, 24, 39, 0.55);
 `;
 

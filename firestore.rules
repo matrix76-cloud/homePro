@@ -3,6 +3,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 버전: 누구나 읽기, 쓰기 불가(콘솔/Admin만)
+    match /VERSION/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // 유저 문서: 본인만 읽기/쓰기
     match /users/{userId} {
       allow read: if request.auth != null;
@@ -22,10 +28,13 @@ service cloud.firestore {
         && resource.data.createdBy == request.auth.uid;
     }
 
-    // 프로 프로필: 인증된 유저 읽기, 본인만 쓰기
+    // 프로 프로필: 인증된 유저 읽기, 본인 문서만 쓰기/삭제
     match /homepro_pros/{proId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == proId;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
     }
 
     // 구독: 본인만

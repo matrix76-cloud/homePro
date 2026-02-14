@@ -89,7 +89,7 @@ const Wrap = styled.div`
 `;
 const Title = styled.h1`
     font-size: 20px;
-    font-weight: 800;
+    font-weight: 400;
     color: ${THEME.text};
     margin: 0 0 4px;
 `;
@@ -100,7 +100,7 @@ const Date = styled.div`
 `;
 const H2 = styled.h2`
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 400;
     color: ${THEME.text};
     margin: 24px 0 8px;
 `;

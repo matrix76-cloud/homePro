@@ -7,8 +7,8 @@ export const loadingAtom = atom(false);
 // 앱 모드: "pro" (전문가) | "user" (사용자)
 export const appModeAtom = atomWithStorage('homepro.appMode', 'pro');
 
-// 전문가 등록 카테고리 ID 배열
-export const proCategoriesAtom = atomWithStorage('homepro.proCategories', []);
+// 전문가 등록 카테고리 ID 배열 (Firestore 기반)
+export const proCategoriesAtom = atom([]);
 
 // 선택된 카테고리
 export const selectedCategoryAtom = atom(null);

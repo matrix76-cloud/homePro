@@ -135,7 +135,7 @@ const Header = styled.div`
 
 const Title = styled.div`
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -189,7 +189,7 @@ const Item = styled.button`
   border: none;
   background: ${({ $active }) => ($active ? "rgba(37,99,235,0.08)" : "transparent")};
   color: ${({ $active }) => ($active ? THEME.primary : THEME.textSecondary)};
-  font-weight: ${({ $active }) => ($active ? 700 : 400)};
+  font-weight: 400;
   text-align: left;
   padding: 13px 18px;
   font-size: 14px;
@@ -216,7 +216,7 @@ const GhostBtn = styled.button`
   border: 1px solid ${THEME.border};
   background: #fff;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   font-family: inherit;
   color: ${THEME.muted};
   cursor: pointer;
@@ -231,7 +231,7 @@ const PrimaryBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.9; }

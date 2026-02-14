@@ -6,11 +6,11 @@ import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
-import { uploadBusinessLicense, registerProCategory } from "../../service/ProService";
+import { uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline } from "react-icons/io5";
+import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline } from "react-icons/io5";
 
-const STEP_LABELS = ["분야 선택", "상세 정보", "서류 제출"];
+const STEP_LABELS = ["분야 선택", "상세 정보"];
 
 const ProCategoryRegisterPage = () => {
     const navigate = useNavigate();
@@ -29,16 +29,16 @@ const ProCategoryRegisterPage = () => {
     const [intro, setIntro] = useState("");
     const [region, setRegion] = useState("");
     const [extraFields, setExtraFields] = useState({});
-    const [certFiles, setCertFiles] = useState([]); // [{ id, name, file, preview }]
-    const certFileRef = useRef(null);
-
-    // step 3
+    const [certs, setCerts] = useState([]); // [{ id, certName, file, preview }]
+    const certFileRefs = useRef({});
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [activityPhotos, setActivityPhotos] = useState([]);
     const [submitting, setSubmitting] = useState(false);
     const fileRef = useRef(null);
+    const activityFileRef = useRef(null);
 
-    const uid = user?.uid;
+    const uid = user?.USERS_ID;
 
     const catObj = useMemo(
         () => CATEGORIES.find((c) => c.id === selectedCat),
@@ -74,26 +74,31 @@ const ProCategoryRegisterPage = () => {
         });
     };
 
-    // ─── cert file handlers ───
-    const handleCertFileChange = (e) => {
+    // ─── cert handlers ───
+    const addCert = () => {
+        setCerts((prev) => [...prev, { id: Date.now(), certName: "", file: null, preview: null }]);
+    };
+
+    const updateCertName = (id, name) => {
+        setCerts((prev) => prev.map((c) => (c.id === id ? { ...c, certName: name } : c)));
+    };
+
+    const handleCertPhoto = (id, e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onloadend = () => {
-            setCertFiles((prev) => [
-                ...prev,
-                { id: Date.now(), name: file.name, file, preview: reader.result },
-            ]);
+            setCerts((prev) => prev.map((c) => (c.id === id ? { ...c, file, preview: reader.result } : c)));
         };
         reader.readAsDataURL(file);
         e.target.value = "";
     };
 
-    const removeCertFile = (id) => {
-        setCertFiles((prev) => prev.filter((f) => f.id !== id));
+    const removeCert = (id) => {
+        setCerts((prev) => prev.filter((c) => c.id !== id));
     };
 
-    // ─── step 3 handlers ───
+    // ─── image handlers ───
     const handleImageChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -103,19 +108,41 @@ const ProCategoryRegisterPage = () => {
         reader.readAsDataURL(file);
     };
 
+    const handleActivityPhotos = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        const remaining = 10 - activityPhotos.length;
+        const toAdd = files.slice(0, remaining);
+        toAdd.forEach((file) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setActivityPhotos((prev) => {
+                    if (prev.length >= 10) return prev;
+                    return [...prev, { id: Date.now() + Math.random(), file, preview: reader.result }];
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = "";
+    };
+
+    const removeActivityPhoto = (id) => {
+        setActivityPhotos((prev) => prev.filter((p) => p.id !== id));
+    };
+
     const handleSubmit = async () => {
         if (!selectedCat || !imageFile || submitting) return;
         if (!uid) {
-            // 비로그인 상태에서도 로컬 저장으로 등록 처리
-            setProCategories([...proCategories, selectedCat]);
-            alert("전문분야가 등록되었습니다.");
-            navigate(-1);
+            alert("로그인이 필요합니다.");
             return;
         }
         setSubmitting(true);
         try {
             const licenseUrl = await uploadBusinessLicense(uid, selectedCat, imageFile);
-            await registerProCategory(uid, selectedCat, licenseUrl, {
+            const photoUrls = activityPhotos.length > 0
+                ? await uploadActivityPhotos(uid, selectedCat, activityPhotos.map((p) => p.file))
+                : [];
+            await registerProCategory(uid, selectedCat, licenseUrl, photoUrls, {
                 subcategories: selectedSubs,
                 experience,
                 intro,
@@ -127,31 +154,26 @@ const ProCategoryRegisterPage = () => {
             navigate(-1);
         } catch (err) {
             console.error("register error:", err);
-            // Firebase 실패해도 로컬 저장은 처리
-            setProCategories([...proCategories, selectedCat]);
-            alert("전문분야가 등록되었습니다. (서버 동기화는 나중에 처리됩니다)");
-            navigate(-1);
+            alert("등록 중 오류가 발생했습니다. 다시 시도해주세요.");
         } finally {
             setSubmitting(false);
         }
     };
 
     // ─── step navigation ───
-    const goNext = () => setStep((s) => Math.min(s + 1, 3));
+    const goNext = () => setStep(2);
     const goPrev = () => {
         if (step === 1) {
             navigate(-1);
         } else {
-            setStep((s) => s - 1);
+            setStep(1);
         }
     };
 
-    // ─── step validation ───
+    // ─── validation ───
     const canStep1 = !!selectedCat;
-    const canStep2 = experience.trim() !== "" && intro.trim() !== "";
-    const canStep3 = !!imageFile && !submitting;
+    const canSubmit = experience.trim() !== "" && intro.trim() !== "" && !!imageFile && !submitting;
 
-    // ─── header back override ───
     const handleBack = () => goPrev();
 
     return (
@@ -168,7 +190,7 @@ const ProCategoryRegisterPage = () => {
                                 <StepDot $active={active} $done={done}>
                                     {done ? "✓" : num}
                                 </StepDot>
-                                {num < 3 && <StepLine $done={num < step} />}
+                                {num < 2 && <StepLine $done={num < step} />}
                             </React.Fragment>
                         );
                     })}
@@ -214,7 +236,7 @@ const ProCategoryRegisterPage = () => {
                     </>
                 )}
 
-                {/* ══════ Step 2: 상세 정보 입력 ══════ */}
+                {/* ══════ Step 2: 상세 정보 + 서류 + 사진 ══════ */}
                 {step === 2 && (
                     <>
                         {hasSubcategories && (
@@ -276,39 +298,45 @@ const ProCategoryRegisterPage = () => {
                                         })}
                                     </ChipWrap>
                                 )}
-                                {/* 자격증/면허 필드일 경우 첨부파일 업로드 */}
+                                {/* 자격증/면허 필드일 경우 자격증 페어 */}
                                 {isCertField && (
-                                    <CertUploadArea>
-                                        <CertUploadLabel>첨부파일</CertUploadLabel>
-                                        <CertFileList>
-                                            {certFiles.map((cf) => (
-                                                <CertFileItem key={cf.id}>
-                                                    {cf.file.type.startsWith("image/") ? (
-                                                        <CertThumb src={cf.preview} alt={cf.name} />
-                                                    ) : (
-                                                        <CertDocIcon>
-                                                            <IoDocumentOutline size={24} color={THEME.primary} />
-                                                        </CertDocIcon>
-                                                    )}
-                                                    <CertFileName>{cf.name}</CertFileName>
-                                                    <CertRemoveBtn onClick={() => removeCertFile(cf.id)}>
+                                    <CertSection>
+                                        {certs.map((cert) => (
+                                            <CertCard key={cert.id}>
+                                                <CertCardHeader>
+                                                    <CertNameInput
+                                                        type="text"
+                                                        placeholder={field.placeholder || "자격증명"}
+                                                        value={cert.certName}
+                                                        onChange={(e) => updateCertName(cert.id, e.target.value)}
+                                                    />
+                                                    <CertRemoveBtn onClick={() => removeCert(cert.id)}>
                                                         <IoCloseCircle size={22} color={THEME.danger} />
                                                     </CertRemoveBtn>
-                                                </CertFileItem>
-                                            ))}
-                                            <CertAddBtn onClick={() => certFileRef.current?.click()}>
-                                                <IoCameraOutline size={24} color={THEME.primary} />
-                                                <CertAddText>자격증 사진 첨부</CertAddText>
-                                            </CertAddBtn>
-                                        </CertFileList>
-                                        <HiddenInput
-                                            ref={certFileRef}
-                                            type="file"
-                                            accept="image/*,.pdf"
-                                            onChange={handleCertFileChange}
-                                        />
-                                        <CertHint>자격증, 면허증 등 관련 서류를 촬영하거나 파일로 첨부해주세요.</CertHint>
-                                    </CertUploadArea>
+                                                </CertCardHeader>
+                                                <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
+                                                    {cert.preview ? (
+                                                        <CertPhotoPreview src={cert.preview} alt={cert.certName} />
+                                                    ) : (
+                                                        <CertPhotoPlaceholder>
+                                                            <IoCameraOutline size={28} color={THEME.muted} />
+                                                            <CertPhotoText>사진 첨부</CertPhotoText>
+                                                        </CertPhotoPlaceholder>
+                                                    )}
+                                                </CertPhotoArea>
+                                                <HiddenInput
+                                                    ref={(el) => (certFileRefs.current[cert.id] = el)}
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    onChange={(e) => handleCertPhoto(cert.id, e)}
+                                                />
+                                            </CertCard>
+                                        ))}
+                                        <CertAddBtn onClick={addCert}>
+                                            <IoDocumentOutline size={20} color={THEME.primary} />
+                                            <CertAddText>자격증 추가하기</CertAddText>
+                                        </CertAddBtn>
+                                    </CertSection>
                                 )}
                             </Section>
                             );
@@ -348,15 +376,7 @@ const ProCategoryRegisterPage = () => {
                             />
                         </Section>
 
-                        <ActionBtn disabled={!canStep2} $active={canStep2} onClick={goNext}>
-                            다음
-                        </ActionBtn>
-                    </>
-                )}
-
-                {/* ══════ Step 3: 사업자등록증 업로드 + 신청 ══════ */}
-                {step === 3 && (
-                    <>
+                        {/* 사업자등록증 */}
                         <Section>
                             <SectionTitle>사업자등록증</SectionTitle>
                             <UploadBox onClick={() => fileRef.current?.click()}>
@@ -377,7 +397,36 @@ const ProCategoryRegisterPage = () => {
                             />
                         </Section>
 
-                        <ActionBtn disabled={!canStep3} $active={canStep3} onClick={handleSubmit}>
+                        {/* 활동 사진 */}
+                        <Section>
+                            <SectionTitle>활동 사진 ({activityPhotos.length}/10)</SectionTitle>
+                            <PhotoGrid>
+                                {activityPhotos.map((photo) => (
+                                    <PhotoItem key={photo.id}>
+                                        <PhotoThumb src={photo.preview} alt="활동사진" />
+                                        <PhotoRemoveBtn onClick={() => removeActivityPhoto(photo.id)}>
+                                            <IoCloseCircle size={22} color="#fff" />
+                                        </PhotoRemoveBtn>
+                                    </PhotoItem>
+                                ))}
+                                {activityPhotos.length < 10 && (
+                                    <PhotoAddBtn onClick={() => activityFileRef.current?.click()}>
+                                        <IoImageOutline size={28} color={THEME.muted} />
+                                        <PhotoAddText>추가</PhotoAddText>
+                                    </PhotoAddBtn>
+                                )}
+                            </PhotoGrid>
+                            <HiddenInput
+                                ref={activityFileRef}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleActivityPhotos}
+                            />
+                            <PhotoHint>시공 사례, 작업 현장 등 활동 사진을 등록하세요</PhotoHint>
+                        </Section>
+
+                        <ActionBtn disabled={!canSubmit} $active={canSubmit} onClick={handleSubmit}>
                             {submitting ? "신청 중..." : "신청하기"}
                         </ActionBtn>
                     </>
@@ -405,7 +454,7 @@ const StepIndicator = styled.div`
     justify-content: center;
     gap: 0;
     margin-bottom: -16px;
-    padding: 0 16px;
+    padding: 0 40px;
 `;
 
 const StepDot = styled.div`
@@ -416,7 +465,7 @@ const StepDot = styled.div`
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 400;
     flex-shrink: 0;
     background: ${({ $active, $done }) =>
         $active ? THEME.primary : $done ? THEME.success : THEME.border};
@@ -435,12 +484,12 @@ const StepLine = styled.div`
 const StepLabelRow = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 24px;
 `;
 
 const StepLabel = styled.div`
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 400;
     color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
     text-align: center;
     flex: 1;
@@ -451,7 +500,7 @@ const Section = styled.div``;
 
 const SectionTitle = styled.div`
     font-size: 17px;
-    font-weight: 800;
+    font-weight: 600;
     color: ${THEME.text};
     letter-spacing: -0.03em;
     margin-bottom: 14px;
@@ -485,7 +534,7 @@ const CatItem = styled.div`
 
 const CatName = styled.div`
     font-size: 13px;
-    font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
+    font-weight: 400;
     color: ${({ $disabled, $selected }) => $disabled ? THEME.muted : $selected ? "#fff" : THEME.text};
     text-align: center;
     word-break: keep-all;
@@ -497,7 +546,7 @@ const CheckMark = styled.div`
     right: 4px;
 `;
 
-/* ─── Step 2: Detail Form ─── */
+/* ─── Detail Form ─── */
 const ChipWrap = styled.div`
     display: flex;
     flex-wrap: wrap;
@@ -508,7 +557,7 @@ const Chip = styled.div`
     padding: 8px 14px;
     border-radius: 20px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
     cursor: pointer;
     transition: all 0.15s;
     background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
@@ -523,7 +572,7 @@ const StyledInput = styled.input`
     width: 100%;
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
-    border-radius: 12px;
+    border-radius: 4px;
     font-size: 15px;
     font-family: inherit;
     color: ${THEME.text};
@@ -542,7 +591,7 @@ const StyledTextarea = styled.textarea`
     width: 100%;
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
-    border-radius: 12px;
+    border-radius: 4px;
     font-size: 15px;
     font-family: inherit;
     color: ${THEME.text};
@@ -565,64 +614,41 @@ const CharCount = styled.div`
     margin-top: 6px;
 `;
 
-/* ─── Cert Upload ─── */
-const CertUploadArea = styled.div`
+/* ─── Cert Pair ─── */
+const CertSection = styled.div`
     margin-top: 14px;
-    padding: 16px;
-    background: ${THEME.background};
-    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 `;
 
-const CertUploadLabel = styled.div`
-    font-size: 13px;
-    font-weight: 700;
-    color: ${THEME.textSecondary};
+const CertCard = styled.div`
+    border: 1px solid ${THEME.border};
+    border-radius: 4px;
+    padding: 12px;
+    background: ${THEME.surface};
+`;
+
+const CertCardHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 10px;
 `;
 
-const CertFileList = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-`;
-
-const CertFileItem = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: ${THEME.surface};
-    border-radius: 10px;
-    border: 1px solid ${THEME.border};
-`;
-
-const CertThumb = styled.img`
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    object-fit: cover;
-    flex-shrink: 0;
-`;
-
-const CertDocIcon = styled.div`
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    background: ${THEME.purpleLight};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-`;
-
-const CertFileName = styled.div`
+const CertNameInput = styled.input`
     flex: 1;
-    font-size: 13px;
-    font-weight: 500;
+    padding: 10px 12px;
+    border: 1.5px solid ${THEME.border};
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
     color: ${THEME.text};
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+    &:focus { border-color: ${THEME.primary}; }
+    &::placeholder { color: ${THEME.muted}; }
 `;
 
 const CertRemoveBtn = styled.button`
@@ -636,6 +662,41 @@ const CertRemoveBtn = styled.button`
     &:active { opacity: 0.6; }
 `;
 
+const CertPhotoArea = styled.div`
+    width: 100%;
+    min-height: 100px;
+    border: 2px dashed ${THEME.border};
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    background: ${THEME.background};
+    &:active { opacity: 0.8; }
+`;
+
+const CertPhotoPreview = styled.img`
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+    object-fit: contain;
+`;
+
+const CertPhotoPlaceholder = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 16px;
+`;
+
+const CertPhotoText = styled.div`
+    font-size: 13px;
+    font-weight: 400;
+    color: ${THEME.muted};
+`;
+
 const CertAddBtn = styled.div`
     display: flex;
     align-items: center;
@@ -643,31 +704,23 @@ const CertAddBtn = styled.div`
     gap: 8px;
     padding: 14px;
     border: 2px dashed ${THEME.border};
-    border-radius: 10px;
+    border-radius: 4px;
     cursor: pointer;
     &:active { background: ${THEME.surface}; }
 `;
 
 const CertAddText = styled.div`
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 400;
     color: ${THEME.primary};
 `;
 
-const CertHint = styled.div`
-    font-size: 12px;
-    font-weight: 500;
-    color: ${THEME.muted};
-    margin-top: 8px;
-    line-height: 1.4;
-`;
-
-/* ─── Step 3: Upload ─── */
+/* ─── Upload ─── */
 const UploadBox = styled.div`
     width: 100%;
-    min-height: 200px;
+    min-height: 160px;
     border: 2px dashed ${THEME.border};
-    border-radius: 14px;
+    border-radius: 4px;
     background: ${THEME.surface};
     display: flex;
     align-items: center;
@@ -686,14 +739,14 @@ const UploadPlaceholder = styled.div`
 
 const UploadText = styled.div`
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 400;
     color: ${THEME.muted};
 `;
 
 const PreviewImg = styled.img`
     width: 100%;
     height: auto;
-    max-height: 400px;
+    max-height: 300px;
     object-fit: contain;
 `;
 
@@ -701,16 +754,77 @@ const HiddenInput = styled.input`
     display: none;
 `;
 
+/* ─── Activity Photos ─── */
+const PhotoGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+`;
+
+const PhotoItem = styled.div`
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    overflow: hidden;
+`;
+
+const PhotoThumb = styled.img`
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+`;
+
+const PhotoRemoveBtn = styled.button`
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.5);
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+`;
+
+const PhotoAddBtn = styled.div`
+    aspect-ratio: 1;
+    border: 2px dashed ${THEME.border};
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    &:active { background: ${THEME.surface}; }
+`;
+
+const PhotoAddText = styled.div`
+    font-size: 12px;
+    font-weight: 400;
+    color: ${THEME.muted};
+`;
+
+const PhotoHint = styled.div`
+    font-size: 12px;
+    color: ${THEME.muted};
+    margin-top: 8px;
+`;
+
 /* ─── Action Button ─── */
 const ActionBtn = styled.button`
     width: 100%;
     padding: 16px;
     border: none;
-    border-radius: 14px;
+    border-radius: 4px;
     background: ${({ $active }) => ($active ? THEME.primary : THEME.border)};
     color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 400;
     font-family: inherit;
     cursor: ${({ $active }) => ($active ? "pointer" : "default")};
     transition: background 0.2s;

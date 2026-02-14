@@ -423,7 +423,7 @@ const Tab = styled.button`
   border: none;
   background: none;
   font-size: 15px;
-  font-weight: ${({ $active }) => ($active ? "700" : "500")};
+  font-weight: 400;
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
   cursor: pointer;
@@ -433,7 +433,7 @@ const Tab = styled.button`
 
 const PageTitle = styled.div`
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   margin-top: 24px;
   letter-spacing: -0.03em;
@@ -441,7 +441,7 @@ const PageTitle = styled.div`
 
 const PageDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
 `;
@@ -467,13 +467,13 @@ const LabelRow = styled.div`
 const Label = styled.label`
   font-size: 14px;
   color: ${THEME.text};
-  font-weight: 700;
+  font-weight: 400;
 `;
 
 const RequiredMark = styled.span`
   color: ${THEME.danger};
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
 `;
 
 const Input = styled.input`
@@ -485,7 +485,7 @@ const Input = styled.input`
   background: ${THEME.surface};
   color: ${THEME.text};
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   outline: none;
   box-sizing: border-box;
   font-family: inherit;
@@ -509,7 +509,7 @@ const SmallBtn = styled.button`
   font-size: 14px;
   cursor: pointer;
   color: ${THEME.text};
-  font-weight: 700;
+  font-weight: 400;
   flex-shrink: 0;
   white-space: nowrap;
   font-family: inherit;
@@ -521,7 +521,7 @@ const HelperText = styled.p`
   margin: 0;
   font-size: 13px;
   color: ${THEME.muted};
-  font-weight: 500;
+  font-weight: 400;
 `;
 
 const CodeBox = styled.div`
@@ -541,13 +541,13 @@ const CodeBox = styled.div`
 const CodeLabel = styled.div`
   color: ${THEME.muted};
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 `;
 
 const CodeValue = styled.div`
   font-size: 15px;
   letter-spacing: 1px;
-  font-weight: 800;
+  font-weight: 400;
 `;
 
 const WarnPill = styled.div`
@@ -558,7 +558,7 @@ const WarnPill = styled.div`
   background: rgba(245, 158, 11, 0.1);
   color: #B45309;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
 `;
 
 const ErrorPill = styled.div`
@@ -567,7 +567,7 @@ const ErrorPill = styled.div`
   background: rgba(239, 68, 68, 0.08);
   color: ${THEME.danger};
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   text-align: center;
 `;
 
@@ -579,7 +579,7 @@ const ResultSection = styled.div`
 
 const ResultTitle = styled.div`
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
@@ -596,7 +596,7 @@ const ResultCard = styled.div`
 
 const ResultLabel = styled.div`
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -604,20 +604,20 @@ const ResultLabel = styled.div`
 
 const ResultValue = styled.div`
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
 
 const ResultSub = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const ResultMessage = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.6;
   white-space: pre-line;
@@ -635,7 +635,7 @@ const BaseBtn = styled.button`
   height: 50px;
   border-radius: 12px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   font-family: inherit;
   letter-spacing: -0.02em;

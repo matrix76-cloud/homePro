@@ -1,8 +1,9 @@
 /* eslint-disable */
-import React from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
+import { formatOrderTime } from "../../service/OrderService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import {
   IoImageOutline,
@@ -13,21 +14,27 @@ import {
   IoChatbubbleEllipsesOutline,
   IoCallOutline,
   IoHomeOutline,
+  IoChevronBack,
+  IoChevronForward,
 } from "react-icons/io5";
 
-const PH = [
-  "linear-gradient(135deg, #DBEAFE 0%, #93C5FD 100%)",
-  "linear-gradient(135deg, #EDE9FE 0%, #C4B5FD 100%)",
-  "linear-gradient(135deg, #D1FAE5 0%, #6EE7B7 100%)",
-  "linear-gradient(135deg, #FEF3C7 0%, #FCD34D 100%)",
-  "linear-gradient(135deg, #FCE7F3 0%, #F9A8D4 100%)",
-];
+const STATUS_BADGE = {
+  "접수": { bg: THEME.purpleLight, text: THEME.purple },
+  "지원가능": { bg: "#DBEAFE", text: THEME.primary },
+  "배차대기": { bg: "#FEF3C7", text: "#B45309" },
+  "진행중": { bg: "#DBEAFE", text: THEME.primary },
+  "작업완료": { bg: "#D1FAE5", text: THEME.success },
+  "취소": { bg: "#FEE2E2", text: THEME.danger },
+  "완료": { bg: "#D1FAE5", text: THEME.success },
+};
 
 const OrderDetailPage = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const order = state?.order;
   const category = state?.category;
+
+  const [photoIdx, setPhotoIdx] = useState(0);
 
   if (!order) {
     return (
@@ -39,35 +46,54 @@ const OrderDetailPage = () => {
     );
   }
 
-  const badgeColor =
-    order.badgeType === "urgent"
-      ? { bg: "#FEE2E2", text: THEME.danger }
-      : order.badgeType === "waiting"
-      ? { bg: "#FEF3C7", text: "#B45309" }
-      : { bg: THEME.purpleLight, text: THEME.purple };
-
-  const hashIdx = order.id.charCodeAt(order.id.length - 1) % PH.length;
+  const photos = order.photos || [];
+  const badgeColor = STATUS_BADGE[order.orderStatus] || STATUS_BADGE["접수"];
+  const timeLabel = formatOrderTime(order.createdAt);
+  const headerName = category ? category.name : "요청 상세";
 
   return (
-    <SimpleBackLayout NAME={category ? `${category.icon} ${category.name}` : "요청 상세"} hideFooter>
+    <SimpleBackLayout NAME={headerName} hideFooter>
       <Wrapper>
         {/* 상단 사진 영역 */}
-        <HeroArea $bg={PH[hashIdx]}>
-          <HeroInner>
-            <IoImageOutline size={40} color="rgba(255,255,255,0.5)" />
-            {order.photoCount > 0 && <HeroLabel>사진 {order.photoCount}장</HeroLabel>}
-          </HeroInner>
-          <BadgeRow>
-            <Badge $bg={badgeColor.bg} $color={badgeColor.text}>
-              {order.badge}
-            </Badge>
-            <TimeLabel>{order.createdAt}</TimeLabel>
-          </BadgeRow>
-        </HeroArea>
+        {photos.length > 0 ? (
+          <HeroArea $bg="none" style={{ background: "#000" }}>
+            <HeroPhoto src={photos[photoIdx]} alt={`사진${photoIdx + 1}`} />
+            {photos.length > 1 && (
+              <>
+                <NavBtn $left onClick={() => setPhotoIdx((p) => (p - 1 + photos.length) % photos.length)}>
+                  <IoChevronBack size={20} color="#fff" />
+                </NavBtn>
+                <NavBtn onClick={() => setPhotoIdx((p) => (p + 1) % photos.length)}>
+                  <IoChevronForward size={20} color="#fff" />
+                </NavBtn>
+              </>
+            )}
+            <BadgeRow>
+              <Badge $bg={badgeColor.bg} $color={badgeColor.text}>
+                {order.orderStatus}
+              </Badge>
+              <TimeLabel>{timeLabel}</TimeLabel>
+            </BadgeRow>
+            <PhotoCounter>{photoIdx + 1} / {photos.length}</PhotoCounter>
+          </HeroArea>
+        ) : (
+          <HeroArea $bg="linear-gradient(135deg, #DBEAFE 0%, #93C5FD 100%)">
+            <HeroInner>
+              <IoImageOutline size={40} color="rgba(255,255,255,0.5)" />
+            </HeroInner>
+            <BadgeRow>
+              <Badge $bg={badgeColor.bg} $color={badgeColor.text}>
+                {order.orderStatus}
+              </Badge>
+              <TimeLabel>{timeLabel}</TimeLabel>
+            </BadgeRow>
+          </HeroArea>
+        )}
 
         {/* 태그 */}
         <TagSection>
           {order.subcategory && <SubTag>{order.subcategory}</SubTag>}
+          {order.matchType && <MatchTag>[{order.matchType}]</MatchTag>}
           {order.spaceType && <SpaceTag>{order.spaceType}</SpaceTag>}
         </TagSection>
 
@@ -86,7 +112,7 @@ const OrderDetailPage = () => {
             <InfoIcon><IoLocationOutline size={18} color={THEME.primary} /></InfoIcon>
             <InfoContent>
               <InfoLabel>지역</InfoLabel>
-              <InfoValue>{order.location}</InfoValue>
+              <InfoValue>{order.location || "-"}</InfoValue>
             </InfoContent>
           </InfoRow>
           <Divider />
@@ -94,15 +120,15 @@ const OrderDetailPage = () => {
             <InfoIcon><IoCalendarOutline size={18} color={THEME.primary} /></InfoIcon>
             <InfoContent>
               <InfoLabel>일정</InfoLabel>
-              <InfoValue>{order.schedule}</InfoValue>
+              <InfoValue>{order.schedule || "-"}</InfoValue>
             </InfoContent>
           </InfoRow>
           <Divider />
           <InfoRow>
             <InfoIcon><IoCashOutline size={18} color={THEME.primary} /></InfoIcon>
             <InfoContent>
-              <InfoLabel>예산</InfoLabel>
-              <InfoValue>{order.budget}</InfoValue>
+              <InfoLabel>금액</InfoLabel>
+              <InfoValue>{order.price || "-"}</InfoValue>
             </InfoContent>
           </InfoRow>
           {order.spaceType && (
@@ -122,7 +148,7 @@ const OrderDetailPage = () => {
         {/* 상세 내용 */}
         <DetailSection>
           <SectionTitle>요청 상세 내용</SectionTitle>
-          <DetailText>{order.detail || order.description}</DetailText>
+          <DetailText>{order.description || "-"}</DetailText>
         </DetailSection>
 
         {/* 하단 여백 (CTA 공간) */}
@@ -171,13 +197,39 @@ const HeroInner = styled.div`
   gap: 8px;
 `;
 
-const HeroLabel = styled.div`
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.45);
+const HeroPhoto = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const NavBtn = styled.button`
+  position: absolute;
+  top: 50%;
+  ${({ $left }) => ($left ? "left: 8px;" : "right: 8px;")}
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+`;
+
+const PhotoCounter = styled.div`
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 400;
 `;
 
 const BadgeRow = styled.div`
@@ -195,14 +247,14 @@ const Badge = styled.span`
   padding: 5px 12px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   background: ${({ $bg }) => $bg};
   color: ${({ $color }) => $color};
 `;
 
 const TimeLabel = styled.div`
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: rgba(255, 255, 255, 0.8);
 `;
 
@@ -216,8 +268,14 @@ const SubTag = styled.span`
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   background: ${THEME.purpleLight};
+  color: ${THEME.purple};
+`;
+
+const MatchTag = styled.span`
+  font-size: 12px;
+  font-weight: 400;
   color: ${THEME.purple};
 `;
 
@@ -225,7 +283,7 @@ const SpaceTag = styled.span`
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
 `;
@@ -237,7 +295,7 @@ const TitleSection = styled.div`
 const OrderTitle = styled.h1`
   margin: 0;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
   line-height: 1.4;
@@ -252,7 +310,7 @@ const WriterRow = styled.div`
 
 const WriterText = styled.span`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
@@ -288,14 +346,14 @@ const InfoContent = styled.div`
 
 const InfoLabel = styled.div`
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-bottom: 2px;
 `;
 
 const InfoValue = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -315,14 +373,14 @@ const DetailSection = styled.div`
 
 const SectionTitle = styled.div`
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   margin-bottom: 12px;
 `;
 
 const DetailText = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.7;
   white-space: pre-line;
@@ -373,7 +431,7 @@ const MainCTA = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   &:active {
     background: ${THEME.primaryDark};
@@ -389,6 +447,6 @@ const EmptyWrap = styled.div`
 
 const EmptyText = styled.div`
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
 `;

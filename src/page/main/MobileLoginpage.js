@@ -18,7 +18,7 @@ const Container = styled.div`
 
 const Logo = styled.div`
   font-size: 36px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.primary};
   margin-bottom: 8px;
 `;
@@ -53,7 +53,7 @@ const LoginButton = styled.button`
   border: none;
   border-radius: 10px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   font-family: inherit;
   margin-bottom: 12px;
@@ -71,7 +71,7 @@ const SocialButton = styled.button`
   border: 1px solid ${({ $borderColor }) => $borderColor || THEME.border};
   border-radius: 10px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   font-family: inherit;
   margin-bottom: 8px;
@@ -103,7 +103,7 @@ const FindRow = styled.div`
 
 const FindLink = styled.span`
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   cursor: pointer;
   &:active { color: ${THEME.text}; }
@@ -148,7 +148,7 @@ const SignupRow = styled.div`
 
 const SignupLink = styled.span`
   color: ${THEME.primary};
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   &:active {
     opacity: 0.7;
@@ -276,7 +276,7 @@ const Toast = styled.div`
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   border-radius: 10px;
   z-index: 9999;
   white-space: nowrap;

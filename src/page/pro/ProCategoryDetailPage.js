@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
@@ -8,6 +8,7 @@ import { CATEGORIES, THEME } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import { getProCategoryDoc, deleteProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { IoCheckmarkCircleOutline, IoCreateOutline } from "react-icons/io5";
 
 const ProCategoryDetailPage = () => {
     const navigate = useNavigate();
@@ -18,8 +19,10 @@ const ProCategoryDetailPage = () => {
     const [docData, setDocData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
+    const [slideIdx, setSlideIdx] = useState(0);
+    const slideRef = useRef(null);
 
-    const uid = user?.uid;
+    const uid = user?.USERS_ID;
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 
     useEffect(() => {
@@ -32,7 +35,7 @@ const ProCategoryDetailPage = () => {
 
     const handleDelete = async () => {
         if (!uid || deleting) return;
-        const ok = window.confirm("이 업무분야 등록을 삭제하시겠습니까?\n삭제 후 다시 등록하려면 사업자등록증을 재제출해야 합니다.");
+        const ok = window.confirm("이 업무분야 등록을 삭제하시겠습니까?");
         if (!ok) return;
         setDeleting(true);
         try {
@@ -52,65 +55,126 @@ const ProCategoryDetailPage = () => {
         return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
     };
 
+    const photos = docData?.photoUrls || [];
+    const detail = docData?.detail || {};
+    const certs = detail.certs || [];
+
+    // slide scroll handler
+    const handleSlideScroll = () => {
+        if (!slideRef.current) return;
+        const scrollLeft = slideRef.current.scrollLeft;
+        const width = slideRef.current.offsetWidth;
+        setSlideIdx(Math.round(scrollLeft / width));
+    };
+
     if (!cat) return null;
 
     return (
         <SimpleBackLayout NAME={cat.shortName} hideFooter>
-            <Wrap>
-                {/* 카테고리 정보 */}
-                <Card>
-                    <CatHeader>
-                        <CatIcon>{cat.shortName.charAt(0)}</CatIcon>
-                        <CatInfo>
-                            <CatName>{cat.name}</CatName>
-                            <CatDesc>{cat.description}</CatDesc>
-                        </CatInfo>
-                    </CatHeader>
+            {/* 사진 슬라이더 - 전면 배너 */}
+            {!loading && photos.length > 0 ? (
+                <SliderWrap>
+                    <SliderTrack ref={slideRef} onScroll={handleSlideScroll}>
+                        {photos.map((url, i) => (
+                            <SlideItem key={i}>
+                                <SlideImg src={url} alt={`활동사진 ${i + 1}`} />
+                            </SlideItem>
+                        ))}
+                    </SliderTrack>
+                    {photos.length > 1 && (
+                        <SliderCounter>{slideIdx + 1}/{photos.length}</SliderCounter>
+                    )}
+                </SliderWrap>
+            ) : !loading ? (
+                <NoPhotoArea>
+                    <NoPhotoText>등록된 활동 사진이 없습니다</NoPhotoText>
+                </NoPhotoArea>
+            ) : null}
+
+            <ContentWrap>
+                {/* 카테고리 + 상태 */}
+                <HeaderRow>
+                    <div>
+                        <CatName>{cat.name}</CatName>
+                        <CatDesc>{cat.description}</CatDesc>
+                    </div>
                     <StatusBadge>승인완료</StatusBadge>
-                </Card>
+                </HeaderRow>
+
+                {/* 한줄 소개 */}
+                {detail.intro && (
+                    <Section>
+                        <SectionTitle>소개</SectionTitle>
+                        <IntroText>{detail.intro}</IntroText>
+                    </Section>
+                )}
+
+                {/* 기본 정보 */}
+                <Section>
+                    <SectionTitle>기본 정보</SectionTitle>
+                    {detail.experience && (
+                        <InfoRow>
+                            <InfoLabel>경력</InfoLabel>
+                            <InfoValue>{detail.experience}년</InfoValue>
+                        </InfoRow>
+                    )}
+                    {detail.region && (
+                        <InfoRow>
+                            <InfoLabel>활동 지역</InfoLabel>
+                            <InfoValue>{detail.region}</InfoValue>
+                        </InfoRow>
+                    )}
+                    {detail.subcategories?.length > 0 && (
+                        <InfoRow>
+                            <InfoLabel>전문분야</InfoLabel>
+                            <InfoValue>{detail.subcategories.join(", ")}</InfoValue>
+                        </InfoRow>
+                    )}
+                </Section>
+
+                {/* 서류 검수 상태 */}
+                <Section>
+                    <SectionTitle>제출 서류</SectionTitle>
+                    <DocRow>
+                        <IoCheckmarkCircleOutline size={18} color={THEME.success} />
+                        <DocText>사업자등록증 제출 완료</DocText>
+                        <DocStatus>검수완료</DocStatus>
+                    </DocRow>
+                    {certs.length > 0 && certs.map((cert, i) => (
+                        <DocRow key={i}>
+                            <IoCheckmarkCircleOutline size={18} color={THEME.success} />
+                            <DocText>{cert.certName || `자격증 ${i + 1}`}</DocText>
+                            <DocStatus>검수완료</DocStatus>
+                        </DocRow>
+                    ))}
+                </Section>
 
                 {/* 등록 정보 */}
-                <Card>
-                    <SectionTitle>등록 정보</SectionTitle>
-                    {loading ? (
-                        <LoadingText>불러오는 중...</LoadingText>
-                    ) : docData ? (
-                        <>
-                            <InfoRow>
-                                <InfoLabel>신청일</InfoLabel>
-                                <InfoValue>{formatDate(docData.appliedAt)}</InfoValue>
-                            </InfoRow>
-                            <InfoRow>
-                                <InfoLabel>승인일</InfoLabel>
-                                <InfoValue>{formatDate(docData.approvedAt)}</InfoValue>
-                            </InfoRow>
-                            <InfoRow>
-                                <InfoLabel>상태</InfoLabel>
-                                <InfoValue style={{ color: THEME.success, fontWeight: 700 }}>승인완료</InfoValue>
-                            </InfoRow>
-                        </>
-                    ) : (
-                        <LoadingText>등록 정보를 찾을 수 없습니다</LoadingText>
-                    )}
-                </Card>
+                {docData && (
+                    <Section>
+                        <SectionTitle>등록 정보</SectionTitle>
+                        <InfoRow>
+                            <InfoLabel>신청일</InfoLabel>
+                            <InfoValue>{formatDate(docData.appliedAt)}</InfoValue>
+                        </InfoRow>
+                        <InfoRow>
+                            <InfoLabel>승인일</InfoLabel>
+                            <InfoValue>{formatDate(docData.approvedAt)}</InfoValue>
+                        </InfoRow>
+                    </Section>
+                )}
 
-                {/* 사업자등록증 */}
-                <Card>
-                    <SectionTitle>사업자등록증</SectionTitle>
-                    {loading ? (
-                        <LoadingText>불러오는 중...</LoadingText>
-                    ) : docData?.licenseUrl ? (
-                        <LicenseImg src={docData.licenseUrl} alt="사업자등록증" />
-                    ) : (
-                        <LoadingText>이미지를 찾을 수 없습니다</LoadingText>
-                    )}
-                </Card>
+                {/* 수정 버튼 */}
+                <EditBtn onClick={() => navigate(`/pro/category-edit/${categoryId}`)}>
+                    <IoCreateOutline size={18} />
+                    프로필 수정
+                </EditBtn>
 
                 {/* 삭제 버튼 */}
                 <DeleteBtn onClick={handleDelete} disabled={deleting}>
                     {deleting ? "삭제 중..." : "업무분야 삭제"}
                 </DeleteBtn>
-            </Wrap>
+            </ContentWrap>
         </SimpleBackLayout>
     );
 };
@@ -119,49 +183,77 @@ export default ProCategoryDetailPage;
 
 /* ===================== styles ===================== */
 
-const Wrap = styled.div`
-    padding: 16px;
+const SliderWrap = styled.div`
+    position: relative;
+    width: 100%;
+    background: ${THEME.text};
+`;
+
+const SliderTrack = styled.div`
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-bottom: 40px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
 `;
 
-const Card = styled.div`
-    background: ${THEME.surface};
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: ${THEME.cardShadow};
+const SlideItem = styled.div`
+    flex: 0 0 100%;
+    scroll-snap-align: start;
 `;
 
-const CatHeader = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 14px;
+const SlideImg = styled.img`
+    width: 100%;
+    height: 260px;
+    object-fit: cover;
+    display: block;
 `;
 
-const CatIcon = styled.div`
-    font-size: 18px;
-    font-weight: 700;
-    color: ${THEME.primary};
-    width: 52px;
-    height: 52px;
-    border-radius: 4px;
+const SliderCounter = styled.div`
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    padding: 4px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+`;
+
+const NoPhotoArea = styled.div`
+    width: 100%;
+    height: 160px;
     background: ${THEME.background};
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
 `;
 
-const CatInfo = styled.div`
-    flex: 1;
-    min-width: 0;
+const NoPhotoText = styled.div`
+    font-size: 14px;
+    color: ${THEME.muted};
+`;
+
+const ContentWrap = styled.div`
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+`;
+
+const HeaderRow = styled.div`
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
 `;
 
 const CatName = styled.div`
-    font-size: 17px;
-    font-weight: 800;
+    font-size: 20px;
+    font-weight: 400;
     color: ${THEME.text};
     letter-spacing: -0.02em;
 `;
@@ -175,21 +267,32 @@ const CatDesc = styled.div`
 `;
 
 const StatusBadge = styled.div`
-    display: inline-block;
-    margin-top: 14px;
-    padding: 6px 14px;
-    border-radius: 8px;
+    padding: 5px 12px;
+    border-radius: 4px;
     background: #D1FAE5;
     color: ${THEME.success};
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 400;
+    flex-shrink: 0;
+    white-space: nowrap;
 `;
 
+const Section = styled.div``;
+
 const SectionTitle = styled.div`
-    font-size: 16px;
-    font-weight: 800;
+    font-size: 15px;
+    font-weight: 400;
     color: ${THEME.text};
-    margin-bottom: 14px;
+    margin-bottom: 10px;
+`;
+
+const IntroText = styled.div`
+    font-size: 14px;
+    color: ${THEME.text};
+    line-height: 1.6;
+    background: ${THEME.background};
+    padding: 14px;
+    border-radius: 4px;
 `;
 
 const InfoRow = styled.div`
@@ -205,40 +308,70 @@ const InfoRow = styled.div`
 const InfoLabel = styled.div`
     font-size: 14px;
     color: ${THEME.muted};
-    font-weight: 500;
+    font-weight: 400;
 `;
 
 const InfoValue = styled.div`
     font-size: 14px;
     color: ${THEME.text};
-    font-weight: 600;
+    font-weight: 400;
+    text-align: right;
+    max-width: 60%;
+    word-break: keep-all;
 `;
 
-const LicenseImg = styled.img`
-    width: 100%;
-    border-radius: 12px;
-    border: 1px solid ${THEME.border};
+const DocRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    &:not(:last-child) {
+        border-bottom: 1px solid ${THEME.border};
+    }
 `;
 
-const LoadingText = styled.div`
+const DocText = styled.div`
+    flex: 1;
     font-size: 14px;
-    color: ${THEME.muted};
-    text-align: center;
-    padding: 20px 0;
+    color: ${THEME.text};
+    font-weight: 400;
+`;
+
+const DocStatus = styled.div`
+    font-size: 12px;
+    font-weight: 400;
+    color: ${THEME.success};
+`;
+
+const EditBtn = styled.button`
+    width: 100%;
+    padding: 14px;
+    border: 1.5px solid ${THEME.primary};
+    border-radius: 4px;
+    background: #fff;
+    color: ${THEME.primary};
+    font-size: 15px;
+    font-weight: 400;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    &:active { background: ${THEME.background}; }
 `;
 
 const DeleteBtn = styled.button`
     width: 100%;
-    padding: 16px;
-    border: 1px solid ${THEME.danger};
-    border-radius: 14px;
+    padding: 14px;
+    border: 1px solid ${THEME.border};
+    border-radius: 4px;
     background: #fff;
     color: ${THEME.danger};
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 400;
     font-family: inherit;
     cursor: pointer;
-    margin-top: 8px;
     &:active { background: #FEF2F2; }
     &:disabled { opacity: 0.5; cursor: default; }
 `;

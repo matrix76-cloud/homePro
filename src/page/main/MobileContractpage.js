@@ -62,7 +62,7 @@ const TabRow = styled.div`
 const TabItem = styled.div`
   padding: 14px 16px;
   font-size: 15px;
-  font-weight: ${({ $active }) => ($active ? "700" : "500")};
+  font-weight: 400;
   color: ${({ $active }) => ($active ? THEME.text : THEME.muted)};
   border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
   cursor: pointer;
@@ -92,7 +92,7 @@ const IconCircle = styled.div`
 
 const EmptyTitle = styled.div`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
   margin-bottom: 8px;
@@ -100,7 +100,7 @@ const EmptyTitle = styled.div`
 
 const EmptyDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   text-align: center;
   line-height: 1.6;

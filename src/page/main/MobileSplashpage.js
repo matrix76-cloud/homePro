@@ -26,7 +26,7 @@ const SymbolWrap = styled.div`
 
 const Logo = styled.div`
   font-size: 42px;
-  font-weight: 700;
+  font-weight: 400;
   color: #fff;
   letter-spacing: -1px;
 `;

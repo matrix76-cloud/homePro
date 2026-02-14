@@ -130,7 +130,7 @@ const TopCard = styled.div`
 
 const TopTitle = styled.div`
     font-size: 20px;
-    font-weight: 800;
+    font-weight: 400;
     color: #fff;
     letter-spacing: -0.03em;
 `;
@@ -139,7 +139,7 @@ const TopDesc = styled.div`
     font-size: 14px;
     color: rgba(255,255,255,0.85);
     margin-top: 6px;
-    font-weight: 500;
+    font-weight: 400;
 `;
 
 const ContactCard = styled.div`
@@ -174,12 +174,12 @@ const ContactInfo = styled.div`
 const ContactLabel = styled.div`
     font-size: 12px;
     color: ${THEME.muted};
-    font-weight: 500;
+    font-weight: 400;
 `;
 
 const ContactValue = styled.div`
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 400;
     color: ${THEME.text};
     margin-top: 2px;
 `;
@@ -187,7 +187,7 @@ const ContactValue = styled.div`
 const ContactSub = styled.div`
     font-size: 11px;
     color: ${THEME.muted};
-    font-weight: 500;
+    font-weight: 400;
     flex-shrink: 0;
 `;
 
@@ -206,7 +206,7 @@ const FaqSection = styled.div`
 
 const FaqTitle = styled.div`
     font-size: 17px;
-    font-weight: 800;
+    font-weight: 400;
     color: ${THEME.text};
     padding: 20px 20px 12px;
 `;
@@ -228,7 +228,7 @@ const FaqRow = styled.div`
 const FaqQ = styled.div`
     flex: 1;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 400;
     color: ${THEME.text};
     line-height: 1.4;
     display: flex;
@@ -247,7 +247,7 @@ const FaqBadge = styled.span`
     background: ${THEME.primary};
     color: #fff;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 400;
     flex-shrink: 0;
 `;
 

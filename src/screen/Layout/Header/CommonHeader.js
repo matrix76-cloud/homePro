@@ -36,7 +36,7 @@ const LeftBtn = styled.button`
 
 const CenterTitle = styled.div`
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
   flex: 1;
   text-align: center;

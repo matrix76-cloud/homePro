@@ -1,7 +1,9 @@
 /* eslint-disable */
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../api/config";
 import { UserContext } from "../../context/User";
 import {
   CATEGORIES,
@@ -11,8 +13,32 @@ import {
   MATCH_TYPES,
   SCHEDULE_OPTIONS,
   SPACE_TYPES,
+  STORAGE_PATH_PREFIX,
 } from "../../config/homeproConfig";
+import { createOrder } from "../../service/OrderService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { IoCloseCircle } from "react-icons/io5";
+
+const MAX_PHOTOS = 4;
+const RESIZE_PX = 350;
+const JPEG_QUALITY = 0.7;
+
+function resizeAndCompress(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(RESIZE_PX / img.width, RESIZE_PX / img.height, 1);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", JPEG_QUALITY);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 const Section = styled.div`
   background: #fff;
@@ -23,7 +49,7 @@ const Section = styled.div`
 
 const Label = styled.div`
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.text};
   margin-bottom: 12px;
 `;
@@ -49,7 +75,7 @@ const Chip = styled.button`
   border: 1px solid ${({ $selected }) => ($selected ? THEME.primary : THEME.border)};
   background: ${({ $selected }) => ($selected ? THEME.primary : "#fff")};
   color: ${({ $selected }) => ($selected ? "#fff" : THEME.text)};
-  font-weight: ${({ $selected }) => ($selected ? 600 : 400)};
+  font-weight: 400;
   &:active {
     opacity: 0.8;
   }
@@ -93,7 +119,7 @@ const RadioButton = styled.button`
   padding: 14px;
   border-radius: 4px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   border: 2px solid ${({ $selected }) => ($selected ? THEME.primary : THEME.border)};
@@ -120,7 +146,7 @@ const SubmitButton = styled.button`
   border: none;
   border-radius: 4px;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   font-family: inherit;
   &:active {
@@ -148,6 +174,56 @@ const PhotoBox = styled.div`
   color: ${THEME.muted};
   cursor: pointer;
   background: #fff;
+  overflow: hidden;
+  position: relative;
+`;
+
+const PhotoPreview = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const RemoveBtn = styled.div`
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: ${THEME.danger};
+  background: #fff;
+  border-radius: 50%;
+  line-height: 0;
+  cursor: pointer;
+`;
+
+const AddressRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid ${THEME.border};
+  border-radius: 4px;
+  cursor: pointer;
+  background: #fff;
+  &:active { background: ${THEME.background}; }
+`;
+
+const AddressText = styled.div`
+  flex: 1;
+  font-size: 14px;
+  color: ${({ $hasValue }) => ($hasValue ? THEME.text : THEME.muted)};
+`;
+
+const AddressBtn = styled.button`
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid ${THEME.primary};
+  border-radius: 4px;
+  background: #fff;
+  color: ${THEME.primary};
+  font-size: 13px;
+  font-weight: 400;
+  font-family: inherit;
+  cursor: pointer;
 `;
 
 const CatTable = styled.div`
@@ -163,7 +239,7 @@ const CatCell = styled.div`
   border-bottom: 1px solid ${THEME.border};
   text-align: center;
   font-size: 13px;
-  font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
+  font-weight: 400;
   color: ${({ $selected }) => ($selected ? "#fff" : THEME.text)};
   background: ${({ $selected }) => ($selected ? THEME.primary : "#fff")};
   cursor: pointer;
@@ -191,8 +267,56 @@ export const OrderCreateContent = () => {
   const [commissionAmount, setCommissionAmount] = useState("");
   const [matchType, setMatchType] = useState(MATCH_TYPES.PRIORITY);
   const [spaceType, setSpaceType] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState([]); // { preview, blob }
+  const fileInputRef = useRef(null);
+
+  const [addressDetail, setAddressDetail] = useState("");
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
+
+  // Daum 주소 API 스크립트 로드
+  useEffect(() => {
+    if (document.getElementById("daum-postcode-script")) return;
+    const script = document.createElement("script");
+    script.id = "daum-postcode-script";
+    script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
+
+  const openDaumPostcode = () => {
+    if (!window.daum?.Postcode) return;
+    new window.daum.Postcode({
+      oncomplete: (data) => {
+        const addr = data.userSelectedType === "R" ? data.roadAddress : data.jibunAddress;
+        setAddress(addr);
+        setAddressDetail("");
+      },
+    }).open();
+  };
+
+  const handlePhotoAdd = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const remaining = MAX_PHOTOS - photos.length;
+    const toProcess = files.slice(0, remaining);
+    const newPhotos = await Promise.all(
+      toProcess.map(async (f) => {
+        const blob = await resizeAndCompress(f);
+        return { preview: URL.createObjectURL(blob), blob };
+      })
+    );
+    setPhotos((prev) => [...prev, ...newPhotos]);
+    e.target.value = "";
+  };
+
+  const handlePhotoRemove = (idx) => {
+    setPhotos((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
 
   const handleSubToggle = (sub) => {
     setSelectedSub((prev) =>
@@ -200,10 +324,53 @@ export const OrderCreateContent = () => {
     );
   };
 
-  const handleSubmit = () => {
-    // TODO: Firestore에 오더 저장
-    alert("오더가 등록되었습니다! (Firestore 연동 후 실제 저장)");
-    navigate("/MobileMain");
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      // 사진 업로드
+      const photoURLs = await Promise.all(
+        photos.map(async (p, i) => {
+          const path = `${STORAGE_PATH_PREFIX}/orders/${user?.uid || "anon"}/${Date.now()}_${i}.jpg`;
+          const storageRef = ref(storage, path);
+          await uploadBytes(storageRef, p.blob, { contentType: "image/jpeg" });
+          return getDownloadURL(storageRef);
+        })
+      );
+
+      const nickname = user?.USERINFO?.nickname || "익명";
+      const maskedName = nickname.charAt(0) + "**";
+      await createOrder({
+        categoryId: selectedCategory,
+        categoryName: category?.shortName || "",
+        subcategories: selectedSub,
+        subcategory: selectedSub.join(", "),
+        title: `${category?.shortName || ""} ${selectedSub[0] || "요청"}`,
+        description: detail,
+        spaceType,
+        schedule,
+        address,
+        contactType,
+        customerPhone: contactType === "customer" ? customerPhone : "",
+        priceType,
+        directPrice: priceType === "direct" ? directPrice : "",
+        price: priceType === "direct" ? `${Number(directPrice).toLocaleString()}원` : "견적요청",
+        commissionType,
+        commissionAmount: commissionType !== COMMISSION_TYPES.NONE ? commissionAmount : "",
+        matchType: matchType === MATCH_TYPES.PRIORITY ? "우선" : "다중",
+        createdBy: user?.uid || "",
+        writer: maskedName,
+        location: addressDetail ? `${address} ${addressDetail}` : address,
+        photos: photoURLs,
+      });
+      alert("오더가 등록되었습니다!");
+      navigate("/MobileMain");
+    } catch (err) {
+      console.error("오더 등록 실패:", err);
+      alert("등록에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -298,11 +465,27 @@ export const OrderCreateContent = () => {
 
           {/* 5. 사진 등록 */}
           <Section>
-            <Label>현장사진등록 (선택)</Label>
+            <Label>현장사진등록 (선택, 최대 {MAX_PHOTOS}장)</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={handlePhotoAdd}
+            />
             <PhotoGrid>
-              {[1, 2, 3, 4].map((n) => (
-                <PhotoBox key={n}>+</PhotoBox>
+              {photos.map((p, i) => (
+                <PhotoBox key={i} style={{ position: "relative", padding: 0 }}>
+                  <PhotoPreview src={p.preview} alt={`사진${i + 1}`} />
+                  <RemoveBtn onClick={() => handlePhotoRemove(i)}>
+                    <IoCloseCircle size={22} />
+                  </RemoveBtn>
+                </PhotoBox>
               ))}
+              {photos.length < MAX_PHOTOS && (
+                <PhotoBox onClick={() => fileInputRef.current?.click()}>+</PhotoBox>
+              )}
             </PhotoGrid>
           </Section>
 
@@ -325,11 +508,20 @@ export const OrderCreateContent = () => {
           {/* 7. 주소 */}
           <Section>
             <Label>주소</Label>
-            <Input
-              placeholder="주소를 입력하세요"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
+            <AddressRow onClick={openDaumPostcode}>
+              <AddressText $hasValue={!!address}>
+                {address || "주소를 검색하세요"}
+              </AddressText>
+              <AddressBtn type="button">검색</AddressBtn>
+            </AddressRow>
+            {address && (
+              <Input
+                style={{ marginTop: 8 }}
+                placeholder="상세주소 입력 (동/호수 등)"
+                value={addressDetail}
+                onChange={(e) => setAddressDetail(e.target.value)}
+              />
+            )}
           </Section>
 
           {/* 8. 연락처 */}
@@ -505,10 +697,10 @@ export const OrderCreateContent = () => {
           {/* 등록 버튼 */}
           <Section>
             <SubmitButton
-              disabled={!selectedCategory}
+              disabled={!selectedCategory || submitting}
               onClick={handleSubmit}
             >
-              등록하기
+              {submitting ? "등록 중..." : "등록하기"}
             </SubmitButton>
           </Section>
         </>

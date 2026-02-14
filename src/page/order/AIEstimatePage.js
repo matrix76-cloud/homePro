@@ -271,14 +271,14 @@ const AIIconWrap = styled.div`
 
 const HeaderTitle = styled.div`
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 400;
   color: #fff;
   letter-spacing: -0.03em;
 `;
 
 const HeaderDesc = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: rgba(255,255,255,0.8);
   margin-top: 8px;
   line-height: 1.5;
@@ -291,7 +291,7 @@ const Section = styled.div`
 
 const Label = styled.div`
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
   margin-bottom: 12px;
   letter-spacing: -0.02em;
@@ -310,7 +310,7 @@ const CatChip = styled.button`
   background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.text};
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   display: flex;
@@ -358,7 +358,7 @@ const AnalyzeBtn = styled.button`
   background: linear-gradient(135deg, ${THEME.primary}, ${THEME.purple});
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   display: flex;
@@ -400,13 +400,13 @@ const ResultHeaderText = styled.div``;
 
 const ResultTitle = styled.div`
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
 const ResultCat = styled.div`
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
@@ -423,13 +423,13 @@ const TotalRow = styled.div`
 
 const TotalLabel = styled.div`
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
 const TotalPrice = styled.div`
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 400;
   color: ${THEME.primary};
 `;
 
@@ -439,7 +439,7 @@ const DetailToggle = styled.div`
   justify-content: center;
   gap: 4px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   color: ${THEME.muted};
   cursor: pointer;
   padding: 8px 0;
@@ -461,13 +461,13 @@ const DetailRow = styled.div`
 
 const DetailName = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.textSecondary};
 `;
 
 const DetailPrice = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -481,13 +481,13 @@ const InfoRow = styled.div`
 
 const InfoLabel = styled.div`
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const InfoValue = styled.div`
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   color: ${THEME.text};
 `;
 
@@ -507,14 +507,14 @@ const TipIcon = styled.div`
 
 const TipText = styled.div`
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: #92400E;
   line-height: 1.5;
 `;
 
 const Disclaimer = styled.div`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: ${THEME.muted};
   margin-top: 12px;
   text-align: center;
@@ -529,7 +529,7 @@ const RealEstimateBtn = styled.button`
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.9; }
@@ -543,7 +543,7 @@ const RetryBtn = styled.button`
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 400;
   font-family: inherit;
   cursor: pointer;
   &:active { background: ${THEME.background}; }

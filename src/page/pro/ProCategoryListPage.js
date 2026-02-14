@@ -77,7 +77,7 @@ const EmptyIcon = styled.div`
 
 const EmptyText = styled.div`
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 400;
     color: ${THEME.text};
 `;
 
@@ -113,7 +113,7 @@ const CatLeft = styled.div`
 
 const CatIcon = styled.div`
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 400;
     color: ${THEME.primary};
     width: 44px;
     height: 44px;
@@ -128,13 +128,13 @@ const CatInfo = styled.div``;
 
 const CatName = styled.div`
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 400;
     color: ${THEME.text};
 `;
 
 const CatStatus = styled.div`
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
     color: ${THEME.success};
     margin-top: 2px;
 `;
@@ -147,7 +147,7 @@ const AddBtn = styled.button`
     background: ${THEME.primary};
     color: #fff;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 400;
     font-family: inherit;
     cursor: pointer;
     display: flex;
