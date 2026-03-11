@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME } from "../../config/homeproConfig";
@@ -11,6 +11,9 @@ import {
   IoPersonCircleOutline,
   IoChevronForward,
 } from "react-icons/io5";
+import { getProsByCategory } from "../../service/ProService";
+import { UserContext } from "../../context/User";
+import { parseDisplayName } from "../../utility/regionUtils";
 
 /* ─── 플레이스홀더 색상 ─── */
 const PH_COLORS = [
@@ -155,11 +158,44 @@ const SORT_OPTIONS = [
 const CategoryProListPage = () => {
   const { categoryId } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
   const [sort, setSort] = useState("rating");
+  const [firestorePros, setFirestorePros] = useState([]);
+  const [loadingPros, setLoadingPros] = useState(true);
 
   const category = CATEGORIES.find((c) => c.id === categoryId);
   const catName = category ? category.name : "카테고리";
-  const services = MOCK_SERVICES[categoryId] || [];
+
+  // 사용자 선택 지역으로 Firestore 프로 조회
+  const currentRegion = parseDisplayName(user?.USERINFO?.address_name);
+
+  useEffect(() => {
+    if (!categoryId) return;
+    setLoadingPros(true);
+    getProsByCategory(categoryId, currentRegion)
+      .then((pros) => setFirestorePros(pros))
+      .catch(() => setFirestorePros([]))
+      .finally(() => setLoadingPros(false));
+  }, [categoryId, currentRegion.sido, currentRegion.gu]);
+
+  // Firestore 프로가 있으면 사용, 없으면 목업
+  const mockServices = MOCK_SERVICES[categoryId] || [];
+  const services = firestorePros.length > 0
+    ? firestorePros.map((p) => ({
+        id: p.id,
+        proName: p.detail?.intro || p.uid,
+        proImg: null,
+        title: p.detail?.intro || category?.shortName || "",
+        description: `경력 ${p.detail?.experience || "?"}년 · ${p.detail?.subcategories?.join(", ") || ""}`,
+        photoCount: p.photoUrls?.length || 0,
+        location: p.region ? `${p.region.sido} ${p.region.gu || ""}`.trim() : "",
+        rating: 0,
+        reviews: 0,
+        career: `${p.detail?.experience || "?"}년`,
+        price: "",
+        tags: p.detail?.subcategories?.slice(0, 3) || [],
+      }))
+    : mockServices;
 
   const handleCardClick = (service) => {
     // 서비스 상세 페이지로 이동 (서비스 데이터를 state로 전달)

@@ -171,3 +171,49 @@ export async function requestNativeSocialSignIn({ provider }) {
 export function requestNativeSignOut() {
     return postToRN("START_SIGNOUT", { at: Date.now() });
 }
+
+export function requestPushToken() {
+    return postToRN("REQUEST_PUSH_TOKEN", { at: Date.now() });
+}
+
+const _pushTokenListeners = new Set();
+
+export function onPushToken(fn) {
+    if (typeof fn !== "function") return () => {};
+    _pushTokenListeners.add(fn);
+
+    const off = onIncoming((msg) => {
+        const t = safeTrim(msg?.type);
+        if (t !== "PUSH_TOKEN" && t !== "FCM_TOKEN") return;
+        const token = msg?.payload?.token || msg?.payload?.fcmToken || "";
+        const platform = msg?.payload?.platform || "android";
+        if (token) fn(token, platform);
+    });
+
+    return () => {
+        _pushTokenListeners.delete(fn);
+        off?.();
+    };
+}
+
+// ─── 위치 요청 (RN GPS) ───
+
+export function requestLocation() {
+    return postToRN("REQUEST_LOCATION", { at: Date.now() });
+}
+
+export async function requestLocationAsync(timeoutMs = 10000) {
+    const ok = postToRN("REQUEST_LOCATION", { at: Date.now() });
+    if (!ok) {
+        return { success: false, error_code: "not_in_app", error_message: "RN WebView 아님" };
+    }
+    const res = await waitForRnMessage("LOCATION_RESULT", timeoutMs);
+    return res;
+}
+
+const _rnLogs = [];
+export function appendRnLog(type, keys, hint) {
+    _rnLogs.push({ type, keys, hint, ts: Date.now() });
+    if (_rnLogs.length > 100) _rnLogs.shift();
+}
+export function getRnLogs() { return [..._rnLogs]; }

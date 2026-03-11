@@ -35,9 +35,9 @@ export async function uploadActivityPhotos(uid, categoryId, files) {
  * 전문가 카테고리 신청 문서를 Firestore에 저장 (자동 승인)
  * @param {object} detailInfo - { subcategories, experience, intro, region }
  */
-export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls = [], detailInfo = {}) {
+export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls = [], detailInfo = {}, region = null) {
     const docId = `${uid}_${categoryId}`;
-    await setDoc(doc(db, COLLECTIONS.PROS, docId), {
+    const data = {
         uid,
         categoryId,
         licenseUrl,
@@ -46,7 +46,11 @@ export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls
         status: "approved",
         appliedAt: serverTimestamp(),
         approvedAt: serverTimestamp(),
-    });
+    };
+    if (region?.sido) {
+        data.region = { sido: region.sido, gu: region.gu || "전체" };
+    }
+    await setDoc(doc(db, COLLECTIONS.PROS, docId), data);
 }
 
 /**
@@ -74,4 +78,75 @@ export async function getProCategoryIds(uid) {
     const q = query(collection(db, COLLECTIONS.PROS), where("uid", "==", uid));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data().categoryId);
+}
+
+/**
+ * 카테고리별 전문가 목록 조회 (지역 필터링)
+ * @param {string} categoryId - 카테고리 ID
+ * @param {object} region - { sido, gu } (gu가 "전체"이면 시/도 전체)
+ * @returns {object[]} 프로 목록
+ */
+export async function getProsByCategory(categoryId, region) {
+    let q;
+
+    if (region?.sido && region.gu && region.gu !== "전체") {
+        // 시/도 + 구/군 모두 지정
+        q = query(
+            collection(db, COLLECTIONS.PROS),
+            where("categoryId", "==", categoryId),
+            where("status", "==", "approved"),
+            where("region.sido", "==", region.sido),
+            where("region.gu", "==", region.gu)
+        );
+    } else if (region?.sido) {
+        // 시/도만 지정 (전체)
+        q = query(
+            collection(db, COLLECTIONS.PROS),
+            where("categoryId", "==", categoryId),
+            where("status", "==", "approved"),
+            where("region.sido", "==", region.sido)
+        );
+    } else {
+        // 지역 미지정 → 전체 조회
+        q = query(
+            collection(db, COLLECTIONS.PROS),
+            where("categoryId", "==", categoryId),
+            where("status", "==", "approved")
+        );
+    }
+
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * 지역 기반 전체 프로 조회 (카테고리 무관)
+ * @param {object} region - { sido, gu }
+ * @returns {object[]} 프로 목록
+ */
+export async function getProsByRegion(region) {
+    let q;
+
+    if (region?.sido && region.gu && region.gu !== "전체") {
+        q = query(
+            collection(db, COLLECTIONS.PROS),
+            where("status", "==", "approved"),
+            where("region.sido", "==", region.sido),
+            where("region.gu", "==", region.gu)
+        );
+    } else if (region?.sido) {
+        q = query(
+            collection(db, COLLECTIONS.PROS),
+            where("status", "==", "approved"),
+            where("region.sido", "==", region.sido)
+        );
+    } else {
+        q = query(
+            collection(db, COLLECTIONS.PROS),
+            where("status", "==", "approved")
+        );
+    }
+
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }

@@ -6,7 +6,9 @@ import { UserContext } from "../../context/User";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline } from "react-icons/io5";
+import { IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
+import RegionSelectModal from "../../modal/RegionSelectModal";
+import { regionToDisplayName } from "../../utility/regionUtils";
 
 const ProCategoryEditPage = () => {
     const navigate = useNavigate();
@@ -17,7 +19,8 @@ const ProCategoryEditPage = () => {
     const [selectedSubs, setSelectedSubs] = useState([]);
     const [experience, setExperience] = useState("");
     const [intro, setIntro] = useState("");
-    const [region, setRegion] = useState("");
+    const [region, setRegion] = useState(null);
+    const [showRegionModal, setShowRegionModal] = useState(false);
     const [extraFields, setExtraFields] = useState({});
     const [certs, setCerts] = useState([]);
     const certFileRefs = useRef({});
@@ -48,7 +51,7 @@ const ProCategoryEditPage = () => {
             setSelectedSubs(d.subcategories || []);
             setExperience(d.experience || "");
             setIntro(d.intro || "");
-            setRegion(d.region || "");
+            setRegion(data.region || d.region || null);
             setCerts(d.certs || []);
             setExistingLicenseUrl(data.licenseUrl || null);
             setExistingPhotoUrls(data.photoUrls || []);
@@ -135,10 +138,9 @@ const ProCategoryEditPage = () => {
                 subcategories: selectedSubs,
                 experience,
                 intro,
-                region,
                 certs: certs.map((c) => ({ certName: c.certName })),
                 ...extraFields,
-            });
+            }, region);
             alert("프로필이 수정되었습니다.");
             navigate(-1);
         } catch (err) {
@@ -218,7 +220,18 @@ const ProCategoryEditPage = () => {
 
                 <Section>
                     <SectionTitle>활동 지역</SectionTitle>
-                    <StyledInput type="text" placeholder="예: 서울 강남구, 서초구" value={region} onChange={(e) => setRegion(e.target.value)} />
+                    <RegionSelectBtn type="button" onClick={() => setShowRegionModal(true)}>
+                        <IoLocationOutline size={18} color={region ? THEME.primary : THEME.muted} />
+                        <RegionBtnText $hasValue={!!region}>
+                            {region?.sido ? regionToDisplayName(region) : "지역을 선택하세요"}
+                        </RegionBtnText>
+                    </RegionSelectBtn>
+                    <RegionSelectModal
+                        open={showRegionModal}
+                        onClose={() => setShowRegionModal(false)}
+                        onSelect={(r) => setRegion(r)}
+                        defaultValue={region || { sido: "서울", gu: "전체" }}
+                    />
                 </Section>
 
                 {/* 사업자등록증 */}
@@ -303,6 +316,10 @@ const PhotoItem = styled.div`position: relative; aspect-ratio: 1; border-radius:
 const PhotoThumb = styled.img`width: 100%; height: 100%; object-fit: cover;`;
 const PhotoRemoveBtn = styled.button`position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;`;
 const PhotoAddBtn = styled.div`aspect-ratio: 1; border: 2px dashed ${THEME.border}; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; &:active { background: ${THEME.surface}; }`;
+
+/* region */
+const RegionSelectBtn = styled.button`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 4px; font-size: 15px; font-family: inherit; background: ${THEME.surface}; cursor: pointer; box-sizing: border-box; display: flex; align-items: center; gap: 8px; &:active { border-color: ${THEME.primary}; }`;
+const RegionBtnText = styled.span`color: ${({ $hasValue }) => ($hasValue ? THEME.text : THEME.muted)}; font-weight: 400;`;
 
 /* action */
 const ActionBtn = styled.button`width: 100%; padding: 16px; border: none; border-radius: 4px; background: ${({ $active }) => ($active ? THEME.primary : THEME.border)}; color: ${({ $active }) => ($active ? "#fff" : THEME.muted)}; font-size: 16px; font-weight: 400; font-family: inherit; cursor: ${({ $active }) => ($active ? "pointer" : "default")}; &:active { opacity: ${({ $active }) => ($active ? 0.9 : 1)}; }`;

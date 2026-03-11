@@ -8,7 +8,9 @@ import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig
 import { proCategoriesAtom } from "../../store/store";
 import { uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline } from "react-icons/io5";
+import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
+import RegionSelectModal from "../../modal/RegionSelectModal";
+import { regionToDisplayName } from "../../utility/regionUtils";
 
 const STEP_LABELS = ["분야 선택", "상세 정보"];
 
@@ -27,7 +29,8 @@ const ProCategoryRegisterPage = () => {
     const [selectedSubs, setSelectedSubs] = useState([]);
     const [experience, setExperience] = useState("");
     const [intro, setIntro] = useState("");
-    const [region, setRegion] = useState("");
+    const [region, setRegion] = useState(null); // { sido, gu }
+    const [showRegionModal, setShowRegionModal] = useState(false);
     const [extraFields, setExtraFields] = useState({});
     const [certs, setCerts] = useState([]); // [{ id, certName, file, preview }]
     const certFileRefs = useRef({});
@@ -146,9 +149,8 @@ const ProCategoryRegisterPage = () => {
                 subcategories: selectedSubs,
                 experience,
                 intro,
-                region,
                 ...extraFields,
-            });
+            }, region);
             setProCategories([...proCategories, selectedCat]);
             alert("전문분야가 등록되었습니다.");
             navigate(-1);
@@ -368,11 +370,17 @@ const ProCategoryRegisterPage = () => {
 
                         <Section>
                             <SectionTitle>활동 지역</SectionTitle>
-                            <StyledInput
-                                type="text"
-                                placeholder="예: 서울 강남구, 서초구"
-                                value={region}
-                                onChange={(e) => setRegion(e.target.value)}
+                            <RegionSelectBtn type="button" onClick={() => setShowRegionModal(true)}>
+                                <IoLocationOutline size={18} color={region ? THEME.primary : THEME.muted} />
+                                <RegionBtnText $hasValue={!!region}>
+                                    {region ? regionToDisplayName(region) : "지역을 선택하세요"}
+                                </RegionBtnText>
+                            </RegionSelectBtn>
+                            <RegionSelectModal
+                                open={showRegionModal}
+                                onClose={() => setShowRegionModal(false)}
+                                onSelect={(r) => setRegion(r)}
+                                defaultValue={region || { sido: "서울", gu: "전체" }}
                             />
                         </Section>
 
@@ -813,6 +821,28 @@ const PhotoHint = styled.div`
     font-size: 12px;
     color: ${THEME.muted};
     margin-top: 8px;
+`;
+
+/* ─── Region Select ─── */
+const RegionSelectBtn = styled.button`
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid ${THEME.border};
+    border-radius: 4px;
+    font-size: 15px;
+    font-family: inherit;
+    background: ${THEME.surface};
+    cursor: pointer;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    &:active { border-color: ${THEME.primary}; }
+`;
+
+const RegionBtnText = styled.span`
+    color: ${({ $hasValue }) => ($hasValue ? THEME.text : THEME.muted)};
+    font-weight: 400;
 `;
 
 /* ─── Action Button ─── */
