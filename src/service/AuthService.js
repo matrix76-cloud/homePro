@@ -20,7 +20,7 @@ import {
 } from "firebase/auth";
 
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 
 import { firebaseApp, db } from "../api/config";
 
@@ -42,21 +42,36 @@ function getFns() {
     return getFunctions(firebaseApp);
 }
 
-async function ensureUserDoc({ uid, email }) {
+async function ensureUserDoc({ uid, email, provider }) {
     const uidText = safeTrim(uid);
     if (!uidText) throw new Error("UID_REQUIRED");
 
-    const emailText = safeTrim(email);
+    // 이미 linkedSocialUid로 연결된 기존 사용자가 있으면 스킵
+    const linkedQ = query(collection(db, "users"), where("linkedSocialUid", "==", uidText));
+    const linkedSnap = await getDocs(linkedQ);
+    if (!linkedSnap.empty) return;
 
-    await setDoc(
-        doc(db, "users", uidText),
-        {
-            uid: uidText,
-            email: emailText,
-            updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-    );
+    // 이미 linkedEmailUid로 연결된 기존 사용자가 있으면 스킵
+    const linkedEQ = query(collection(db, "users"), where("linkedEmailUid", "==", uidText));
+    const linkedESnap = await getDocs(linkedEQ);
+    if (!linkedESnap.empty) return;
+
+    const ref = doc(db, "users", uidText);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+        // 기존 문서가 있으면 누락 필드만 보완
+        const data = snap.data();
+        const updates = {};
+        if (provider && !data.provider) updates.provider = provider;
+        if (data.phoneE164 === undefined) updates.phoneE164 = "";
+        if (data.phoneVerified === undefined) updates.phoneVerified = false;
+        if (!data.createdAt) updates.createdAt = serverTimestamp();
+        if (Object.keys(updates).length > 0) {
+            updates.updatedAt = serverTimestamp();
+            await setDoc(ref, updates, { merge: true });
+        }
+    }
+    // 문서가 없으면 LinkPhone에서 initUserDoc() 또는 계정 연결 처리
 
     return true;
 }
@@ -68,7 +83,13 @@ async function applyPersistence(auth, keepLogin) {
     );
 }
 
-function saveSession({ uid, email, keepLogin }) {
+export function saveSession(uid) {
+    try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ uid }));
+    } catch { }
+}
+
+function saveSessionFull({ uid, email, keepLogin }) {
     if (typeof window === "undefined") return;
 
     const payload = { uid: safeTrim(uid), email: safeTrim(email), ts: Date.now() };
@@ -80,6 +101,11 @@ function saveSession({ uid, email, keepLogin }) {
         other?.removeItem?.(SESSION_KEY);
         target?.setItem?.(SESSION_KEY, JSON.stringify(payload));
     } catch { }
+    // 소셜 provider도 함께 저장
+}
+
+export function getLastSocialProvider() {
+    try { return sessionStorage.getItem('lastSocialProvider') || ''; } catch { return ''; }
 }
 
 export function clearSession() {
@@ -136,8 +162,8 @@ async function webSignInWithGoogle({ keepLogin }) {
             };
         }
 
-        await ensureUserDoc({ uid, email });
-        saveSession({ uid, email, keepLogin });
+        await ensureUserDoc({ uid, email, provider: "google" });
+        saveSessionFull({ uid, email, keepLogin });
 
         return {
             success: true,
@@ -194,8 +220,8 @@ export async function consumeRedirectResultIfAny() {
             };
         }
 
-        await ensureUserDoc({ uid, email });
-        saveSession({ uid, email, keepLogin: true });
+        await ensureUserDoc({ uid, email, provider: "social" });
+        saveSessionFull({ uid, email, keepLogin: true });
 
         return { success: true, consumed: true, strategy: "web_redirect", uid };
     } catch (e) {
@@ -226,8 +252,8 @@ async function webSignInWithApple({ keepLogin }) {
             return { success: false, provider: "apple", error_code: "no_uid", error_message: "Apple 로그인 후 uid가 없습니다." };
         }
 
-        await ensureUserDoc({ uid, email });
-        saveSession({ uid, email, keepLogin });
+        await ensureUserDoc({ uid, email, provider: "apple" });
+        saveSessionFull({ uid, email, keepLogin });
 
         return { success: true, provider: "apple", uid, user: userCred.user, strategy: "web_popup" };
     } catch (e) {
@@ -244,6 +270,8 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
     if (p !== "google" && p !== "kakao" && p !== "apple") {
         return { success: false, provider: p, error_code: "invalid_provider" };
     }
+
+    try { sessionStorage.setItem('lastSocialProvider', p); } catch {}
 
     if (!isInRnWebView()) {
         if (p === "google") return await webSignInWithGoogle({ keepLogin });
@@ -313,8 +341,8 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
                 };
             }
 
-            await ensureUserDoc({ uid, email });
-            saveSession({ uid, email, keepLogin });
+            await ensureUserDoc({ uid, email, provider: "google" });
+            saveSessionFull({ uid, email, keepLogin });
 
             return { success: true, provider: "google", uid, user: userCred.user };
         }
@@ -364,8 +392,8 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
                 };
             }
 
-            await ensureUserDoc({ uid, email: emailFinal });
-            saveSession({ uid, email: emailFinal, keepLogin });
+            await ensureUserDoc({ uid, email: emailFinal, provider: "kakao" });
+            saveSessionFull({ uid, email: emailFinal, keepLogin });
 
             return { success: true, provider: "kakao", uid, kakaoId, user: userCred.user };
         }
@@ -389,8 +417,8 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
                 return { success: false, provider: "apple", error_code: "no_uid", error_message: "Apple signInWithCredential 이후 uid가 없습니다." };
             }
 
-            await ensureUserDoc({ uid, email });
-            saveSession({ uid, email, keepLogin });
+            await ensureUserDoc({ uid, email, provider: "apple" });
+            saveSessionFull({ uid, email, keepLogin });
 
             return { success: true, provider: "apple", uid, user: userCred.user };
         }
@@ -425,8 +453,7 @@ export function watchAuthState(onChange) {
     return onAuthStateChanged(auth, async (user) => {
         try {
             if (user?.uid) {
-                await ensureUserDoc({ uid: user.uid, email: user.email || "" });
-                saveSession({ uid: user.uid, email: user.email || "", keepLogin: true });
+                saveSessionFull({ uid: user.uid, email: user.email || "", keepLogin: true });
             } else {
                 clearSession();
             }
@@ -471,7 +498,7 @@ export async function signInWithEmailPassword({ email, password, keepLogin = tru
         }
 
         await ensureUserDoc({ uid, email: emailFinal });
-        saveSession({ uid, email: emailFinal, keepLogin });
+        saveSessionFull({ uid, email: emailFinal, keepLogin });
 
         return { success: true, provider: "email", uid, user: userCred.user, strategy: "web_email" };
     } catch (err) {
@@ -520,8 +547,8 @@ export async function signUpWithEmailPassword({ email, password, keepLogin = tru
             return { success: false, error_code: "no_uid", error_message: "회원가입 결과 uid가 없습니다." };
         }
 
-        await ensureUserDoc({ uid, email: safeTrim(cred?.user?.email || e), isNew: true });
-        saveSession({ uid, email: safeTrim(cred?.user?.email || e), keepLogin });
+        await ensureUserDoc({ uid, email: safeTrim(cred?.user?.email || e), provider: "email" });
+        saveSessionFull({ uid, email: safeTrim(cred?.user?.email || e), keepLogin });
 
         return { success: true, provider: "email", uid, user: cred.user };
     } catch (err) {

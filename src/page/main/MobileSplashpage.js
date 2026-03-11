@@ -1,9 +1,9 @@
 /* eslint-disable */
-import React, { useContext, useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { UserContext } from "../../context/User";
 import { watchAuthState } from "../../service/AuthService";
+import { getUserProfileByUid } from "../../service/UserProfileService";
 import { sendWebReadyOnce } from "../../bridge/webviewBridge";
 import { THEME } from "../../config/homeproConfig";
 import { ReactComponent as HomeProSymbol } from "../../assets/icons/homepro-symbol.svg";
@@ -39,22 +39,48 @@ const SubText = styled.div`
 
 const MobileSplashpage = () => {
   const navigate = useNavigate();
-  const { dispatch } = useContext(UserContext);
+  const resolving = useRef(false);
 
   useEffect(() => {
     sendWebReadyOnce();
 
-    const unsubscribe = watchAuthState((user) => {
-      if (user?.uid) {
-        dispatch({
-          USERS_ID: user.uid,
-          USERINFO: { nickname: user.displayName || "", userimg: user.photoURL || "" },
-        });
-        navigate("/MobileMain", { replace: true });
-      } else {
+    const unsubscribe = watchAuthState(async (user) => {
+      if (resolving.current) return;
+      resolving.current = true;
+
+      if (!user?.uid) {
         setTimeout(() => {
           navigate("/MobileLogin", { replace: true });
         }, 1500);
+        return;
+      }
+
+      try {
+        const profile = await getUserProfileByUid(user.uid);
+
+        if (!profile) {
+          // 프로필 없음 (소셜 신규) → 전화번호 인증
+          navigate("/MobileLinkPhone", { replace: true });
+          return;
+        }
+
+        // 전화번호 미인증 → LinkPhone
+        if (!profile.phoneE164 && !profile.phoneVerified) {
+          navigate("/MobileLinkPhone", { replace: true });
+          return;
+        }
+
+        // 닉네임/역할 미설정 → SetNickname
+        if (!profile.name || !profile.role) {
+          navigate("/MobileSetNickname", { replace: true });
+          return;
+        }
+
+        // 모든 조건 통과 → 메인
+        navigate("/MobileMain", { replace: true });
+      } catch (err) {
+        console.error("Splash 분기 실패:", err);
+        navigate("/MobileLogin", { replace: true });
       }
     });
 

@@ -2,13 +2,12 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
-import { watchAuthState } from "../../service/AuthService";
-import { linkPhoneToUid } from "../../service/UserProfileService";
+import { useAuth } from "../../context/AuthContext";
+import { linkPhoneToUid, getUserByPhone, linkSocialToExistingUser, linkEmailToExistingUser, initUserDoc } from "../../service/UserProfileService";
+import { getLastSocialProvider } from "../../service/AuthService";
+import { toE164KR, genOtp6, sendOtpViaProxy, formatKRPhone as formatKR } from "../../service/recoveryService";
 import { UserContext } from "../../context/User";
 import { THEME } from "../../config/homeproConfig";
-
-const SMS_CF_URL = "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend";
-const SMS_LABEL = "홈프로";
 
 const TEST_RANGE_START = "01062141000";
 const TEST_RANGE_END = "01062142000";
@@ -31,19 +30,13 @@ const formatKRPhone = (raw) => {
     if (d.length > 3) return `${d.slice(0, 3)}-${d.slice(3)}`;
     return d;
 };
-const toE164KR = (raw) => {
-    const d = onlyDigits(raw);
-    if (!d) return "";
-    const local = d.startsWith("0") ? d.slice(1) : d;
-    return `+82${local}`;
-};
-const genOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 export default function MobileLinkPhonecontainer() {
     const nav = useNavigate();
     const { dispatch } = useContext(UserContext);
+    const { currentUser, refreshUser } = useAuth();
 
-    const [uid, setUid] = useState("");
+    const uid = currentUser?.uid || "";
     const [busy, setBusy] = useState(false);
 
     const [phone, setPhone] = useState("");
@@ -60,15 +53,10 @@ export default function MobileLinkPhonecontainer() {
     const isDev = useMemo(() => inTestRange(digits), [digits]);
 
     useEffect(() => {
-        const unsub = watchAuthState((user) => {
-            if (!user?.uid) {
-                nav("/MobileLogin", { replace: true });
-                return;
-            }
-            setUid(user.uid);
-        });
-        return () => { try { unsub?.(); } catch (e) { } };
-    }, [nav]);
+        if (!currentUser?.uid) {
+            nav("/MobileLogin", { replace: true });
+        }
+    }, [currentUser, nav]);
 
     const resetOtpState = () => {
         setCodeInput("");
@@ -106,7 +94,7 @@ export default function MobileLinkPhonecontainer() {
 
         setOtpBusy(true);
         try {
-            const otp = genOtp();
+            const otp = genOtp6();
             const e164 = toE164KR(phone);
 
             setSentToE164(e164);
@@ -123,23 +111,13 @@ export default function MobileLinkPhonecontainer() {
 
             setDevCode("");
 
-            const resp = await fetch(SMS_CF_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    phone: onlyDigits(phone),
-                    authcode: otp,
-                    label: SMS_LABEL,
-                }),
-            });
-
-            if (!resp.ok) {
-                window.alert(`인증 코드를 전송하지 못했습니다. 발송 실패(${resp.status})`);
+            try {
+                await sendOtpViaProxy({ phone: onlyDigits(phone), authcode: otp });
+                window.alert("인증번호를 전송했습니다. 문자 메시지를 확인해 주세요.");
+            } catch (err) {
+                window.alert(`인증 코드를 전송하지 못했습니다. ${err.message}`);
                 resetOtpState();
-                return;
             }
-
-            window.alert("인증번호를 전송했습니다. 문자 메시지를 확인해 주세요.");
         } catch (e) {
             window.alert("코드 전송 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
             resetOtpState();
@@ -183,14 +161,51 @@ export default function MobileLinkPhonecontainer() {
         if (busy) return;
         setBusy(true);
         try {
-            const result = await linkPhoneToUid({ uid, phoneE164, provider: "link" });
-            const resolvedPrimaryUid = result?.primaryUid || uid;
+            // 기존 사용자가 같은 전화번호로 이미 가입했는지 확인
+            const existingUser = await getUserByPhone(phoneE164);
 
-            dispatch({ primaryUid: resolvedPrimaryUid });
+            if (existingUser && existingUser.uid !== uid) {
+                // 기존 사용자 발견 → 현재 계정을 기존 사용자에 연결
+                const provider = getLastSocialProvider() || currentUser?.providerData?.[0]?.providerId || "";
+                const normalizedProvider = (provider || "").replace(".com", "").toLowerCase();
 
-            try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) { }
+                if (normalizedProvider === "email" || normalizedProvider === "password") {
+                    await linkEmailToExistingUser({
+                        existingUid: existingUser.uid,
+                        emailUid: uid,
+                    });
+                } else {
+                    await linkSocialToExistingUser({
+                        existingUid: existingUser.uid,
+                        socialUid: uid,
+                        provider,
+                    });
+                }
+                await linkPhoneToUid({ uid: existingUser.uid, phoneE164 });
 
-            nav("/MobileSetNickname", { replace: true });
+                const resolvedPrimaryUid = existingUser.uid;
+                dispatch({ primaryUid: resolvedPrimaryUid });
+                try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
+
+                await refreshUser();
+                nav("/MobileMain", { replace: true });
+            } else {
+                // 신규 또는 본인 → 전화번호 연결
+                if (!existingUser) {
+                    // 신규 사용자일 수 있으므로 initUserDoc 호출
+                    const provider = getLastSocialProvider() || currentUser?.providerData?.[0]?.providerId || "";
+                    await initUserDoc({ uid, email: currentUser?.email || "", provider });
+                }
+
+                const result = await linkPhoneToUid({ uid, phoneE164, provider: "link" });
+                const resolvedPrimaryUid = result?.primaryUid || uid;
+
+                dispatch({ primaryUid: resolvedPrimaryUid });
+                try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
+
+                await refreshUser();
+                nav("/MobileSetNickname", { replace: true });
+            }
         } catch (e) {
             window.alert("전화번호 저장에 실패했습니다. 다시 시도해주세요.");
         } finally {
