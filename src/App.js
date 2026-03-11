@@ -6,8 +6,13 @@ import { useMediaQuery } from "react-responsive";
 import styled, { createGlobalStyle } from "styled-components";
 
 import { UserContext } from "./context/User";
+import { AuthProvider } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
 import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
+import RequireAuth from "./components/guards/RequireAuth";
+import RequirePhone from "./components/guards/RequirePhone";
+import RequireAdmin from "./components/guards/RequireAdmin";
+import AdminLayout from "./components/admin/AdminLayout";
 
 /* Pages */
 import MobileSplashpage from "./page/main/MobileSplashpage";
@@ -39,6 +44,21 @@ import SupportPage from "./page/support/SupportPage";
 import CalendarPage from "./page/calendar/CalendarPage";
 import ScheduleCreatePage from "./page/calendar/ScheduleCreatePage";
 import SearchPage from "./page/search/SearchPage";
+import ChatDetailPage from "./page/chat/ChatDetailPage";
+import ChatMemoPage from "./page/chat/ChatMemoPage";
+
+/* Admin Pages */
+import AdminLoginPage from "./page/admin/AdminLoginPage";
+import AdminDashboardPage from "./page/admin/AdminDashboardPage";
+import AdminUsersPage from "./page/admin/AdminUsersPage";
+import AdminMatchingPage from "./page/admin/AdminMatchingPage";
+import AdminChatPage from "./page/admin/AdminChatPage";
+import AdminAdsPage from "./page/admin/AdminAdsPage";
+import AdminPointsPage from "./page/admin/AdminPointsPage";
+import AdminNoticePage from "./page/admin/AdminNoticePage";
+import AdminUpdatesPage from "./page/admin/AdminUpdatesPage";
+import AdminSettingsPage from "./page/admin/AdminSettingsPage";
+import AdminSettlementPage from "./page/admin/AdminSettlementPage";
 
 /* ===================== motion wrappers ===================== */
 
@@ -59,8 +79,15 @@ const wrap = (el) => <PageWrapper>{el}</PageWrapper>;
 /* ===================== layout / global ===================== */
 
 const Container = styled.div`
-  width: ${({ $isGalaxyFlipUnfolded }) => ($isGalaxyFlipUnfolded ? "60%" : "100%")};
-  margin: ${({ $isGalaxyFlipUnfolded }) => ($isGalaxyFlipUnfolded ? "0 auto" : "0")};
+  max-width: 400px;
+  margin: 0 auto;
+  background: #fff;
+  min-height: 100vh;
+  position: relative;
+`;
+
+const FullContainer = styled.div`
+  width: 100%;
 `;
 
 const GlobalStyle = createGlobalStyle`
@@ -70,6 +97,7 @@ const GlobalStyle = createGlobalStyle`
     height: 100%;
     overscroll-behavior: none;
     touch-action: none;
+    background: #F2F4F6;
     font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -154,68 +182,104 @@ const AnimatedRoutes = () => {
     }
   });
 
+  const isAdmin = location.pathname.startsWith("/admin");
+  const Wrapper = isAdmin ? FullContainer : Container;
+
   return (
     <AnimatePresence mode="wait">
-      <Container $isGalaxyFlipUnfolded={isGalaxyFlipUnfolded}>
+      <Wrapper>
         <Routes location={location} key={location.pathname}>
-          {/* Main */}
+          {/* Public - 인증 불필요 */}
           <Route path="/" element={<Navigate to="/MobileSplash" replace />} />
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
           <Route path="/MobileLogin" element={wrap(<MobileLoginpage />)} />
           <Route path="/MobileSignup" element={wrap(<MobileSignuppage />)} />
-          <Route path="/MobileLinkPhone" element={wrap(<MobileLinkPhonepage />)} />
-          <Route path="/MobileSetNickname" element={wrap(<MobileSetNicknamepage />)} />
-          <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
-          <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
-          <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
-          <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
           <Route path="/MobileFindAccount" element={wrap(<MobileFindAccountpage />)} />
-
-          {/* Pro */}
-          <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
-          <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
-          <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />
-          <Route path="/pro/category-edit/:categoryId" element={wrap(<ProCategoryEditPage />)} />
-
-          {/* Category & Service */}
-          <Route path="/category/:categoryId" element={wrap(<CategoryProListPage />)} />
-          <Route path="/service/:categoryId/:serviceId" element={wrap(<ServiceDetailPage />)} />
-
-          {/* Notice */}
-          <Route path="/notice" element={wrap(<NoticePage />)} />
-          <Route path="/support" element={wrap(<SupportPage />)} />
-
-          {/* Legal */}
           <Route path="/legal/terms" element={wrap(<TermsPage />)} />
           <Route path="/legal/privacy" element={wrap(<PrivacyPage />)} />
           <Route path="/legal/location" element={wrap(<LocationTermsPage />)} />
 
-          {/* Order */}
-          <Route path="/order/ai-estimate" element={wrap(<AIEstimatePage />)} />
-          <Route path="/order/my-orders" element={wrap(<MyOrdersPage />)} />
-          <Route path="/order/create" element={wrap(<OrderCreatePage />)} />
-          <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
-          <Route path="/order/list" element={wrap(<OrderListPage />)} />
-          <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
+          {/* Auth Required - 로그인 필요 */}
+          <Route element={<RequireAuth />}>
+            <Route path="/MobileLinkPhone" element={wrap(<MobileLinkPhonepage />)} />
+            <Route path="/MobileSetNickname" element={wrap(<MobileSetNicknamepage />)} />
 
-          {/* Search */}
-          <Route path="/search" element={wrap(<SearchPage />)} />
+            {/* Phone Required - 전화번호 인증 필요 */}
+            <Route element={<RequirePhone />}>
+              <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
+              <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
+              <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
+              <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
+              <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
+              <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
 
-          {/* Calendar */}
-          <Route path="/calendar" element={wrap(<CalendarPage />)} />
-          <Route path="/calendar/create" element={wrap(<ScheduleCreatePage />)} />
+              {/* Pro */}
+              <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
+              <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
+              <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />
+              <Route path="/pro/category-edit/:categoryId" element={wrap(<ProCategoryEditPage />)} />
+
+              {/* Category & Service */}
+              <Route path="/category/:categoryId" element={wrap(<CategoryProListPage />)} />
+              <Route path="/service/:categoryId/:serviceId" element={wrap(<ServiceDetailPage />)} />
+
+              {/* Notice */}
+              <Route path="/notice" element={wrap(<NoticePage />)} />
+              <Route path="/support" element={wrap(<SupportPage />)} />
+
+              {/* Order */}
+              <Route path="/order/ai-estimate" element={wrap(<AIEstimatePage />)} />
+              <Route path="/order/my-orders" element={wrap(<MyOrdersPage />)} />
+              <Route path="/order/create" element={wrap(<OrderCreatePage />)} />
+              <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
+              <Route path="/order/list" element={wrap(<OrderListPage />)} />
+              <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
+
+              {/* Search */}
+              <Route path="/search" element={wrap(<SearchPage />)} />
+
+              {/* Calendar */}
+              <Route path="/calendar" element={wrap(<CalendarPage />)} />
+              <Route path="/calendar/create" element={wrap(<ScheduleCreatePage />)} />
+            </Route>
+          </Route>
+
+          {/* Admin */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="users/:filter" element={<AdminUsersPage />} />
+              <Route path="matching" element={<AdminMatchingPage />} />
+              <Route path="matching/:filter" element={<AdminMatchingPage />} />
+              <Route path="chat" element={<AdminChatPage />} />
+              <Route path="chat/:filter" element={<AdminChatPage />} />
+              <Route path="ads" element={<AdminAdsPage />} />
+              <Route path="ads/:filter" element={<AdminAdsPage />} />
+              <Route path="points" element={<AdminPointsPage />} />
+              <Route path="points/:filter" element={<AdminPointsPage />} />
+              <Route path="notice" element={<AdminNoticePage />} />
+              <Route path="notice/:filter" element={<AdminNoticePage />} />
+              <Route path="settlement" element={<AdminSettlementPage />} />
+              <Route path="settlement/:filter" element={<AdminSettlementPage />} />
+              <Route path="updates" element={<AdminUpdatesPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="settings/:filter" element={<AdminSettingsPage />} />
+            </Route>
+          </Route>
         </Routes>
-      </Container>
+      </Wrapper>
     </AnimatePresence>
   );
 };
 
 function App() {
   return (
-    <>
+    <AuthProvider>
       <GlobalStyle />
       <AnimatedRoutes />
-    </>
+    </AuthProvider>
   );
 }
 

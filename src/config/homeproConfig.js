@@ -448,5 +448,14 @@ export const PRO_DETAIL_FIELDS = {
     ],
 };
 
+// ─── Cloud Functions URL ───
+export const APP_CONFIG = {
+    sms: {
+        cfUrl: "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend",
+        label: "홈프로",
+    },
+    resetPasswordUrl: "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/resetPassword",
+};
+
 // ─── 결제수단 ───
 export const PAYMENT_METHODS = ["카드결제", "계좌이체", "쿠폰결제", "캐시", "Pi"];
