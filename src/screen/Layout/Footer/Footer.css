@@ -2,9 +2,10 @@
 .site-mobile-footer {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
+  max-width: 400px;
   height: 60px;
   background: #fff;
   border-top: 1px solid #E5E8EB;
@@ -49,4 +50,14 @@
   font-weight: 400;
   color: #8B95A1;
   margin-top: 3px;
+}
+
+/* FAB + 버튼 회전 애니메이션 */
+@keyframes fab-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fab-spin {
+  animation: fab-rotate 0.5s ease-out;
 }

@@ -10,7 +10,7 @@ import { AuthProvider } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
 import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
 import RequireAuth from "./components/guards/RequireAuth";
-import RequirePhone from "./components/guards/RequirePhone";
+// import RequirePhone from "./components/guards/RequirePhone";
 import RequireAdmin from "./components/guards/RequireAdmin";
 import AdminLayout from "./components/admin/AdminLayout";
 
@@ -36,6 +36,7 @@ import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
 import ProCategoryListPage from "./page/pro/ProCategoryListPage";
 import ProCategoryDetailPage from "./page/pro/ProCategoryDetailPage";
 import ProCategoryEditPage from "./page/pro/ProCategoryEditPage";
+import BizProfilePage from "./page/pro/BizProfilePage";
 import TermsPage from "./page/legal/TermsPage";
 import PrivacyPage from "./page/legal/PrivacyPage";
 import LocationTermsPage from "./page/legal/LocationTermsPage";
@@ -46,6 +47,12 @@ import ScheduleCreatePage from "./page/calendar/ScheduleCreatePage";
 import SearchPage from "./page/search/SearchPage";
 import ChatDetailPage from "./page/chat/ChatDetailPage";
 import ChatMemoPage from "./page/chat/ChatMemoPage";
+import CommunityPage from "./page/community/CommunityPage";
+import CommunityDetailPage from "./page/community/CommunityDetailPage";
+import CommunityWritePage from "./page/community/CommunityWritePage";
+import GuidePage from "./page/guide/GuidePage";
+import ReferralFriendsPage from "./page/referral/ReferralFriendsPage";
+import ReferralPointsPage from "./page/referral/ReferralPointsPage";
 
 /* Admin Pages */
 import AdminLoginPage from "./page/admin/AdminLoginPage";
@@ -59,6 +66,7 @@ import AdminNoticePage from "./page/admin/AdminNoticePage";
 import AdminUpdatesPage from "./page/admin/AdminUpdatesPage";
 import AdminSettingsPage from "./page/admin/AdminSettingsPage";
 import AdminSettlementPage from "./page/admin/AdminSettlementPage";
+import AdminProApprovalPage from "./page/admin/AdminProApprovalPage";
 
 /* ===================== motion wrappers ===================== */
 
@@ -81,7 +89,7 @@ const wrap = (el) => <PageWrapper>{el}</PageWrapper>;
 const Container = styled.div`
   max-width: 400px;
   margin: 0 auto;
-  background: #fff;
+  background: #F2F4F6;
   min-height: 100vh;
   position: relative;
 `;
@@ -204,44 +212,56 @@ const AnimatedRoutes = () => {
             <Route path="/MobileLinkPhone" element={wrap(<MobileLinkPhonepage />)} />
             <Route path="/MobileSetNickname" element={wrap(<MobileSetNicknamepage />)} />
 
-            {/* Phone Required - 전화번호 인증 필요 */}
-            <Route element={<RequirePhone />}>
-              <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
-              <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
-              <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
-              <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
-              <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
-              <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
+            <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
+            <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
+            <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
+            <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
+            <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
+            <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
 
-              {/* Pro */}
-              <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
-              <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
-              <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />
-              <Route path="/pro/category-edit/:categoryId" element={wrap(<ProCategoryEditPage />)} />
+            {/* Pro */}
+            <Route path="/biz-profile" element={wrap(<BizProfilePage />)} />
+            <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
+            <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
+            <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />
+            <Route path="/pro/category-edit/:categoryId" element={wrap(<ProCategoryEditPage />)} />
 
-              {/* Category & Service */}
-              <Route path="/category/:categoryId" element={wrap(<CategoryProListPage />)} />
-              <Route path="/service/:categoryId/:serviceId" element={wrap(<ServiceDetailPage />)} />
+            {/* Category & Service */}
+            <Route path="/category/:categoryId" element={wrap(<CategoryProListPage />)} />
+            <Route path="/service/:categoryId/:serviceId" element={wrap(<ServiceDetailPage />)} />
 
-              {/* Notice */}
-              <Route path="/notice" element={wrap(<NoticePage />)} />
-              <Route path="/support" element={wrap(<SupportPage />)} />
+            {/* Notice */}
+            <Route path="/notice" element={wrap(<NoticePage />)} />
+            <Route path="/support" element={wrap(<SupportPage />)} />
 
-              {/* Order */}
-              <Route path="/order/ai-estimate" element={wrap(<AIEstimatePage />)} />
-              <Route path="/order/my-orders" element={wrap(<MyOrdersPage />)} />
-              <Route path="/order/create" element={wrap(<OrderCreatePage />)} />
-              <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
-              <Route path="/order/list" element={wrap(<OrderListPage />)} />
-              <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
+            {/* Order */}
+            <Route path="/order/ai-estimate" element={wrap(<AIEstimatePage />)} />
+            <Route path="/order/my-orders" element={wrap(<MyOrdersPage />)} />
+            <Route path="/order/create" element={wrap(<OrderCreatePage />)} />
+            <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
+            <Route path="/order/list" element={wrap(<OrderListPage />)} />
+            <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
 
-              {/* Search */}
-              <Route path="/search" element={wrap(<SearchPage />)} />
+            {/* Search */}
+            <Route path="/search" element={wrap(<SearchPage />)} />
 
-              {/* Calendar */}
-              <Route path="/calendar" element={wrap(<CalendarPage />)} />
-              <Route path="/calendar/create" element={wrap(<ScheduleCreatePage />)} />
-            </Route>
+            {/* Calendar */}
+            <Route path="/calendar" element={wrap(<CalendarPage />)} />
+            <Route path="/calendar/create" element={wrap(<ScheduleCreatePage />)} />
+
+            {/* Guide */}
+            <Route path="/guide/:guideId" element={wrap(<GuidePage />)} />
+
+            {/* Community */}
+            <Route path="/community" element={wrap(<CommunityPage />)} />
+            <Route path="/community/write" element={wrap(<CommunityWritePage />)} />
+            <Route path="/community/:postId" element={wrap(<CommunityDetailPage />)} />
+          </Route>
+
+          {/* Referral */}
+          <Route element={<RequireAuth />}>
+            <Route path="/referral/friends" element={wrap(<ReferralFriendsPage />)} />
+            <Route path="/referral/points" element={wrap(<ReferralPointsPage />)} />
           </Route>
 
           {/* Admin */}
@@ -251,6 +271,8 @@ const AnimatedRoutes = () => {
               <Route index element={<AdminDashboardPage />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="users/:filter" element={<AdminUsersPage />} />
+              <Route path="pro-approval" element={<AdminProApprovalPage />} />
+              <Route path="pro-approval/:filter" element={<AdminProApprovalPage />} />
               <Route path="matching" element={<AdminMatchingPage />} />
               <Route path="matching/:filter" element={<AdminMatchingPage />} />
               <Route path="chat" element={<AdminChatPage />} />

@@ -12,15 +12,17 @@ const Container = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 24px;
-  background: #fff;
+  padding: 24px 12px;
+  background: ${THEME.background};
 `;
 
 const Logo = styled.div`
   font-size: 36px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.primary};
   margin-bottom: 8px;
+  letter-spacing: -0.03em;
+  font-family: inherit;
 `;
 
 const Desc = styled.div`
@@ -150,7 +152,7 @@ const SignupLink = styled.span`
 const MobileLoginpage = () => {
   const navigate = useNavigate();
   const { dispatch } = useContext(UserContext);
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -162,14 +164,14 @@ const MobileLoginpage = () => {
   };
 
   const handleEmailLogin = async () => {
-    if (!email || !password) {
-      setError("이메일과 비밀번호를 입력해주세요.");
+    if (!loginId || !password) {
+      setError("아이디와 비밀번호를 입력해주세요.");
       return;
     }
     setLoading(true);
     setError("");
 
-    const res = await signInWithEmailPassword({ email, password });
+    const res = await signInWithEmailPassword({ email: loginId, password });
     setLoading(false);
 
     if (res.success) {
@@ -204,10 +206,11 @@ const MobileLoginpage = () => {
       <Desc>각 분야 전문가를 연결하는 실전형 플랫폼</Desc>
 
       <Input
-        type="email"
-        placeholder="이메일"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        type="text"
+        placeholder="아이디"
+        value={loginId}
+        onChange={(e) => setLoginId(e.target.value)}
+        autoComplete="username"
       />
       <Input
         type="password"

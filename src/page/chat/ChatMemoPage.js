@@ -4,9 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { IoChevronBack, IoTrashOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
-import { db } from "../../api/config";
-import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "../../context/AuthContext";
+import { subscribeChatRoom, updateMemo, deleteMemo } from "../../service/ChatService";
 
 const ChatMemoPage = () => {
   const { roomId } = useParams();
@@ -21,28 +20,20 @@ const ChatMemoPage = () => {
 
   useEffect(() => {
     if (!roomId) return;
-    const unsub = onSnapshot(doc(db, "chatRooms", roomId), (snap) => {
-      if (snap.exists()) {
-        const data = { id: snap.id, ...snap.data() };
-        setRoom(data);
-        if (!loaded) {
-          setMemoText(data.memo || "");
-          setLoaded(true);
-        }
+    return subscribeChatRoom(roomId, (data) => {
+      setRoom(data);
+      if (!loaded) {
+        setMemoText(data.memo || "");
+        setLoaded(true);
       }
     });
-    return () => unsub();
   }, [roomId, loaded]);
 
   const handleSave = async () => {
     if (saving || !memoText.trim()) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, "chatRooms", roomId), {
-        memo: memoText.trim(),
-        memoUpdatedAt: serverTimestamp(),
-        memoUpdatedBy: myUid,
-      });
+      await updateMemo(roomId, memoText, myUid);
       navigate(-1);
     } catch (err) {
       console.error("메모 저장 실패:", err);
@@ -55,11 +46,7 @@ const ChatMemoPage = () => {
     if (saving) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, "chatRooms", roomId), {
-        memo: "",
-        memoUpdatedAt: serverTimestamp(),
-        memoUpdatedBy: myUid,
-      });
+      await deleteMemo(roomId, myUid);
       navigate(-1);
     } catch (err) {
       console.error("메모 삭제 실패:", err);
@@ -187,6 +174,7 @@ const DeleteBtn = styled.button`
   width: 100%;
   padding: 12px;
   border-radius: 4px;
+  border: none;
   font-size: 14px;
   color: #E85830;
   background: #FFF0EC;

@@ -1,6 +1,6 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { onCall } = require("firebase-functions/v2/https");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -284,3 +284,221 @@ exports.sendTestPush = onRequest({ region: "asia-northeast3", cors: true }, asyn
         res.status(500).json({ ok: false, error: err.message });
     }
 });
+
+// ============================================
+// 알림 트리거 시스템
+// ============================================
+
+/**
+ * 공통 알림 문서 생성
+ */
+async function createNotification(type, title, body, targetUids, data = {}) {
+    if (!targetUids || targetUids.length === 0) return;
+    await db.collection("notifications").add({
+        type,
+        title,
+        body,
+        targetUids,
+        data,
+        sent: false,
+        createdAt: admin.firestore.Timestamp.now(),
+    });
+}
+
+// ─── 1. 주문 생성 알림 (해당 카테고리 Pro에게) ───
+exports.onOrderCreated = onDocumentCreated(
+    { document: "homepro_orders/{orderId}", region: "asia-northeast3" },
+    async (event) => {
+        const snap = event.data;
+        if (!snap) return;
+
+        const order = snap.data();
+        const categoryId = order.categoryId;
+        if (!categoryId) return;
+
+        // 해당 카테고리의 승인된 Pro 조회
+        const prosSnap = await db.collection("homepro_pros")
+            .where("categoryId", "==", categoryId)
+            .where("status", "==", "approved")
+            .get();
+
+        const targetUids = [];
+        prosSnap.forEach((doc) => {
+            const uid = doc.data().uid;
+            // 주문 작성자 본인은 제외
+            if (uid && uid !== order.createdBy) {
+                targetUids.push(uid);
+            }
+        });
+
+        const categoryName = order.categoryName || "";
+        const address = order.address || "";
+
+        await createNotification(
+            "order",
+            "새 요청이 들어왔습니다",
+            `${categoryName}${address ? " · " + address : ""}`,
+            targetUids,
+            { orderId: event.params.orderId, categoryId }
+        );
+    }
+);
+
+// ─── 2. 주문 상태 변경 알림 ───
+exports.onOrderUpdated = onDocumentUpdated(
+    { document: "homepro_orders/{orderId}", region: "asia-northeast3" },
+    async (event) => {
+        const before = event.data.before.data();
+        const after = event.data.after.data();
+
+        // 상태가 변경된 경우만
+        if (before.orderStatus === after.orderStatus) return;
+
+        const targetUids = [];
+        const updatedBy = after.updatedBy || null;
+
+        // 주문자에게 알림 (본인이 변경한 게 아니면)
+        if (after.createdBy && after.createdBy !== updatedBy) {
+            targetUids.push(after.createdBy);
+        }
+
+        // 배정된 Pro에게 알림 (본인이 변경한 게 아니면)
+        if (after.assignedPro && after.assignedPro !== updatedBy && after.assignedPro !== after.createdBy) {
+            targetUids.push(after.assignedPro);
+        }
+
+        const categoryName = after.categoryName || "";
+
+        await createNotification(
+            "order",
+            "주문 상태가 변경되었습니다",
+            `${categoryName} ${before.orderStatus} → ${after.orderStatus}`,
+            targetUids,
+            { orderId: event.params.orderId, orderStatus: after.orderStatus }
+        );
+    }
+);
+
+// ─── 채팅 응답 속도 측정 (프로 첫 응답만) ───
+exports.onChatMessageResponseTime = onDocumentCreated(
+    { document: "chatRooms/{roomId}/messages/{messageId}", region: "asia-northeast3" },
+    async (event) => {
+        const snap = event.data;
+        if (!snap) return;
+
+        const msg = snap.data();
+        const roomId = event.params.roomId;
+        const senderId = msg.senderId;
+        if (!senderId || !msg.createdAt) return;
+
+        // 채팅방 참여자 조회
+        const roomDoc = await db.collection("chatRooms").doc(roomId).get();
+        if (!roomDoc.exists) return;
+        const room = roomDoc.data();
+        const participants = room.participants || [];
+        if (participants.length < 2) return;
+
+        // senderId가 프로인지 확인
+        const userDoc = await db.collection("users").doc(senderId).get();
+        if (!userDoc.exists) return;
+        const userData = userDoc.data();
+        const isPro = userData.role === "pro" || userData.isPro === true;
+        if (!isPro) return;
+
+        // 상대방(고객) uid
+        const customerUid = participants.find((uid) => uid !== senderId);
+        if (!customerUid) return;
+
+        // 해당 방의 메시지를 최신순으로 조회 (현재 메시지 이전)
+        const messagesRef = db.collection("chatRooms").doc(roomId).collection("messages");
+        const recentMsgs = await messagesRef
+            .orderBy("createdAt", "desc")
+            .limit(20)
+            .get();
+
+        const msgs = [];
+        recentMsgs.forEach((d) => {
+            if (d.id !== event.params.messageId) {
+                msgs.push({ id: d.id, ...d.data() });
+            }
+        });
+
+        // 직전 메시지가 프로 메시지면 연속 메시지 → 무시
+        if (msgs.length > 0 && msgs[0].senderId === senderId) return;
+
+        // 직전 고객 메시지 찾기 (프로가 아닌 첫 메시지)
+        let lastCustomerMsg = null;
+        for (const m of msgs) {
+            if (m.senderId === customerUid && m.createdAt) {
+                lastCustomerMsg = m;
+                break;
+            }
+        }
+        if (!lastCustomerMsg) return;
+
+        // 응답 시간 계산 (초)
+        const proTime = msg.createdAt.toDate ? msg.createdAt.toDate() : new Date(msg.createdAt);
+        const custTime = lastCustomerMsg.createdAt.toDate
+            ? lastCustomerMsg.createdAt.toDate()
+            : new Date(lastCustomerMsg.createdAt);
+        const responseTimeSec = Math.floor((proTime - custTime) / 1000);
+        if (responseTimeSec < 0) return;
+
+        // users/{proUid} 업데이트
+        const proRef = db.collection("users").doc(senderId);
+        await db.runTransaction(async (tx) => {
+            const proSnap = await tx.get(proRef);
+            const proData = proSnap.data() || {};
+            const newSum = (proData.responseTimeSum || 0) + responseTimeSec;
+            const newCount = (proData.responseCount || 0) + 1;
+            const newAvg = Math.round(newSum / newCount);
+            tx.update(proRef, {
+                responseTimeSum: admin.firestore.FieldValue.increment(responseTimeSec),
+                responseCount: admin.firestore.FieldValue.increment(1),
+                avgResponseTime: newAvg,
+            });
+        });
+    }
+);
+
+// ─── 3. 채팅 메시지 알림 ───
+exports.onChatMessageCreated = onDocumentCreated(
+    { document: "chatRooms/{roomId}/messages/{messageId}", region: "asia-northeast3" },
+    async (event) => {
+        const snap = event.data;
+        if (!snap) return;
+
+        const msg = snap.data();
+        const roomId = event.params.roomId;
+        const senderId = msg.senderId;
+        const senderName = msg.senderName || "알 수 없음";
+
+        // 채팅방 참여자 조회
+        const roomDoc = await db.collection("chatRooms").doc(roomId).get();
+        if (!roomDoc.exists) return;
+
+        const room = roomDoc.data();
+        const targetUids = (room.participants || []).filter((uid) => uid !== senderId);
+        if (targetUids.length === 0) return;
+
+        // 메시지 본문 결정
+        let body;
+        if (msg.type === "image") {
+            body = "사진을 보냈습니다";
+        } else if (msg.type === "file") {
+            body = `파일: ${msg.fileName || "파일"}`;
+        } else if (msg.type === "schedule") {
+            body = `일정: ${msg.schedule?.title || "일정 공유"}`;
+        } else {
+            body = (msg.text || "").substring(0, 100) || "새 메시지";
+        }
+
+        await createNotification(
+            "chat",
+            senderName,
+            body,
+            targetUids,
+            { roomId, senderId }
+        );
+    }
+);

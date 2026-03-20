@@ -1,12 +1,19 @@
 /* eslint-disable */
-import React, { useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { watchAuthState } from "../../service/AuthService";
 import { getUserProfileByUid } from "../../service/UserProfileService";
 import { sendWebReadyOnce } from "../../bridge/webviewBridge";
+import { UserContext } from "../../context/User";
 import { THEME } from "../../config/homeproConfig";
 import { ReactComponent as HomeProSymbol } from "../../assets/icons/homepro-symbol.svg";
+import { IoSparkles } from "react-icons/io5";
+
+const twinkle = keyframes`
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+`;
 
 const Container = styled.div`
   display: flex;
@@ -24,11 +31,26 @@ const SymbolWrap = styled.div`
   svg { width: 100%; height: 100%; }
 `;
 
+const LogoRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
 const Logo = styled.div`
   font-size: 42px;
-  font-weight: 400;
+  font-weight: 700;
   color: #fff;
   letter-spacing: -1px;
+  font-family: inherit;
+`;
+
+const StarWrap = styled.div`
+  color: #FFFFFF;
+  animation: ${twinkle} 1.5s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  margin-top: -8px;
 `;
 
 const SubText = styled.div`
@@ -39,6 +61,7 @@ const SubText = styled.div`
 
 const MobileSplashpage = () => {
   const navigate = useNavigate();
+  const { dispatch } = useContext(UserContext);
   const resolving = useRef(false);
 
   useEffect(() => {
@@ -59,14 +82,8 @@ const MobileSplashpage = () => {
         const profile = await getUserProfileByUid(user.uid);
 
         if (!profile) {
-          // 프로필 없음 (소셜 신규) → 전화번호 인증
-          navigate("/MobileLinkPhone", { replace: true });
-          return;
-        }
-
-        // 전화번호 미인증 → LinkPhone
-        if (!profile.phoneE164 && !profile.phoneVerified) {
-          navigate("/MobileLinkPhone", { replace: true });
+          // 프로필 없음 (신규) → 닉네임/역할 설정
+          navigate("/MobileSetNickname", { replace: true });
           return;
         }
 
@@ -76,7 +93,23 @@ const MobileSplashpage = () => {
           return;
         }
 
-        // 모든 조건 통과 → 메인
+        // 전화번호 미등록 (최초 1회만) → LinkPhone
+        if (!profile.phoneE164 && !profile.phoneVerified) {
+          navigate("/MobileLinkPhone", { replace: true });
+          return;
+        }
+
+        // 모든 조건 통과 → UserContext 세팅 후 메인
+        const primaryUid = profile.uid || user.uid;
+        dispatch({
+          USERS_ID: primaryUid,
+          USERINFO: {
+            nickname: profile.nickname || profile.name || "",
+            phone: profile.phoneE164 || "",
+            userimg: profile.profileImage || profile.photoURL || "",
+            intro: profile.intro || "",
+          },
+        });
         navigate("/MobileMain", { replace: true });
       } catch (err) {
         console.error("Splash 분기 실패:", err);
@@ -92,7 +125,10 @@ const MobileSplashpage = () => {
       <SymbolWrap>
         <HomeProSymbol />
       </SymbolWrap>
-      <Logo>HomePro</Logo>
+      <LogoRow>
+        <Logo>홈프로</Logo>
+        <StarWrap><IoSparkles size={22} /></StarWrap>
+      </LogoRow>
       <SubText>각 분야 전문가를 연결하는 실전형 플랫폼</SubText>
     </Container>
   );

@@ -13,8 +13,10 @@ export default function MobileSignupcontainer() {
 
     const [checkingAuth, setCheckingAuth] = useState(true);
     const [busy, setBusy] = useState(false);
+    const [toast, setToast] = useState("");
+    const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
-    const [email, setEmail] = useState("");
+    const [loginId, setLoginId] = useState("");
     const [pw, setPw] = useState("");
     const [pw2, setPw2] = useState("");
     const [name, setName] = useState("");
@@ -27,7 +29,7 @@ export default function MobileSignupcontainer() {
             setCheckingAuth(false);
             if (user && !routedRef.current) {
                 routedRef.current = true;
-                nav("/MobileLinkPhone", { replace: true });
+                nav("/MobileSetNickname", { replace: true });
             }
         });
 
@@ -39,48 +41,52 @@ export default function MobileSignupcontainer() {
     }, [nav]);
 
     const canSubmit = useMemo(() => {
-        const e = safeTrim(email);
-        const p = safeTrim(pw);
-        const p2 = safeTrim(pw2);
-        if (!e || !p || !p2) return false;
-        if (p.length < 6) return false;
-        if (p !== p2) return false;
-        return true;
-    }, [email, pw, pw2]);
+        return !!(safeTrim(loginId) && safeTrim(pw) && safeTrim(name));
+    }, [loginId, pw, name]);
 
     const handleSubmit = useCallback(async () => {
         if (busy) return;
 
-        const e = safeTrim(email);
+        const id = safeTrim(loginId);
         const p = safeTrim(pw);
         const p2 = safeTrim(pw2);
         const n = safeTrim(name);
 
-        if (!e) return window.alert("이메일을 입력해주세요.");
-        if (!p) return window.alert("비밀번호를 입력해주세요.");
-        if (p.length < 6) return window.alert("비밀번호는 6자 이상으로 해주세요.");
-        if (p !== p2) return window.alert("비밀번호가 일치하지 않아요.");
+        if (!id) return showToast("아이디를 입력해주세요.");
+        if (!n) return showToast("이름을 입력해주세요.");
+        if (!p) return showToast("비밀번호를 입력해주세요.");
+        if (p.length < 6) return showToast("비밀번호는 6자 이상으로 해주세요.");
+        if (p !== p2) return showToast("비밀번호가 일치하지 않아요.");
 
         setBusy(true);
         try {
             const res = await signUpWithEmailPassword({
-                email: e,
+                email: id,
                 password: p,
                 displayName: n,
             });
 
             if (!res || res.success !== true) {
-                const msg = res?.message || res?.error_message || "가입에 실패했습니다.";
-                window.alert(msg);
+                const raw = res?.message || res?.error_message || "";
+                if (raw.includes("already-in-use") || raw.includes("already")) {
+                    showToast("이미 사용 중인 아이디입니다.");
+                } else {
+                    showToast(raw || "가입에 실패했습니다.");
+                }
                 return;
             }
             // watchAuthState가 감지 → /MobileLinkPhone 이동
         } catch (err) {
-            window.alert("가입에 실패했습니다.");
+            const msg = err?.message || "";
+            if (msg.includes("already-in-use") || msg.includes("already")) {
+                showToast("이미 사용 중인 아이디입니다.");
+            } else {
+                showToast("가입에 실패했습니다.");
+            }
         } finally {
             setBusy(false);
         }
-    }, [busy, email, pw, pw2, name]);
+    }, [busy, loginId, pw, pw2, name]);
 
     return (
         <Wrap>
@@ -99,13 +105,13 @@ export default function MobileSignupcontainer() {
 
             <Card>
                 <Field>
-                    <Label>이메일</Label>
+                    <Label>아이디</Label>
                     <Input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="example@email.com"
-                        inputMode="email"
-                        autoComplete="email"
+                        value={loginId}
+                        onChange={(e) => setLoginId(e.target.value)}
+                        placeholder="영문, 숫자 조합"
+                        inputMode="text"
+                        autoComplete="username"
                     />
                 </Field>
 
@@ -132,7 +138,7 @@ export default function MobileSignupcontainer() {
                 </Field>
 
                 <Field>
-                    <Label>이름(선택)</Label>
+                    <Label>이름</Label>
                     <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -155,6 +161,7 @@ export default function MobileSignupcontainer() {
                     </GhostBtn>
                 </BtnRow>
             </Card>
+            {toast && <Toast>{toast}</Toast>}
         </Wrap>
     );
 }
@@ -173,8 +180,8 @@ const spin = keyframes`
 
 const Wrap = styled.div`
   min-height: 100vh;
-  padding: 28px 20px 18px;
-  background: #EFF6FF;
+  padding: 28px 12px 18px;
+  background: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -202,13 +209,9 @@ const H1 = styled.div`
 
 const Card = styled.div`
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   margin-top: 16px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 14px 26px rgba(17, 24, 39, 0.06);
+  padding: 0;
   animation: ${popIn} 0.55s ease-out both;
   animation-delay: 0.12s;
   box-sizing: border-box;
@@ -228,14 +231,14 @@ const Label = styled.div`
   color: rgba(17, 24, 39, 0.72);
 `;
 
+
 const Input = styled.input`
   width: 100%;
   height: 52px;
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 0 16px;
-  border: 1px solid rgba(17, 24, 39, 0.10);
+  border: 1px solid ${THEME.border};
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
   font-size: 15px !important;
   font-weight: 400;
   letter-spacing: -0.02em;
@@ -249,8 +252,8 @@ const Input = styled.input`
   }
 
   &:focus {
-    border-color: rgba(37, 99, 235, 0.30);
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
+    border-color: ${THEME.primaryLight};
+    box-shadow: 0 0 0 4px rgba(124, 92, 252, 0.10);
   }
 `;
 
@@ -265,28 +268,26 @@ const PrimaryBtn = styled.button`
   flex: 1;
   min-width: 0;
   height: 48px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, ${THEME.primary}dd 0%, ${THEME.primary}cc 100%);
-  border: 1px solid ${THEME.primary}33;
-  box-shadow: 0 10px 22px ${THEME.primary}22;
-  color: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  background: ${THEME.primary};
+  border: none;
+  color: #fff;
   font-size: 15px !important;
   font-weight: 400;
   letter-spacing: -0.03em;
   cursor: pointer;
 
   &:active { transform: translateY(1px); }
-  &:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
 `;
 
 const GhostBtn = styled.button`
   flex: 1;
   min-width: 0;
   height: 48px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid ${THEME.primary}2e;
-  box-shadow: 0 10px 18px rgba(17, 24, 39, 0.06);
+  border-radius: 10px;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
   color: rgba(17, 24, 39, 0.86);
   font-size: 15px !important;
   font-weight: 400;
@@ -294,7 +295,7 @@ const GhostBtn = styled.button`
   cursor: pointer;
 
   &:active { transform: translateY(1px); }
-  &:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 const Overlay = styled.div`
@@ -328,4 +329,19 @@ const MiniSpinner = styled.div`
   border: 3px solid rgba(0, 0, 0, 0.12);
   border-top-color: ${THEME.primary};
   animation: ${spin} 0.9s linear infinite;
+`;
+
+const Toast = styled.div`
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: #333;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 400;
+  border-radius: 10px;
+  z-index: 9999;
+  white-space: nowrap;
 `;

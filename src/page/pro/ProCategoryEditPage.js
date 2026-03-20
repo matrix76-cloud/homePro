@@ -176,7 +176,7 @@ const ProCategoryEditPage = () => {
                     return (
                     <Section key={field.key}>
                         <SectionTitle>{field.label}</SectionTitle>
-                        {field.type === "text" && <StyledInput type="text" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} />}
+                        {field.type === "text" && !isCertField && <StyledInput type="text" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} />}
                         {field.type === "number" && <StyledInput type="number" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} min="0" inputMode="numeric" />}
                         {field.type === "textarea" && <StyledTextarea placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} rows={3} />}
                         {field.type === "chips" && (
@@ -192,7 +192,7 @@ const ProCategoryEditPage = () => {
                                     <CertCard key={cert.id}>
                                         <CertCardHeader>
                                             <CertNameInput type="text" placeholder={field.placeholder || "자격증명"} value={cert.certName} onChange={(e) => updateCertName(cert.id, e.target.value)} />
-                                            <RemoveBtn onClick={() => removeCert(cert.id)}><IoCloseCircle size={22} color={THEME.danger} /></RemoveBtn>
+                                            <RemoveBtn onClick={() => removeCert(cert.id)}><IoCloseCircle size={22} color="#fff" /></RemoveBtn>
                                         </CertCardHeader>
                                         <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
                                             {cert.preview ? <CertPhotoPreview src={cert.preview} /> : <CertPlaceholder><IoCameraOutline size={28} color={THEME.muted} /><SmallText>사진 첨부</SmallText></CertPlaceholder>}
@@ -281,45 +281,45 @@ const ProCategoryEditPage = () => {
 export default ProCategoryEditPage;
 
 /* ===================== styles ===================== */
-const PageWrap = styled.div`padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 24px;`;
+const PageWrap = styled.div`padding: 20px 12px 40px; display: flex; flex-direction: column; gap: 12px;`;
 const LoadingWrap = styled.div`padding: 60px 0; text-align: center; color: ${THEME.muted}; font-size: 14px;`;
-const Section = styled.div``;
-const SectionTitle = styled.div`font-size: 17px; font-weight: 400; color: ${THEME.text}; letter-spacing: -0.03em; margin-bottom: 14px;`;
+const Section = styled.div`background: ${THEME.surface}; border-radius: 16px; padding: 20px; box-shadow: ${THEME.cardShadow};`;
+const SectionTitle = styled.div`font-size: 17px; font-weight: 700; color: ${THEME.text}; letter-spacing: -0.03em; margin-bottom: 14px;`;
 const ChipWrap = styled.div`display: flex; flex-wrap: wrap; gap: 8px;`;
-const Chip = styled.div`padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 400; cursor: pointer; background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)}; color: ${({ $active }) => ($active ? "#fff" : THEME.text)}; border: 1.5px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)}; &:active { opacity: 0.8; }`;
-const StyledInput = styled.input`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 4px; font-size: 15px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
-const StyledTextarea = styled.textarea`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 4px; font-size: 15px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; resize: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
+const Chip = styled.div`padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 400; cursor: pointer; background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)}; color: ${({ $active }) => ($active ? "#fff" : THEME.text)}; border: ${({ $active }) => ($active ? "none" : `1.5px solid ${THEME.border}`)}; &:active { opacity: 0.8; }`;
+const StyledInput = styled.input`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 15px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
+const StyledTextarea = styled.textarea`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 15px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; resize: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
 const CharCount = styled.div`text-align: right; font-size: 12px; color: ${THEME.muted}; margin-top: 6px;`;
 const SmallText = styled.div`font-size: 13px; font-weight: 400; color: ${THEME.muted};`;
 
 /* cert */
 const CertSection = styled.div`margin-top: 14px; display: flex; flex-direction: column; gap: 10px;`;
-const CertCard = styled.div`border: 1px solid ${THEME.border}; border-radius: 4px; padding: 12px; background: ${THEME.surface};`;
+const CertCard = styled.div`display: flex; flex-direction: column; gap: 10px;`;
 const CertCardHeader = styled.div`display: flex; align-items: center; gap: 8px; margin-bottom: 10px;`;
-const CertNameInput = styled.input`flex: 1; padding: 10px 12px; border: 1.5px solid ${THEME.border}; border-radius: 4px; font-size: 14px; font-family: inherit; color: ${THEME.text}; background: #fff; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
-const RemoveBtn = styled.button`background: none; border: none; padding: 2px; cursor: pointer; display: flex; align-items: center; &:active { opacity: 0.6; }`;
-const CertPhotoArea = styled.div`width: 100%; min-height: 100px; border: 2px dashed ${THEME.border}; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; background: ${THEME.background}; &:active { opacity: 0.8; }`;
+const CertNameInput = styled.input`flex: 1; padding: 10px 12px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 14px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
+const RemoveBtn = styled.button`background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 24px; height: 24px; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
+const CertPhotoArea = styled.div`width: 100%; min-height: 100px; border: 1.5px dashed ${THEME.border}; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; background: ${THEME.background}; &:active { opacity: 0.8; }`;
 const CertPhotoPreview = styled.img`width: 100%; height: auto; max-height: 200px; object-fit: contain;`;
 const CertPlaceholder = styled.div`display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px;`;
-const AddBtn = styled.div`display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border: 2px dashed ${THEME.border}; border-radius: 4px; cursor: pointer; &:active { background: ${THEME.surface}; }`;
+const AddBtn = styled.div`display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border: 1.5px dashed ${THEME.border}; border-radius: 12px; cursor: pointer; &:active { background: ${THEME.surface}; }`;
 const AddBtnText = styled.div`font-size: 14px; font-weight: 400; color: ${THEME.primary};`;
 
 /* upload */
-const UploadBox = styled.div`width: 100%; min-height: 160px; border: 2px dashed ${THEME.border}; border-radius: 4px; background: ${THEME.surface}; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; &:active { opacity: 0.8; }`;
+const UploadBox = styled.div`width: 100%; min-height: 160px; border: 1.5px dashed ${THEME.border}; border-radius: 12px; background: ${THEME.surface}; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; &:active { opacity: 0.8; }`;
 const UploadPlaceholder = styled.div`display: flex; flex-direction: column; align-items: center; gap: 8px;`;
 const PreviewImg = styled.img`width: 100%; height: auto; max-height: 300px; object-fit: contain;`;
 const HiddenInput = styled.input`display: none;`;
 
 /* photos */
 const PhotoGrid = styled.div`display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;`;
-const PhotoItem = styled.div`position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden;`;
+const PhotoItem = styled.div`position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden;`;
 const PhotoThumb = styled.img`width: 100%; height: 100%; object-fit: cover;`;
 const PhotoRemoveBtn = styled.button`position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;`;
-const PhotoAddBtn = styled.div`aspect-ratio: 1; border: 2px dashed ${THEME.border}; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; &:active { background: ${THEME.surface}; }`;
+const PhotoAddBtn = styled.div`aspect-ratio: 1; border: 1.5px dashed ${THEME.border}; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; &:active { background: ${THEME.surface}; }`;
 
 /* region */
-const RegionSelectBtn = styled.button`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 4px; font-size: 15px; font-family: inherit; background: ${THEME.surface}; cursor: pointer; box-sizing: border-box; display: flex; align-items: center; gap: 8px; &:active { border-color: ${THEME.primary}; }`;
+const RegionSelectBtn = styled.button`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 15px; font-family: inherit; background: ${THEME.surface}; cursor: pointer; box-sizing: border-box; display: flex; align-items: center; gap: 8px; &:active { border-color: ${THEME.primary}; }`;
 const RegionBtnText = styled.span`color: ${({ $hasValue }) => ($hasValue ? THEME.text : THEME.muted)}; font-weight: 400;`;
 
 /* action */
-const ActionBtn = styled.button`width: 100%; padding: 16px; border: none; border-radius: 4px; background: ${({ $active }) => ($active ? THEME.primary : THEME.border)}; color: ${({ $active }) => ($active ? "#fff" : THEME.muted)}; font-size: 16px; font-weight: 400; font-family: inherit; cursor: ${({ $active }) => ($active ? "pointer" : "default")}; &:active { opacity: ${({ $active }) => ($active ? 0.9 : 1)}; }`;
+const ActionBtn = styled.button`width: 100%; padding: 16px; border: none; border-radius: 10px; background: ${({ $active }) => ($active ? THEME.primary : THEME.border)}; color: ${({ $active }) => ($active ? "#fff" : THEME.muted)}; font-size: 16px; font-weight: 400; font-family: inherit; cursor: ${({ $active }) => ($active ? "pointer" : "default")}; &:active { opacity: ${({ $active }) => ($active ? 0.9 : 1)}; }`;

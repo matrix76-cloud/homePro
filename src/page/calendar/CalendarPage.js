@@ -1,10 +1,14 @@
 /* eslint-disable */
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoChevronBack, IoChevronForward, IoAddOutline } from "react-icons/io5";
+import { IoChevronBack, IoChevronForward, IoAddOutline, IoTimeOutline, IoLocationOutline } from "react-icons/io5";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -32,12 +36,43 @@ const HOLIDAYS = {
 
 const pad = (n) => String(n).padStart(2, "0");
 
+const HOUR_LABEL = (h) => {
+  const period = h < 12 ? "오전" : "오후";
+  const display = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${period} ${display}시`;
+};
+
 const CalendarPage = () => {
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  const { userData } = useAuth();
+  const uid = user?.USERS_ID || userData?.uid;
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-indexed
   const [selectedDate, setSelectedDate] = useState(today.getDate());
+  const [schedules, setSchedules] = useState([]);
+
+  // 월 변경 시 일정 조회
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      try {
+        const startKey = `${year}-${pad(month + 1)}-01`;
+        const endKey = `${year}-${pad(month + 1)}-31`;
+        const q = query(
+          collection(db, "homepro_schedules"),
+          where("uid", "==", uid),
+          where("date", ">=", startKey),
+          where("date", "<=", endKey)
+        );
+        const snap = await getDocs(q);
+        setSchedules(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.error("일정 조회 실패:", e);
+      }
+    })();
+  }, [uid, year, month]);
 
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
@@ -98,6 +133,14 @@ const CalendarPage = () => {
     ? DAYS[new Date(year, month, selectedDate).getDay()]
     : "";
 
+  const getSchedulesForDay = (day) => {
+    if (!day) return [];
+    const key = `${year}-${pad(month + 1)}-${pad(day)}`;
+    return schedules.filter((s) => s.date === key);
+  };
+
+  const selectedSchedules = schedules.filter((s) => s.date === selectedKey);
+
   const handleCreate = () => {
     navigate("/calendar/create", {
       state: { date: { year, month: month + 1, day: selectedDate } },
@@ -149,11 +192,12 @@ const CalendarPage = () => {
                         >
                           {day}
                         </DateNum>
-                        {holiday && (
-                          <>
-                            <HolidayLabel>{holiday}</HolidayLabel>
-                            <EventCount>총 1개</EventCount>
-                          </>
+                        {holiday && <HolidayLabel>{holiday}</HolidayLabel>}
+                        {getSchedulesForDay(day).slice(0, 2).map((s, si) => (
+                          <EventLabel key={si}>{s.title}</EventLabel>
+                        ))}
+                        {getSchedulesForDay(day).length > 2 && (
+                          <EventLabel $more>+{getSchedulesForDay(day).length - 2}</EventLabel>
                         )}
                       </>
                     )}
@@ -173,7 +217,28 @@ const CalendarPage = () => {
             <IoAddOutline size={28} color="#fff" />
           </Fab>
         </BottomBar>
-        <NoSchedule>일정이 없습니다.</NoSchedule>
+        {selectedSchedules.length === 0 ? (
+          <NoSchedule>일정이 없습니다.</NoSchedule>
+        ) : (
+          <ScheduleList>
+            {selectedSchedules.map((s) => (
+              <ScheduleCard key={s.id}>
+                <ScheduleTitle>{s.title}</ScheduleTitle>
+                <ScheduleInfo>
+                  <IoTimeOutline size={13} color={THEME.muted} />
+                  {HOUR_LABEL(s.startHour)} ~ {HOUR_LABEL(s.endHour)}
+                </ScheduleInfo>
+                {s.location && (
+                  <ScheduleInfo>
+                    <IoLocationOutline size={13} color={THEME.muted} />
+                    {s.location}
+                  </ScheduleInfo>
+                )}
+                {s.memo && <ScheduleMemo>{s.memo}</ScheduleMemo>}
+              </ScheduleCard>
+            ))}
+          </ScheduleList>
+        )}
       </Wrapper>
     </SimpleBackLayout>
   );
@@ -184,7 +249,7 @@ export default CalendarPage;
 /* ===================== styles ===================== */
 
 const Wrapper = styled.div`
-  background: ${THEME.surface};
+  background: ${THEME.background};
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -207,6 +272,9 @@ const MonthNav = styled.div`
   justify-content: center;
   gap: 20px;
   padding: 20px 0 16px;
+  background: ${THEME.surface};
+  margin: 12px 12px 0;
+  border-radius: 16px 16px 0 0;
 `;
 
 const NavBtn = styled.button`
@@ -222,7 +290,7 @@ const NavBtn = styled.button`
 
 const MonthTitle = styled.div`
   font-size: 20px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -231,7 +299,8 @@ const DayHeader = styled.div`
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   padding: 0 8px;
-  margin-bottom: 4px;
+  margin: 0 12px;
+  background: ${THEME.surface};
 `;
 
 const DayCell = styled.div`
@@ -245,6 +314,9 @@ const DayCell = styled.div`
 const CalGrid = styled.div`
   flex: 1;
   padding: 0 8px;
+  margin: 0 12px;
+  background: ${THEME.surface};
+  border-radius: 0 0 16px 16px;
 `;
 
 const CalRow = styled.div`
@@ -330,4 +402,55 @@ const NoSchedule = styled.div`
   font-weight: 400;
   color: ${THEME.muted};
   padding: 12px 0 24px;
+`;
+
+const EventLabel = styled.div`
+  font-size: 9px;
+  font-weight: 400;
+  color: ${({ $more }) => $more ? THEME.muted : THEME.primary};
+  margin-top: 1px;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+`;
+
+const ScheduleList = styled.div`
+  padding: 0 12px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const ScheduleCard = styled.div`
+  background: ${THEME.surface};
+  border-radius: 12px;
+  padding: 14px 16px;
+  border-left: 3px solid ${THEME.primary};
+`;
+
+const ScheduleTitle = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const ScheduleInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-top: 4px;
+`;
+
+const ScheduleMemo = styled.div`
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.textSecondary};
+  margin-top: 6px;
+  line-height: 1.4;
 `;

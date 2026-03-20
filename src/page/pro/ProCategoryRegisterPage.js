@@ -4,13 +4,14 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
-import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
+import { CATEGORIES, CATEGORY_GROUPS, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import { uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { regionToDisplayName } from "../../utility/regionUtils";
+import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 
 const STEP_LABELS = ["분야 선택", "상세 정보"];
 
@@ -210,27 +211,36 @@ const ProCategoryRegisterPage = () => {
                     <>
                         <Section>
                             <SectionTitle>등록할 분야를 선택하세요</SectionTitle>
-                            <CatGrid>
-                                {CATEGORIES.map((cat) => {
-                                    const isRegistered = proCategories.includes(cat.id);
-                                    const isSelected = selectedCat === cat.id;
-                                    return (
-                                        <CatItem
-                                            key={cat.id}
-                                            $selected={isSelected}
-                                            $disabled={isRegistered}
-                                            onClick={() => handleSelectCat(cat.id)}
-                                        >
-                                            <CatName $disabled={isRegistered} $selected={isSelected}>{cat.shortName}</CatName>
-                                            {isRegistered && (
-                                                <CheckMark>
-                                                    <IoCheckmarkCircle size={18} color={THEME.success} />
-                                                </CheckMark>
-                                            )}
-                                        </CatItem>
-                                    );
-                                })}
-                            </CatGrid>
+                            {CATEGORY_GROUPS.map((group) => (
+                                <div key={group.id}>
+                                    <CatGroupLabel>{group.label}</CatGroupLabel>
+                                    <CatGrid>
+                                        {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
+                                            const isRegistered = proCategories.includes(cat.id);
+                                            const isSelected = selectedCat === cat.id;
+                                            const Icon = CATEGORY_ICONS[cat.id];
+                                            return (
+                                                <CatGridItem
+                                                    key={cat.id}
+                                                    $selected={isSelected}
+                                                    $disabled={isRegistered}
+                                                    onClick={() => handleSelectCat(cat.id)}
+                                                >
+                                                    <CatGridIcon $selected={isSelected} $disabled={isRegistered}>
+                                                        {Icon ? <Icon /> : cat.shortName.charAt(0)}
+                                                        {isRegistered && (
+                                                            <CatCheckBadge>
+                                                                <IoCheckmarkCircle size={16} color={THEME.success} />
+                                                            </CatCheckBadge>
+                                                        )}
+                                                    </CatGridIcon>
+                                                    <CatGridName $disabled={isRegistered} $selected={isSelected}>{cat.shortName}</CatGridName>
+                                                </CatGridItem>
+                                            );
+                                        })}
+                                    </CatGrid>
+                                </div>
+                            ))}
                         </Section>
                         <ActionBtn disabled={!canStep1} $active={canStep1} onClick={goNext}>
                             다음
@@ -262,7 +272,7 @@ const ProCategoryRegisterPage = () => {
                             return (
                             <Section key={field.key}>
                                 <SectionTitle>{field.label}</SectionTitle>
-                                {field.type === "text" && (
+                                {field.type === "text" && !isCertField && (
                                     <StyledInput
                                         type="text"
                                         placeholder={field.placeholder}
@@ -313,7 +323,7 @@ const ProCategoryRegisterPage = () => {
                                                         onChange={(e) => updateCertName(cert.id, e.target.value)}
                                                     />
                                                     <CertRemoveBtn onClick={() => removeCert(cert.id)}>
-                                                        <IoCloseCircle size={22} color={THEME.danger} />
+                                                        <IoCloseCircle size={22} color="#fff" />
                                                     </CertRemoveBtn>
                                                 </CertCardHeader>
                                                 <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
@@ -449,10 +459,10 @@ export default ProCategoryRegisterPage;
 /* ===================== styles ===================== */
 
 const PageWrap = styled.div`
-    padding: 20px 16px 40px;
+    padding: 20px 12px 40px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 12px;
 `;
 
 /* ─── Step Indicator ─── */
@@ -504,54 +514,84 @@ const StepLabel = styled.div`
 `;
 
 /* ─── Shared ─── */
-const Section = styled.div``;
+const Section = styled.div`
+    background: ${THEME.surface};
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: ${THEME.cardShadow};
+`;
 
 const SectionTitle = styled.div`
     font-size: 17px;
-    font-weight: 600;
+    font-weight: 700;
     color: ${THEME.text};
     letter-spacing: -0.03em;
     margin-bottom: 14px;
 `;
 
-/* ─── Step 1: Category Table ─── */
-const CatGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    border-top: 1px solid ${THEME.border};
-    border-left: 1px solid ${THEME.border};
+const CatGroupLabel = styled.div`
+    font-size: 15px;
+    font-weight: 700;
+    color: ${THEME.textSecondary};
+    background: ${THEME.background};
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin: 14px 0 8px;
 `;
 
-const CatItem = styled.div`
-    position: relative;
+/* ─── Step 1: Category Grid (숨고 스타일) ─── */
+const CatGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+`;
+
+const CatGridItem = styled.div`
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 14px 8px;
-    border-right: 1px solid ${THEME.border};
-    border-bottom: 1px solid ${THEME.border};
-    background: ${({ $selected, $disabled }) =>
-        $disabled ? THEME.background : $selected ? THEME.primary : "#fff"};
+    padding: 12px 4px 10px;
+    border-radius: 12px;
     cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
     opacity: ${({ $disabled }) => ($disabled ? 0.55 : 1)};
+    border: 1.5px solid ${({ $selected }) => ($selected ? THEME.primary : "transparent")};
+    background: ${({ $selected }) => ($selected ? `${THEME.primary}0D` : "transparent")};
+    &:active { background: ${THEME.background}; }
     transition: all 0.15s;
     &:active {
-        opacity: ${({ $disabled }) => ($disabled ? 0.55 : 0.8)};
+        opacity: ${({ $disabled }) => ($disabled ? 0.55 : 0.85)};
     }
 `;
 
-const CatName = styled.div`
-    font-size: 13px;
-    font-weight: 400;
-    color: ${({ $disabled, $selected }) => $disabled ? THEME.muted : $selected ? "#fff" : THEME.text};
-    text-align: center;
-    word-break: keep-all;
+const CatGridIcon = styled.div`
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: ${THEME.background};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+    svg { width: 36px; height: 36px; }
 `;
 
-const CheckMark = styled.div`
+const CatCheckBadge = styled.div`
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: -4px;
+    right: -4px;
+    background: #fff;
+    border-radius: 50%;
+    line-height: 0;
+`;
+
+const CatGridName = styled.div`
+    font-size: 12px;
+    font-weight: ${({ $selected }) => ($selected ? 600 : 400)};
+    color: ${({ $disabled, $selected }) => $disabled ? THEME.muted : $selected ? THEME.primary : THEME.text};
+    text-align: center;
+    line-height: 1.3;
+    word-break: keep-all;
 `;
 
 /* ─── Detail Form ─── */
@@ -580,7 +620,7 @@ const StyledInput = styled.input`
     width: 100%;
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
-    border-radius: 4px;
+    border-radius: 10px;
     font-size: 15px;
     font-family: inherit;
     color: ${THEME.text};
@@ -599,7 +639,7 @@ const StyledTextarea = styled.textarea`
     width: 100%;
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
-    border-radius: 4px;
+    border-radius: 10px;
     font-size: 15px;
     font-family: inherit;
     color: ${THEME.text};
@@ -631,10 +671,9 @@ const CertSection = styled.div`
 `;
 
 const CertCard = styled.div`
-    border: 1px solid ${THEME.border};
-    border-radius: 4px;
-    padding: 12px;
-    background: ${THEME.surface};
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 `;
 
 const CertCardHeader = styled.div`
@@ -648,11 +687,11 @@ const CertNameInput = styled.input`
     flex: 1;
     padding: 10px 12px;
     border: 1.5px solid ${THEME.border};
-    border-radius: 4px;
+    border-radius: 10px;
     font-size: 14px;
     font-family: inherit;
     color: ${THEME.text};
-    background: #fff;
+    background: ${THEME.surface};
     outline: none;
     box-sizing: border-box;
     &:focus { border-color: ${THEME.primary}; }
@@ -660,21 +699,24 @@ const CertNameInput = styled.input`
 `;
 
 const CertRemoveBtn = styled.button`
-    background: none;
+    background: rgba(0,0,0,0.5);
     border: none;
-    padding: 2px;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     cursor: pointer;
     display: flex;
     align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    &:active { opacity: 0.6; }
 `;
 
 const CertPhotoArea = styled.div`
     width: 100%;
     min-height: 100px;
-    border: 2px dashed ${THEME.border};
-    border-radius: 4px;
+    border: 1.5px dashed ${THEME.border};
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -711,8 +753,8 @@ const CertAddBtn = styled.div`
     justify-content: center;
     gap: 8px;
     padding: 14px;
-    border: 2px dashed ${THEME.border};
-    border-radius: 4px;
+    border: 1.5px dashed ${THEME.border};
+    border-radius: 12px;
     cursor: pointer;
     &:active { background: ${THEME.surface}; }
 `;
@@ -727,8 +769,8 @@ const CertAddText = styled.div`
 const UploadBox = styled.div`
     width: 100%;
     min-height: 160px;
-    border: 2px dashed ${THEME.border};
-    border-radius: 4px;
+    border: 1.5px dashed ${THEME.border};
+    border-radius: 12px;
     background: ${THEME.surface};
     display: flex;
     align-items: center;
@@ -772,7 +814,7 @@ const PhotoGrid = styled.div`
 const PhotoItem = styled.div`
     position: relative;
     aspect-ratio: 1;
-    border-radius: 4px;
+    border-radius: 12px;
     overflow: hidden;
 `;
 
@@ -800,8 +842,8 @@ const PhotoRemoveBtn = styled.button`
 
 const PhotoAddBtn = styled.div`
     aspect-ratio: 1;
-    border: 2px dashed ${THEME.border};
-    border-radius: 4px;
+    border: 1.5px dashed ${THEME.border};
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -828,7 +870,7 @@ const RegionSelectBtn = styled.button`
     width: 100%;
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
-    border-radius: 4px;
+    border-radius: 10px;
     font-size: 15px;
     font-family: inherit;
     background: ${THEME.surface};
@@ -850,7 +892,7 @@ const ActionBtn = styled.button`
     width: 100%;
     padding: 16px;
     border: none;
-    border-radius: 4px;
+    border-radius: 10px;
     background: ${({ $active }) => ($active ? THEME.primary : THEME.border)};
     color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
     font-size: 16px;

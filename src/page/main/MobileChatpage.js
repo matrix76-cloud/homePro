@@ -2,12 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoLockClosedOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import { useAuth } from "../../context/AuthContext";
-import { db } from "../../api/config";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { subscribeChatRooms } from "../../service/ChatService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 
@@ -25,21 +24,16 @@ const MobileChatpage = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [focusedRoom, setFocusedRoom] = useState(null);
+  const [toast, setToast] = useState("");
 
   const myUid = userData?.uid;
 
   useEffect(() => {
     if (!myUid) return;
-    const q = query(
-      collection(db, "chatRooms"),
-      where("participants", "array-contains", myUid),
-      orderBy("lastMessageAt", "desc")
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setRooms(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    return subscribeChatRooms(myUid, (list) => {
+      setRooms(list);
       setLoading(false);
-    }, () => setLoading(false));
-    return () => unsub();
+    });
   }, [myUid]);
 
   const getRoomDisplayName = (room) => {
@@ -75,6 +69,7 @@ const MobileChatpage = () => {
           <RoomList>
             {rooms.map((room) => {
               const unread = getUnread(room);
+              const isLocked = room.orderId && room.quoteStatus !== "accepted";
               return (
                 <RoomItem
                   key={room.id}
@@ -95,15 +90,17 @@ const MobileChatpage = () => {
                     )}
                   </Avatar>
                   <RoomInfo>
-                    <RoomName>{getRoomDisplayName(room)}</RoomName>
-                    <LastMessage>{room.lastMessage || "대화를 시작해보세요"}</LastMessage>
+                    <RoomNameRow>
+                      <RoomName>{getRoomDisplayName(room)}</RoomName>
+                      <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
+                    </RoomNameRow>
+                    <RoomBottomRow>
+                      <LastMessage>{room.lastMessage || "대화를 시작해보세요"}</LastMessage>
+                      {unread > 0 && (
+                        <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>
+                      )}
+                    </RoomBottomRow>
                   </RoomInfo>
-                  <RoomMeta>
-                    <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
-                    {unread > 0 && (
-                      <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>
-                    )}
-                  </RoomMeta>
                 </RoomItem>
               );
             })}
@@ -123,6 +120,7 @@ const PageWrap = styled.div`
   flex-direction: column;
   min-height: 100%;
   background: ${THEME.background};
+  padding: 0 0 12px;
 `;
 
 const EmptyWrap = styled.div`
@@ -148,7 +146,7 @@ const IconCircle = styled.div`
 
 const EmptyTitle = styled.div`
   font-size: 18px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
   margin-bottom: 8px;
@@ -164,25 +162,25 @@ const EmptyDesc = styled.div`
 `;
 
 const RoomList = styled.div`
-  padding: 0 12px;
+  background: ${THEME.surface};
 `;
 
 const RoomItem = styled.div`
   display: flex;
   gap: 14px;
-  padding: 16px 8px;
+  padding: 14px 16px;
   border-bottom: 1px solid ${THEME.border};
   cursor: pointer;
-  align-items: center;
-  border-radius: 4px;
-  background: ${({ $focused }) => ($focused ? THEME.surface : "transparent")};
+  align-items: flex-start;
+  padding-top: 16px;
+  background: ${({ $focused }) => ($focused ? THEME.background : THEME.surface)};
   transition: background 0.15s;
   &:last-child { border-bottom: none; }
 `;
 
 const Avatar = styled.div`
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -204,13 +202,38 @@ const RoomInfo = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 1px;
+  padding-top: 6px;
 `;
 
-const RoomName = styled.p`
+const RoomNameRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+const RoomName = styled.span`
   font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const RoomTime = styled.span`
+  font-size: 12px;
+  color: ${THEME.muted};
+  white-space: nowrap;
+  flex-shrink: 0;
+`;
+
+const RoomBottomRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 `;
 
 const LastMessage = styled.p`
@@ -218,26 +241,33 @@ const LastMessage = styled.p`
   color: ${THEME.muted};
   font-weight: 400;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-`;
-
-const RoomMeta = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
-  align-self: flex-start;
-  padding-top: 2px;
-`;
-
-const RoomTime = styled.span`
-  font-size: 12px;
-  color: ${THEME.muted};
+  text-overflow: ellipsis;
   white-space: nowrap;
+`;
+
+const LockIcon = styled.span`
+  color: ${THEME.muted};
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+`;
+
+const QuotePendingBadge = styled.span`
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: ${THEME.border};
+  color: ${THEME.muted};
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
 `;
 
 const UnreadBadge = styled.span`

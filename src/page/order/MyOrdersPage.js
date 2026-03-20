@@ -2,36 +2,41 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { CATEGORIES, THEME } from "../../config/homeproConfig";
+import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
 import { getOrdersByUser, formatOrderTime } from "../../service/OrderService";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../../api/config";
 import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoDocumentTextOutline } from "react-icons/io5";
 
 /* ─── 상태 탭 ─── */
-const STATUS_TABS = ["전체", "접수", "진행중", "작업완료", "취소"];
+const STATUS_TABS = ["전체", "요청", "결제", "완료", "리뷰", "취소"];
 const STATUS_STYLE = {
-  "접수": { bg: THEME.purpleLight, color: THEME.purple },
-  "진행중": { bg: "#DBEAFE", color: THEME.primary },
-  "배차완료": { bg: "#FEF3C7", color: "#B45309" },
-  "작업완료": { bg: "#D1FAE5", color: THEME.success },
-  "취소": { bg: "#FEE2E2", color: THEME.danger },
+  "요청": { bg: THEME.purple, color: "#fff" },
+  "결제": { bg: THEME.primary, color: "#fff" },
+  "완료": { bg: THEME.success, color: "#fff" },
+  "리뷰": { bg: "#F59E0B", color: "#fff" },
+  "취소": { bg: THEME.danger, color: "#fff" },
 };
 
 /* 탭 내장용 콘텐츠 컴포넌트 */
 export const MyOrdersContent = () => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
+  const { userData } = useAuth();
+  const uid = userData?.uid || user?.USERS_ID || user?.uid;
   const [activeTab, setActiveTab] = useState("전체");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.uid) { setLoading(false); return; }
+    if (!uid) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       try {
-        const data = await getOrdersByUser(user.uid);
+        const data = await getOrdersByUser(uid);
         if (!cancelled) setOrders(data);
       } catch (err) {
         console.error("내 오더 조회 실패:", err);
@@ -40,7 +45,18 @@ export const MyOrdersContent = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.uid]);
+  }, [uid]);
+
+  const handleCancel = async (e, orderId) => {
+    e.stopPropagation();
+    if (!window.confirm("요청을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.")) return;
+    try {
+      await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { orderStatus: "취소" });
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, orderStatus: "취소" } : o));
+    } catch (e) {
+      alert("취소 처리에 실패했습니다.");
+    }
+  };
 
   const filtered = activeTab === "전체"
     ? orders
@@ -69,12 +85,13 @@ export const MyOrdersContent = () => {
         ) : filtered.length === 0 ? (
           <EmptyWrap>
             <IoDocumentTextOutline size={48} color={THEME.muted} />
-            <EmptyText>해당 상태의 오더가 없습니다</EmptyText>
+            <EmptyText>해당 상태의 요청이 없습니다</EmptyText>
           </EmptyWrap>
         ) : (
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
-            const st = STATUS_STYLE[order.orderStatus] || STATUS_STYLE["접수"];
+            const st = STATUS_STYLE[order.orderStatus] || STATUS_STYLE["요청"];
+            const canCancel = !["완료", "리뷰", "취소"].includes(order.orderStatus);
             return (
               <OrderCard key={order.id}>
                 <CardTop>
@@ -84,8 +101,10 @@ export const MyOrdersContent = () => {
                 <CardTitle>{order.title}</CardTitle>
                 <TagRow>
                   <Tag>{cat?.shortName}</Tag>
-                  <Tag>{order.subcategory}</Tag>
-                  <MatchTag>[{order.matchType}]</MatchTag>
+                  {order.subcategory && order.subcategory.split(", ").map((s, i) => (
+                    <Tag key={i}>{s.trim()}</Tag>
+                  ))}
+                  {order.matchType && <MatchTag>[{order.matchType}]</MatchTag>}
                 </TagRow>
                 <CardBottom>
                   <BottomLeft>
@@ -94,6 +113,11 @@ export const MyOrdersContent = () => {
                   </BottomLeft>
                   <PriceText>{order.price}</PriceText>
                 </CardBottom>
+                {canCancel && (
+                  <CancelRow>
+                    <CancelOrderBtn onClick={(e) => handleCancel(e, order.id)}>취소하기</CancelOrderBtn>
+                  </CancelRow>
+                )}
               </OrderCard>
             );
           })
@@ -205,6 +229,7 @@ const CardTitle = styled.div`
 const TagRow = styled.div`
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
 `;
@@ -248,6 +273,26 @@ const PriceText = styled.div`
   font-size: 16px;
   font-weight: 400;
   color: ${THEME.primary};
+`;
+
+const CancelRow = styled.div`
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid ${THEME.border};
+  display: flex;
+  justify-content: flex-end;
+`;
+
+const CancelOrderBtn = styled.button`
+  border: 1px solid ${THEME.danger};
+  background: transparent;
+  color: ${THEME.danger};
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
 `;
 
 const EmptyWrap = styled.div`

@@ -33,6 +33,8 @@ import { STORAGE_KEYS } from "../config/homeproConfig";
 
 const SESSION_KEY = STORAGE_KEYS.SESSION;
 const safeTrim = (v) => String(v || "").trim();
+const ID_DOMAIN = "@homepro.app";
+const toEmail = (id) => { const t = safeTrim(id); return t.includes("@") ? t : t + ID_DOMAIN; };
 
 function getAuthInstance() {
     return getAuth(firebaseApp);
@@ -468,15 +470,15 @@ export function watchAuthState(onChange) {
 export async function signInWithEmailPassword({ email, password, keepLogin = true }) {
     const auth = getAuthInstance();
 
-    const e = safeTrim(email);
+    const e = toEmail(email);
     const p = String(password || "");
 
-    if (!e || !p) {
+    if (!safeTrim(email) || !p) {
         return {
             success: false,
             provider: "email",
             error_code: "missing_fields",
-            error_message: "이메일/비밀번호를 입력해주세요.",
+            error_message: "아이디와 비밀번호를 입력해주세요.",
         };
     }
 
@@ -525,11 +527,11 @@ export async function signInWithEmailPassword({ email, password, keepLogin = tru
 }
 
 export async function signUpWithEmailPassword({ email, password, keepLogin = true }) {
-    const e = safeTrim(email);
+    const e = toEmail(email);
     const p = String(password ?? "");
 
-    if (!e || !p) {
-        return { success: false, error_code: "missing_fields", error_message: "이메일/비밀번호를 입력해주세요." };
+    if (!safeTrim(email) || !p) {
+        return { success: false, error_code: "missing_fields", error_message: "아이디와 비밀번호를 입력해주세요." };
     }
 
     if (p.length < 6) {
@@ -555,8 +557,8 @@ export async function signUpWithEmailPassword({ email, password, keepLogin = tru
         const code = String(err?.code || "");
         let msg = String(err?.message || "회원가입에 실패했습니다.");
 
-        if (code.includes("auth/email-already-in-use")) msg = "이미 가입된 이메일입니다.";
-        else if (code.includes("auth/invalid-email")) msg = "이메일 형식이 올바르지 않습니다.";
+        if (code.includes("auth/email-already-in-use")) msg = "이미 사용 중인 아이디입니다.";
+        else if (code.includes("auth/invalid-email")) msg = "아이디 형식이 올바르지 않습니다.";
         else if (code.includes("auth/weak-password")) msg = "비밀번호가 너무 약합니다. 6자 이상으로 설정해주세요.";
 
         return { success: false, provider: "email", error_code: code || "email_signup_error", error_message: msg };

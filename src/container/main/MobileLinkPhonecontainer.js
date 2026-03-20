@@ -207,6 +207,7 @@ export default function MobileLinkPhonecontainer() {
                 nav("/MobileSetNickname", { replace: true });
             }
         } catch (e) {
+            console.error("[LinkPhone] 전화번호 저장 실패:", e?.code, e?.message, e);
             window.alert("전화번호 저장에 실패했습니다. 다시 시도해주세요.");
         } finally {
             setBusy(false);
@@ -287,7 +288,7 @@ export default function MobileLinkPhonecontainer() {
                 </Field>
 
                 <BtnRow>
-                    <PrimaryBtn type="button" onClick={handleComplete} disabled={!phoneVerified || busy || otpBusy}>
+                    <PrimaryBtn type="button" onClick={phoneVerified ? handleComplete : () => window.alert("전화번호 인증을 먼저 완료해주세요.")} disabled={busy || otpBusy}>
                         {busy ? "처리중..." : "확인 완료"}
                     </PrimaryBtn>
 
@@ -308,7 +309,7 @@ export default function MobileLinkPhonecontainer() {
 
 const Wrap = styled.div`
   min-height: 100vh;
-  background: #EFF6FF;
+  background: ${THEME.background};
   padding: 26px 20px;
   box-sizing: border-box;
 `;
@@ -318,10 +319,10 @@ const Card = styled.div`
   width: 100%;
   max-width: 420px;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 18px;
-  padding: 16px;
+  background: ${THEME.surface};
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: ${THEME.cardShadow};
 `;
 
 const Title = styled.div`
@@ -384,13 +385,13 @@ const InlineRow = styled.div`
 `;
 
 const SmallBtn = styled.button`
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 14px;
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  border-radius: 10px;
   padding: 12px 12px;
   font-size: 14px !important;
   cursor: pointer;
-  color: rgba(17, 24, 39, 0.92);
+  color: ${THEME.text};
   font-weight: 400;
   flex-shrink: 0;
 
@@ -408,9 +409,9 @@ const HelperText = styled.p`
 const CodeBox = styled.div`
   margin-top: 10px;
   padding: 12px 14px;
-  border: 1px dashed rgba(15, 23, 42, 0.22);
-  border-radius: 14px;
-  background: rgba(249, 250, 251, 0.9);
+  border: 1px dashed ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.background};
   font-size: 13px !important;
   color: rgba(17, 24, 39, 0.92);
   display: flex;
@@ -468,7 +469,7 @@ const BaseWideBtn = styled.button`
   width: 100%;
   max-width: 360px;
   margin: 0 auto;
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 13px 14px;
   font-size: 16px !important;
   cursor: pointer;
@@ -482,14 +483,14 @@ const BaseWideBtn = styled.button`
 
 const PrimaryBtn = styled(BaseWideBtn)`
   border: none;
-  background: ${THEME.primary}eb;
+  background: ${THEME.primary};
   color: #ffffff;
   font-weight: 400;
 `;
 
 const SecondaryBtn = styled(BaseWideBtn)`
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.92);
-  color: rgba(17, 24, 39, 0.9);
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  color: ${THEME.text};
   font-weight: 400;
 `;

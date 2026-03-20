@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import styled from "styled-components";
-import { collection, getDocs, doc, addDoc, query, orderBy, where, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, addDoc, getDoc, setDoc, query, orderBy, where, Timestamp } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 
@@ -313,6 +313,64 @@ const ModalCloseBtn = styled.button`
     }
 `;
 
+// ─── 메인 탭 / 규칙 설정 Styled ───
+
+const MainTabRow = styled.div`
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid ${THEME.border};
+    margin-bottom: 20px;
+`;
+
+const MainTab = styled.button`
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: ${({ $active }) => ($active ? "700" : "500")};
+    color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
+    background: none;
+    border: none;
+    border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
+    margin-bottom: -2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    &:hover { color: ${THEME.primary}; }
+`;
+
+const RuleKey = styled.code`
+    font-size: 12px;
+    color: ${THEME.textSecondary};
+    background: ${THEME.background};
+    padding: 2px 6px;
+    border-radius: 3px;
+`;
+
+const RuleInput = styled.input`
+    padding: 6px 8px;
+    border: 1px solid ${THEME.border};
+    border-radius: 4px;
+    font-size: 13px;
+    outline: none;
+    &:focus { border-color: ${THEME.primary}; }
+`;
+
+const ToggleBtn = styled.button`
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    color: #fff;
+    background: ${({ $active }) => ($active ? THEME.success : THEME.muted)};
+    &:hover { opacity: 0.85; }
+`;
+
+const RuleSaveBtnWrap = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+`;
+
 // ─── Helpers ───
 
 const TABS = [
@@ -356,6 +414,7 @@ const FILTER_LABELS = { all: "전체 내역", earn: "적립 내역", use: "사�
 const AdminPointsPage = () => {
     const { filter } = useParams();
     const tab = filter || "all";
+    const [mainTab, setMainTab] = useState("history"); // "history" | "rules"
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -369,6 +428,52 @@ const AdminPointsPage = () => {
         amount: "",
         reason: "",
     });
+
+    // ─── 규칙 설정 state ───
+    const [rules, setRules] = useState({});
+    const [rulesLoading, setRulesLoading] = useState(false);
+    const [rulesSaving, setRulesSaving] = useState(false);
+
+    const fetchRules = async () => {
+        setRulesLoading(true);
+        try {
+            const snap = await getDoc(doc(db, "settings", "point_rules"));
+            if (snap.exists()) setRules(snap.data());
+        } catch (e) {
+            console.error("rules fetch error:", e);
+        }
+        setRulesLoading(false);
+    };
+
+    const handleRuleChange = (key, field, value) => {
+        setRules((prev) => ({
+            ...prev,
+            [key]: { ...prev[key], [field]: field === "amount" ? Number(value) || 0 : value },
+        }));
+    };
+
+    const handleRuleToggle = (key) => {
+        setRules((prev) => ({
+            ...prev,
+            [key]: { ...prev[key], active: !prev[key]?.active },
+        }));
+    };
+
+    const handleSaveRules = async () => {
+        setRulesSaving(true);
+        try {
+            await setDoc(doc(db, "settings", "point_rules"), rules);
+            alert("규칙이 저장되었습니다.");
+        } catch (e) {
+            console.error("rules save error:", e);
+            alert("저장 실패: " + e.message);
+        }
+        setRulesSaving(false);
+    };
+
+    useEffect(() => {
+        if (mainTab === "rules") fetchRules();
+    }, [mainTab]);
 
     // fetch records
     const fetchRecords = async () => {
@@ -462,6 +567,75 @@ const AdminPointsPage = () => {
 
     return (
         <Wrap>
+            {/* ─── 메인 탭 (내역 / 규칙 설정) ─── */}
+            <MainTabRow>
+                <MainTab $active={mainTab === "history"} onClick={() => setMainTab("history")}>포인트 내역</MainTab>
+                <MainTab $active={mainTab === "rules"} onClick={() => setMainTab("rules")}>규칙 설정</MainTab>
+            </MainTabRow>
+
+            {/* ═══ 규칙 설정 탭 ═══ */}
+            {mainTab === "rules" && (
+                <>
+                    <Header>
+                        <Title>포인트 지급 규칙</Title>
+                        <SubTitle>각 활동별 포인트 지급 금액과 활성 여부를 설정합니다</SubTitle>
+                    </Header>
+                    {rulesLoading ? (
+                        <LoadingWrap>규칙을 불러오는 중...</LoadingWrap>
+                    ) : Object.keys(rules).length === 0 ? (
+                        <EmptyRow>설정된 규칙이 없습니다. Firestore에 settings/point_rules 문서를 생성해주세요.</EmptyRow>
+                    ) : (
+                        <>
+                            <TableWrap>
+                                <Table>
+                                    <thead>
+                                        <tr>
+                                            <Th>규칙 키</Th>
+                                            <Th>라벨</Th>
+                                            <Th>금액 (P)</Th>
+                                            <Th>활성</Th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Object.entries(rules).map(([key, rule]) => (
+                                            <Tr key={key}>
+                                                <Td><RuleKey>{key}</RuleKey></Td>
+                                                <Td>
+                                                    <RuleInput
+                                                        value={rule.label || ""}
+                                                        onChange={(e) => handleRuleChange(key, "label", e.target.value)}
+                                                    />
+                                                </Td>
+                                                <Td>
+                                                    <RuleInput
+                                                        type="number"
+                                                        value={rule.amount ?? 0}
+                                                        onChange={(e) => handleRuleChange(key, "amount", e.target.value)}
+                                                        style={{ width: 80 }}
+                                                    />
+                                                </Td>
+                                                <Td>
+                                                    <ToggleBtn $active={rule.active} onClick={() => handleRuleToggle(key)}>
+                                                        {rule.active ? "ON" : "OFF"}
+                                                    </ToggleBtn>
+                                                </Td>
+                                            </Tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            </TableWrap>
+                            <RuleSaveBtnWrap>
+                                <AddBtn onClick={handleSaveRules} disabled={rulesSaving}>
+                                    {rulesSaving ? "저장 중..." : "규칙 저장"}
+                                </AddBtn>
+                            </RuleSaveBtnWrap>
+                        </>
+                    )}
+                </>
+            )}
+
+            {/* ═══ 포인트 내역 탭 ═══ */}
+            {mainTab === "history" && (<>
             <Header>
                 <Title>{FILTER_LABELS[tab] || "전체 내역"} ({filtered.length}건)</Title>
                 <SubTitle>회원 포인트 적립, 사용, 환불 내역을 관리합니다</SubTitle>
@@ -600,6 +774,7 @@ const AdminPointsPage = () => {
                     </ModalCard>
                 </Overlay>
             )}
+            </>)}
         </Wrap>
     );
 };

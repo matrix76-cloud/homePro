@@ -1,8 +1,12 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import { IoCloseOutline } from "react-icons/io5";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -23,6 +27,9 @@ for (let h = 0; h < 24; h++) {
 const ScheduleCreatePage = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const { user } = useContext(UserContext);
+  const { userData } = useAuth();
+  const uid = user?.USERS_ID || userData?.uid;
   const initDate = state?.date || {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -40,9 +47,31 @@ const ScheduleCreatePage = () => {
 
   const handleClose = () => navigate(-1);
 
-  const handleComplete = () => {
-    // TODO: 실제 저장 로직
-    navigate(-1);
+  const [saving, setSaving] = useState(false);
+
+  const handleComplete = async () => {
+    if (!title.trim() || !uid || saving) return;
+    setSaving(true);
+    try {
+      const dateStr = `${initDate.year}-${pad(initDate.month)}-${pad(initDate.day)}`;
+      await addDoc(collection(db, "homepro_schedules"), {
+        uid,
+        title: title.trim(),
+        date: dateStr,
+        startHour,
+        endHour,
+        location: location.trim(),
+        alarmOn,
+        memo: memo.trim(),
+        createdAt: serverTimestamp(),
+      });
+      navigate(-1);
+    } catch (e) {
+      console.error("일정 저장 실패:", e);
+      alert("저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -155,8 +184,8 @@ const ScheduleCreatePage = () => {
 
       {/* 완료 버튼 */}
       <FixedBottom>
-        <CompleteBtn onClick={handleComplete} disabled={!title.trim()}>
-          완료
+        <CompleteBtn onClick={handleComplete} disabled={!title.trim() || saving}>
+          {saving ? "저장 중..." : "완료"}
         </CompleteBtn>
       </FixedBottom>
     </PageWrap>
@@ -171,7 +200,7 @@ const PageWrap = styled.div`
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: ${THEME.surface};
+  background: ${THEME.background};
 `;
 
 const Header = styled.div`
@@ -208,16 +237,20 @@ const FormScroll = styled.div`
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 24px 20px;
+  padding: 12px;
 `;
 
 const Section = styled.div`
-  margin-bottom: 24px;
+  background: ${THEME.surface};
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: ${THEME.cardShadow};
 `;
 
 const Label = styled.div`
   font-size: 15px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 10px;
 `;
@@ -368,10 +401,13 @@ const BottomSpacer = styled.div`
 const FixedBottom = styled.div`
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 400px;
   padding: 0;
   z-index: 900;
+  box-sizing: border-box;
 `;
 
 const CompleteBtn = styled.button`

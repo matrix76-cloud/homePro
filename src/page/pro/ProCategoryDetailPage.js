@@ -1,10 +1,10 @@
 /* eslint-disable */
 import React, { useContext, useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
-import { CATEGORIES, THEME } from "../../config/homeproConfig";
+import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import { getProCategoryDoc, deleteProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -12,17 +12,20 @@ import { IoCheckmarkCircleOutline, IoCreateOutline } from "react-icons/io5";
 
 const ProCategoryDetailPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { categoryId } = useParams();
     const { user } = useContext(UserContext);
     const [proCategories, setProCategories] = useAtom(proCategoriesAtom);
 
+    const viewUid = location.state?.viewUid;
     const [docData, setDocData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
     const [slideIdx, setSlideIdx] = useState(0);
     const slideRef = useRef(null);
 
-    const uid = user?.USERS_ID;
+    const uid = viewUid || user?.USERS_ID;
+    const isViewingOther = !!viewUid;
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 
     useEffect(() => {
@@ -57,7 +60,19 @@ const ProCategoryDetailPage = () => {
 
     const photos = docData?.photoUrls || [];
     const detail = docData?.detail || {};
-    const certs = detail.certs || [];
+    const rawCerts = detail.certifications || detail.certs || [];
+    const certs = Array.isArray(rawCerts) ? rawCerts : [];
+    const catFields = PRO_DETAIL_FIELDS[categoryId] || [];
+    const region = docData?.region;
+    const regionText = region ? `${region.sido || ""} ${region.gu || ""}`.trim() : "";
+
+    const getStatusBadge = (status) => {
+        if (status === "approved") return { label: "승인완료", bg: THEME.success, color: "#fff" };
+        if (status === "rejected") return { label: "반려", bg: THEME.danger, color: "#fff" };
+        return { label: "심사중", bg: "#F59E0B", color: "#fff" };
+    };
+    const badge = docData ? getStatusBadge(docData.status) : getStatusBadge("");
+    const docStatusLabel = docData?.status === "approved" ? "검수완료" : "검수중";
 
     // slide scroll handler
     const handleSlideScroll = () => {
@@ -94,12 +109,10 @@ const ProCategoryDetailPage = () => {
             <ContentWrap>
                 {/* 카테고리 + 상태 */}
                 <HeaderRow>
-                    <div>
-                        <CatName>{cat.name}</CatName>
-                        <CatDesc>{cat.description}</CatDesc>
-                    </div>
-                    <StatusBadge>승인완료</StatusBadge>
+                    <CatName>{cat.name}</CatName>
+                    <StatusBadge $bg={badge.bg} $color={badge.color}>{badge.label}</StatusBadge>
                 </HeaderRow>
+                <CatDesc>{cat.description}</CatDesc>
 
                 {/* 한줄 소개 */}
                 {detail.intro && (
@@ -118,10 +131,10 @@ const ProCategoryDetailPage = () => {
                             <InfoValue>{detail.experience}년</InfoValue>
                         </InfoRow>
                     )}
-                    {detail.region && (
+                    {regionText && (
                         <InfoRow>
                             <InfoLabel>활동 지역</InfoLabel>
-                            <InfoValue>{detail.region}</InfoValue>
+                            <InfoValue>{regionText}</InfoValue>
                         </InfoRow>
                     )}
                     {detail.subcategories?.length > 0 && (
@@ -130,21 +143,37 @@ const ProCategoryDetailPage = () => {
                             <InfoValue>{detail.subcategories.join(", ")}</InfoValue>
                         </InfoRow>
                     )}
+                    {/* PRO_DETAIL_FIELDS 동적 렌더링 */}
+                    {catFields.map((field) => {
+                        const val = detail[field.key];
+                        if (!val || (Array.isArray(val) && val.length === 0)) return null;
+                        if (typeof val === "object" && !Array.isArray(val)) return null;
+                        return (
+                            <InfoRow key={field.key}>
+                                <InfoLabel>{field.label}</InfoLabel>
+                                <InfoValue>
+                                    {field.type === "chips" && Array.isArray(val) ? val.join(", ")
+                                        : field.type === "number" ? `${val}명`
+                                        : String(val)}
+                                </InfoValue>
+                            </InfoRow>
+                        );
+                    })}
                 </Section>
 
-                {/* 서류 검수 상태 */}
+                {/* 제출 서류 */}
                 <Section>
                     <SectionTitle>제출 서류</SectionTitle>
                     <DocRow>
                         <IoCheckmarkCircleOutline size={18} color={THEME.success} />
                         <DocText>사업자등록증 제출 완료</DocText>
-                        <DocStatus>검수완료</DocStatus>
+                        <DocStatus>{docStatusLabel}</DocStatus>
                     </DocRow>
                     {certs.length > 0 && certs.map((cert, i) => (
                         <DocRow key={i}>
                             <IoCheckmarkCircleOutline size={18} color={THEME.success} />
-                            <DocText>{cert.certName || `자격증 ${i + 1}`}</DocText>
-                            <DocStatus>검수완료</DocStatus>
+                            <DocText>{typeof cert === "string" ? cert : cert.certName || `자격증 ${i + 1}`}</DocText>
+                            <DocStatus>{docStatusLabel}</DocStatus>
                         </DocRow>
                     ))}
                 </Section>
@@ -157,23 +186,26 @@ const ProCategoryDetailPage = () => {
                             <InfoLabel>신청일</InfoLabel>
                             <InfoValue>{formatDate(docData.appliedAt)}</InfoValue>
                         </InfoRow>
-                        <InfoRow>
-                            <InfoLabel>승인일</InfoLabel>
-                            <InfoValue>{formatDate(docData.approvedAt)}</InfoValue>
-                        </InfoRow>
+                        {docData.approvedAt && (
+                            <InfoRow>
+                                <InfoLabel>승인일</InfoLabel>
+                                <InfoValue>{formatDate(docData.approvedAt)}</InfoValue>
+                            </InfoRow>
+                        )}
                     </Section>
                 )}
 
-                {/* 수정 버튼 */}
-                <EditBtn onClick={() => navigate(`/pro/category-edit/${categoryId}`)}>
-                    <IoCreateOutline size={18} />
-                    프로필 수정
-                </EditBtn>
-
-                {/* 삭제 버튼 */}
-                <DeleteBtn onClick={handleDelete} disabled={deleting}>
-                    {deleting ? "삭제 중..." : "업무분야 삭제"}
-                </DeleteBtn>
+                {/* 수정/삭제 버튼 — 본인만 */}
+                {!isViewingOther && (
+                  <>
+                    <EditBtn onClick={() => navigate(`/pro/category-edit/${categoryId}`)}>
+                        프로필 수정
+                    </EditBtn>
+                    <DeleteBtn onClick={handleDelete} disabled={deleting}>
+                        {deleting ? "삭제 중..." : "업무분야 삭제"}
+                    </DeleteBtn>
+                  </>
+                )}
             </ContentWrap>
         </SimpleBackLayout>
     );
@@ -238,10 +270,10 @@ const NoPhotoText = styled.div`
 `;
 
 const ContentWrap = styled.div`
-    padding: 20px 16px 40px;
+    padding: 20px 12px 40px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
 `;
 
 const HeaderRow = styled.div`
@@ -256,32 +288,33 @@ const CatName = styled.div`
     font-weight: 400;
     color: ${THEME.text};
     letter-spacing: -0.02em;
+    padding-left: 4px;
 `;
 
 const CatDesc = styled.div`
     font-size: 13px;
-    color: ${THEME.muted};
-    margin-top: 4px;
-    line-height: 1.4;
+    color: ${THEME.textSecondary};
+    line-height: 1.5;
     word-break: keep-all;
+    font-weight: 400;
 `;
 
 const StatusBadge = styled.div`
     padding: 5px 12px;
-    border-radius: 4px;
-    background: #D1FAE5;
-    color: ${THEME.success};
+    border-radius: 20px;
+    background: ${({ $bg }) => $bg || THEME.success};
+    color: ${({ $color }) => $color || "#fff"};
     font-size: 12px;
-    font-weight: 400;
+    font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
 `;
 
-const Section = styled.div``;
+const Section = styled.div`background: ${THEME.surface}; border-radius: 16px; padding: 20px; box-shadow: ${THEME.cardShadow};`;
 
 const SectionTitle = styled.div`
     font-size: 15px;
-    font-weight: 400;
+    font-weight: 700;
     color: ${THEME.text};
     margin-bottom: 10px;
 `;
@@ -292,7 +325,7 @@ const IntroText = styled.div`
     line-height: 1.6;
     background: ${THEME.background};
     padding: 14px;
-    border-radius: 4px;
+    border-radius: 12px;
 `;
 
 const InfoRow = styled.div`
@@ -346,10 +379,10 @@ const DocStatus = styled.div`
 const EditBtn = styled.button`
     width: 100%;
     padding: 14px;
-    border: 1.5px solid ${THEME.primary};
-    border-radius: 4px;
-    background: #fff;
-    color: ${THEME.primary};
+    border: none;
+    border-radius: 10px;
+    background: ${THEME.primary};
+    color: #fff;
     font-size: 15px;
     font-weight: 400;
     font-family: inherit;
@@ -357,21 +390,20 @@ const EditBtn = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    &:active { background: ${THEME.background}; }
+    &:active { opacity: 0.85; }
 `;
 
 const DeleteBtn = styled.button`
     width: 100%;
     padding: 14px;
     border: 1px solid ${THEME.border};
-    border-radius: 4px;
-    background: #fff;
-    color: ${THEME.danger};
+    border-radius: 10px;
+    background: ${THEME.surface};
+    color: ${THEME.text};
     font-size: 14px;
     font-weight: 400;
     font-family: inherit;
     cursor: pointer;
-    &:active { background: #FEF2F2; }
+    &:active { background: ${THEME.background}; }
     &:disabled { opacity: 0.5; cursor: default; }
 `;

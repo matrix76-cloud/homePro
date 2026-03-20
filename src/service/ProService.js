@@ -43,9 +43,8 @@ export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls
         licenseUrl,
         photoUrls,
         detail: detailInfo,
-        status: "approved",
+        status: "pending",
         appliedAt: serverTimestamp(),
-        approvedAt: serverTimestamp(),
     };
     if (region?.sido) {
         data.region = { sido: region.sido, gu: region.gu || "전체" };
@@ -78,6 +77,13 @@ export async function getProCategoryIds(uid) {
     const q = query(collection(db, COLLECTIONS.PROS), where("uid", "==", uid));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data().categoryId);
+}
+
+/** 전문가 등록 목록 (status 포함) */
+export async function getMyProDocs(uid) {
+    const q = query(collection(db, COLLECTIONS.PROS), where("uid", "==", uid));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 /**

@@ -6,8 +6,10 @@ import { THEME } from "../../../config/homeproConfig";
 const HeaderWrapper = styled.div`
   position: fixed;
   top: env(safe-area-inset-top, 0px);
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 400px;
   z-index: 999;
   background: #fff;
   height: 52px;

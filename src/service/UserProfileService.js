@@ -67,11 +67,14 @@ export async function upsertUserProfile(uid, patch) {
     const u = safeTrim(uid);
     if (!u) throw new Error("UID_REQUIRED");
 
-    await setDoc(
-        doc(db, "users", u),
-        { ...(patch || {}), uid: u, updatedAt: serverTimestamp() },
-        { merge: true }
-    );
+    const ref = doc(db, "users", u);
+    const snap = await getDoc(ref);
+    const base = { ...(patch || {}), uid: u, updatedAt: serverTimestamp() };
+    if (!snap.exists() || !snap.data().createdAt) {
+        base.createdAt = serverTimestamp();
+    }
+
+    await setDoc(ref, base, { merge: true });
     return true;
 }
 
@@ -252,4 +255,16 @@ export async function getPrimaryUidByPhone(phoneE164) {
     if (!snap.exists()) return null;
 
     return snap.data()?.primaryUid || null;
+}
+
+/**
+ * 닉네임 중복 체크
+ * @returns {boolean} true = 이미 사용 중
+ */
+export async function isNicknameTaken(nickname) {
+    const n = safeTrim(nickname);
+    if (!n) return false;
+    const q = query(collection(db, "users"), where("nickname", "==", n));
+    const snap = await getDocs(q);
+    return !snap.empty;
 }

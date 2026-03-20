@@ -6,6 +6,7 @@ import { useAtomValue } from "jotai";
 import { CATEGORIES, THEME } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { IoChevronForward, IoAddOutline } from "react-icons/io5";
 
 const ProCategoryListPage = () => {
@@ -27,7 +28,7 @@ const ProCategoryListPage = () => {
                         {myCats.map((cat) => (
                             <CatRow key={cat.id} onClick={() => navigate(`/pro/category-detail/${cat.id}`)}>
                                 <CatLeft>
-                                    <CatIcon>{cat.shortName.charAt(0)}</CatIcon>
+                                    <CatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</CatIcon>
                                     <CatInfo>
                                         <CatName>{cat.name}</CatName>
                                         <CatStatus>승인완료</CatStatus>
@@ -53,10 +54,10 @@ export default ProCategoryListPage;
 /* ===================== styles ===================== */
 
 const Wrap = styled.div`
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     min-height: calc(100vh - 52px - env(safe-area-inset-top, 0px));
 `;
 
@@ -112,16 +113,14 @@ const CatLeft = styled.div`
 `;
 
 const CatIcon = styled.div`
-    font-size: 16px;
-    font-weight: 400;
-    color: ${THEME.primary};
     width: 44px;
     height: 44px;
-    border-radius: 4px;
+    border-radius: 12px;
     background: ${THEME.background};
     display: flex;
     align-items: center;
     justify-content: center;
+    svg { width: 36px; height: 36px; }
 `;
 
 const CatInfo = styled.div``;
@@ -133,17 +132,21 @@ const CatName = styled.div`
 `;
 
 const CatStatus = styled.div`
-    font-size: 13px;
-    font-weight: 400;
-    color: ${THEME.success};
-    margin-top: 2px;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    color: #fff;
+    background: ${THEME.success};
+    padding: 2px 10px;
+    border-radius: 20px;
+    margin-top: 4px;
 `;
 
 const AddBtn = styled.button`
     width: 100%;
     padding: 16px;
     border: none;
-    border-radius: 14px;
+    border-radius: 10px;
     background: ${THEME.primary};
     color: #fff;
     font-size: 16px;

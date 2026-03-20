@@ -1,43 +1,12 @@
 /* eslint-disable */
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { CATEGORIES, THEME, SPACE_TYPES } from "../../config/homeproConfig";
+import { CATEGORIES, CATEGORY_GROUPS, THEME, SPACE_TYPES } from "../../config/homeproConfig";
+import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoSparkles, IoChevronDown, IoChevronUp } from "react-icons/io5";
-
-/* ─── AI 견적 시뮬레이션 데이터 ─── */
-const AI_ESTIMATE_DATA = {
-  professional_cleaning: { base: 200000, items: [{ name: "기본 청소 비용", price: 150000 }, { name: "자재/소모품", price: 30000 }, { name: "출장비", price: 20000 }], time: "3~5시간", tip: "입주청소는 면적에 따라 가격이 달라집니다. 32평 기준 평균 25~35만원대입니다." },
-  plumbing: { base: 120000, items: [{ name: "출장 점검비", price: 30000 }, { name: "작업비", price: 70000 }, { name: "부자재", price: 20000 }], time: "1~3시간", tip: "하수구 막힘은 정도에 따라 가격이 달라집니다. 고압세척 필요 시 추가 비용이 발생할 수 있습니다." },
-  appliance_cleaning: { base: 80000, items: [{ name: "에어컨 분해청소 (1대)", price: 60000 }, { name: "항균코팅", price: 20000 }], time: "1~2시간/대", tip: "벽걸이 기준이며, 스탠드/시스템 에어컨은 별도 견적이 필요합니다." },
-  home_repair: { base: 80000, items: [{ name: "출장비", price: 20000 }, { name: "작업비", price: 40000 }, { name: "부자재", price: 20000 }], time: "1~2시간", tip: "소규모 수리는 출장비 포함 5~15만원대가 일반적입니다." },
-  electrical: { base: 100000, items: [{ name: "출장 점검비", price: 30000 }, { name: "수리 작업비", price: 50000 }, { name: "부자재", price: 20000 }], time: "1~2시간", tip: "전기 고장은 원인에 따라 비용이 달라집니다. 누전 점검은 별도 장비비가 추가될 수 있습니다." },
-  mattress_care: { base: 80000, items: [{ name: "매트리스 케어 (1개)", price: 60000 }, { name: "UV살균", price: 20000 }], time: "1~2시간", tip: "킹사이즈 기준이며, 싱글/더블은 할인 가능합니다." },
-  aircon_install: { base: 250000, items: [{ name: "설치 공임", price: 150000 }, { name: "배관 작업", price: 70000 }, { name: "부자재", price: 30000 }], time: "2~4시간", tip: "벽걸이 기준이며, 배관 길이에 따라 추가 비용이 발생합니다." },
-  appliance_install: { base: 80000, items: [{ name: "설치 공임", price: 50000 }, { name: "부자재", price: 15000 }, { name: "출장비", price: 15000 }], time: "1~2시간", tip: "가전 종류에 따라 공임이 달라집니다." },
-  boiler: { base: 150000, items: [{ name: "출장 점검비", price: 30000 }, { name: "수리 작업비", price: 80000 }, { name: "부품비", price: 40000 }], time: "1~3시간", tip: "보일러 고장은 부품 교체 여부에 따라 비용이 크게 달라집니다." },
-  worker_call: { base: 150000, items: [{ name: "일당 (1인)", price: 150000 }], time: "8시간 기준", tip: "숙련도와 작업 종류에 따라 일당이 달라집니다. 전문기술자는 20~30만원대입니다." },
-  partial_interior: { base: 300000, items: [{ name: "자재비", price: 150000 }, { name: "시공비", price: 120000 }, { name: "철거/정리", price: 30000 }], time: "1~3일", tip: "도배, 장판 등 부분 시공은 면적과 자재에 따라 달라집니다." },
-  full_remodel: { base: 3000000, items: [{ name: "설계/디자인", price: 500000 }, { name: "철거 공사", price: 500000 }, { name: "시공비", price: 1500000 }, { name: "자재비", price: 500000 }], time: "2~4주", tip: "25평 기준 종합 리모델링은 2000~5000만원대가 일반적입니다. 현장 실측 후 정확한 견적이 가능합니다." },
-  heavy_equipment: { base: 300000, items: [{ name: "장비 대여 (1일)", price: 250000 }, { name: "운반비", price: 50000 }], time: "1일 기준", tip: "스카이차 기준이며, 높이와 작업 시간에 따라 달라집니다." },
-  waste: { base: 200000, items: [{ name: "수거비", price: 150000 }, { name: "운반/처리비", price: 50000 }], time: "1~2시간", tip: "폐기물 양과 종류에 따라 가격이 달라집니다. 1톤 트럭 기준입니다." },
-  demolition: { base: 500000, items: [{ name: "철거 작업비", price: 350000 }, { name: "폐기물 처리", price: 100000 }, { name: "정리비", price: 50000 }], time: "1~3일", tip: "면적과 철거 범위에 따라 비용이 달라집니다." },
-  pest_control: { base: 80000, items: [{ name: "방역 약제비", price: 30000 }, { name: "시공비", price: 30000 }, { name: "출장비", price: 20000 }], time: "1~2시간", tip: "원룸 기준이며, 면적이 넓을수록 비용이 증가합니다." },
-  mold: { base: 200000, items: [{ name: "곰팡이 제거", price: 100000 }, { name: "항균코팅", price: 60000 }, { name: "자재비", price: 40000 }], time: "2~4시간", tip: "면적과 곰팡이 정도에 따라 달라집니다. 재발방지 코팅 포함 기준입니다." },
-  auto: { base: 50000, items: [{ name: "외부세차", price: 25000 }, { name: "내부세차", price: 25000 }], time: "1~2시간", tip: "SUV는 소형차 대비 1~2만원 추가됩니다. 광택/코팅은 별도입니다." },
-  moving: { base: 400000, items: [{ name: "운송비", price: 200000 }, { name: "인건비 (2인)", price: 150000 }, { name: "포장/자재", price: 50000 }], time: "4~8시간", tip: "원룸 기준이며, 짐 양과 이동 거리에 따라 달라집니다." },
-  computer: { base: 50000, items: [{ name: "출장 점검비", price: 20000 }, { name: "수리 작업비", price: 30000 }], time: "1~2시간", tip: "부품 교체가 필요한 경우 부품비가 별도 추가됩니다." },
-  inspection: { base: 200000, items: [{ name: "점검 수수료", price: 150000 }, { name: "보고서 작성", price: 50000 }], time: "2~3시간", tip: "아파트 사전점검 기준이며, 면적에 따라 달라집니다." },
-  supplies: { base: 100000, items: [{ name: "자재비", price: 80000 }, { name: "배송비", price: 20000 }], time: "당일~익일", tip: "품목과 수량에 따라 가격이 달라집니다." },
-  training: { base: 300000, items: [{ name: "교육비 (1일)", price: 250000 }, { name: "교재/자재", price: 50000 }], time: "1일 기준", tip: "교육 분야와 기간에 따라 달라집니다." },
-  electrical_work: { base: 300000, items: [{ name: "공사비", price: 200000 }, { name: "자재비", price: 70000 }, { name: "출장비", price: 30000 }], time: "1~2일", tip: "증설 개소 수에 따라 달라집니다." },
-  realestate: { base: 0, items: [{ name: "중개수수료 (법정요율)", price: 0 }], time: "-", tip: "중개수수료는 거래 금액에 따라 법정요율이 적용됩니다." },
-  insurance: { base: 0, items: [{ name: "보험료 (상담 후 결정)", price: 0 }], time: "-", tip: "업종, 인원, 매출 규모에 따라 보험료가 산정됩니다." },
-  fortune: { base: 50000, items: [{ name: "상담료", price: 50000 }], time: "30분~1시간", tip: "사주, 작명 등 상담 종류에 따라 달라집니다." },
-};
-
-const DEFAULT_ESTIMATE = { base: 100000, items: [{ name: "기본 작업비", price: 70000 }, { name: "출장비", price: 30000 }], time: "1~2시간", tip: "상세 내용에 따라 견적이 달라질 수 있습니다." };
+import { getAiEstimate } from "../../service/AiEstimateService";
 
 /* 탭 내장용 콘텐츠 컴포넌트 */
 export const AIEstimateContent = () => {
@@ -45,10 +14,15 @@ export const AIEstimateContent = () => {
   const [selectedCat, setSelectedCat] = useState("");
   const [selectedSubs, setSelectedSubs] = useState([]);
   const [spaceType, setSpaceType] = useState("");
+  const [area, setArea] = useState("");
   const [description, setDescription] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [showDetail, setShowDetail] = useState(true);
+  const [showReasoning, setShowReasoning] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); }, []);
 
   const category = useMemo(() => CATEGORIES.find((c) => c.id === selectedCat), [selectedCat]);
   const hasSubcategories = category?.subcategories?.length > 0;
@@ -59,23 +33,32 @@ export const AIEstimateContent = () => {
     );
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!selectedCat) return;
     setAnalyzing(true);
     setResult(null);
-    // AI 분석 시뮬레이션 (1.5초)
-    setTimeout(() => {
-      const data = AI_ESTIMATE_DATA[selectedCat] || DEFAULT_ESTIMATE;
+    try {
+      const data = await getAiEstimate({
+        categoryName: category?.name || "",
+        subcategories: selectedSubs,
+        spaceType,
+        area,
+        description,
+      });
       setResult(data);
+    } catch (e) {
+      console.error("AI 분석 실패:", e);
+      showToast("분석에 실패했습니다. 다시 시도해주세요");
+    } finally {
       setAnalyzing(false);
-    }, 1500);
+    }
   };
 
   const handleRealEstimate = () => {
     navigate("/order/create", { state: { fromAI: true, categoryId: selectedCat, subcategories: selectedSubs, spaceType, description, aiEstimate: result } });
   };
 
-  const formatPrice = (n) => n === 0 ? "상담 후 결정" : n.toLocaleString() + "원";
+  const formatPrice = (n) => !n || n === 0 ? "상담 후 결정" : n.toLocaleString() + "원";
 
   return (
     <PageWrap>
@@ -91,17 +74,26 @@ export const AIEstimateContent = () => {
         {/* 카테고리 선택 */}
         <Section>
           <Label>카테고리 선택</Label>
-          <CatGrid>
-            {CATEGORIES.map((cat) => (
-              <CatChip
-                key={cat.id}
-                $active={selectedCat === cat.id}
-                onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}
-              >
-                {cat.shortName}
-              </CatChip>
-            ))}
-          </CatGrid>
+          {CATEGORY_GROUPS.map((group) => (
+            <div key={group.id}>
+              <CatGroupLabel>{group.label}</CatGroupLabel>
+              <CatGrid>
+                {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
+                  const Icon = CATEGORY_ICONS[cat.id];
+                  return (
+                    <CatChip
+                      key={cat.id}
+                      $active={selectedCat === cat.id}
+                      onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}
+                    >
+                      <CatChipIcon>{Icon ? <Icon /> : null}</CatChipIcon>
+                      {cat.shortName}
+                    </CatChip>
+                  );
+                })}
+              </CatGrid>
+            </div>
+          ))}
         </Section>
 
         {/* 세부 항목 선택 */}
@@ -140,6 +132,18 @@ export const AIEstimateContent = () => {
           </Section>
         )}
 
+        {/* 면적 */}
+        {selectedCat && (
+          <Section>
+            <Label>면적 (선택)</Label>
+            <AreaInput
+              placeholder="예: 30평, 100m²"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+            />
+          </Section>
+        )}
+
         {/* 작업 설명 */}
         {selectedCat && (
           <Section>
@@ -170,8 +174,8 @@ export const AIEstimateContent = () => {
           </AnalyzeBtn>
         )}
 
-        {/* 결과 */}
-        {result && (
+        {/* 결과 — success */}
+        {result?.status === "success" && result.estimate && (
           <>
             <ResultCard>
               <ResultHeader>
@@ -183,51 +187,103 @@ export const AIEstimateContent = () => {
               </ResultHeader>
 
               <TotalRow>
-                <TotalLabel>예상 총 비용</TotalLabel>
-                <TotalPrice>{formatPrice(result.base)}</TotalPrice>
+                <TotalLabel>예상 비용<br/>범위</TotalLabel>
+                <TotalPriceCol>
+                  <TotalPrice>{formatPrice(result.estimate.minPrice)}</TotalPrice>
+                  <TotalTilde>~</TotalTilde>
+                  <TotalPrice>{formatPrice(result.estimate.maxPrice)}</TotalPrice>
+                </TotalPriceCol>
               </TotalRow>
 
               <DetailToggle onClick={() => setShowDetail(!showDetail)}>
-                상세 내역 {showDetail ? <IoChevronUp size={16} /> : <IoChevronDown size={16} />}
+                항목별 내역 {showDetail ? <IoChevronUp size={16} /> : <IoChevronDown size={16} />}
               </DetailToggle>
 
-              {showDetail && (
+              {showDetail && result.estimate.items?.length > 0 && (
                 <DetailList>
-                  {result.items.map((item, i) => (
+                  {result.estimate.items.map((item, i) => (
                     <DetailRow key={i}>
-                      <DetailName>{item.name}</DetailName>
+                      <DetailLeft>
+                        <DetailName>{item.name}</DetailName>
+                        {item.note && <DetailNote>{item.note}</DetailNote>}
+                      </DetailLeft>
                       <DetailPrice>{formatPrice(item.price)}</DetailPrice>
                     </DetailRow>
                   ))}
                 </DetailList>
               )}
 
-              <InfoRow>
-                <InfoLabel>예상 소요시간</InfoLabel>
-                <InfoValue>{result.time}</InfoValue>
-              </InfoRow>
+              {result.estimate.timeEstimate && (
+                <InfoRow>
+                  <InfoLabel>예상 소요시간</InfoLabel>
+                  <InfoValue>{result.estimate.timeEstimate}</InfoValue>
+                </InfoRow>
+              )}
 
-              <TipBox>
-                <TipIcon>Tip</TipIcon>
-                <TipText>{result.tip}</TipText>
-              </TipBox>
+              {result.estimate.tip && (
+                <TipBox>
+                  <TipIcon>Tip</TipIcon>
+                  <TipText>{result.estimate.tip}</TipText>
+                </TipBox>
+              )}
 
-              <Disclaimer>
-                * AI 예상 견적은 참고용이며, 실제 비용은 현장 상황에 따라 달라질 수 있습니다.
-              </Disclaimer>
+              {result.reasoning && (
+                <>
+                  <DetailToggle onClick={() => setShowReasoning(!showReasoning)} style={{ marginTop: 8 }}>
+                    산출 근거 {showReasoning ? <IoChevronUp size={16} /> : <IoChevronDown size={16} />}
+                  </DetailToggle>
+                  {showReasoning && <ReasoningBox>{result.reasoning}</ReasoningBox>}
+                </>
+              )}
+
+              <Disclaimer>* AI 예상 견적은 참고용이며, 실제 비용은 현장 상황에 따라 달라질 수 있습니다.</Disclaimer>
             </ResultCard>
 
-            {/* 실제 견적 넣기 버튼 */}
-            <RealEstimateBtn onClick={handleRealEstimate}>
-              실제 견적 넣기
-            </RealEstimateBtn>
-
-            {/* 다시 분석 */}
-            <RetryBtn onClick={() => { setResult(null); }}>
-              다른 조건으로 다시 분석
-            </RetryBtn>
+            <RealEstimateBtn onClick={handleRealEstimate}>실제 견적 요청하기</RealEstimateBtn>
+            <RetryBtn onClick={() => setResult(null)}>다른 조건으로 다시 분석</RetryBtn>
           </>
         )}
+
+        {/* 결과 — need_info */}
+        {result?.status === "need_info" && (
+          <>
+            <ResultCard>
+              <ResultHeader>
+                <ResultIcon><IoSparkles size={20} color={THEME.primary} /></ResultIcon>
+                <ResultHeaderText>
+                  <ResultTitle>추가 정보가 필요해요</ResultTitle>
+                  <ResultCat>{category?.name}</ResultCat>
+                </ResultHeaderText>
+              </ResultHeader>
+
+              {result.questions?.length > 0 && (
+                <QuestionList>
+                  {result.questions.map((q, i) => (
+                    <QuestionItem key={i}>• {q}</QuestionItem>
+                  ))}
+                </QuestionList>
+              )}
+
+              {result.partialEstimate && (
+                <>
+                  <TotalRow style={{ marginTop: 16 }}>
+                    <TotalLabel>대략적 범위</TotalLabel>
+                    <TotalPrice style={{ fontSize: 18 }}>
+                      {formatPrice(result.partialEstimate.minPrice)} ~ {formatPrice(result.partialEstimate.maxPrice)}
+                    </TotalPrice>
+                  </TotalRow>
+                  {result.partialEstimate.note && (
+                    <Disclaimer style={{ marginTop: 8 }}>{result.partialEstimate.note}</Disclaimer>
+                  )}
+                </>
+              )}
+            </ResultCard>
+
+            <RetryBtn onClick={() => setResult(null)}>정보 추가 후 다시 분석</RetryBtn>
+          </>
+        )}
+
+        {toast && <AIToast>{toast}</AIToast>}
     </PageWrap>
   );
 };
@@ -243,7 +299,7 @@ export default AIEstimatePage;
 /* ===================== styles ===================== */
 
 const PageWrap = styled.div`
-  padding: 0 12px 40px;
+  padding: 12px 12px 40px;
   display: flex;
   flex-direction: column;
 `;
@@ -251,7 +307,7 @@ const PageWrap = styled.div`
 const HeaderCard = styled.div`
   background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark});
   padding: 28px 20px;
-  border-radius: 4px;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -271,7 +327,7 @@ const AIIconWrap = styled.div`
 
 const HeaderTitle = styled.div`
   font-size: 22px;
-  font-weight: 400;
+  font-weight: 700;
   color: #fff;
   letter-spacing: -0.03em;
 `;
@@ -286,15 +342,29 @@ const HeaderDesc = styled.div`
 `;
 
 const Section = styled.div`
-  padding: 20px 16px 0;
+  background: ${THEME.surface};
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 12px;
+  box-shadow: ${THEME.cardShadow};
 `;
 
 const Label = styled.div`
   font-size: 16px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
   letter-spacing: -0.02em;
+`;
+
+const CatGroupLabel = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.textSecondary};
+  background: ${THEME.background};
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 14px 0 8px;
 `;
 
 const CatGrid = styled.div`
@@ -305,8 +375,8 @@ const CatGrid = styled.div`
 
 const CatChip = styled.button`
   padding: 8px 14px;
-  border-radius: 6px;
-  border: 1.5px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
+  border-radius: 20px;
+  border: ${({ $active }) => $active ? "none" : `1.5px solid ${THEME.border}`};
   background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.text};
   font-size: 13px;
@@ -320,11 +390,21 @@ const CatChip = styled.button`
   &:active { opacity: 0.8; }
 `;
 
+const CatChipIcon = styled.span`
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  svg { width: 24px; height: 24px; }
+`;
+
 const TextArea = styled.textarea`
   width: 100%;
   padding: 14px 16px;
   border: 1.5px solid ${THEME.border};
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 14px;
   font-family: inherit;
   color: ${THEME.text};
@@ -354,7 +434,7 @@ const AnalyzeBtn = styled.button`
   margin: 20px 0 0;
   padding: 16px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   background: linear-gradient(135deg, ${THEME.primary}, ${THEME.purple});
   color: #fff;
   font-size: 16px;
@@ -375,7 +455,6 @@ const ResultCard = styled.div`
   border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
-  border: 1px solid ${THEME.border};
 `;
 
 const ResultHeader = styled.div`
@@ -400,7 +479,7 @@ const ResultHeaderText = styled.div``;
 
 const ResultTitle = styled.div`
   font-size: 17px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
 `;
 
@@ -415,22 +494,37 @@ const TotalRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 20px;
   background: linear-gradient(135deg, ${THEME.primary}10, ${THEME.purple}10);
   border-radius: 12px;
   margin-bottom: 16px;
 `;
 
 const TotalLabel = styled.div`
-  font-size: 15px;
-  font-weight: 400;
-  color: ${THEME.text};
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+  line-height: 1.4;
+  flex-shrink: 0;
+`;
+
+const TotalPriceCol = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 `;
 
 const TotalPrice = styled.div`
   font-size: 22px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.primary};
+`;
+
+const TotalTilde = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+  text-align: right;
 `;
 
 const DetailToggle = styled.div`
@@ -454,21 +548,31 @@ const DetailList = styled.div`
 
 const DetailRow = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 8px 0;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+
+const DetailLeft = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 
 const DetailName = styled.div`
   font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.textSecondary};
+  font-weight: 600;
+  color: ${THEME.text};
 `;
 
 const DetailPrice = styled.div`
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.text};
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  flex-shrink: 0;
+  text-align: right;
 `;
 
 const InfoRow = styled.div`
@@ -525,7 +629,7 @@ const RealEstimateBtn = styled.button`
   margin: 16px 0 0;
   padding: 16px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
@@ -535,11 +639,83 @@ const RealEstimateBtn = styled.button`
   &:active { opacity: 0.9; }
 `;
 
+const AreaInput = styled.input`
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid ${THEME.border};
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: ${THEME.text};
+  outline: none;
+  box-sizing: border-box;
+  &:focus { border-color: ${THEME.primary}; }
+  &::placeholder { color: ${THEME.muted}; }
+`;
+
+const DetailNote = styled.div`
+  font-size: 12px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  line-height: 1.4;
+`;
+
+const ReasoningBox = styled.div`
+  padding: 14px;
+  background: ${THEME.background};
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.textSecondary};
+  line-height: 1.6;
+  white-space: pre-line;
+  margin-top: 4px;
+`;
+
+const QuestionList = styled.div`
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const QuestionItem = styled.div`
+  font-size: 14px;
+  font-weight: 400;
+  color: ${THEME.text};
+  line-height: 1.5;
+  padding: 10px 14px;
+  background: ${THEME.background};
+  border-radius: 10px;
+`;
+
+const toastAnim = keyframes`
+  from { transform: translate(-50%, 10px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+`;
+
+const AIToast = styled.div`
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: #333;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 400;
+  border-radius: 10px;
+  z-index: 9999;
+  white-space: nowrap;
+  animation: ${toastAnim} 0.25s ease-out;
+`;
+
 const RetryBtn = styled.button`
   margin: 8px 0 0;
   padding: 14px;
   border: 1.5px solid ${THEME.border};
-  border-radius: 14px;
+  border-radius: 10px;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
   font-size: 15px;

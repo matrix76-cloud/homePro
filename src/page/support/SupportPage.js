@@ -115,7 +115,7 @@ export default SupportPage;
 /* ===================== styles ===================== */
 
 const Wrap = styled.div`
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -130,7 +130,7 @@ const TopCard = styled.div`
 
 const TopTitle = styled.div`
     font-size: 20px;
-    font-weight: 400;
+    font-weight: 700;
     color: #fff;
     letter-spacing: -0.03em;
 `;
@@ -206,7 +206,7 @@ const FaqSection = styled.div`
 
 const FaqTitle = styled.div`
     font-size: 17px;
-    font-weight: 400;
+    font-weight: 700;
     color: ${THEME.text};
     padding: 20px 20px 12px;
 `;

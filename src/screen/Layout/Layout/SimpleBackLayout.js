@@ -9,6 +9,9 @@ const Container = styled.div`
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  max-width: 400px;
+  margin: 0 auto;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
 `;
 
 const Main = styled.main`
@@ -21,6 +24,7 @@ const Main = styled.main`
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  background: #F7F8FA;
 `;
 
 const SimpleBackLayout = (props) => {

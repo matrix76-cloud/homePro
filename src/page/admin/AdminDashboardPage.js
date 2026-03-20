@@ -58,18 +58,16 @@ const AdminDashboardPage = () => {
     });
     const [recentUsers, setRecentUsers] = useState([]);
     const [recentOrders, setRecentOrders] = useState([]);
-    // 목업 차트 데이터 (이번달 일별)
-    const mockChartData = useMemo(() => {
+    // 차트 데이터 (추후 Firestore 연동)
+    const emptyChartData = useMemo(() => {
         const now = new Date();
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const today = now.getDate();
         const users = [], orders = [], revenue = [];
         for (let d = 1; d <= daysInMonth; d++) {
             const label = `${d}일`;
-            const past = d <= today;
-            users.push({ name: label, value: past ? Math.floor(Math.random() * 8 + 2) : 0 });
-            orders.push({ name: label, value: past ? Math.floor(Math.random() * 12 + 3) : 0 });
-            revenue.push({ name: label, value: past ? Math.floor(Math.random() * 500000 + 100000) : 0 });
+            users.push({ name: label, value: 0 });
+            orders.push({ name: label, value: 0 });
+            revenue.push({ name: label, value: 0 });
         }
         return { users, orders, revenue };
     }, []);
@@ -81,34 +79,48 @@ const AdminDashboardPage = () => {
             setLoading(true);
             const monthStart = getMonthStart();
 
-            // 기본 컬렉션 전체 로드 (클라이언트에서 분류)
+            // 기본 컬렉션 전체 로드 (개별 실패해도 나머지 정상 동작)
+            const empty = { docs: [], size: 0, forEach: () => {} };
+            const safe = (p) => p.catch((e) => { console.warn("대시보드 쿼리 실패:", e.message); return empty; });
+
             const [
                 usersSnap, ordersSnap, chatsSnap, adsSnap,
                 pointsSnap, settlementSnap, noticesSnap,
+                prosSnap,
                 monthCompletedSnap,
                 recentUsersSnap, recentOrdersSnap,
             ] = await Promise.all([
-                getDocs(collection(db, "users")),
-                getDocs(collection(db, "homepro_orders")),
-                getDocs(collection(db, "chatRooms")),
-                getDocs(collection(db, "ads")),
-                getDocs(collection(db, "homepro_cash")),
-                getDocs(collection(db, "homepro_settlements")),
-                getDocs(collection(db, "notices")),
-                getDocs(query(collection(db, "homepro_orders"), where("createdAt", ">=", monthStart), where("status", "==", "completed"))),
-                getDocs(query(collection(db, "users"), orderBy("createdAt", "desc"), limit(5))),
-                getDocs(query(collection(db, "homepro_orders"), orderBy("createdAt", "desc"), limit(5))),
+                safe(getDocs(collection(db, "users"))),
+                safe(getDocs(collection(db, "homepro_orders"))),
+                safe(getDocs(collection(db, "chatRooms"))),
+                safe(getDocs(collection(db, "ads"))),
+                safe(getDocs(collection(db, "homepro_cash"))),
+                safe(getDocs(collection(db, "homepro_settlements"))),
+                safe(getDocs(collection(db, "notices"))),
+                safe(getDocs(collection(db, "homepro_pros"))),
+                safe(getDocs(query(collection(db, "homepro_orders"), where("createdAt", ">=", monthStart), where("status", "==", "completed")))),
+                safe(getDocs(query(collection(db, "users"), orderBy("createdAt", "desc"), limit(5)))),
+                safe(getDocs(query(collection(db, "homepro_orders"), orderBy("createdAt", "desc"), limit(5)))),
             ]);
 
-            // 회원 분류
+            // 회원 분류 (프로 수는 homepro_pros에서 approved 기준)
             let totalPros = 0;
-            usersSnap.forEach(d => { if (d.data().role === "pro") totalPros++; });
+            prosSnap.forEach(d => { if (d.data().status === "approved") totalPros++; });
+            // 고유 프로 uid 수 (같은 사람이 여러 카테고리 등록 가능)
+            const proUids = new Set();
+            prosSnap.forEach(d => { if (d.data().status === "approved") proUids.add(d.data().uid); });
+            totalPros = proUids.size;
 
-            // 매칭 분류
+            // 매칭 분류 (orderStatus 한글 → 영문 정규화)
+            const normalizeStatus = (data) => {
+                if (data.status) return data.status;
+                const map = { "접수": "requested", "요청": "requested", "매칭": "matched", "진행": "in_progress", "완료": "completed", "취소": "cancelled" };
+                return map[data.orderStatus] || "requested";
+            };
             let totalOrders = ordersSnap.size, requestedOrders = 0, matchedOrders = 0,
                 inProgressOrders = 0, completedOrders = 0, cancelledOrders = 0;
             ordersSnap.forEach(d => {
-                const s = d.data().status;
+                const s = normalizeStatus(d.data());
                 if (s === "pending" || s === "requested") requestedOrders++;
                 else if (s === "matched") matchedOrders++;
                 else if (s === "in_progress") inProgressOrders++;
@@ -170,8 +182,12 @@ const AdminDashboardPage = () => {
             let monthRevenue = 0;
             monthCompletedSnap.forEach(d => { monthRevenue += d.data().amount || 0; });
 
+            // 전화번호 인증된 회원만 카운팅
+            let validUsers = 0;
+            usersSnap.forEach(d => { const data = d.data(); if (data.phoneE164 || data.phone) validUsers++; });
+
             setStats({
-                totalUsers: usersSnap.size, generalUsers: usersSnap.size - totalPros, totalPros,
+                totalUsers: validUsers, generalUsers: validUsers - totalPros, totalPros,
                 totalOrders, requestedOrders, matchedOrders, inProgressOrders, completedOrders, cancelledOrders,
                 totalChats: chatsSnap.size, activeChats, flaggedChats, closedChats,
                 topAds, middleAds, settingsAds, popupAds,
@@ -334,7 +350,7 @@ const AdminDashboardPage = () => {
                     </ChartHeader>
                     <ChartBody>
                         <ResponsiveContainer width="100%" height={200}>
-                            <AreaChart data={mockChartData.users} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                            <AreaChart data={emptyChartData.users} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -352,7 +368,7 @@ const AdminDashboardPage = () => {
                     </ChartHeader>
                     <ChartBody>
                         <ResponsiveContainer width="100%" height={200}>
-                            <BarChart data={mockChartData.orders} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                            <BarChart data={emptyChartData.orders} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -370,7 +386,7 @@ const AdminDashboardPage = () => {
                     </ChartHeader>
                     <ChartBody>
                         <ResponsiveContainer width="100%" height={200}>
-                            <AreaChart data={mockChartData.revenue} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+                            <AreaChart data={emptyChartData.revenue} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false}

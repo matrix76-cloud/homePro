@@ -22,6 +22,16 @@ const STATUS_MAP = {
     cancelled: { label: "취소", color: THEME.danger },
 };
 
+// orderStatus(한글) → status(영문) 변환
+const ORDER_STATUS_NORMALIZE = {
+    "접수": "requested",
+    "요청": "requested",
+    "매칭": "matched",
+    "진행": "in_progress",
+    "완료": "completed",
+    "취소": "cancelled",
+};
+
 const FILTER_LABELS = {
     all: "전체 매칭",
     requested: "요청중",
@@ -32,6 +42,14 @@ const FILTER_LABELS = {
 };
 
 const PAGE_SIZE = 20;
+
+// 일정 키 → 한글
+const SCHEDULE_LABEL = {
+    flexible: "협의 가능",
+    asap: "가능한 빨리",
+    within_week: "일주일 이내",
+    specific: "희망날짜 지정",
+};
 
 // ─── 유틸 ───
 const formatDate = (val) => {
@@ -53,21 +71,39 @@ const AdminMatchingPage = () => {
     const { filter } = useParams();
     const activeTab = filter || "all";
     const [orders, setOrders] = useState([]);
+    const [usersMap, setUsersMap] = useState({});
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    // Firestore에서 주문 목록 조회
+    // Firestore에서 주문 + 사용자 목록 조회
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
-            const q = query(
-                collection(db, COLLECTIONS.ORDERS),
-                orderBy("createdAt", "desc")
-            );
-            const snap = await getDocs(q);
-            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const [ordersSnap, usersSnap] = await Promise.all([
+                getDocs(query(collection(db, COLLECTIONS.ORDERS), orderBy("createdAt", "desc"))),
+                getDocs(collection(db, "users")),
+            ]);
+
+            // 사용자 맵 구성
+            const uMap = {};
+            usersSnap.docs.forEach(d => { uMap[d.id] = d.data(); });
+            setUsersMap(uMap);
+
+            const list = ordersSnap.docs.map((d) => {
+                const data = { id: d.id, ...d.data() };
+                // orderStatus(한글) → status(영문) 정규화
+                if (!data.status && data.orderStatus) {
+                    data.status = ORDER_STATUS_NORMALIZE[data.orderStatus] || "requested";
+                }
+                if (!data.status) data.status = "requested";
+                // 고객 실명 매핑
+                if (!data.customerName && data.createdBy && uMap[data.createdBy]) {
+                    data.customerName = uMap[data.createdBy].name || "";
+                }
+                return data;
+            });
             setOrders(list);
         } catch (err) {
             console.error("주문 목록 조회 실패:", err);
@@ -113,10 +149,10 @@ const AdminMatchingPage = () => {
         if (activeTab !== "all" && o.status !== activeTab) return false;
         if (searchText.trim()) {
             const s = searchText.trim().toLowerCase();
-            const matchId = o.id.toLowerCase().includes(s);
             const matchCustomer = (o.customerName || "").toLowerCase().includes(s);
+            const matchWriter = (o.writer || "").toLowerCase().includes(s);
             const matchPro = (o.proName || "").toLowerCase().includes(s);
-            if (!matchId && !matchCustomer && !matchPro) return false;
+            if (!matchCustomer && !matchWriter && !matchPro) return false;
         }
         return true;
     });
@@ -150,7 +186,7 @@ const AdminMatchingPage = () => {
             {/* 검색 */}
             <SearchRow>
                 <SearchInput
-                    placeholder="주문번호, 고객명, 프로명 검색"
+                    placeholder="고객명, 대화명, 프로명 검색"
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
                 />
@@ -167,9 +203,9 @@ const AdminMatchingPage = () => {
                         <Table>
                             <thead>
                                 <tr>
-                                    <Th>주문번호</Th>
                                     <Th>카테고리</Th>
                                     <Th>고객명</Th>
+                                    <Th>대화명</Th>
                                     <Th>프로명</Th>
                                     <Th style={{ textAlign: "right" }}>금액</Th>
                                     <Th>요청일</Th>
@@ -184,20 +220,15 @@ const AdminMatchingPage = () => {
                                         onClick={() => setSelectedOrder(order)}
                                     >
                                         <Td>
-                                            <OrderId>
-                                                {order.id.slice(0, 8)}
-                                            </OrderId>
-                                        </Td>
-                                        <Td>
                                             {getCategoryName(order.categoryId)}
                                         </Td>
                                         <Td>{order.customerName || "-"}</Td>
+                                        <Td>{order.writer || "-"}</Td>
                                         <Td>{order.proName || "-"}</Td>
                                         <Td style={{ textAlign: "right" }}>
-                                            {order.amount != null
-                                                ? order.amount.toLocaleString() +
-                                                  "원"
-                                                : "-"}
+                                            {order.amount ? `${Number(order.amount).toLocaleString()}원`
+                                                : order.directPrice ? `${Number(order.directPrice).toLocaleString()}원`
+                                                : order.price || "-"}
                                         </Td>
                                         <Td>{formatDate(order.createdAt)}</Td>
                                         <Td>
@@ -275,72 +306,48 @@ const AdminMatchingPage = () => {
                             <InfoSection>
                                 <SectionTitle>주문 정보</SectionTitle>
                                 <InfoRow>
-                                    <InfoLabel>주문번호</InfoLabel>
-                                    <InfoValue>{selectedOrder.id}</InfoValue>
-                                </InfoRow>
-                                <InfoRow>
                                     <InfoLabel>카테고리</InfoLabel>
                                     <InfoValue>
-                                        {getCategoryName(
-                                            selectedOrder.categoryId
-                                        )}
-                                        {selectedOrder.categoryName
-                                            ? ` (${selectedOrder.categoryName})`
-                                            : ""}
+                                        {getCategoryName(selectedOrder.categoryId)}
+                                        {selectedOrder.categoryName ? ` (${selectedOrder.categoryName})` : ""}
                                     </InfoValue>
                                 </InfoRow>
-                                {selectedOrder.subcategory && (
+                                {selectedOrder.subcategories?.length > 0 && (
                                     <InfoRow>
                                         <InfoLabel>세부분류</InfoLabel>
-                                        <InfoValue>
-                                            {selectedOrder.subcategory}
-                                        </InfoValue>
+                                        <InfoValue>{selectedOrder.subcategories.join(", ")}</InfoValue>
+                                    </InfoRow>
+                                )}
+                                {selectedOrder.subcategory && !selectedOrder.subcategories?.length && (
+                                    <InfoRow>
+                                        <InfoLabel>세부분류</InfoLabel>
+                                        <InfoValue>{selectedOrder.subcategory}</InfoValue>
                                     </InfoRow>
                                 )}
                                 <InfoRow>
                                     <InfoLabel>금액</InfoLabel>
                                     <InfoValue>
-                                        {selectedOrder.amount != null
-                                            ? selectedOrder.amount.toLocaleString() +
-                                              "원"
-                                            : "-"}
+                                        {selectedOrder.amount ? `${Number(selectedOrder.amount).toLocaleString()}원`
+                                            : selectedOrder.directPrice ? `${Number(selectedOrder.directPrice).toLocaleString()}원`
+                                            : selectedOrder.price || "-"}
                                     </InfoValue>
                                 </InfoRow>
                                 <InfoRow>
                                     <InfoLabel>상태</InfoLabel>
                                     <InfoValue>
-                                        <Badge
-                                            $color={
-                                                STATUS_MAP[
-                                                    selectedOrder.status
-                                                ]?.color || THEME.muted
-                                            }
-                                        >
-                                            {STATUS_MAP[selectedOrder.status]
-                                                ?.label ||
-                                                selectedOrder.status}
+                                        <Badge $color={STATUS_MAP[selectedOrder.status]?.color || THEME.muted}>
+                                            {STATUS_MAP[selectedOrder.status]?.label || selectedOrder.status}
                                         </Badge>
                                     </InfoValue>
                                 </InfoRow>
                                 <InfoRow>
                                     <InfoLabel>상태 변경</InfoLabel>
                                     <InfoValue>
-                                        <StatusSelect
-                                            value={selectedOrder.status}
-                                            onChange={(e) =>
-                                                handleStatusChange(
-                                                    selectedOrder.id,
-                                                    e.target.value
-                                                )
-                                            }
-                                        >
-                                            {Object.entries(STATUS_MAP).map(
-                                                ([k, v]) => (
-                                                    <option key={k} value={k}>
-                                                        {v.label}
-                                                    </option>
-                                                )
-                                            )}
+                                        <StatusSelect value={selectedOrder.status}
+                                            onChange={(e) => handleStatusChange(selectedOrder.id, e.target.value)}>
+                                            {Object.entries(STATUS_MAP).map(([k, v]) => (
+                                                <option key={k} value={k}>{v.label}</option>
+                                            ))}
                                         </StatusSelect>
                                     </InfoValue>
                                 </InfoRow>
@@ -350,15 +357,11 @@ const AdminMatchingPage = () => {
                                 <SectionTitle>고객 정보</SectionTitle>
                                 <InfoRow>
                                     <InfoLabel>고객명</InfoLabel>
-                                    <InfoValue>
-                                        {selectedOrder.customerName || "-"}
-                                    </InfoValue>
+                                    <InfoValue>{selectedOrder.customerName || (selectedOrder.createdBy && usersMap[selectedOrder.createdBy]?.name) || "-"}</InfoValue>
                                 </InfoRow>
                                 <InfoRow>
-                                    <InfoLabel>고객 UID</InfoLabel>
-                                    <InfoValue style={{ fontSize: 12 }}>
-                                        {selectedOrder.customerUid || "-"}
-                                    </InfoValue>
+                                    <InfoLabel>대화명</InfoLabel>
+                                    <InfoValue>{selectedOrder.writer || "-"}</InfoValue>
                                 </InfoRow>
                             </InfoSection>
 
@@ -366,15 +369,7 @@ const AdminMatchingPage = () => {
                                 <SectionTitle>프로 정보</SectionTitle>
                                 <InfoRow>
                                     <InfoLabel>프로명</InfoLabel>
-                                    <InfoValue>
-                                        {selectedOrder.proName || "-"}
-                                    </InfoValue>
-                                </InfoRow>
-                                <InfoRow>
-                                    <InfoLabel>프로 UID</InfoLabel>
-                                    <InfoValue style={{ fontSize: 12 }}>
-                                        {selectedOrder.proUid || "-"}
-                                    </InfoValue>
+                                    <InfoValue>{selectedOrder.proName || "-"}</InfoValue>
                                 </InfoRow>
                             </InfoSection>
 
@@ -383,41 +378,41 @@ const AdminMatchingPage = () => {
                                 {selectedOrder.description && (
                                     <InfoRow>
                                         <InfoLabel>요청 내용</InfoLabel>
-                                        <InfoValue>
-                                            {selectedOrder.description}
-                                        </InfoValue>
+                                        <InfoValue>{selectedOrder.description}</InfoValue>
                                     </InfoRow>
                                 )}
                                 {selectedOrder.address && (
                                     <InfoRow>
                                         <InfoLabel>주소</InfoLabel>
-                                        <InfoValue>
-                                            {selectedOrder.address}
-                                        </InfoValue>
+                                        <InfoValue>{selectedOrder.address}</InfoValue>
+                                    </InfoRow>
+                                )}
+                                {selectedOrder.spaceType && (
+                                    <InfoRow>
+                                        <InfoLabel>공간 유형</InfoLabel>
+                                        <InfoValue>{selectedOrder.spaceType}</InfoValue>
                                     </InfoRow>
                                 )}
                                 {selectedOrder.schedule && (
                                     <InfoRow>
                                         <InfoLabel>일정</InfoLabel>
-                                        <InfoValue>
-                                            {selectedOrder.schedule}
-                                        </InfoValue>
+                                        <InfoValue>{SCHEDULE_LABEL[selectedOrder.schedule] || selectedOrder.schedule}</InfoValue>
+                                    </InfoRow>
+                                )}
+                                {selectedOrder.matchType && (
+                                    <InfoRow>
+                                        <InfoLabel>매칭 방식</InfoLabel>
+                                        <InfoValue>{selectedOrder.matchType}</InfoValue>
                                     </InfoRow>
                                 )}
                                 <InfoRow>
                                     <InfoLabel>요청일</InfoLabel>
-                                    <InfoValue>
-                                        {formatDate(selectedOrder.createdAt)}
-                                    </InfoValue>
+                                    <InfoValue>{formatDate(selectedOrder.createdAt)}</InfoValue>
                                 </InfoRow>
                                 {selectedOrder.updatedAt && (
                                     <InfoRow>
                                         <InfoLabel>수정일</InfoLabel>
-                                        <InfoValue>
-                                            {formatDate(
-                                                selectedOrder.updatedAt
-                                            )}
-                                        </InfoValue>
+                                        <InfoValue>{formatDate(selectedOrder.updatedAt)}</InfoValue>
                                     </InfoRow>
                                 )}
                             </InfoSection>

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME } from "../../config/homeproConfig";
+import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import {
   IoArrowBack,
   IoSearchOutline,
@@ -15,30 +16,14 @@ import {
 const STORAGE_KEY = "homepro_recent_searches";
 const MAX_RECENT = 10;
 
-/* ─── 인기 검색어 (목업) ─── */
-const POPULAR_SEARCHES = [
-  "입주청소", "에어컨설치", "하수구", "보일러", "도배",
-  "이사", "곰팡이", "인테리어", "세탁기청소", "전기고장",
-];
+/* ─── 인기 검색어 (추후 Firestore 연동) ─── */
+const POPULAR_SEARCHES = [];
 
-/* ─── 지역 데이터 (목업) ─── */
-const REGIONS = [
-  "서울 강남구", "서울 서초구", "서울 송파구", "서울 마포구",
-  "서울 강동구", "서울 성동구", "서울 노원구", "서울 영등포구",
-  "서울 중구", "서울 용산구", "서울 관악구", "서울 강서구",
-  "경기 성남시", "경기 수원시", "경기 고양시", "경기 부천시",
-  "경기 안양시", "경기 화성시", "인천 남동구", "인천 부평구",
-  "부산 해운대구", "부산 수영구", "대구 수성구", "대전 유성구",
-];
+/* ─── 지역 데이터 (추후 Firestore 연동) ─── */
+const REGIONS = [];
 
-/* ─── 금액 관련 데이터 (목업) ─── */
-const PRICE_DATA = [
-  { label: "10만원 이하", range: "~100,000원", categories: ["집수리", "전기고장", "하수구/누수"] },
-  { label: "10~30만원", range: "100,000~300,000원", categories: ["전문청소", "가전클리닝", "매트리스"] },
-  { label: "30~50만원", range: "300,000~500,000원", categories: ["에어컨설치", "가전설치", "해충방역"] },
-  { label: "50~100만원", range: "500,000~1,000,000원", categories: ["부분인테리어", "난방/보일러"] },
-  { label: "100만원 이상", range: "1,000,000원~", categories: ["종합리모델링", "이사", "전기공사"] },
-];
+/* ─── 금액 관련 데이터 (추후 Firestore 연동) ─── */
+const PRICE_DATA = [];
 
 /* ─── 검색 결과 탭 ─── */
 const RESULT_TABS = ["전체", "카테고리", "지역", "금액", "기타"];
@@ -219,7 +204,7 @@ const SearchPage = () => {
                     {activeTab === "전체" && <ResultLabel>카테고리</ResultLabel>}
                     {categoryResults.map((cat) => (
                       <ResultCard key={cat.id} onClick={() => navigate(`/category/${cat.id}`)}>
-                        <ResultIcon>{cat.shortName.charAt(0)}</ResultIcon>
+                        <ResultIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</ResultIcon>
                         <ResultInfo>
                           <ResultName>{cat.name}</ResultName>
                           <ResultDesc>{cat.description}</ResultDesc>
@@ -339,7 +324,7 @@ const SearchForm = styled.form`
   gap: 8px;
   padding: 10px 14px;
   background: ${THEME.background};
-  border-radius: 4px;
+  border-radius: 10px;
 `;
 
 const SearchInput = styled.input`
@@ -373,8 +358,10 @@ const ContentWrap = styled.div`
 /* ── 섹션 (최근/인기) ── */
 const Section = styled.div`
   background: ${THEME.surface};
-  margin-bottom: 8px;
-  padding: 16px;
+  margin: 0 12px 8px;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: ${THEME.cardShadow};
 `;
 
 const SectionHeader = styled.div`
@@ -389,7 +376,7 @@ const SectionTitle = styled.div`
   align-items: center;
   gap: 6px;
   font-size: 15px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
 `;
 
@@ -418,7 +405,7 @@ const RecentItem = styled.div`
   gap: 4px;
   padding: 7px 12px;
   background: ${THEME.background};
-  border-radius: 4px;
+  border-radius: 20px;
 `;
 
 const RecentText = styled.span`
@@ -499,8 +486,10 @@ const ResultsWrap = styled.div`
 
 const ResultSection = styled.div`
   background: ${THEME.surface};
-  margin-bottom: 8px;
-  padding: 12px 16px;
+  margin: 0 12px 8px;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: ${THEME.cardShadow};
 `;
 
 const ResultLabel = styled.div`
@@ -525,15 +514,13 @@ const ResultCard = styled.div`
 const ResultIcon = styled.div`
   width: 44px;
   height: 44px;
-  border-radius: 4px;
+  border-radius: 12px;
   background: ${THEME.background};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  font-weight: 400;
-  color: ${THEME.primary};
   flex-shrink: 0;
+  svg { width: 36px; height: 36px; }
 `;
 
 const ResultInfo = styled.div`
@@ -564,7 +551,7 @@ const SubcatRow = styled.div`
 
 const SubcatChip = styled.span`
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: 20px;
   font-size: 11px;
   font-weight: 400;
   background: ${({ $highlight }) => ($highlight ? THEME.purpleLight : THEME.background)};
@@ -646,7 +633,7 @@ const EtcCat = styled.span`
   color: ${THEME.primary};
   padding: 3px 8px;
   background: ${THEME.background};
-  border-radius: 4px;
+  border-radius: 20px;
 `;
 
 /* 빈 결과 */

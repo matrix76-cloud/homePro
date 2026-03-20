@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { watchAuthState, signOutUser } from "../service/AuthService";
 import { getUserProfileByUid } from "../service/UserProfileService";
+import { auth } from "../api/config";
 import { postToRN, isInRnWebView, requestPushToken, onPushToken, listenWebviewMessages, appendRnLog } from "../bridge/webviewBridge";
 import { saveFcmToken, removeFcmToken } from "../service/fcmTokenService";
 
@@ -49,8 +50,14 @@ export const AuthProvider = ({ children }) => {
                     requestPushToken();
                 }
             } else {
-                setCurrentUser(null);
-                setUserData(null);
+                // 토큰 갱신 중 잠깐 null이 올 수 있으므로 딜레이 후 확인
+                setTimeout(() => {
+                    const latest = auth.currentUser;
+                    if (!latest) {
+                        setCurrentUser(null);
+                        setUserData(null);
+                    }
+                }, 500);
             }
             setLoading(false);
         });

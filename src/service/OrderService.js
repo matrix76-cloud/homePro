@@ -5,11 +5,16 @@ import {
   doc,
   getDoc,
   getDocs,
+  updateDoc,
+  arrayUnion,
+  increment,
   query,
   where,
   orderBy,
   onSnapshot,
   serverTimestamp,
+  limit,
+  startAfter,
 } from "firebase/firestore";
 import { db } from "../api/config";
 import { COLLECTIONS } from "../config/homeproConfig";
@@ -20,9 +25,21 @@ const ordersRef = collection(db, COLLECTIONS.ORDERS);
 export async function createOrder(data) {
   const docRef = await addDoc(ordersRef, {
     ...data,
-    orderStatus: "접수",
+    orderStatus: "요청",
     createdAt: serverTimestamp(),
   });
+
+  // 포인트 지급: 오더 작성 보상
+  if (data.createdBy) {
+    try {
+      const { grantPoints } = await import("./PointService");
+      const userName = data.writer || data.customerName || data.nickname || "사용자";
+      await grantPoints(data.createdBy, userName, "order_create", { relatedDocId: docRef.id });
+    } catch (e) {
+      console.warn("오더 작성 포인트 지급 실패:", e.message);
+    }
+  }
+
   return docRef.id;
 }
 
@@ -64,10 +81,75 @@ export function subscribeToAllOrders(callback) {
   });
 }
 
+/** 전체 오더 페이징 조회 (커서 방식) */
+export async function getOrdersPaginated(lastDoc = null, pageSize = 20) {
+  const constraints = [orderBy("createdAt", "desc"), limit(pageSize)];
+  if (lastDoc) constraints.push(startAfter(lastDoc));
+  const q = query(ordersRef, ...constraints);
+  const snap = await getDocs(q);
+  const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const last = snap.docs[snap.docs.length - 1] || null;
+  return { orders, lastDoc: last, hasMore: snap.docs.length === pageSize };
+}
+
+/** 오더 소프트 삭제 (hiddenBy 배열에 uid 추가) */
+export async function hideOrder(orderId, uid) {
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    hiddenBy: arrayUnion(uid),
+  });
+}
+
+/** 내가 이미 견적 보냈는지 확인 */
+export async function hasMyQuote(orderId, proUid) {
+  const q = query(
+    collection(db, COLLECTIONS.ORDERS, orderId, "quotes"),
+    where("proUid", "==", proUid)
+  );
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
+
+/** 견적 보내기 */
+export async function sendQuote(orderId, quoteData) {
+  const quoteRef = await addDoc(
+    collection(db, COLLECTIONS.ORDERS, orderId, "quotes"),
+    { ...quoteData, status: "pending", createdAt: serverTimestamp() }
+  );
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    quoteCount: increment(1),
+  });
+  return quoteRef.id;
+}
+
+/** 견적 목록 조회 */
+export async function getQuotes(orderId) {
+  const q = query(
+    collection(db, COLLECTIONS.ORDERS, orderId, "quotes"),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** 견적 수락 */
+export async function acceptQuote(orderId, quoteId, proUid) {
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId, "quotes", quoteId), {
+    status: "accepted",
+  });
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    orderStatus: "결제",
+    matchedProUid: proUid,
+  });
+}
+
 /** Firestore Timestamp → "N분 전" 변환 */
 export function formatOrderTime(timestamp) {
   if (!timestamp) return "";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  let date;
+  if (timestamp.toDate) date = timestamp.toDate();
+  else if (timestamp.seconds) date = new Date(timestamp.seconds * 1000);
+  else date = new Date(timestamp);
+  if (isNaN(date.getTime())) return "";
   const now = new Date();
   const diffMs = now - date;
   const diffMin = Math.floor(diffMs / 60000);

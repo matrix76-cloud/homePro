@@ -2,14 +2,22 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import styled from "styled-components";
-import { THEME } from "../../config/homeproConfig";
-import { db } from "../../api/config";
+import { THEME, CATEGORIES, COLLECTIONS } from "../../config/homeproConfig";
+import { db, storage } from "../../api/config";
 import {
     doc,
     getDoc,
     setDoc,
     updateDoc,
+    addDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    deleteDoc,
+    serverTimestamp,
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 import {
     IoDocumentTextOutline,
     IoNotificationsOutline,
@@ -19,6 +27,8 @@ import {
     IoLockClosedOutline,
     IoSaveOutline,
     IoSparklesOutline,
+    IoFlaskOutline,
+    IoTrashOutline,
 } from "react-icons/io5";
 
 // ─── 약관 타입 정의 ───
@@ -47,7 +57,7 @@ const DEFAULT_COMPANY = {
 };
 
 // ─── 컴포넌트 ───
-const SECTION_LABELS = { all: "앱 푸시알림 설정", policies: "정관/약관 설정", ai: "AI 설정" };
+const SECTION_LABELS = { all: "앱 푸시알림 설정", policies: "정관/약관 설정", ai: "AI 설정", test: "테스트 데이터" };
 
 const AdminSettingsPage = () => {
     const { filter } = useParams();
@@ -285,6 +295,182 @@ const AdminSettingsPage = () => {
             console.error("AI 설정 저장 실패:", e);
         } finally {
             setAiSaving(false);
+        }
+    };
+
+    // ─── 테스트 데이터 ───
+    const [testStatus, setTestStatus] = useState("");
+    const [testLoading, setTestLoading] = useState(false);
+    const proFileInputRef = React.useRef(null);
+
+    const REGIONS = [
+        { sido: "서울특별시", gu: "강남구" }, { sido: "서울특별시", gu: "마포구" },
+        { sido: "서울특별시", gu: "용산구" }, { sido: "서울특별시", gu: "서초구" },
+        { sido: "경기도", gu: "수원시" }, { sido: "경기도", gu: "성남시" },
+        { sido: "대구광역시", gu: "수성구" }, { sido: "부산광역시", gu: "해운대구" },
+    ];
+    const NAMES = ["김민수", "이영희", "박지훈", "최서연", "정우성", "강다은", "조현우", "윤서준", "장예진", "한도윤"];
+    const STATUSES = ["접수", "지원", "배차", "대기", "완료", "취소"];
+    const SCHEDULES = ["flexible", "asap", "within_week", "specific"];
+    const SPACE_TYPES = ["아파트", "빌라", "단독주택", "오피스텔", "상가"];
+
+    const seedOrders = async () => {
+        setTestLoading(true);
+        setTestStatus("오더 생성 중...");
+        try {
+            for (let i = 0; i < 20; i++) {
+                const cat = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+                const region = REGIONS[Math.floor(Math.random() * REGIONS.length)];
+                const status = STATUSES[Math.floor(Math.random() * STATUSES.length)];
+                const daysAgo = Math.floor(Math.random() * 14);
+                const createdAt = new Date(Date.now() - daysAgo * 86400000);
+                const useDirectPrice = Math.random() > 0.4;
+                const directPrice = useDirectPrice ? (Math.floor(Math.random() * 49) + 1) * 100000 : 0;
+                const subs = cat.subcategories?.slice(0, Math.floor(Math.random() * 3) + 1) || [];
+
+                await addDoc(collection(db, COLLECTIONS.ORDERS), {
+                    categoryId: cat.id,
+                    categoryName: cat.shortName,
+                    subcategories: subs.map((s) => s.name || s),
+                    subcategory: subs.map((s) => s.name || s).join(", "),
+                    title: `${cat.shortName} ${subs[0]?.name || subs[0] || ""} 요청`,
+                    description: `${cat.shortName} 관련 작업 요청합니다. 상세 내용은 채팅으로 안내드리겠습니다.`,
+                    spaceType: SPACE_TYPES[Math.floor(Math.random() * SPACE_TYPES.length)],
+                    schedule: SCHEDULES[Math.floor(Math.random() * SCHEDULES.length)],
+                    address: `${region.sido} ${region.gu}`,
+                    location: `${region.sido} ${region.gu} 테스트동 ${Math.floor(Math.random() * 100) + 1}호`,
+                    contactType: "self",
+                    customerPhone: "",
+                    priceType: useDirectPrice ? "direct" : "estimate",
+                    directPrice,
+                    price: useDirectPrice ? `${(directPrice).toLocaleString()}원` : "견적요청",
+                    commissionType: "none",
+                    commissionAmount: "",
+                    matchType: Math.random() > 0.5 ? "우선" : "다중",
+                    createdBy: `test_user_${i % 5}`,
+                    writer: NAMES[i % NAMES.length],
+                    photos: [],
+                    orderStatus: status,
+                    createdAt: new Date(createdAt),
+                    isTest: true,
+                });
+            }
+            setTestStatus("오더 20개 생성 완료!");
+        } catch (err) {
+            setTestStatus("오더 생성 실패: " + err.message);
+        } finally {
+            setTestLoading(false);
+        }
+    };
+
+    const TEST_PROS = [
+        { name: "김건축", catId: "partial_interior", sido: "서울특별시", gu: "강남구", intro: "15년 경력 인테리어 전문가", rating: 4.9, reviewCount: 127, experience: "15", subs: ["부분 인테리어", "실내 디자인"] },
+        { name: "박설비", catId: "plumbing", sido: "경기도", gu: "수원시", intro: "배관 전문 20년 경력", rating: 4.8, reviewCount: 89, experience: "20", subs: ["배관 수리", "보일러"] },
+        { name: "이전기", catId: "electrical", sido: "서울특별시", gu: "용산구", intro: "전기기사 자격증 보유", rating: 4.7, reviewCount: 64, experience: "12", subs: ["전기 수리", "조명 설치"] },
+        { name: "최인테", catId: "professional_cleaning", sido: "대구광역시", gu: "수성구", intro: "꼼꼼한 시공 보장", rating: 4.8, reviewCount: 156, experience: "10", subs: ["도배", "장판"] },
+        { name: "정클린", catId: "appliance_cleaning", sido: "서울특별시", gu: "마포구", intro: "친환경 청소 전문", rating: 4.9, reviewCount: 203, experience: "8", subs: ["에어컨 청소", "세탁기 청소"] },
+    ];
+
+    const seedPros = async (files) => {
+        if (!files || files.length < 5) {
+            setTestStatus("프로필 사진 5장을 선택해주세요.");
+            return;
+        }
+        setTestLoading(true);
+        setTestStatus("프로 생성 중...");
+        try {
+            for (let i = 0; i < 5; i++) {
+                const pro = TEST_PROS[i];
+                const uid = `test_pro_${i}`;
+
+                // 사진 업로드
+                let profileImage = "";
+                if (files[i]) {
+                    const storageRef = ref(storage, `homepro/pros/test_${i}/profile.jpg`);
+                    await uploadBytes(storageRef, files[i]);
+                    profileImage = await getDownloadURL(storageRef);
+                }
+
+                // users 문서 (권한 에러 시 스킵)
+                try {
+                    await setDoc(doc(db, "users", uid), {
+                        name: pro.name,
+                        role: "user",
+                        profileImage,
+                        intro: pro.intro,
+                        phoneE164: `+8210${String(1000 + i).slice(1)}0000`,
+                        phoneVerified: true,
+                        isTest: true,
+                        createdAt: serverTimestamp(),
+                    });
+                } catch (e) {
+                    console.warn(`users/${uid} 생성 스킵 (권한):`, e.message);
+                }
+
+                // homepro_pros 문서
+                const proDocId = `${uid}_${pro.catId}`;
+                await setDoc(doc(db, COLLECTIONS.PROS, proDocId), {
+                    uid,
+                    categoryId: pro.catId,
+                    licenseUrl: "",
+                    photoUrls: profileImage ? [profileImage] : [],
+                    detail: {
+                        subcategories: pro.subs,
+                        experience: pro.experience,
+                        intro: pro.intro,
+                    },
+                    status: "approved",
+                    region: { sido: pro.sido, gu: pro.gu },
+                    rating: pro.rating,
+                    reviewCount: pro.reviewCount,
+                    appliedAt: serverTimestamp(),
+                    approvedAt: serverTimestamp(),
+                    isTest: true,
+                });
+            }
+            setTestStatus("프로 5명 생성 완료!");
+        } catch (err) {
+            setTestStatus("프로 생성 실패: " + err.message);
+        } finally {
+            setTestLoading(false);
+        }
+    };
+
+    const deleteTestData = async () => {
+        if (!window.confirm("테스트 데이터를 모두 삭제하시겠습니까?")) return;
+        setTestLoading(true);
+        setTestStatus("테스트 데이터 삭제 중...");
+        try {
+            // orders
+            const oSnap = await getDocs(query(collection(db, COLLECTIONS.ORDERS), where("isTest", "==", true)));
+            for (const d of oSnap.docs) await deleteDoc(d.ref);
+
+            // pros
+            const pSnap = await getDocs(query(collection(db, COLLECTIONS.PROS), where("isTest", "==", true)));
+            for (const d of pSnap.docs) await deleteDoc(d.ref);
+
+            // users (권한 에러 시 스킵)
+            let uSize = 0;
+            try {
+                const uSnap = await getDocs(query(collection(db, "users"), where("isTest", "==", true)));
+                uSize = uSnap.size;
+                for (const d of uSnap.docs) { try { await deleteDoc(d.ref); } catch {} }
+            } catch {}
+
+            // storage
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const folderRef = ref(storage, `homepro/pros/test_${i}`);
+                    const list = await listAll(folderRef);
+                    for (const item of list.items) await deleteObject(item);
+                } catch {}
+            }
+
+            setTestStatus(`삭제 완료 (오더 ${oSnap.size}건, 프로 ${pSnap.size}건, 유저 ${uSize}건)`);
+        } catch (err) {
+            setTestStatus("삭제 실패: " + err.message);
+        } finally {
+            setTestLoading(false);
         }
     };
 
@@ -545,6 +731,60 @@ const AdminSettingsPage = () => {
                                 {aiSaving ? "저장 중..." : "저장"}
                             </SaveButton>
                         </SaveRow>
+                    </CardBody>
+                </Card>
+            )}
+            {/* ── 테스트 데이터 ── */}
+            {section === "test" && (
+                <Card>
+                    <CardHeader>
+                        <HeaderLeft>
+                            <IoFlaskOutline size={20} />
+                            <HeaderTitle>테스트 데이터 시딩</HeaderTitle>
+                        </HeaderLeft>
+                    </CardHeader>
+                    <CardBody>
+                        <TestDesc>테스트 오더 20개, 프로 5명을 생성하거나 삭제합니다. 생성된 데이터에는 isTest: true가 표시됩니다.</TestDesc>
+
+                        <TestBtnRow>
+                            <TestBtn onClick={seedOrders} disabled={testLoading}>
+                                오더 20개 생성
+                            </TestBtn>
+
+                            <TestBtn onClick={() => proFileInputRef.current?.click()} disabled={testLoading}>
+                                프로 5명 생성 (사진 선택)
+                            </TestBtn>
+                            <input
+                                ref={proFileInputRef}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                style={{ display: "none" }}
+                                onChange={(e) => seedPros(Array.from(e.target.files))}
+                            />
+
+                            <TestDeleteBtn onClick={deleteTestData} disabled={testLoading}>
+                                <IoTrashOutline size={16} />
+                                테스트 데이터 삭제
+                            </TestDeleteBtn>
+                        </TestBtnRow>
+
+                        {testStatus && (
+                            <TestStatus>{testStatus}</TestStatus>
+                        )}
+
+                        <Divider />
+                        <SubTitle>생성될 프로 목록</SubTitle>
+                        <TestProList>
+                            {TEST_PROS.map((p, i) => (
+                                <TestProItem key={i}>
+                                    <TestProName>{p.name}</TestProName>
+                                    <TestProMeta>
+                                        {CATEGORIES.find((c) => c.id === p.catId)?.shortName || p.catId} · {p.sido} {p.gu} · {p.intro}
+                                    </TestProMeta>
+                                </TestProItem>
+                            ))}
+                        </TestProList>
                     </CardBody>
                 </Card>
             )}
@@ -817,6 +1057,85 @@ const ErrorText = styled.div`
     color: #ef4444;
     margin-top: 4px;
     margin-bottom: 4px;
+`;
+
+// ─── 테스트 데이터 ───
+const TestDesc = styled.p`
+    font-size: 13px;
+    color: ${THEME.muted};
+    line-height: 1.5;
+    margin-bottom: 16px;
+`;
+
+const TestBtnRow = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+`;
+
+const TestBtn = styled.button`
+    padding: 10px 20px;
+    border-radius: 4px;
+    background: ${THEME.primary};
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &:hover:not(:disabled) { opacity: 0.9; }
+`;
+
+const TestDeleteBtn = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 4px;
+    background: #FEE2E2;
+    color: ${THEME.danger};
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &:hover:not(:disabled) { opacity: 0.9; }
+`;
+
+const TestStatus = styled.div`
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    background: ${THEME.background};
+    font-size: 13px;
+    color: ${THEME.text};
+    font-weight: 500;
+`;
+
+const TestProList = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const TestProItem = styled.div`
+    padding: 10px 14px;
+    background: ${THEME.background};
+    border-radius: 4px;
+`;
+
+const TestProName = styled.div`
+    font-size: 14px;
+    font-weight: 600;
+    color: ${THEME.text};
+    margin-bottom: 2px;
+`;
+
+const TestProMeta = styled.div`
+    font-size: 12px;
+    color: ${THEME.muted};
 `;
 
 const FormSelect = styled.select`

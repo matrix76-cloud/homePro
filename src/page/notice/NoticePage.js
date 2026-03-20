@@ -79,12 +79,15 @@ export default NoticePage;
 /* ===================== styles ===================== */
 
 const Wrap = styled.div`
-    padding: 0;
+    padding: 12px;
 `;
 
 const NoticeItem = styled.div`
     background: ${THEME.surface};
-    border-bottom: 1px solid ${THEME.border};
+    &:first-child { border-radius: 16px 16px 0 0; }
+    &:last-child { border-radius: 0 0 16px 16px; }
+    &:only-child { border-radius: 16px; }
+    &:not(:last-child) { border-bottom: 1px solid ${THEME.border}; }
 `;
 
 const NoticeRow = styled.div`
@@ -105,14 +108,14 @@ const NoticeLeft = styled.div`
 const Badge = styled.span`
     display: inline-block;
     padding: 2px 8px;
-    border-radius: 6px;
+    border-radius: 20px;
     font-size: 11px;
     font-weight: 400;
     margin-bottom: 6px;
     background: ${({ $type }) =>
         $type === "이벤트" ? "#FEF3C7" :
         $type === "안내" ? THEME.purpleLight :
-        "#DBEAFE"};
+        THEME.purpleLight};
     color: ${({ $type }) =>
         $type === "이벤트" ? "#D97706" :
         $type === "안내" ? THEME.purple :

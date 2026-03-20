@@ -3,6 +3,9 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
+import { createChatRoom } from "../../service/ChatService";
+import { useAuth } from "../../context/AuthContext";
+import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import {
   IoStar,
@@ -17,17 +20,24 @@ import {
   IoDocumentTextOutline,
 } from "react-icons/io5";
 
-/* ─── 목업 리뷰 ─── */
-const MOCK_REVIEWS = [
-  { id: "rv1", name: "김**", rating: 5, text: "친절하고 꼼꼼하게 상담해주셨어요. 강력 추천합니다!", date: "2026.02.05" },
-  { id: "rv2", name: "이**", rating: 5, text: "빠른 응대와 정확한 정보 감사합니다.", date: "2026.02.01" },
-  { id: "rv3", name: "박**", rating: 4, text: "전반적으로 만족합니다. 다음에도 이용할게요.", date: "2026.01.28" },
-];
-
 const ServiceDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userData } = useAuth();
   const { service: svc, category: cat } = location.state || {};
+
+  const handleStartChat = async () => {
+    if (!userData?.uid || !svc?.uid || userData.uid === svc.uid) return;
+    try {
+      const roomId = await createChatRoom(
+        userData.uid, userData.companyName || userData.name || "", userData.photoURL || "",
+        svc.uid, svc.companyName || svc.name || "전문가", svc.photoURL || ""
+      );
+      navigate(`/chat/${roomId}`);
+    } catch (err) {
+      console.error("채팅방 생성 실패:", err);
+    }
+  };
 
   if (!svc) {
     return (
@@ -108,7 +118,7 @@ const ServiceDetailPage = () => {
           <Card>
             <SectionTitle>전문 분야</SectionTitle>
             <CatInfoRow>
-              <CatIconWrap>{cat.shortName.charAt(0)}</CatIconWrap>
+              <CatIconWrap>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</CatIconWrap>
               <CatInfoText>
                 <CatNameText>{cat.name}</CatNameText>
                 <CatDescText>{cat.description}</CatDescText>
@@ -121,23 +131,9 @@ const ServiceDetailPage = () => {
         <Card>
           <SectionHeader>
             <SectionTitle>리뷰</SectionTitle>
-            <ReviewTotal>{svc.reviews}개</ReviewTotal>
+            <ReviewTotal>{svc.reviews || 0}개</ReviewTotal>
           </SectionHeader>
-          {MOCK_REVIEWS.map((rv) => (
-            <ReviewItem key={rv.id}>
-              <ReviewTop>
-                <ReviewerName>{rv.name}</ReviewerName>
-                <ReviewStars>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <IoStar key={i} size={12} color={i < rv.rating ? THEME.accent : THEME.border} />
-                  ))}
-                </ReviewStars>
-                <ReviewDate>{rv.date}</ReviewDate>
-              </ReviewTop>
-              <ReviewText>{rv.text}</ReviewText>
-            </ReviewItem>
-          ))}
-          <MoreBtn>리뷰 더보기</MoreBtn>
+          <EmptyReview>아직 리뷰가 없습니다</EmptyReview>
         </Card>
 
         <BottomSpacer />
@@ -145,7 +141,7 @@ const ServiceDetailPage = () => {
 
       {/* 하단 고정 CTA */}
       <FixedBottom>
-        <ActionIconBtn onClick={() => {}}>
+        <ActionIconBtn onClick={handleStartChat}>
           <IoChatbubbleOutline size={22} color={THEME.primary} />
         </ActionIconBtn>
         <ActionIconBtn onClick={() => {}}>
@@ -173,7 +169,7 @@ const PageWrap = styled.div`
 const HeroArea = styled.div`
   width: 100%;
   height: 220px;
-  background: linear-gradient(135deg, #DBEAFE 0%, #93C5FD 50%, #60A5FA 100%);
+  background: linear-gradient(135deg, ${THEME.purpleLight} 0%, ${THEME.primaryLight} 50%, ${THEME.primary} 100%);
 `;
 
 const HeroPlaceholder = styled.div`
@@ -188,7 +184,7 @@ const HeroPlaceholder = styled.div`
 
 const HeroPhotoBadge = styled.div`
   padding: 6px 14px;
-  border-radius: 14px;
+  border-radius: 20px;
   background: rgba(255,255,255,0.7);
   font-size: 13px;
   font-weight: 400;
@@ -198,8 +194,8 @@ const HeroPhotoBadge = styled.div`
 /* 카드 */
 const Card = styled.div`
   background: ${THEME.surface};
-  margin: 10px 12px;
-  border-radius: 4px;
+  margin: 12px 12px;
+  border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
 `;
@@ -224,7 +220,7 @@ const ProProfileInfo = styled.div`
 
 const ProNameLarge = styled.div`
   font-size: 18px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
@@ -276,7 +272,7 @@ const VerifiedBadge = styled.div`
   gap: 4px;
   margin-top: 14px;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 20px;
   background: #D1FAE5;
 `;
 
@@ -289,7 +285,7 @@ const VerifiedText = styled.span`
 /* 섹션 */
 const SectionTitle = styled.div`
   font-size: 17px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
@@ -304,7 +300,7 @@ const SectionHeader = styled.div`
 /* 서비스 소개 */
 const ServiceTitleText = styled.div`
   font-size: 16px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.text};
   margin-top: 12px;
   line-height: 1.4;
@@ -327,7 +323,7 @@ const TagWrap = styled.div`
 
 const TagChip = styled.span`
   padding: 5px 12px;
-  border-radius: 8px;
+  border-radius: 20px;
   font-size: 13px;
   font-weight: 400;
   background: ${THEME.purpleLight};
@@ -353,7 +349,7 @@ const PriceLabel = styled.div`
 
 const PriceValue = styled.div`
   font-size: 18px;
-  font-weight: 400;
+  font-weight: 700;
   color: ${THEME.primary};
 `;
 
@@ -373,17 +369,15 @@ const CatInfoRow = styled.div`
 `;
 
 const CatIconWrap = styled.div`
-  font-size: 16px;
-  font-weight: 400;
-  color: ${THEME.primary};
   width: 48px;
   height: 48px;
-  border-radius: 4px;
+  border-radius: 12px;
   background: ${THEME.background};
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  svg { width: 48px; height: 48px; }
 `;
 
 const CatInfoText = styled.div`
@@ -464,8 +458,10 @@ const MoreBtn = styled.div`
 const FixedBottom = styled.div`
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 400px;
   z-index: 998;
   display: flex;
   align-items: center;
@@ -474,13 +470,14 @@ const FixedBottom = styled.div`
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   background: ${THEME.surface};
   border-top: 1px solid ${THEME.border};
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  box-shadow: ${THEME.cardShadow};
+  box-sizing: border-box;
 `;
 
 const ActionIconBtn = styled.button`
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid ${THEME.border};
   background: ${THEME.surface};
   display: flex;
@@ -495,11 +492,11 @@ const RequestBtn = styled.button`
   flex: 1;
   padding: 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
-  font-weight: 400;
+  font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.9; }
@@ -517,6 +514,13 @@ const EmptyText = styled.div`
   font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
+`;
+
+const EmptyReview = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+  text-align: center;
+  padding: 24px 0;
 `;
 
 const BottomSpacer = styled.div`

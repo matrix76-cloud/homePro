@@ -1,26 +1,32 @@
 /* eslint-disable */
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
-import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoCalendarOutline, IoAddOutline } from "react-icons/io5";
+import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline } from "react-icons/io5";
 import { UserContext } from "../../context/User";
 import { signOutUser } from "../../service/AuthService";
+import { useAuth } from "../../context/AuthContext";
 import { THEME, CATEGORIES } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import MyPageLayout from "../../screen/Layout/Layout/MyPageLayout";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../api/config";
+import { compressProfileImage } from "../../utility/imageUtils";
+import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade } from "../../utility/gradeUtils";
+import { IoHelpCircleOutline, IoCloseOutline } from "react-icons/io5";
 
 /* ─── 프로필 카드 ─── */
 const ProfileCard = styled.div`
-  margin: 16px 16px 0;
+  margin: 12px 12px 0;
   background: ${THEME.surface};
   border-radius: 16px;
   padding: 24px 20px;
-  box-shadow: ${THEME.cardShadow};
   display: flex;
   align-items: center;
   gap: 16px;
   cursor: pointer;
+  box-shadow: ${THEME.cardShadow};
   &:active { background: #FAFBFC; }
 `;
 
@@ -49,11 +55,19 @@ const ProfileInfo = styled.div`
   min-width: 0;
 `;
 
+const ProfileNameRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+`;
+
 const ProfileName = styled.div`
   font-size: 18px;
   font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.02em;
+  white-space: nowrap;
 `;
 
 const ProfileSub = styled.div`
@@ -61,6 +75,14 @@ const ProfileSub = styled.div`
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
+`;
+
+const ProfileIntro = styled.div`
+  font-size: 14px;
+  font-weight: 400;
+  color: ${THEME.textSecondary};
+  margin-top: 6px;
+  line-height: 1.4;
 `;
 
 const ProfileEditLabel = styled.div`
@@ -123,6 +145,27 @@ const ModalImgBtn = styled.div`
   &:active { opacity: 0.8; }
 `;
 
+const ImgSpinnerOverlay = styled.div`
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+`;
+
+const ImgSpinner = styled.div`
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(124, 92, 252, 0.2);
+  border-top-color: ${THEME.primary};
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
 const CameraBadge = styled.div`
   position: absolute;
   bottom: 0;
@@ -137,11 +180,34 @@ const CameraBadge = styled.div`
   border: 2px solid #fff;
 `;
 
+const UploadingOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &::after {
+    content: "";
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
 const ModalInput = styled.input`
   width: 100%;
   padding: 14px 16px;
   border: 2px solid ${THEME.border};
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 16px;
   font-weight: 400;
   font-family: inherit;
@@ -158,12 +224,37 @@ const ModalInputCount = styled.div`
   margin-top: 6px;
 `;
 
+const ModalIntroLabel = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.text};
+  margin-top: 16px;
+  margin-bottom: 8px;
+`;
+
+const ModalTextarea = styled.textarea`
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid ${THEME.border};
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: inherit;
+  color: ${THEME.text};
+  outline: none;
+  box-sizing: border-box;
+  resize: none;
+  line-height: 1.5;
+  &:focus { border-color: ${THEME.primary}; }
+  &::placeholder { color: ${THEME.muted}; }
+`;
+
 const ModalSaveBtn = styled.button`
   width: 100%;
   margin-top: 20px;
   padding: 16px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
   font-size: 16px;
@@ -192,74 +283,6 @@ const LogoutButton = styled.button`
 `;
 
 /* ─── 캘린더 ─── */
-const CalendarCard = styled.div`
-  margin: 12px 16px 0;
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
-`;
-
-const CalendarRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const CalendarLeft = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 14px;
-`;
-
-const CalIconWrap = styled.div`
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: ${THEME.background};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const CalendarText = styled.div``;
-
-const CalTitle = styled.div`
-  font-size: 15px;
-  font-weight: 600;
-  color: ${THEME.primary};
-  letter-spacing: -0.02em;
-`;
-
-const CalDesc = styled.div`
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.text};
-  margin-top: 2px;
-`;
-
-const AddBtn = styled.button`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: ${THEME.background};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  &:active { background: ${THEME.border}; }
-`;
-
-/* ─── 커뮤니티 & 가이드 ─── */
-const CommunityCard = styled.div`
-  margin: 12px 16px 0;
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
-`;
-
 const CardHeader = styled.div`
   display: flex;
   align-items: center;
@@ -268,7 +291,7 @@ const CardHeader = styled.div`
 
 const CardTitle = styled.div`
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -288,93 +311,6 @@ const ArrowBtn = styled.button`
   display: flex;
   align-items: center;
   &:active { opacity: 0.6; }
-`;
-
-const HScrollRow = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 4px;
-  &::-webkit-scrollbar { display: none; }
-`;
-
-const PostCard = styled.div`
-  flex-shrink: 0;
-  width: 220px;
-  padding: 16px;
-  background: ${THEME.background};
-  border-radius: 14px;
-  cursor: pointer;
-  &:active { opacity: 0.8; }
-`;
-
-const PostBadge = styled.div`
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: ${THEME.purpleLight};
-  color: ${THEME.purple};
-  font-size: 11px;
-  font-weight: 400;
-  margin-bottom: 10px;
-`;
-
-const PostTitle = styled.div`
-  font-size: 14px;
-  font-weight: 500;
-  color: ${THEME.text};
-  line-height: 1.4;
-  letter-spacing: -0.02em;
-`;
-
-const PostDesc = styled.div`
-  font-size: 13px;
-  font-weight: 400;
-  color: ${THEME.muted};
-  margin-top: 4px;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const PostDate = styled.div`
-  margin-top: 10px;
-  font-size: 12px;
-  font-weight: 400;
-  color: ${THEME.muted};
-`;
-
-const GuideSection = styled.div`
-  margin: 12px 16px 0;
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
-`;
-
-const GuideCard = styled.div`
-  flex-shrink: 0;
-  width: 200px;
-  height: 120px;
-  padding: 20px;
-  border-radius: 16px;
-  background: ${({ $bg }) => $bg || THEME.background};
-  display: flex;
-  align-items: flex-end;
-  cursor: pointer;
-  &:active { opacity: 0.8; }
-`;
-
-const GuideText = styled.div`
-  font-size: 15px;
-  font-weight: 500;
-  color: ${THEME.text};
-  letter-spacing: -0.02em;
-  line-height: 1.45;
-  white-space: pre-line;
 `;
 
 /* ─── 개별 메뉴 카드 ─── */
@@ -453,7 +389,7 @@ const BottomSpacer = styled.div`
 
 /* ─── 콘텐츠 카드 ─── */
 const ContentCard = styled.div`
-  margin: 12px 16px 0;
+  margin: 12px 12px 0;
   background: ${THEME.surface};
   border-radius: 16px;
   padding: 20px;
@@ -509,7 +445,7 @@ const ReferralCode = styled.div`
 const CopyBtn = styled.button`
   padding: 6px 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
   font-size: 13px;
@@ -517,6 +453,20 @@ const CopyBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.8; }
+`;
+
+const RegenBtn = styled.button`
+  margin-top: 8px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.textSecondary};
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+  &:active { opacity: 0.6; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
 
 const ReferralStat = styled.div`
@@ -578,7 +528,7 @@ const EmptyBizText = styled.div`
 
 const BizCatChip = styled.div`
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: 20px;
   background: ${THEME.background};
   font-size: 13px;
   font-weight: 500;
@@ -596,10 +546,10 @@ const SubStatusRow = styled.div`
 
 const SubBadge = styled.span`
   padding: 5px 12px;
-  border-radius: 8px;
+  border-radius: 20px;
   font-size: 12px;
   font-weight: 400;
-  background: ${({ $active }) => ($active ? "#DBEAFE" : THEME.background)};
+  background: ${({ $active }) => ($active ? THEME.purpleLight : THEME.background)};
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
 `;
 
@@ -679,28 +629,119 @@ const ToggleSwitch = styled.div`
 const MobileConfigpage = () => {
   const navigate = useNavigate();
   const { user, dispatch } = useContext(UserContext);
+  const { userData, refreshUser } = useAuth();
   const [proCategories] = useAtom(proCategoriesAtom);
   const [showEditModal, setShowEditModal] = useState(false);
+  const uid = userData?.uid || user?.USERS_ID;
 
-  const nickname = user?.USERINFO?.nickname || "사용자";
-  const userimg = user?.USERINFO?.userimg || "";
+  const nickname = user?.USERINFO?.nickname || userData?.nickname || userData?.name || "사용자";
+  const userimg = user?.USERINFO?.userimg || userData?.profileImage || userData?.photoURL || "";
+  const intro = user?.USERINFO?.intro || userData?.intro || "";
   const [editNickname, setEditNickname] = useState("");
+  const [editIntro, setEditIntro] = useState("");
+  const [editImg, setEditImg] = useState("");
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const profileFileRef = React.useRef(null);
+  const [referralCode, setReferralCode] = useState("");
+  const [referralStats, setReferralStats] = useState({ referralCount: 0, referralPoints: 0 });
+  const [refBusy, setRefBusy] = useState(false);
+  const [showGradeSheet, setShowGradeSheet] = useState(false);
+  const [gradeRules, setGradeRules] = useState(null);
+
+  // 추천인 코드 로드
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      const { getReferralCode, getReferralStats } = await import("../../service/ReferralService");
+      const code = await getReferralCode(uid);
+      setReferralCode(code);
+      const s = await getReferralStats(uid);
+      setReferralStats(s);
+    })();
+  }, [uid]);
+
+  // 등급 규칙 로드
+  useEffect(() => {
+    (async () => {
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("../../api/config");
+        const snap = await getDoc(doc(db, "settings", "grade_rules"));
+        if (snap.exists()) setGradeRules(snap.data());
+      } catch {}
+    })();
+  }, []);
+
+  const handleCopyCode = () => {
+    navigator.clipboard?.writeText(referralCode);
+    alert("복사되었습니다!");
+  };
+
+  const handleRegenerateCode = async () => {
+    if (!uid || !referralCode) return;
+    if (!window.confirm("기존 코드가 무효화됩니다. 재발행하시겠습니까?")) return;
+    setRefBusy(true);
+    try {
+      const { regenerateReferralCode } = await import("../../service/ReferralService");
+      const newCode = await regenerateReferralCode(uid, referralCode);
+      setReferralCode(newCode);
+      alert("새 추천인 코드가 발행되었습니다");
+    } catch (e) {
+      alert("재발행 실패 — 다시 시도해주세요");
+    } finally { setRefBusy(false); }
+  };
 
   const handleOpenEdit = () => {
     setEditNickname(nickname);
+    setEditIntro(intro);
+    setEditImg(userimg);
     setShowEditModal(true);
   };
 
-  const handleSaveProfile = () => {
+  const handleSelectPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || uploadingImg) return;
+    if (!uid) { alert("로그인 정보를 확인해주세요."); return; }
+    e.target.value = "";
+    setUploadingImg(true);
+    try {
+      const compressed = await compressProfileImage(file, 400, 0.3);
+      const storageRef = ref(storage, `homepro/profiles/${uid}/profile_${Date.now()}.jpg`);
+      await uploadBytes(storageRef, compressed);
+      const url = await getDownloadURL(storageRef);
+      setEditImg(url);
+    } catch (err) {
+      console.error("사진 업로드 실패:", err);
+      alert("사진 업로드 실패: " + err.message);
+    } finally {
+      setUploadingImg(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
     const trimmed = editNickname.trim();
     if (!trimmed) return;
-    dispatch({ USERINFO: { nickname: trimmed } });
+    const introTrimmed = editIntro.trim();
+    dispatch({ USERINFO: { nickname: trimmed, intro: introTrimmed, userimg: editImg } });
+    // Firestore 저장
+    const uid = user?.USERS_ID;
+    if (uid) {
+      try {
+        const { upsertUserProfile } = await import("../../service/UserProfileService");
+        await upsertUserProfile(uid, { nickname: trimmed, name: trimmed, intro: introTrimmed, profileImage: editImg, photoURL: editImg });
+        await refreshUser();
+      } catch (e) {
+        console.error("프로필 저장 실패:", e);
+      }
+    }
     setShowEditModal(false);
   };
 
+  const [, setProCats] = useAtom(proCategoriesAtom);
   const handleLogout = async () => {
     await signOutUser();
     dispatch(null);
+    setProCats([]);
     navigate("/MobileLogin", { replace: true });
   };
 
@@ -718,10 +759,17 @@ const MobileConfigpage = () => {
           )}
         </ProfileImgWrap>
         <ProfileInfo>
-          <ProfileName>{nickname}</ProfileName>
+          <ProfileNameRow>
+            <ProfileName>{nickname}</ProfileName>
+            <GradeBadge grade={userData?.grade} size="sm" />
+            <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }}>
+              <IoHelpCircleOutline size={16} color={THEME.muted} />
+            </GradeHelpBtn>
+          </ProfileNameRow>
           <ProfileSub>
-            홈프로 전문가
+            {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
           </ProfileSub>
+          {intro && <ProfileIntro>{intro}</ProfileIntro>}
         </ProfileInfo>
         <ProfileEditLabel>편집</ProfileEditLabel>
       </ProfileCard>
@@ -737,13 +785,19 @@ const MobileConfigpage = () => {
               </ModalCloseBtn>
             </ModalHeader>
             <ModalImgWrap>
-              <ModalImgBtn>
-                {userimg ? (
-                  <ProfileImg src={userimg} alt="profile" style={{ width: 80, height: 80 }} />
+              <input ref={profileFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleSelectPhoto} />
+              <ModalImgBtn onClick={() => profileFileRef.current?.click()}>
+                {editImg ? (
+                  <ProfileImg src={editImg} alt="profile" style={{ width: 80, height: 80, opacity: uploadingImg ? 0.4 : 1 }} />
                 ) : (
-                  <ProfilePlaceholder style={{ width: 80, height: 80 }}>
+                  <ProfilePlaceholder style={{ width: 80, height: 80, opacity: uploadingImg ? 0.4 : 1 }}>
                     <IoPersonCircleOutline size={80} color={THEME.border} />
                   </ProfilePlaceholder>
+                )}
+                {uploadingImg && (
+                  <ImgSpinnerOverlay>
+                    <ImgSpinner />
+                  </ImgSpinnerOverlay>
                 )}
                 <CameraBadge>
                   <IoCameraOutline size={16} color="#fff" />
@@ -757,6 +811,15 @@ const MobileConfigpage = () => {
               maxLength={12}
             />
             <ModalInputCount>{editNickname.length}/12</ModalInputCount>
+            <ModalIntroLabel>자기소개</ModalIntroLabel>
+            <ModalTextarea
+              value={editIntro}
+              onChange={(e) => setEditIntro(e.target.value.slice(0, 200))}
+              placeholder="전문 분야, 경력, 강점 등을 소개해주세요"
+              maxLength={200}
+              rows={4}
+            />
+            <ModalInputCount>{editIntro.length}/200</ModalInputCount>
             <ModalSaveBtn
               onClick={handleSaveProfile}
               disabled={!editNickname.trim()}
@@ -767,16 +830,46 @@ const MobileConfigpage = () => {
         </ModalOverlay>
       )}
 
+      {/* 등급 안내 바텀시트 */}
+      {showGradeSheet && (
+        <GradeSheetOverlay onClick={() => setShowGradeSheet(false)}>
+          <GradeSheetContent onClick={(e) => e.stopPropagation()}>
+            <GradeSheetHandle />
+            <GradeSheetHeader>
+              <GradeSheetTitle>등급 안내</GradeSheetTitle>
+              <GradeSheetClose onClick={() => setShowGradeSheet(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </GradeSheetClose>
+            </GradeSheetHeader>
+            <GradeSheetBody>
+              <GradeProgressBar totalEarnedPoints={userData?.totalEarnedPoints || 0} gradeRules={gradeRules} />
+              <GradeSheetList>
+                {GRADE_ORDER.map((key) => {
+                  const rule = (gradeRules || {})[key] || {};
+                  const current = calcGrade(userData?.totalEarnedPoints || 0, gradeRules);
+                  const isCurrent = current.key === key;
+                  return (
+                    <GradeSheetItem key={key} $active={isCurrent}>
+                      <GradeSheetDot $color={rule.color} />
+                      <GradeSheetLabel $active={isCurrent}>{rule.label || key}</GradeSheetLabel>
+                      <GradeSheetPts>{(rule.minPoints || 0).toLocaleString()}P ~</GradeSheetPts>
+                    </GradeSheetItem>
+                  );
+                })}
+              </GradeSheetList>
+            </GradeSheetBody>
+          </GradeSheetContent>
+        </GradeSheetOverlay>
+      )}
+
       {/* 기본 계정정보 */}
       <ContentCard>
         <CardHeader>
           <div><CardTitle>기본 계정정보</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
         <InfoGrid>
-          <InfoItem><InfoLabel2>이름</InfoLabel2><InfoValue2>{nickname}</InfoValue2></InfoItem>
-          <InfoItem><InfoLabel2>전화번호</InfoLabel2><InfoValue2>{user?.USERINFO?.phone || "미등록"}</InfoValue2></InfoItem>
-          <InfoItem><InfoLabel2>이메일</InfoLabel2><InfoValue2>{user?.USERINFO?.email || "미등록"}</InfoValue2></InfoItem>
+          <InfoItem><InfoLabel2>이름</InfoLabel2><InfoValue2>{userData?.name || nickname}</InfoValue2></InfoItem>
+          <InfoItem><InfoLabel2>전화번호</InfoLabel2><InfoValue2>{userData?.phone || user?.USERINFO?.phone || "미등록"}</InfoValue2></InfoItem>
         </InfoGrid>
       </ContentCard>
 
@@ -785,48 +878,19 @@ const MobileConfigpage = () => {
         <CardHeader>
           <div>
             <CardTitle>추천인 코드</CardTitle>
-            <CardDesc>친구를 초대하고 캐시를 받으세요</CardDesc>
+            <CardDesc>친구를 초대하고 포인트를 받으세요</CardDesc>
           </div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
         <ReferralBox>
-          <ReferralCode>{user?.uid?.slice(0, 8)?.toUpperCase() || "HOMEPRO"}</ReferralCode>
-          <CopyBtn onClick={() => { navigator.clipboard?.writeText(user?.uid?.slice(0, 8)?.toUpperCase() || "HOMEPRO"); alert("복사되었습니다!"); }}>복사</CopyBtn>
+          <ReferralCode>{referralCode || "..."}</ReferralCode>
+          <CopyBtn onClick={handleCopyCode}>복사</CopyBtn>
         </ReferralBox>
+        <RegenBtn onClick={handleRegenerateCode} disabled={refBusy}>코드 재발행</RegenBtn>
         <ReferralStat>
-          <ReferralStatItem><ReferralNum>0</ReferralNum><ReferralLabel>초대한 친구</ReferralLabel></ReferralStatItem>
+          <ReferralStatItem onClick={() => navigate("/referral/friends")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralCount}</ReferralNum><ReferralLabel>초대한 친구</ReferralLabel></ReferralStatItem>
           <StatDivider2 />
-          <ReferralStatItem><ReferralNum>0원</ReferralNum><ReferralLabel>받은 캐시</ReferralLabel></ReferralStatItem>
+          <ReferralStatItem onClick={() => navigate("/referral/points")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralPoints.toLocaleString()}P</ReferralNum><ReferralLabel>받은 포인트</ReferralLabel></ReferralStatItem>
         </ReferralStat>
-      </ContentCard>
-
-      {/* 업무분야 */}
-      <ContentCard>
-        <CardHeader>
-          <div>
-            <CardTitle>업무분야 관리</CardTitle>
-            <CardDesc>등록된 전문 분야를 확인하세요</CardDesc>
-          </div>
-          <ArrowBtn onClick={() => navigate("/pro/categories")}><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-        <BizCatList>
-          {proCategories.length === 0 ? (
-            <EmptyBiz onClick={() => navigate("/pro/register-category")}>
-              <IoAddOutline size={20} color={THEME.primary} />
-              <EmptyBizText>업무분야를 등록해보세요</EmptyBizText>
-            </EmptyBiz>
-          ) : (
-            proCategories.map((catId) => {
-              const cat = CATEGORIES.find((c) => c.id === catId);
-              if (!cat) return null;
-              return (
-                <BizCatChip key={catId} onClick={() => navigate(`/pro/category-detail/${catId}`)}>
-                  {cat.icon} {cat.shortName}
-                </BizCatChip>
-              );
-            })
-          )}
-        </BizCatList>
       </ContentCard>
 
       {/* 구독 관리 */}
@@ -841,19 +905,19 @@ const MobileConfigpage = () => {
         </SubStatusRow>
       </ContentCard>
 
-      {/* 캐시 / 정산 */}
+      {/* 포인트 / 정산 */}
       <ContentCard>
         <CardHeader>
           <div>
-            <CardTitle>캐시 / 정산</CardTitle>
+            <CardTitle>포인트 / 정산</CardTitle>
             <CardDesc>수익 현황을 한눈에 확인하세요</CardDesc>
           </div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+          <ArrowBtn onClick={() => navigate("/referral/points")}><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
         <CashGrid>
-          <CashItem>
-            <CashAmount>0원</CashAmount>
-            <CashLabel>보유 캐시</CashLabel>
+          <CashItem onClick={() => navigate("/referral/points")} style={{ cursor: "pointer" }}>
+            <CashAmount>{referralStats.referralPoints.toLocaleString()}P</CashAmount>
+            <CashLabel>보유 포인트</CashLabel>
           </CashItem>
           <CashDivider />
           <CashItem>
@@ -887,83 +951,6 @@ const MobileConfigpage = () => {
           <ToggleSwitch $on={false} />
         </ToggleRow>
       </ContentCard>
-
-      {/* 홈프로캘린더 */}
-      {(
-        <CalendarCard>
-          <CalendarRow onClick={() => navigate("/calendar")} style={{ cursor: "pointer" }}>
-            <CalendarLeft>
-              <CalIconWrap>
-                <IoCalendarOutline size={28} color={THEME.primary} />
-              </CalIconWrap>
-              <CalendarText>
-                <CalTitle>홈프로캘린더</CalTitle>
-                <CalDesc>일정을 등록해 보세요!</CalDesc>
-              </CalendarText>
-            </CalendarLeft>
-            <AddBtn onClick={(e) => { e.stopPropagation(); navigate("/calendar/create"); }}>
-              <IoAddOutline size={22} color={THEME.muted} />
-            </AddBtn>
-          </CalendarRow>
-        </CalendarCard>
-      )}
-
-      {/* 홈프로 커뮤니티 */}
-      {(
-        <CommunityCard>
-          <CardHeader>
-            <div>
-              <CardTitle>홈프로 커뮤니티</CardTitle>
-              <CardDesc>고객과 소통하고, 홈프로들과 경험을 나눠보세요</CardDesc>
-            </div>
-            <ArrowBtn onClick={() => {}}>
-              <IoChevronForward size={22} color={THEME.muted} />
-            </ArrowBtn>
-          </CardHeader>
-          <HScrollRow>
-            <PostCard>
-              <PostBadge>이벤트/공지</PostBadge>
-              <PostTitle>홈프로 오픈 기념 이벤트!</PostTitle>
-              <PostDesc>지금 가입하면 첫 오더 수수료 무료</PostDesc>
-              <PostDate>2026.02.08</PostDate>
-            </PostCard>
-            <PostCard>
-              <PostBadge>이벤트/공지</PostBadge>
-              <PostTitle>추천인 보상 프로그램 안내</PostTitle>
-              <PostDesc>친구를 초대하고 캐시를 받으세요</PostDesc>
-              <PostDate>2026.02.08</PostDate>
-            </PostCard>
-            <PostCard>
-              <PostBadge>팁/노하우</PostBadge>
-              <PostTitle>프로필 완성도 높이는 법</PostTitle>
-              <PostDesc>완성도가 높을수록 고객 매칭률 UP</PostDesc>
-              <PostDate>2026.02.08</PostDate>
-            </PostCard>
-          </HScrollRow>
-        </CommunityCard>
-      )}
-
-      {/* 홈프로 가이드 */}
-      {(
-        <GuideSection>
-          <CardTitle>홈프로 가이드</CardTitle>
-          <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
-          <HScrollRow>
-            <GuideCard $bg="#FEF3C7">
-              <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
-            </GuideCard>
-            <GuideCard $bg="#EDE9FE">
-              <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
-            </GuideCard>
-            <GuideCard $bg="#DBEAFE">
-              <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
-            </GuideCard>
-            <GuideCard $bg="#D1FAE5">
-              <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
-            </GuideCard>
-          </HScrollRow>
-        </GuideSection>
-      )}
 
       {/* 고객지원 */}
       <ContentCard>
@@ -1000,3 +987,111 @@ const MobileConfigpage = () => {
 };
 
 export default MobileConfigpage;
+
+/* ── 등급 안내 바텀시트 ── */
+const GradeHelpBtn = styled.button`
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+`;
+
+const GradeSheetOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 400px;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+`;
+
+const GradeSheetContent = styled.div`
+  width: 100%;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  animation: gradeUp 0.25s ease-out;
+  @keyframes gradeUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+`;
+
+const GradeSheetHandle = styled.div`
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: ${THEME.border};
+  margin: 10px auto 0;
+`;
+
+const GradeSheetHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+`;
+
+const GradeSheetTitle = styled.div`
+  font-size: 17px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const GradeSheetClose = styled.button`
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+`;
+
+const GradeSheetBody = styled.div`
+  padding: 0 16px 24px;
+`;
+
+const GradeSheetList = styled.div`
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const GradeSheetItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.background};
+  border: 1.5px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
+`;
+
+const GradeSheetDot = styled.div`
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: ${({ $color }) => $color || THEME.muted};
+  flex-shrink: 0;
+`;
+
+const GradeSheetLabel = styled.div`
+  flex: 1;
+  font-size: 14px;
+  font-weight: ${({ $active }) => $active ? 700 : 400};
+  color: ${THEME.text};
+`;
+
+const GradeSheetPts = styled.div`
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.muted};
+`;

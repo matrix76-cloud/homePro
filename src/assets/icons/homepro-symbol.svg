@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <!-- 배경 원 (둥근 사각형) -->
-  <rect width="512" height="512" rx="112" fill="#2563EB"/>
+  <rect width="512" height="512" rx="112" fill="#7C5CFC"/>
 
   <!-- 집 형태 - 단순 아이콘 -->
   <!-- 지붕 -->
@@ -8,9 +8,9 @@
         fill="#FFFFFF" fill-rule="evenodd"/>
 
   <!-- 문 (둥근 아치) -->
-  <path d="M228 384 L228 310 Q228 280 256 280 Q284 280 284 310 L284 384 Z" fill="#2563EB"/>
+  <path d="M228 384 L228 310 Q228 280 256 280 Q284 280 284 310 L284 384 Z" fill="#7C5CFC"/>
 
   <!-- 체크 뱃지 -->
-  <circle cx="396" cy="136" r="56" fill="#F59E0B"/>
-  <path d="M372 136 L390 154 L420 120" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="396" cy="136" r="56" fill="#FFFFFF"/>
+  <path d="M372 136 L390 154 L420 120" stroke="#7C5CFC" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

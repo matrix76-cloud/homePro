@@ -38,11 +38,11 @@ const toE164KR = (raw) => {
 };
 const genOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
-const maskEmail = (email) => {
-    if (!email || !email.includes("@")) return email || "";
-    const [local, domain] = email.split("@");
-    if (local.length <= 1) return `*@${domain}`;
-    return `${local[0]}${"*".repeat(Math.min(local.length - 1, 3))}@${domain}`;
+const maskId = (email) => {
+    if (!email) return "";
+    const local = email.includes("@") ? email.split("@")[0] : email;
+    if (local.length <= 1) return "*";
+    return `${local[0]}${"*".repeat(Math.min(local.length - 1, 3))}`;
 };
 
 const providerLabel = (profile) => {
@@ -267,7 +267,7 @@ export default function MobileFindAccountcontainer() {
             </TabRow>
 
             <PageTitle>
-                {activeTab === TAB_FIND_ID ? "가입된 이메일을 찾습니다" : "비밀번호를 재설정합니다"}
+                {activeTab === TAB_FIND_ID ? "가입된 아이디를 찾습니다" : "비밀번호를 재설정합니다"}
             </PageTitle>
             <PageDesc>가입 시 등록한 전화번호로 인증해주세요</PageDesc>
 
@@ -355,8 +355,8 @@ export default function MobileFindAccountcontainer() {
                                     <>
                                         <ResultTitle>가입된 계정을 찾았습니다</ResultTitle>
                                         <ResultCard>
-                                            <ResultLabel>이메일</ResultLabel>
-                                            <ResultValue>{maskEmail(resultProfile.email)}</ResultValue>
+                                            <ResultLabel>아이디</ResultLabel>
+                                            <ResultValue>{maskId(resultProfile.email)}</ResultValue>
                                             <ResultSub>{providerLabel(resultProfile)}</ResultSub>
                                         </ResultCard>
                                     </>
@@ -370,7 +370,7 @@ export default function MobileFindAccountcontainer() {
                                         <ResultCard>
                                             <ResultMessage>{resultMessage}</ResultMessage>
                                             {resultProfile.email && !resultMessage?.includes("소셜") && (
-                                                <ResultSub>{maskEmail(resultProfile.email)}</ResultSub>
+                                                <ResultSub>{maskId(resultProfile.email)}</ResultSub>
                                             )}
                                         </ResultCard>
                                     </>
@@ -480,7 +480,7 @@ const Input = styled.input`
   width: 100%;
   height: 50px;
   padding: 0 16px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1.5px solid ${THEME.border};
   background: ${THEME.surface};
   color: ${THEME.text};
@@ -504,7 +504,7 @@ const SmallBtn = styled.button`
   height: 50px;
   border: 1.5px solid ${THEME.border};
   background: ${THEME.surface};
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 0 14px;
   font-size: 14px;
   cursor: pointer;
@@ -528,7 +528,7 @@ const CodeBox = styled.div`
   margin-top: 4px;
   padding: 12px 14px;
   border: 1.5px dashed ${THEME.border};
-  border-radius: 12px;
+  border-radius: 10px;
   background: ${THEME.surface};
   font-size: 13px;
   color: ${THEME.text};
@@ -563,7 +563,7 @@ const WarnPill = styled.div`
 
 const ErrorPill = styled.div`
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(239, 68, 68, 0.08);
   color: ${THEME.danger};
   font-size: 14px;
@@ -586,9 +586,9 @@ const ResultTitle = styled.div`
 
 const ResultCard = styled.div`
   padding: 20px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: ${THEME.surface};
-  border: 1.5px solid ${THEME.border};
+  box-shadow: ${THEME.cardShadow};
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -633,7 +633,7 @@ const BtnRow = styled.div`
 const BaseBtn = styled.button`
   width: 100%;
   height: 50px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 15px;
   font-weight: 400;
   cursor: pointer;

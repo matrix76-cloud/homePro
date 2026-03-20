@@ -322,9 +322,9 @@ const AdminSettlementPage = () => {
                 <Overlay onClick={() => setModal(null)}>
                     <Modal onClick={e => e.stopPropagation()}>
                         <ModalTitle>정산 등록</ModalTitle>
-                        <Row><Label>프로 UID *</Label><Input value={form.proUid} onChange={e => setForm(f => ({ ...f, proUid: e.target.value }))} placeholder="프로 UID" /></Row>
-                        <Row><Label>프로명 *</Label><Input value={form.proName} onChange={e => setForm(f => ({ ...f, proName: e.target.value }))} placeholder="프로 이름" /></Row>
-                        <Row><Label>금액 *</Label><Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="정산 금액" /></Row>
+                        <Row><Label>프로 UID</Label><Input value={form.proUid} onChange={e => setForm(f => ({ ...f, proUid: e.target.value }))} placeholder="프로 UID" /></Row>
+                        <Row><Label>프로명</Label><Input value={form.proName} onChange={e => setForm(f => ({ ...f, proName: e.target.value }))} placeholder="프로 이름" /></Row>
+                        <Row><Label>금액</Label><Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="정산 금액" /></Row>
                         <Row><Label>정산방법</Label>
                             <Select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}>
                                 <option value="계좌이체">계좌이체</option>

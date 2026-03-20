@@ -7,7 +7,7 @@ import {
     IoGridOutline, IoPeopleOutline, IoLinkOutline, IoChatbubblesOutline,
     IoMegaphoneOutline, IoWalletOutline, IoNewspaperOutline, IoCloudDownloadOutline,
     IoSettingsOutline, IoLogOutOutline, IoCashOutline, IoChevronDownOutline,
-    IoTimeOutline, IoChevronForwardOutline, IoHomeOutline,
+    IoTimeOutline, IoChevronForwardOutline, IoHomeOutline, IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 
 const Wrap = styled.div`display: flex; min-height: 100vh; background: ${THEME.background};`;
@@ -121,6 +121,14 @@ const MENUS = [
         ],
     },
     {
+        icon: IoShieldCheckmarkOutline, label: "프로 승인관리", groupKey: "pro-approval",
+        sub: [
+            { to: "/admin/pro-approval", label: "대기중", end: true },
+            { to: "/admin/pro-approval/approved", label: "승인완료" },
+            { to: "/admin/pro-approval/rejected", label: "반려" },
+        ],
+    },
+    {
         icon: IoLinkOutline, label: "매칭관리", groupKey: "matching",
         sub: [
             { to: "/admin/matching", label: "전체 매칭 내역", end: true },
@@ -183,6 +191,7 @@ const MENUS = [
             { to: "/admin/settings", label: "앱 푸시알림 설정", end: true },
             { to: "/admin/settings/policies", label: "정관/약관 관리" },
             { to: "/admin/settings/ai", label: "AI 견적 설정" },
+            { to: "/admin/settings/test", label: "테스트 데이터" },
         ],
     },
 ];

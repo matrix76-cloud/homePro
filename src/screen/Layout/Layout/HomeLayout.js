@@ -1,6 +1,6 @@
 /* eslint-disable */
-import React, { useState, useContext, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useContext, useEffect, useRef, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import CommonHeaderHome from "../Header/CommonHeaderHome";
 import MobileFooter from "../Footer/MobileFooter";
@@ -19,6 +19,9 @@ const Container = styled.div`
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  max-width: 400px;
+  margin: 0 auto;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
 `;
 
 const Main = styled.main`
@@ -30,11 +33,22 @@ const Main = styled.main`
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  background: #F7F8FA;
 `;
 
 const HomeLayout = (props) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showRegion, setShowRegion] = useState(false);
+
+  const footerType = useMemo(() => {
+    const p = location.pathname;
+    if (p.startsWith("/biz-profile")) return MOBILEMAINMENU.BIZPROFILE;
+    if (p.startsWith("/MobileChat") || p.startsWith("/chat")) return MOBILEMAINMENU.CHAT;
+    if (p.startsWith("/MobileConfig")) return MOBILEMAINMENU.CONFIG;
+    if (p.startsWith("/order/create")) return MOBILEMAINMENU.CREATE;
+    return MOBILEMAINMENU.HOME;
+  }, [location.pathname]);
   const { user, dispatch } = useContext(UserContext);
   const { userData } = useAuth();
   const autoLocated = useRef(false);
@@ -121,7 +135,7 @@ const HomeLayout = (props) => {
         onSearchClick={() => navigate("/search")}
       />
       <Main>{props.children}</Main>
-      <MobileFooter type={MOBILEMAINMENU.HOME} />
+      <MobileFooter type={footerType} />
       <RegionSelectModal
         open={showRegion}
         onClose={() => setShowRegion(false)}
