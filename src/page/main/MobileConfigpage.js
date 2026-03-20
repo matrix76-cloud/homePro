@@ -364,7 +364,7 @@ const SingleCardDesc = styled.div`
 `;
 
 const SupportList = styled.div`
-  margin-top: 14px;
+  margin-top: 8px;
 `;
 
 const SupportItem = styled.div`
@@ -372,7 +372,6 @@ const SupportItem = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 13px 0;
-  border-bottom: 1px solid ${THEME.border};
   cursor: pointer;
   &:active { opacity: 0.6; }
 `;
@@ -408,8 +407,6 @@ const InfoItem = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid ${THEME.border};
-  &:last-child { border-bottom: none; }
 `;
 
 const InfoLabel2 = styled.div`
@@ -861,6 +858,14 @@ const MobileConfigpage = () => {
           </GradeSheetContent>
         </GradeSheetOverlay>
       )}
+
+      {/* 비즈프로필 */}
+      <ContentCard onClick={() => navigate("/biz-profile")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div><CardTitle>비즈프로필</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
 
       {/* 기본 계정정보 */}
       <ContentCard>

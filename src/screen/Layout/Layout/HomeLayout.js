@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useContext, useEffect, useRef, useMemo } from "react";
+import React, { useState, useContext, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import CommonHeaderHome from "../Header/CommonHeaderHome";
@@ -40,10 +40,12 @@ const HomeLayout = (props) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showRegion, setShowRegion] = useState(false);
+  const [showLocationMenu, setShowLocationMenu] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const footerType = useMemo(() => {
     const p = location.pathname;
-    if (p.startsWith("/biz-profile")) return MOBILEMAINMENU.BIZPROFILE;
+    if (p.startsWith("/my-orders")) return MOBILEMAINMENU.MYORDERS;
     if (p.startsWith("/MobileChat") || p.startsWith("/chat")) return MOBILEMAINMENU.CHAT;
     if (p.startsWith("/MobileConfig")) return MOBILEMAINMENU.CONFIG;
     if (p.startsWith("/order/create")) return MOBILEMAINMENU.CREATE;
@@ -118,6 +120,48 @@ const HomeLayout = (props) => {
     }
   };
 
+  // 현재위치로 설정 (GPS)
+  const handleSetCurrentLocation = useCallback(async () => {
+    setShowLocationMenu(false);
+    setGpsLoading(true);
+    try {
+      let coords = null;
+      if (isInRnWebView()) {
+        const res = await requestLocationAsync(8000);
+        if (res?.latitude && res?.longitude) coords = { latitude: res.latitude, longitude: res.longitude };
+      } else {
+        coords = await getWebLocation(8000);
+      }
+      if (coords) {
+        const geo = await reverseGeocode(coords.latitude, coords.longitude);
+        const mapped = mapToKrArea(geo);
+        if (mapped) {
+          const display = regionToDisplayName(mapped);
+          dispatch({ USERINFO: { address_name: display } });
+          try { localStorage.setItem(REGION_STORAGE_KEY, JSON.stringify(mapped)); } catch {}
+          const uid = userData?.uid;
+          if (uid) {
+            try { await upsertUserProfile(uid, { region: mapped }); } catch {}
+          }
+        } else {
+          alert("위치를 인식할 수 없습니다.");
+        }
+      } else {
+        alert("위치 정보를 가져올 수 없습니다.\n위치 권한을 확인해주세요.");
+      }
+    } catch {
+      alert("위치 설정에 실패했습니다.");
+    } finally {
+      setGpsLoading(false);
+    }
+  }, [dispatch, userData?.uid]);
+
+  // 지역으로 설정
+  const handleOpenRegionSelect = () => {
+    setShowLocationMenu(false);
+    setShowRegion(true);
+  };
+
   // 현재 주소에서 기본값 추출
   const addr = user?.USERINFO?.address_name || "";
   const parts = addr.trim().split(" ");
@@ -130,10 +174,27 @@ const HomeLayout = (props) => {
   return (
     <Container>
       <CommonHeaderHome
-        onNotificationClick={props.onNotificationClick}
-        onLocationClick={() => setShowRegion(true)}
+        onCalendarClick={() => navigate("/calendar")}
+        onLocationClick={() => setShowLocationMenu((v) => !v)}
         onSearchClick={() => navigate("/search")}
       />
+      {/* 위치 설정 드롭다운 */}
+      {showLocationMenu && (
+        <>
+          <LocationMenuOverlay onClick={() => setShowLocationMenu(false)} />
+          <LocationMenu>
+            <LocationMenuItem onClick={handleSetCurrentLocation}>
+              <IoLocateIcon>📍</IoLocateIcon>
+              {gpsLoading ? "위치 확인 중..." : "현재위치로 설정"}
+            </LocationMenuItem>
+            <LocationMenuDivider />
+            <LocationMenuItem onClick={handleOpenRegionSelect}>
+              <IoLocateIcon>🗺️</IoLocateIcon>
+              지역으로 설정
+            </LocationMenuItem>
+          </LocationMenu>
+        </>
+      )}
       <Main>{props.children}</Main>
       <MobileFooter type={footerType} />
       <RegionSelectModal
@@ -145,5 +206,49 @@ const HomeLayout = (props) => {
     </Container>
   );
 };
+
+/* ─── 위치 설정 드롭다운 ─── */
+
+const LocationMenuOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+`;
+
+const LocationMenu = styled.div`
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 52px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 368px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  z-index: 999;
+  overflow: hidden;
+`;
+
+const LocationMenuItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #191F28;
+  cursor: pointer;
+  &:active { background: #F7F8FA; }
+`;
+
+const LocationMenuDivider = styled.div`
+  height: 1px;
+  background: #F0F0F4;
+  margin: 0 16px;
+`;
+
+const IoLocateIcon = styled.span`
+  font-size: 18px;
+`;
 
 export default HomeLayout;

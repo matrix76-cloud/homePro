@@ -9,10 +9,20 @@ import { db } from "../../api/config";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
+import { MOBILEMAINMENU } from "../../utility/constants";
 import { IoDocumentTextOutline } from "react-icons/io5";
 
 /* ─── 상태 탭 ─── */
 const STATUS_TABS = ["전체", "요청", "결제", "완료", "리뷰", "취소"];
+const STATUS_DESC = {
+  "전체": "내가 올린 모든 요청이에요.\n각 요청이 지금 어떤 단계인지 한눈에 볼 수 있어요.",
+  "요청": "내 요청을 전문가들이 보고 있어요.\n곧 견적이 도착하면 채팅으로 알려드릴게요!",
+  "결제": "전문가의 견적을 수락하고 결제까지 끝났어요.\n약속된 날짜에 전문가가 방문합니다.",
+  "완료": "전문가가 작업을 마쳤어요.\n만족하셨다면 리뷰를 남겨주시면 전문가에게 큰 힘이 돼요!",
+  "리뷰": "작업은 어떠셨나요? 별점과 한마디를 남겨주세요.\n다음 고객이 전문가를 선택할 때 큰 도움이 됩니다.",
+  "취소": "취소된 요청 목록이에요.\n같은 내용으로 다시 요청하실 수 있어요.",
+};
 const STATUS_STYLE = {
   "요청": { bg: THEME.purple, color: "#fff" },
   "결제": { bg: THEME.primary, color: "#fff" },
@@ -70,24 +80,23 @@ export const MyOrdersContent = () => {
             const count = tab === "전체" ? orders.length : orders.filter((o) => o.orderStatus === tab).length;
             return (
               <TabItem key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
-                {tab}
                 <TabCount $active={activeTab === tab}>{count}</TabCount>
+                <TabLabel>{tab}</TabLabel>
               </TabItem>
             );
           })}
         </TabRow>
+        <TabDescWrap>
+          <TabDescArrow $idx={STATUS_TABS.indexOf(activeTab)} />
+          <TabDesc>{STATUS_DESC[activeTab]}</TabDesc>
+        </TabDescWrap>
 
         {/* 오더 리스트 */}
         {loading ? (
           <EmptyWrap>
             <EmptyText>불러오는 중...</EmptyText>
           </EmptyWrap>
-        ) : filtered.length === 0 ? (
-          <EmptyWrap>
-            <IoDocumentTextOutline size={48} color={THEME.muted} />
-            <EmptyText>해당 상태의 요청이 없습니다</EmptyText>
-          </EmptyWrap>
-        ) : (
+        ) : filtered.length === 0 ? null : (
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
             const st = STATUS_STYLE[order.orderStatus] || STATUS_STYLE["요청"];
@@ -127,9 +136,15 @@ export const MyOrdersContent = () => {
 };
 
 const MyOrdersPage = () => (
-  <SimpleBackLayout NAME="나의 오더" hideFooter>
+  <SimpleBackLayout NAME="내 요청" hideFooter>
     <MyOrdersContent />
   </SimpleBackLayout>
+);
+
+export const MyOrdersFooterPage = () => (
+  <MainListLayout NAME="내 요청" footerType={MOBILEMAINMENU.MYORDERS} hideBack>
+    <MyOrdersContent />
+  </MainListLayout>
 );
 
 export default MyOrdersPage;
@@ -144,39 +159,64 @@ const PageWrap = styled.div`
 `;
 
 const TabRow = styled.div`
-  display: flex;
-  background: ${THEME.surface};
-  border-bottom: 2px solid ${THEME.border};
-  padding: 0 12px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  padding: 12px 12px 4px;
+`;
+
+const TabDescWrap = styled.div`
+  position: relative;
+  margin: 6px 12px 8px;
+`;
+
+const TabDescArrow = styled.div`
+  position: absolute;
+  top: -6px;
+  left: calc(${({ $idx }) => ($idx * 100 / 6 + 100 / 12)}% - 6px);
+  width: 12px;
+  height: 12px;
+  background: ${THEME.primary};
+  transform: rotate(45deg);
+  border-radius: 2px;
+  transition: left 0.2s ease;
+`;
+
+const TabDesc = styled.div`
+  font-size: 12px;
+  color: #fff;
+  text-align: left;
+  padding: 10px 14px;
+  background: ${THEME.primary};
+  border-radius: 10px;
+  line-height: 1.5;
+  white-space: pre-line;
 `;
 
 const TabItem = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 12px 0;
-  font-size: 13px;
-  font-weight: 400;
-  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
-  border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 0;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  border: 1px solid ${({ $active }) => $active ? THEME.primary : "#EEEEED"};
   cursor: pointer;
-  white-space: nowrap;
-  margin-bottom: -2px;
-  &:active { opacity: 0.7; }
+  transition: all 0.15s;
+  &:active { transform: scale(0.96); }
 `;
 
-const TabCount = styled.span`
-  font-size: 12px;
-  font-weight: 400;
-  color: ${({ $active }) => $active ? "#fff" : THEME.muted};
-  background: ${({ $active }) => $active ? THEME.primary : THEME.border};
-  border-radius: 4px;
-  padding: 2px 8px;
-  min-width: 20px;
-  text-align: center;
+const TabCount = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
+  line-height: 1;
+`;
+
+const TabLabel = styled.div`
+  font-size: 11px;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  font-weight: 500;
 `;
 
 const _StatDivider = styled.div`

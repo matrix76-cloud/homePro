@@ -1,7 +1,7 @@
 // ─── 풋터 메뉴 상수 ───
 export const MOBILEMAINMENU = {
     HOME: "home",
-    BIZPROFILE: "bizprofile",
+    MYORDERS: "myorders",
     CREATE: "create",
     CHAT: "chat",
     CONFIG: "config",

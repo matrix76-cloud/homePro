@@ -56,10 +56,16 @@ const ChatDetailPage = () => {
   const [uploading, setUploading] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-  /* ─── 인라인 일정 생성 (여러 날짜) ─── */
+  /* ─── 인라인 일정 생성 (기간 선택, 여러 건) ─── */
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
-  const [schedItems, setSchedItems] = useState([]);
+  const [schedStartDate, setSchedStartDate] = useState(null);
+  const [schedEndDate, setSchedEndDate] = useState(null);
+  const [schedSelectStep, setSchedSelectStep] = useState("start");
+  const [schedTitle, setSchedTitle] = useState("");
+  const [schedStartHour, setSchedStartHour] = useState(9);
+  const [schedEndHour, setSchedEndHour] = useState(10);
+  const [schedList, setSchedList] = useState([]); // 추가된 일정 목록
 
   // 수정/삭제
   const [menuMsgId, setMenuMsgId] = useState(null);
@@ -160,25 +166,38 @@ const ChatDetailPage = () => {
     const now = new Date();
     setCalYear(now.getFullYear());
     setCalMonth(now.getMonth());
-    setSchedItems([]);
+    setSchedStartDate(null);
+    setSchedEndDate(null);
+    setSchedSelectStep("start");
+    setSchedTitle("");
+    setSchedStartHour(9);
+    setSchedEndHour(10);
+    setSchedList([]);
   };
 
-  // 날짜 토글
-  const toggleSchedDate = (day) => {
+  // 기간 선택
+  const handleSchedDateClick = (day) => {
     if (!day) return;
     const key = `${calYear}-${pad2(calMonth + 1)}-${pad2(day)}`;
-    setSchedItems((prev) => {
-      const exists = prev.find((s) => s.dateKey === key);
-      if (exists) return prev.filter((s) => s.dateKey !== key);
-      return [...prev, { dateKey: key, title: "", startHour: 9, endHour: 10, memo: "" }];
-    });
+    if (schedSelectStep === "start") {
+      setSchedStartDate(key);
+      setSchedEndDate(key);
+      setSchedSelectStep("end");
+    } else {
+      if (key < schedStartDate) { setSchedStartDate(key); }
+      else { setSchedEndDate(key); }
+      setSchedSelectStep("start");
+    }
   };
 
-  const updateSchedItem = (dateKey, field, value) => {
-    setSchedItems((prev) => prev.map((s) => s.dateKey === dateKey ? { ...s, [field]: value } : s));
+  const isSchedInRange = (day) => {
+    if (!day || !schedStartDate) return false;
+    const key = `${calYear}-${pad2(calMonth + 1)}-${pad2(day)}`;
+    return key >= schedStartDate && key <= (schedEndDate || schedStartDate);
   };
-
-  const selectedDateKeys = schedItems.map((s) => s.dateKey);
+  const isSchedStart = (day) => day && schedStartDate && `${calYear}-${pad2(calMonth + 1)}-${pad2(day)}` === schedStartDate;
+  const isSchedEnd = (day) => day && schedEndDate && `${calYear}-${pad2(calMonth + 1)}-${pad2(day)}` === schedEndDate;
+  const isSchedSameDay = schedStartDate && schedStartDate === schedEndDate;
 
   /* 미니 캘린더 날짜 배열 */
   const calendarDays = (() => {
@@ -197,40 +216,98 @@ const ChatDetailPage = () => {
     return `${period} ${display}시`;
   };
 
-  /* 일정 생성 + 바로 공유 (여러 건) */
-  const validSchedItems = schedItems.filter((s) => s.title.trim());
+  const schedFormatRange = () => {
+    if (!schedStartDate) return "";
+    const [, sm, sd] = schedStartDate.split("-");
+    const sDt = new Date(schedStartDate);
+    const sDay = ["일","월","화","수","목","금","토"][sDt.getDay()];
+    if (isSchedSameDay) return `${Number(sm)}/${Number(sd)} (${sDay})`;
+    const [, em, ed] = schedEndDate.split("-");
+    const eDt = new Date(schedEndDate);
+    const eDay = ["일","월","화","수","목","금","토"][eDt.getDay()];
+    return `${Number(sm)}/${Number(sd)} (${sDay}) ~ ${Number(em)}/${Number(ed)} (${eDay})`;
+  };
+
+  const getDatesInRange = (start, end) => {
+    const dates = [];
+    const cur = new Date(start);
+    const e = new Date(end);
+    while (cur <= e) {
+      dates.push(`${cur.getFullYear()}-${pad2(cur.getMonth() + 1)}-${pad2(cur.getDate())}`);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  };
+
+  // 현재 입력을 리스트에 추가
+  const handleAddToList = () => {
+    if (!schedTitle.trim() || !schedStartDate) return;
+    setSchedList((prev) => [...prev, {
+      title: schedTitle.trim(),
+      startDate: schedStartDate,
+      endDate: schedEndDate,
+      startHour: schedStartHour,
+      endHour: schedEndHour,
+    }]);
+    // 입력 초기화
+    setSchedTitle("");
+    setSchedStartDate(null);
+    setSchedEndDate(null);
+    setSchedSelectStep("start");
+    setSchedStartHour(9);
+    setSchedEndHour(10);
+  };
+
+  const removeFromList = (idx) => {
+    setSchedList((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // 전체 공유
+  const allSchedItems = [...schedList, ...(schedTitle.trim() && schedStartDate ? [{
+    title: schedTitle.trim(), startDate: schedStartDate, endDate: schedEndDate,
+    startHour: schedStartHour, endHour: schedEndHour,
+  }] : [])];
 
   const handleCreateAndShare = async () => {
-    if (validSchedItems.length === 0 || sending) return;
+    if (allSchedItems.length === 0 || sending) return;
     setSending(true);
     try {
       const { addDoc: add, collection: col, serverTimestamp: ts } = await import("firebase/firestore");
-      const scheduleList = [];
-      for (const item of validSchedItems) {
+      const chatSchedules = [];
+
+      for (const item of allSchedItems) {
         const timeStr = `${hourLabel(item.startHour)} ~ ${hourLabel(item.endHour)}`;
-        // Firestore에 저장
-        await add(col(db, "homepro_schedules"), {
-          uid: myUid,
-          title: item.title.trim(),
-          date: item.dateKey,
-          startHour: item.startHour,
-          endHour: item.endHour,
-          memo: item.memo.trim(),
-          createdAt: ts(),
-        });
-        scheduleList.push({
-          title: item.title.trim(),
-          date: item.dateKey,
+        const isSingle = item.startDate === item.endDate;
+        const groupId = isSingle ? null : `grp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const dates = getDatesInRange(item.startDate, item.endDate);
+
+        for (const dateStr of dates) {
+          await add(col(db, "homepro_schedules"), {
+            uid: myUid,
+            title: item.title,
+            date: dateStr,
+            startHour: item.startHour,
+            endHour: item.endHour,
+            ...(groupId && { groupId }),
+            source: "chat",
+            roomId,
+            createdAt: ts(),
+          });
+        }
+        chatSchedules.push({
+          title: item.title,
+          date: isSingle ? item.startDate : `${item.startDate} ~ ${item.endDate}`,
           time: timeStr,
-          memo: item.memo.trim(),
         });
       }
-      // 하나의 메시지로 묶어서 공유
-      if (scheduleList.length === 1) {
-        await sendScheduleMessage(roomId, scheduleList[0], myUid, myName);
+
+      // 채팅에 공유
+      if (chatSchedules.length === 1) {
+        await sendScheduleMessage(roomId, chatSchedules[0], myUid, myName);
       } else {
-        await sendSchedulesMessage(roomId, scheduleList, myUid, myName);
+        await sendSchedulesMessage(roomId, chatSchedules, myUid, myName);
       }
+
       setShowScheduleModal(false);
     } catch (err) {
       console.error("일정 생성/공유 실패:", err);
@@ -600,56 +677,92 @@ const ChatDetailPage = () => {
                     <MiniCalDayLabel key={d} $sun={d === "일"} $sat={d === "토"}>{d}</MiniCalDayLabel>
                   ))}
                 </MiniCalDayRow>
-                <MiniCalGrid>
-                  {calendarDays.map((d, i) => (
-                    <MiniCalCell key={i} $empty={!d}
-                      $selected={d && selectedDateKeys.includes(`${calYear}-${pad2(calMonth + 1)}-${pad2(d)}`)}
-                      $today={d === new Date().getDate() && calMonth === new Date().getMonth() && calYear === new Date().getFullYear()}
-                      onClick={() => toggleSchedDate(d)}>
-                      {d || ""}
-                    </MiniCalCell>
-                  ))}
-                </MiniCalGrid>
-                <SchedHint>날짜를 터치하여 여러 날 선택</SchedHint>
+                {/* 주 단위 렌더링 + 바 */}
+                {(() => {
+                  // 주 단위로 분할
+                  const weeks = [];
+                  for (let i = 0; i < calendarDays.length; i += 7) {
+                    weeks.push(calendarDays.slice(i, i + 7));
+                  }
+                  // 바 계산 함수
+                  const getBarForWeek = (week) => {
+                    const weekDates = week.map((d) => d ? `${calYear}-${pad2(calMonth + 1)}-${pad2(d)}` : null);
+                    const ws = weekDates.find((x) => x);
+                    const we = [...weekDates].reverse().find((x) => x);
+                    if (!ws || !we) return [];
+                    return schedList.map((item) => {
+                      if (item.startDate > we || item.endDate < ws) return null;
+                      const startCol = weekDates.findIndex((x) => x && x >= item.startDate);
+                      const endCol = 6 - [...weekDates].reverse().findIndex((x) => x && x <= item.endDate);
+                      return { ...item, col: Math.max(0, startCol) + 1, colEnd: Math.min(7, endCol) + 2 };
+                    }).filter(Boolean);
+                  };
+                  return weeks.map((week, wi) => {
+                    const bars = getBarForWeek(week);
+                    // 레인 분배 (겹치는 바 분리)
+                    const barRows = [];
+                    const lanes = [];
+                    bars.forEach((bar) => {
+                      let lane = lanes.findIndex((l) => l <= bar.col);
+                      if (lane === -1) lane = lanes.length;
+                      lanes[lane] = bar.colEnd;
+                      if (!barRows[lane]) barRows[lane] = [];
+                      barRows[lane].push(bar);
+                    });
+                    return (
+                      <React.Fragment key={wi}>
+                        <MiniCalGrid>
+                          {week.map((d, i) => {
+                            const inRange = isSchedInRange(d);
+                            const start = isSchedStart(d);
+                            const end = isSchedEnd(d);
+                            const same = isSchedSameDay && start;
+                            return (
+                              <MiniCalCellWrap key={i}
+                                $inRange={inRange} $isStart={start} $isEnd={end} $isSame={same}
+                                onClick={() => handleSchedDateClick(d)}>
+                                <MiniCalCell $empty={!d}
+                                  $selected={start || end}
+                                  $today={d === new Date().getDate() && calMonth === new Date().getMonth() && calYear === new Date().getFullYear()}>
+                                  {d || ""}
+                                </MiniCalCell>
+                              </MiniCalCellWrap>
+                            );
+                          })}
+                        </MiniCalGrid>
+                        {barRows.map((bRow, bri) => (
+                          <MiniCalBarRow key={bri}>
+                            {bRow.map((bar, bi) => (
+                              <MiniCalBar key={bi} $col={bar.col} $colEnd={bar.colEnd}
+                                onClick={() => removeFromList(schedList.indexOf(bar))}>
+                                {bar.title}
+                              </MiniCalBar>
+                            ))}
+                          </MiniCalBarRow>
+                        ))}
+                      </React.Fragment>
+                    );
+                  });
+                })()}
+                <SchedHint>
+                  {schedSelectStep === "end" ? "종료일을 선택하세요" : "시작일을 터치하세요"}
+                </SchedHint>
 
-                {/* 선택된 날짜별 입력 폼 */}
-                {[...schedItems].sort((a, b) => a.dateKey.localeCompare(b.dateKey)).map((item) => {
-                  const [, m, d] = item.dateKey.split("-");
-                  const dt = new Date(calYear, Number(m) - 1, Number(d));
-                  const dayLabel = ["일","월","화","수","목","금","토"][dt.getDay()];
-                  return (
-                    <SchedItemCard key={item.dateKey}>
-                      <SchedItemDate2>{Number(m)}/{Number(d)} ({dayLabel})</SchedItemDate2>
-                      <SchedFormInput placeholder="작업 내용 (예: 욕실 타일 시공)"
-                        value={item.title}
-                        onChange={(e) => updateSchedItem(item.dateKey, "title", e.target.value)} />
-                      <SchedTimeRow>
-                        <SchedTimeSelect value={item.startHour} onChange={(e) => updateSchedItem(item.dateKey, "startHour", Number(e.target.value))}>
-                          {Array.from({ length: 24 }, (_, h) => (
-                            <option key={h} value={h}>{hourLabel(h)}</option>
-                          ))}
-                        </SchedTimeSelect>
-                        <SchedTimeSep>~</SchedTimeSep>
-                        <SchedTimeSelect value={item.endHour} onChange={(e) => updateSchedItem(item.dateKey, "endHour", Number(e.target.value))}>
-                          {Array.from({ length: 24 }, (_, h) => (
-                            <option key={h} value={h}>{hourLabel(h)}</option>
-                          ))}
-                        </SchedTimeSelect>
-                      </SchedTimeRow>
-                      <SchedFormInput placeholder="메모 (선택)"
-                        value={item.memo}
-                        onChange={(e) => updateSchedItem(item.dateKey, "memo", e.target.value)}
-                        style={{ marginTop: 6 }} />
-                    </SchedItemCard>
-                  );
-                })}
-
-                {schedItems.length === 0 && (
-                  <SchedEmptyHint>날짜를 선택하면 일정을 입력할 수 있어요</SchedEmptyHint>
+                {/* 선택된 기간 + 입력 */}
+                {schedStartDate && (
+                  <>
+                    <SchedRangeLabel>{schedFormatRange()}</SchedRangeLabel>
+                    <SchedFormInput placeholder="작업 내용 (예: 욕실 타일 시공)"
+                      value={schedTitle}
+                      onChange={(e) => setSchedTitle(e.target.value)} />
+                    {schedTitle.trim() && (
+                      <SchedAddBtn onClick={handleAddToList}>+ 일정 추가하고 계속 만들기</SchedAddBtn>
+                    )}
+                  </>
                 )}
 
-                <SchedShareBtnModal onClick={handleCreateAndShare} disabled={validSchedItems.length === 0 || sending}>
-                  {sending ? "공유 중..." : validSchedItems.length > 1 ? `${validSchedItems.length}건 일정 공유하기` : "일정 만들고 공유하기"}
+                <SchedShareBtnModal onClick={handleCreateAndShare} disabled={allSchedItems.length === 0 || sending}>
+                  {sending ? "공유 중..." : allSchedItems.length > 1 ? `${allSchedItems.length}건 일정 공유하기` : "일정 만들고 공유하기"}
                 </SchedShareBtnModal>
               </SchedCreateWrap>
           </ScheduleModalContent>
@@ -809,36 +922,115 @@ const ChatDetailPage = () => {
                       <ImageBubble $isMine={isMine} onClick={() => window.open(msg.fileUrl, "_blank")}>
                         <ChatImage src={msg.fileUrl} alt="이미지" />
                       </ImageBubble>
-                    ) : msg.type === "schedule" ? (
-                      <ScheduleBubble $isMine={isMine}>
-                        <SchedBubbleHeader><IoCalendarOutline size={14} /><span>일정 공유</span></SchedBubbleHeader>
-                        <SchedBubbleTitle $isMine={isMine}>{msg.schedule?.title}</SchedBubbleTitle>
-                        <SchedBubbleRow><IoTimeOutline size={12} /><SchedBubbleText $isMine={isMine}>{msg.schedule?.date} · {msg.schedule?.time}</SchedBubbleText></SchedBubbleRow>
-                        {msg.schedule?.address && (
-                          <SchedBubbleRow><IoLocationOutline size={12} /><SchedBubbleText $isMine={isMine}>{msg.schedule.address}</SchedBubbleText></SchedBubbleRow>
-                        )}
-                        {msg.schedule?.memo && <SchedBubbleMemo $isMine={isMine}>{msg.schedule.memo}</SchedBubbleMemo>}
-                      </ScheduleBubble>
-                    ) : msg.type === "schedules" ? (
-                      <SchedulesBubble $isMine={isMine}>
-                        <SchedBubbleHeader><IoCalendarOutline size={14} /><span>일정 {msg.schedules?.length}건</span></SchedBubbleHeader>
-                        {(() => {
-                          const items = (msg.schedules || []).sort((a, b) => a.date.localeCompare(b.date));
-                          return items.map((s, si) => {
-                            const [, mm, dd] = s.date.split("-");
-                            const dt = new Date(s.date);
-                            const dayName = ["일","월","화","수","목","금","토"][dt.getDay()];
-                            return (
-                              <SchedsTimelineItem key={si} $isMine={isMine}>
-                                <SchedsDateLabel $isMine={isMine}>{Number(mm)}/{Number(dd)} ({dayName})</SchedsDateLabel>
-                                <SchedsTitle $isMine={isMine}>{s.title}</SchedsTitle>
-                                <SchedsTime $isMine={isMine}>{s.time}</SchedsTime>
-                                {s.memo && <SchedsMemo $isMine={isMine}>{s.memo}</SchedsMemo>}
-                              </SchedsTimelineItem>
-                            );
+                    ) : (msg.type === "schedule" || msg.type === "schedules") ? (
+                      (() => {
+                        // 단일/다건 통합 처리
+                        const rawItems = msg.type === "schedule"
+                          ? [msg.schedule]
+                          : (msg.schedules || []);
+                        // date에 ~ 있으면 기간, 아니면 단일
+                        const barItems = rawItems.map((s) => {
+                          if (s.date.includes("~")) {
+                            const [sd, ed] = s.date.split("~").map((x) => x.trim());
+                            return { ...s, startDate: sd, endDate: ed };
+                          }
+                          return { ...s, startDate: s.date, endDate: s.date };
+                        });
+                        // 전체 기간의 월 범위 구하기
+                        const allDates = barItems.flatMap((b) => [b.startDate, b.endDate]).sort();
+                        const minDate = new Date(allDates[0]);
+                        const maxDate = new Date(allDates[allDates.length - 1]);
+                        // 시작 월의 1일부터 종료 월 말일까지 주 단위 생성
+                        const startY = minDate.getFullYear();
+                        const startM = minDate.getMonth();
+                        const endY = maxDate.getFullYear();
+                        const endM = maxDate.getMonth();
+
+                        const allWeeks = [];
+                        let cy = startY, cm = startM;
+                        while (cy < endY || (cy === endY && cm <= endM)) {
+                          const firstDay = new Date(cy, cm, 1).getDay();
+                          const daysInMonth = new Date(cy, cm + 1, 0).getDate();
+                          let row = [];
+                          for (let i = 0; i < firstDay; i++) row.push(null);
+                          for (let d = 1; d <= daysInMonth; d++) {
+                            row.push({ y: cy, m: cm, d });
+                            if (row.length === 7) { allWeeks.push(row); row = []; }
+                          }
+                          if (row.length > 0) { while (row.length < 7) row.push(null); allWeeks.push(row); }
+                          if (cm === 11) { cy++; cm = 0; } else cm++;
+                        }
+
+                        // 주별 바 계산
+                        const p2 = (n) => String(n).padStart(2, "0");
+                        const getWeekBars = (week) => {
+                          const wDates = week.map((c) => c ? `${c.y}-${p2(c.m + 1)}-${p2(c.d)}` : null);
+                          const ws = wDates.find((x) => x);
+                          const we = [...wDates].reverse().find((x) => x);
+                          if (!ws || !we) return [];
+                          return barItems.filter((b) => b.startDate <= we && b.endDate >= ws).map((b) => {
+                            const sc = wDates.findIndex((x) => x && x >= b.startDate);
+                            const ec = 6 - [...wDates].reverse().findIndex((x) => x && x <= b.endDate);
+                            return { ...b, col: Math.max(0, sc) + 1, colEnd: Math.min(7, ec) + 2 };
                           });
-                        })()}
-                      </SchedulesBubble>
+                        };
+
+                        // 바가 있는 주만 필터
+                        const relevantWeeks = allWeeks.filter((week) => getWeekBars(week).length > 0);
+                        // 바가 있는 주 + 앞뒤 1주 포함
+                        const relevantIdxs = new Set();
+                        allWeeks.forEach((week, idx) => {
+                          if (getWeekBars(week).length > 0) {
+                            if (idx > 0) relevantIdxs.add(idx - 1);
+                            relevantIdxs.add(idx);
+                            if (idx < allWeeks.length - 1) relevantIdxs.add(idx + 1);
+                          }
+                        });
+                        const displayWeeks = [...relevantIdxs].sort((a, b) => a - b).map((i) => allWeeks[i]);
+
+                        return (
+                          <BubbleCalWrap $isMine={isMine}>
+                            <SchedBubbleHeader><IoCalendarOutline size={14} /><span>일정 공유</span></SchedBubbleHeader>
+                            <BubbleCalDayRow>
+                              {["일","월","화","수","목","금","토"].map((d) => (
+                                <BubbleCalDayLabel key={d}>{d}</BubbleCalDayLabel>
+                              ))}
+                            </BubbleCalDayRow>
+                            {displayWeeks.map((week, wi) => {
+                              const bars = getWeekBars(week);
+                              const barRows = [];
+                              const lanes = [];
+                              bars.forEach((bar) => {
+                                let lane = lanes.findIndex((l) => l <= bar.col);
+                                if (lane === -1) lane = lanes.length;
+                                lanes[lane] = bar.colEnd;
+                                if (!barRows[lane]) barRows[lane] = [];
+                                barRows[lane].push(bar);
+                              });
+                              return (
+                                <React.Fragment key={wi}>
+                                  <BubbleCalRow>
+                                    {week.map((cell, ci) => (
+                                      <BubbleCalCell key={ci} $isMine={isMine}>
+                                        {cell ? cell.d : ""}
+                                      </BubbleCalCell>
+                                    ))}
+                                  </BubbleCalRow>
+                                  {barRows.map((bRow, bri) => (
+                                    <BubbleCalBarRow key={bri}>
+                                      {bRow.map((bar, bi) => (
+                                        <BubbleCalBar key={bi} $col={bar.col} $colEnd={bar.colEnd} $isMine={isMine}>
+                                          {bar.title}
+                                        </BubbleCalBar>
+                                      ))}
+                                    </BubbleCalBarRow>
+                                  ))}
+                                </React.Fragment>
+                              );
+                            })}
+                          </BubbleCalWrap>
+                        );
+                      })()
                     ) : msg.type === "file" ? (
                       <FileBubble $isMine={isMine} onClick={() => window.open(msg.fileUrl, "_blank")}>
                         <FileIcon $isMine={isMine}><IoDocumentOutline size={20} /></FileIcon>
@@ -1496,7 +1688,7 @@ const SchedBubbleHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #F59E0B;
+  color: ${THEME.text};
   font-size: 11px;
   font-weight: 600;
   margin-bottom: 6px;
@@ -1537,6 +1729,64 @@ const SchedulesBubble = styled.div`
   border-radius: 14px;
   padding: 12px 14px;
   max-width: 280px;
+`;
+
+/* ─── 채팅 버블 내 미니 캘린더 ─── */
+const BubbleCalWrap = styled.div`
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 10px;
+  max-width: 280px;
+  min-width: 260px;
+  border: 1px solid ${THEME.border};
+`;
+
+const BubbleCalDayRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-top: 8px;
+`;
+
+const BubbleCalDayLabel = styled.div`
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: ${THEME.muted};
+  padding: 2px 0;
+`;
+
+const BubbleCalRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+`;
+
+const BubbleCalCell = styled.div`
+  text-align: center;
+  font-size: 11px;
+  font-weight: 400;
+  color: ${THEME.text};
+  padding: 4px 0;
+`;
+
+const BubbleCalBarRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-top: -2px;
+`;
+
+const BubbleCalBar = styled.div`
+  grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
+  background: ${PRIMARY};
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 5px;
+  border-radius: 3px;
+  margin: 1px 1px 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
 `;
 
 const SchedsTimelineItem = styled.div`
@@ -1710,6 +1960,70 @@ const SchedHint = styled.div`
   margin: 6px 0 4px;
 `;
 
+const SchedRangeLabel = styled.div`
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${PRIMARY};
+  margin: 8px 0;
+`;
+
+const SchedAddBtn = styled.div`
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: ${PRIMARY};
+  padding: 10px 0 4px;
+  cursor: pointer;
+  &:active { opacity: 0.6; }
+`;
+
+const SchedAddedList = styled.div`
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const SchedAddedItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: ${THEME.background};
+  border-radius: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid ${PRIMARY};
+`;
+
+const SchedAddedInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const SchedAddedDate = styled.div`
+  font-size: 11px;
+  color: ${PRIMARY};
+  font-weight: 600;
+`;
+
+const SchedAddedTitle = styled.div`
+  font-size: 13px;
+  color: ${THEME.text};
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const SchedRemoveBtn = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+  &:active { opacity: 0.5; }
+`;
+
 const SchedEmptyHint = styled.div`
   text-align: center;
   font-size: 13px;
@@ -1776,21 +2090,51 @@ const MiniCalGrid = styled.div`
   margin-bottom: 12px;
 `;
 
+const MiniCalBarRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0;
+  margin-top: -6px;
+`;
+
+const MiniCalBar = styled.div`
+  grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
+  background: ${PRIMARY};
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 6px;
+  border-radius: 4px;
+  margin: 1px 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  line-height: 1.4;
+`;
+
+const MiniCalCellWrap = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0;
+  background: ${({ $inRange, $isSame }) => $isSame ? "transparent" : $inRange ? `${PRIMARY}18` : "transparent"};
+  border-radius: ${({ $isStart, $isEnd, $isSame }) =>
+    $isSame ? "0" : $isStart ? "20px 0 0 20px" : $isEnd ? "0 20px 20px 0" : "0"};
+  cursor: pointer;
+`;
+
 const MiniCalCell = styled.div`
   font-size: 12px;
-  padding: 5px 0;
-  cursor: ${({ $empty }) => ($empty ? "default" : "pointer")};
-  border-radius: 50%;
-  margin: 1px auto;
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
   color: ${({ $selected, $today }) => ($selected ? "white" : $today ? PRIMARY : THEME.text)};
   background: ${({ $selected }) => ($selected ? PRIMARY : "transparent")};
   font-weight: ${({ $selected, $today }) => ($selected || $today ? 600 : 400)};
-  &:active { opacity: ${({ $empty }) => ($empty ? 1 : 0.6)}; }
 `;
 
 const SchedFormGroup = styled.div`
@@ -1806,6 +2150,7 @@ const SchedFormInput = styled.input`
   color: ${THEME.text};
   outline: none;
   box-sizing: border-box;
+  margin-bottom: 8px;
   &:focus { border-color: ${PRIMARY}; }
   &::placeholder { color: #bbb; }
 `;

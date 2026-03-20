@@ -62,15 +62,6 @@ export const AIEstimateContent = () => {
 
   return (
     <PageWrap>
-        {/* 헤더 */}
-        <HeaderCard>
-          <AIIconWrap>
-            <IoSparkles size={28} color="#fff" />
-          </AIIconWrap>
-          <HeaderTitle>AI 견적 분석</HeaderTitle>
-          <HeaderDesc>카테고리와 작업 내용을 알려주시면{"\n"}AI가 예상 견적을 분석해드려요</HeaderDesc>
-        </HeaderCard>
-
         {/* 카테고리 선택 */}
         <Section>
           <Label>카테고리 선택</Label>
@@ -289,7 +280,7 @@ export const AIEstimateContent = () => {
 };
 
 const AIEstimatePage = () => (
-  <SimpleBackLayout NAME="AI 견적" hideFooter>
+  <SimpleBackLayout NAME="AI 견적 분석" hideFooter>
     <AIEstimateContent />
   </SimpleBackLayout>
 );

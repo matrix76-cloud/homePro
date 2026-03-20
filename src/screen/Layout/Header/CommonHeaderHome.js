@@ -1,11 +1,11 @@
 /* eslint-disable */
 import React, { useContext } from "react";
 import styled from "styled-components";
-import { IoNotificationsOutline, IoLocationOutline, IoSearchOutline } from "react-icons/io5";
+import { IoCalendarOutline, IoLocationOutline, IoSearchOutline } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { UserContext } from "../../../context/User";
 
-const CommonHeaderHome = ({ onNotificationClick, onLocationClick, onSearchClick }) => {
+const CommonHeaderHome = ({ onCalendarClick, onLocationClick, onSearchClick }) => {
   const { user } = useContext(UserContext);
   const address = user?.USERINFO?.address_name || "서울시 중구";
 
@@ -23,8 +23,8 @@ const CommonHeaderHome = ({ onNotificationClick, onLocationClick, onSearchClick 
           <IconBtn onClick={onSearchClick}>
             <IoSearchOutline size={22} color={THEME.text} />
           </IconBtn>
-          <IconBtn onClick={onNotificationClick}>
-            <IoNotificationsOutline size={22} color={THEME.text} />
+          <IconBtn onClick={onCalendarClick}>
+            <IoCalendarOutline size={22} color={THEME.text} />
           </IconBtn>
         </RightSection>
       </HeaderInner>

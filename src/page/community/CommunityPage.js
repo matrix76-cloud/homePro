@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { IoHeartOutline, IoChatbubbleOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { getPosts } from "../../service/CommunityService";
-import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
+import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 
 const TABS = ["이벤트/공지", "자유게시판"];
 
@@ -76,7 +76,7 @@ const CommunityPage = () => {
   };
 
   return (
-    <HomeLayout>
+    <SimpleBackLayout NAME="게시판" hideFooter>
       <PageWrap>
         <TabRow>
           {TABS.map((tab) => (
@@ -120,7 +120,7 @@ const CommunityPage = () => {
           </WriteBtn>
         )}
       </PageWrap>
-    </HomeLayout>
+    </SimpleBackLayout>
   );
 };
 

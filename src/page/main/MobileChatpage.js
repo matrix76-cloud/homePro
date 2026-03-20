@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoLockClosedOutline } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoLockClosedOutline, IoChevronForward } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import { useAuth } from "../../context/AuthContext";
@@ -106,6 +106,39 @@ const MobileChatpage = () => {
             })}
           </RoomList>
         )}
+
+        <ComSpacer />
+
+        {/* 홈프로 커뮤니티 */}
+        <CommunityCard onClick={() => navigate("/community")}>
+          <ComCardHeader>
+            <div>
+              <ComTitle>홈프로 커뮤니티</ComTitle>
+              <ComDesc>고객과 소통하고, 홈프로들과 경험을 나눠보세요</ComDesc>
+            </div>
+            <IoChevronForward size={22} color={THEME.muted} />
+          </ComCardHeader>
+          <ComScrollRow>
+            <ComPostCard>
+              <ComBadge>이벤트/공지</ComBadge>
+              <ComPostTitle>홈프로 오픈 기념 이벤트!</ComPostTitle>
+              <ComPostDesc>지금 가입하면 첫 오더 수수료 무료</ComPostDesc>
+              <ComPostDate>2026.02.08</ComPostDate>
+            </ComPostCard>
+            <ComPostCard>
+              <ComBadge>이벤트/공지</ComBadge>
+              <ComPostTitle>추천인 보상 프로그램 안내</ComPostTitle>
+              <ComPostDesc>친구를 초대하고 포인트를 받으세요</ComPostDesc>
+              <ComPostDate>2026.02.08</ComPostDate>
+            </ComPostCard>
+            <ComPostCard>
+              <ComBadge>팁/노하우</ComBadge>
+              <ComPostTitle>프로필 완성도 높이는 법</ComPostTitle>
+              <ComPostDesc>완성도가 높을수록 고객 매칭률 UP</ComPostDesc>
+              <ComPostDate>2026.02.08</ComPostDate>
+            </ComPostCard>
+          </ComScrollRow>
+        </CommunityCard>
       </PageWrap>
     </MainListLayout>
   );
@@ -282,4 +315,95 @@ const UnreadBadge = styled.span`
   align-items: center;
   justify-content: center;
   padding: 0 6px;
+`;
+
+const ComSpacer = styled.div`
+  flex: 1;
+`;
+
+/* ─── 커뮤니티 카드 (홈과 동일 스타일) ─── */
+
+const CommunityCard = styled.div`
+  margin: 12px 12px 0;
+  background: ${THEME.surface};
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: ${THEME.cardShadow};
+`;
+
+const ComCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const ComTitle = styled.div`
+  font-size: 18px;
+  font-weight: 700;
+  color: ${THEME.text};
+  letter-spacing: -0.03em;
+`;
+
+const ComDesc = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  font-weight: 400;
+`;
+
+const ComScrollRow = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const ComPostCard = styled.div`
+  flex-shrink: 0;
+  width: 220px;
+  padding: 16px;
+  background: ${THEME.background};
+  border-radius: 12px;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+`;
+
+const ComBadge = styled.div`
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: ${THEME.purpleLight};
+  color: ${THEME.purple};
+  font-size: 11px;
+  font-weight: 400;
+  margin-bottom: 10px;
+`;
+
+const ComPostTitle = styled.div`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${THEME.text};
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+`;
+
+const ComPostDesc = styled.div`
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const ComPostDate = styled.div`
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: ${THEME.muted};
 `;

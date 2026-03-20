@@ -426,9 +426,9 @@ const BizProfilePage = () => {
   }
 
   return (
-    <HomeLayout footerType={MOBILEMAINMENU.BIZPROFILE}>
+    <SimpleBackLayout NAME="비즈프로필">
       {ProfileContent}
-    </HomeLayout>
+    </SimpleBackLayout>
   );
 };
 

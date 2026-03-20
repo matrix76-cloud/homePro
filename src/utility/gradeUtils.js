@@ -78,7 +78,7 @@ export const GradeProgressBar = ({ totalEarnedPoints, gradeRules }) => {
     return (
         <ProgressWrap>
             <ProgressLabel>
-                다음 등급 <strong style={{ color: info.nextColor }}>{info.nextLabel}</strong>까지 {info.remaining.toLocaleString()}P
+                {info.remaining.toLocaleString()}P 더 모으면 <strong style={{ color: info.nextColor }}>{info.nextLabel}</strong> 등급이에요!
             </ProgressLabel>
             <ProgressTrack>
                 <ProgressFill $width={info.progress * 100} $color={current.color} />
@@ -124,16 +124,16 @@ const ProgressLabel = styled.div`
 
 const ProgressTrack = styled.div`
     width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: #F0F0F4;
+    height: 10px;
+    border-radius: 5px;
+    background: #EDE9FE;
     overflow: hidden;
 `;
 
 const ProgressFill = styled.div`
     width: ${({ $width }) => $width}%;
     height: 100%;
-    border-radius: 3px;
-    background: ${({ $color }) => $color};
+    border-radius: 5px;
+    background: #7C5CFC;
     transition: width 0.3s ease;
 `;

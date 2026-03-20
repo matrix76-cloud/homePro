@@ -29,7 +29,7 @@ import OrderCreatePage from "./page/order/OrderCreatePage";
 import OrderListPage from "./page/order/OrderListPage";
 import OrderDetailPage from "./page/order/OrderDetailPage";
 import AIEstimatePage from "./page/order/AIEstimatePage";
-import MyOrdersPage from "./page/order/MyOrdersPage";
+import MyOrdersPage, { MyOrdersFooterPage } from "./page/order/MyOrdersPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
@@ -233,6 +233,9 @@ const AnimatedRoutes = () => {
             {/* Notice */}
             <Route path="/notice" element={wrap(<NoticePage />)} />
             <Route path="/support" element={wrap(<SupportPage />)} />
+
+            {/* 내 요청 (풋터) */}
+            <Route path="/my-orders" element={wrap(<MyOrdersFooterPage />)} />
 
             {/* Order */}
             <Route path="/order/ai-estimate" element={wrap(<AIEstimatePage />)} />

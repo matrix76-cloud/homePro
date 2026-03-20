@@ -11,7 +11,7 @@ import { getProCategoryIds } from "../../service/ProService";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
-import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline } from "react-icons/io5";
+import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import { AIEstimateContent } from "../order/AIEstimatePage";
@@ -32,8 +32,6 @@ const STATUS_STYLE = {
 const ACTION_TABS = [
   { key: "all_orders", label: "요청목록", icon: null },
   { key: "my_orders", label: "내 요청", icon: null },
-  { key: "ai", label: "AI견적", icon: IoSparklesOutline },
-  { key: "invite", label: "초대코드", icon: IoGiftOutline },
 ];
 
 /* ─── 필터 옵션 ─── */
@@ -285,28 +283,63 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
 
   return (
     <PageWrap>
-      {/* ── 상단 액션 탭 바 ── */}
-      <ActionBar>
-        {ACTION_TABS.map((tab) => (
-          <ActionTab key={tab.key} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
-            <ActionLabel $active={activeTab === tab.key}>{tab.label}</ActionLabel>
-          </ActionTab>
-        ))}
-      </ActionBar>
+      {/* ── 홈프로 가이드 ── */}
+      <GuideSection>
+        <CardTitle>홈프로 가이드</CardTitle>
+        <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
+        <HScrollRow>
+          <GuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
+            <GuideIconWrap>
+              <IoDocumentTextOutline size={32} color="#B45309" />
+              <GuideSubIcon><IoSendOutline size={18} color="#B45309" /></GuideSubIcon>
+            </GuideIconWrap>
+            <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
+          </GuideCard>
+          <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/2")}>
+            <GuideIconWrap>
+              <IoStarOutline size={32} color={THEME.primary} />
+              <GuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></GuideSubIcon>
+            </GuideIconWrap>
+            <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
+          </GuideCard>
+          <GuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
+            <GuideIconWrap>
+              <IoWalletOutline size={32} color={THEME.primaryDark} />
+              <GuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></GuideSubIcon>
+            </GuideIconWrap>
+            <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
+          </GuideCard>
+          <GuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
+            <GuideIconWrap>
+              <IoCameraOutline size={32} color="#059669" />
+              <GuideSubIcon><IoPersonOutline size={18} color="#059669" /></GuideSubIcon>
+            </GuideIconWrap>
+            <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
+          </GuideCard>
+          <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/5")}>
+            <GuideIconWrap>
+              <IoStarOutline size={32} color={THEME.primary} />
+            </GuideIconWrap>
+            <GuideText>등급 시스템{"\n"}포인트로 올리세요</GuideText>
+          </GuideCard>
+        </HScrollRow>
+      </GuideSection>
 
-      {/* ══════ 전체오더 탭 ══════ */}
-      {activeTab === "all_orders" && (
-        <>
+      {/* ══════ 요청목록 ══════ */}
+      <>
           <FilterBtnRow>
             <FilterBtn $active={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
+              <IoLocationOutline size={14} />
               거리{activeDist !== "전체" ? `: ${activeDist}` : ""}
               <IoChevronDown size={14} />
             </FilterBtn>
             <FilterBtn $active={activeTime !== "전체"} onClick={() => setShowTimeSheet(true)}>
+              <IoTimeOutline size={14} />
               시간{activeTime !== "전체" ? `: ${activeTime}` : ""}
               <IoChevronDown size={14} />
             </FilterBtn>
             <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
+              <IoGridOutline size={14} />
               카테고리{activeCatFilters.length > 0 ? ` (${activeCatFilters.length})` : ""}
               <IoChevronDown size={14} />
             </FilterBtn>
@@ -319,7 +352,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </EmptyWrap>
           ) : (
             <>
-              {filteredOrders.slice(0, 5).map((order) => {
+              {filteredOrders.slice(0, 5).map((order, idx) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
                 const timeLabel = formatOrderTime(order.createdAt);
                 const customerName = order.writer || order.customerName || order.nickname || "고객";
@@ -327,76 +360,72 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const desc = order.description || order.details || "";
                 const isPriority = order.matchType === "우선";
                 return (
-                  <OrderCard key={order.id}>
-                    <OrderTop>
-                      {order.writerPhoto ? (
-                        <OrderAvatarImg src={order.writerPhoto} alt="" />
-                      ) : (
-                        <OrderAvatar>{(() => { const Icon = CATEGORY_ICONS[order.categoryId]; return Icon ? <Icon /> : customerName.charAt(0); })()}</OrderAvatar>
-                      )}
-                      <OrderTopInfo>
-                        <OrderCustomer>
-                          {customerName}
-                          <OrderQuote> · 견적 보낸 프로 <QuoteNum>{quoteCount}</QuoteNum>명</OrderQuote>
-                        </OrderCustomer>
-                      </OrderTopInfo>
-                      <OrderTime>{timeLabel}</OrderTime>
-                    </OrderTop>
+                  <React.Fragment key={order.id}>
+                    {idx === 3 && (
+                      <AICard onClick={() => navigate("/order/ai-estimate")}>
+                        <AIIconWrap><IoSparklesOutline size={26} color="#fff" /></AIIconWrap>
+                        <div><AICardTitle>AI 견적 분석</AICardTitle><AICardDesc>작업 내용을 알려주시면 AI가 예상 견적을 분석해드려요</AICardDesc></div>
+                      </AICard>
+                    )}
+                    <OrderCard>
+                      <OrderTop>
+                        {order.writerPhoto ? (
+                          <OrderAvatarImg src={order.writerPhoto} alt="" />
+                        ) : (
+                          <OrderAvatar>{(() => { const Icon = CATEGORY_ICONS[order.categoryId]; return Icon ? <Icon /> : customerName.charAt(0); })()}</OrderAvatar>
+                        )}
+                        <OrderTopInfo>
+                          <OrderCustomer>
+                            {customerName}
+                            <OrderQuote> · 견적 보낸 프로 <QuoteNum>{quoteCount}</QuoteNum>명</OrderQuote>
+                          </OrderCustomer>
+                        </OrderTopInfo>
+                        <OrderTime>{timeLabel}</OrderTime>
+                      </OrderTop>
 
-                    <OrderMiddle>
-                      <OrderCatName>{order.categoryName}</OrderCatName>
-                      <OrderSubRow>
-                        <OrderSubName>{order.subcategory}</OrderSubName>
-                        {isPriority && <MatchBadge>우선</MatchBadge>}
-                      </OrderSubRow>
-                      {order.location && (
-                        <OrderLocation>
-                          <IoLocationOutline size={14} color={THEME.textSecondary} />
-                          {order.location}
-                        </OrderLocation>
-                      )}
-                      {desc && <OrderDesc>{desc}</OrderDesc>}
-                      {order.price && (
-                        <OrderPrice>
-                          {order.price === "협의 가능" ? (
-                            <>협의 가능해요 <NegoDot /></>
-                          ) : (
-                            order.price
-                          )}
-                        </OrderPrice>
-                      )}
-                    </OrderMiddle>
+                      <OrderMiddle>
+                        <OrderCatName>{order.categoryName}</OrderCatName>
+                        <OrderSubRow>
+                          <OrderSubName>{order.subcategory}</OrderSubName>
+                          {isPriority && <MatchBadge>우선</MatchBadge>}
+                        </OrderSubRow>
+                        {order.location && (
+                          <OrderLocation>
+                            <IoLocationOutline size={14} color={THEME.textSecondary} />
+                            {order.location}
+                          </OrderLocation>
+                        )}
+                        {desc && <OrderDesc>{desc}</OrderDesc>}
+                        {order.price && (
+                          <OrderPrice>
+                            {order.price === "협의 가능" ? (
+                              <>협의 가능해요 <NegoDot /></>
+                            ) : (
+                              order.price
+                            )}
+                          </OrderPrice>
+                        )}
+                      </OrderMiddle>
 
-                    <OrderDivider />
-                    <OrderActions>
-                      <OrderActionBtn onClick={(e) => { e.stopPropagation(); handleHideOrder(order.id); }}>삭제하기</OrderActionBtn>
-                      <OrderActionDivider />
-                      <OrderActionBtn $primary onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>자세히 보기</OrderActionBtn>
-                    </OrderActions>
-                  </OrderCard>
+                      <OrderDivider />
+                      <OrderActions>
+                        <OrderActionBtn onClick={(e) => { e.stopPropagation(); handleHideOrder(order.id); }}>삭제하기</OrderActionBtn>
+                        <OrderActionDivider />
+                        <OrderActionBtn $primary onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>자세히 보기</OrderActionBtn>
+                      </OrderActions>
+                    </OrderCard>
+                  </React.Fragment>
                 );
               })}
+              {filteredOrders.length <= 3 && (
+                <AICard onClick={() => navigate("/order/ai-estimate")}>
+                  <AIIconWrap><IoSparklesOutline size={26} color="#fff" /></AIIconWrap>
+                  <div><AICardTitle>AI 견적 분석</AICardTitle><AICardDesc>작업 내용을 알려주시면 AI가 예상 견적을 분석해드려요</AICardDesc></div>
+                </AICard>
+              )}
               <ViewAllBtn onClick={() => navigate("/order/list")}>전체 보기 &gt;</ViewAllBtn>
             </>
           )}
-
-          {/* ── 홈프로캘린더 ── */}
-          <CalendarCard>
-            <CalendarRow onClick={() => navigate("/calendar")} style={{ cursor: "pointer" }}>
-              <CalendarLeft>
-                <CalIconWrap>
-                  <IoCalendarOutline size={28} color={THEME.primary} />
-                </CalIconWrap>
-                <CalendarText>
-                  <CalTitle>홈프로캘린더</CalTitle>
-                  <CalDesc>일정을 등록해 보세요!</CalDesc>
-                </CalendarText>
-              </CalendarLeft>
-              <CalAddBtn onClick={(e) => { e.stopPropagation(); navigate("/calendar/create"); }}>
-                <IoAddOutline size={22} color={THEME.muted} />
-              </CalAddBtn>
-            </CalendarRow>
-          </CalendarCard>
 
           {/* ── 홈프로 커뮤니티 ── */}
           <CommunityCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
@@ -431,67 +460,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </HScrollRow>
           </CommunityCard>
 
-          {/* ── 홈프로 가이드 ── */}
-          <GuideSection>
-            <CardTitle>홈프로 가이드</CardTitle>
-            <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
-            <HScrollRow>
-              <GuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
-                <GuideIconWrap>
-                  <IoDocumentTextOutline size={32} color="#B45309" />
-                  <GuideSubIcon><IoSendOutline size={18} color="#B45309" /></GuideSubIcon>
-                </GuideIconWrap>
-                <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
-              </GuideCard>
-              <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/2")}>
-                <GuideIconWrap>
-                  <IoStarOutline size={32} color={THEME.primary} />
-                  <GuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></GuideSubIcon>
-                </GuideIconWrap>
-                <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
-              </GuideCard>
-              <GuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
-                <GuideIconWrap>
-                  <IoWalletOutline size={32} color={THEME.primaryDark} />
-                  <GuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></GuideSubIcon>
-                </GuideIconWrap>
-                <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
-              </GuideCard>
-              <GuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
-                <GuideIconWrap>
-                  <IoCameraOutline size={32} color="#059669" />
-                  <GuideSubIcon><IoPersonOutline size={18} color="#059669" /></GuideSubIcon>
-                </GuideIconWrap>
-                <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
-              </GuideCard>
-              <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/5")}>
-                <GuideIconWrap>
-                  <IoStarOutline size={32} color={THEME.primary} />
-                </GuideIconWrap>
-                <GuideText>등급 시스템{"\n"}포인트로 올리세요</GuideText>
-              </GuideCard>
-            </HScrollRow>
-          </GuideSection>
         </>
-      )}
 
-      {/* ══════ 내 요청 탭 ══════ */}
-      {activeTab === "my_orders" && <MyOrdersContent />}
-
-      {/* ══════ 받은견적 탭 ══════ */}
-      {activeTab === "received" && (
-        <EmptyWrap>
-          <IoDocumentTextOutline size={48} color={THEME.muted} />
-          <EmptyText>아직 받은견적이 없습니다</EmptyText>
-          <EmptySubText>견적을 받으면 여기에 표시됩니다</EmptySubText>
-        </EmptyWrap>
-      )}
-
-      {/* ══════ AI견적 탭 ══════ */}
-      {activeTab === "ai" && <AIEstimateContent />}
-
-      {/* ══════ 초대코드 탭 ══════ */}
-      {activeTab === "invite" && <InviteTabContent />}
 
       <BottomSpacer />
 
@@ -1772,6 +1742,43 @@ const CalAddBtn = styled.button`
   &:active { background: ${THEME.border}; }
 `;
 
+const AICard = styled.div`
+  margin: 12px 12px 0;
+  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark || "#5B3FD6"});
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  &:active { opacity: 0.9; }
+`;
+
+const aiGlow = keyframes`
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+`;
+
+const AIIconWrap = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: ${aiGlow} 1.5s ease-in-out infinite;
+`;
+
+const AICardTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+`;
+
+const AICardDesc = styled.div`
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 3px;
+`;
+
 const CommunityCard = styled.div`
   margin: 12px 12px 0;
   background: ${THEME.surface};
@@ -1851,6 +1858,28 @@ const PostDate = styled.div`
   font-size: 12px;
   font-weight: 400;
   color: ${THEME.muted};
+`;
+
+const GuideBarWrap = styled.div`
+  padding: 8px 0 0;
+  background: ${THEME.surface};
+  border-bottom: 1px solid ${THEME.border};
+`;
+
+const GuideBarItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: ${({ $bg }) => $bg || THEME.background};
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: ${THEME.text};
+  cursor: pointer;
+  flex-shrink: 0;
+  &:active { opacity: 0.7; }
 `;
 
 const GuideSection = styled.div`
