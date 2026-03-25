@@ -6,27 +6,21 @@ import { KR_AREAS } from "./constants";
  * 카카오 REST API 키 필요
  */
 export async function reverseGeocode(latitude, longitude) {
-    const KAKAO_REST_KEY = process.env.REACT_APP_KAKAO_REST_KEY;
-    if (!KAKAO_REST_KEY) {
-        console.warn("REACT_APP_KAKAO_REST_KEY 없음 — 역지오코딩 불가");
-        return null;
-    }
-
     try {
         const res = await fetch(
-            `https://dapi.kakao.com/v2/local/geo/coord2regioninfo.json?x=${longitude}&y=${latitude}`,
-            { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=ko`,
+            { headers: { "User-Agent": "HomePro/1.0" } }
         );
         if (!res.ok) return null;
 
         const data = await res.json();
-        const doc = data.documents?.find((d) => d.region_type === "H") || data.documents?.[0];
-        if (!doc) return null;
+        const addr = data.address || {};
 
         return {
-            sido: doc.region_1depth_name || "",   // "서울특별시"
-            gu: doc.region_2depth_name || "",      // "강남구"
-            dong: doc.region_3depth_name || "",    // "역삼동"
+            sido: addr.province || addr.state || "",
+            gu: addr.city_district || addr.county || "",
+            dong: addr.quarter || addr.suburb || addr.town || addr.village || "",
+            city: addr.city || "",
         };
     } catch (e) {
         console.error("역지오코딩 실패:", e);
@@ -68,7 +62,7 @@ export function mapToKrArea(geocodeResult) {
     if (!area) return { sido: sidoKey, gu: "전체" };
 
     // gu 매칭 (부분 매칭 지원: "수원시 장안구" ← "장안구")
-    const rawGu = geocodeResult.gu || "";
+    const rawGu = geocodeResult.gu || geocodeResult.city || "";
     const matched = area.guList.find((g) => g === rawGu || g.includes(rawGu) || rawGu.includes(g));
 
     return {

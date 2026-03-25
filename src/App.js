@@ -37,6 +37,11 @@ import ProCategoryListPage from "./page/pro/ProCategoryListPage";
 import ProCategoryDetailPage from "./page/pro/ProCategoryDetailPage";
 import ProCategoryEditPage from "./page/pro/ProCategoryEditPage";
 import BizProfilePage from "./page/pro/BizProfilePage";
+import ProListPage from "./page/pro/ProListPage";
+import TrainingPage from "./page/training/TrainingPage";
+import TrainingCreatePage from "./page/training/TrainingCreatePage";
+import SuppliesPage from "./page/supplies/SuppliesPage";
+import SuppliesCreatePage from "./page/supplies/SuppliesCreatePage";
 import TermsPage from "./page/legal/TermsPage";
 import PrivacyPage from "./page/legal/PrivacyPage";
 import LocationTermsPage from "./page/legal/LocationTermsPage";
@@ -221,6 +226,11 @@ const AnimatedRoutes = () => {
 
             {/* Pro */}
             <Route path="/biz-profile" element={wrap(<BizProfilePage />)} />
+            <Route path="/pro/list" element={wrap(<ProListPage />)} />
+            <Route path="/training" element={wrap(<TrainingPage />)} />
+            <Route path="/training/create" element={wrap(<TrainingCreatePage />)} />
+            <Route path="/supplies" element={wrap(<SuppliesPage />)} />
+            <Route path="/supplies/create" element={wrap(<SuppliesCreatePage />)} />
             <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
             <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
             <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />

@@ -232,6 +232,65 @@ const AddressBtn = styled.button`
   cursor: pointer;
 `;
 
+const CatAccordion = styled.div`
+  margin-bottom: 4px;
+`;
+
+const CatAccordionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.background};
+  border-radius: 8px;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+`;
+
+const CatAccordionLabel = styled.div`
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const CatAccordionSelected = styled.span`
+  font-size: 12px;
+  color: ${THEME.primary};
+  margin-right: 8px;
+`;
+
+const CatAccordionArrow = styled.span`
+  font-size: 10px;
+  color: ${THEME.muted};
+`;
+
+const CatChipIcon = styled.span`
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  svg { width: 54px; height: 54px; }
+`;
+
+const CatChipBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  white-space: nowrap;
+  justify-content: flex-start;
+  border-radius: 6px;
+  border: 1px solid ${({ $selected }) => $selected ? THEME.primary : THEME.border};
+  background: ${({ $selected }) => $selected ? `${THEME.primary}15` : THEME.surface};
+  color: ${({ $selected }) => $selected ? THEME.primary : THEME.text};
+  font-size: 11px;
+  font-weight: ${({ $selected }) => $selected ? 600 : 400};
+  cursor: pointer;
+  &:active { opacity: 0.7; }
+`;
+
 const CatGroupLabel = styled.div`
   font-size: 15px;
   font-weight: 700;
@@ -244,8 +303,9 @@ const CatGroupLabel = styled.div`
 
 const CatGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
+  padding: 10px 0;
 `;
 
 const CatGridItem = styled.div`
@@ -269,7 +329,7 @@ const CatGridIcon = styled.div`
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
-  svg { width: 36px; height: 36px; }
+  svg { width: 54px; height: 54px; }
 `;
 
 const CatGridName = styled.div`
@@ -289,6 +349,7 @@ export const OrderCreateContent = () => {
   const { userData } = useAuth();
 
   const [selectedCategory, setSelectedCategory] = useState(categoryId || "");
+  const [expandedGroup, setExpandedGroup] = useState(null);
   const [selectedSub, setSelectedSub] = useState([]);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [buildingType, setBuildingType] = useState("");
@@ -440,35 +501,45 @@ export const OrderCreateContent = () => {
 
   return (
     <>
-      {/* 1. 카테고리 선택 */}
+      {/* 1. 카테고리 선택 (아코디언) */}
       {!categoryId && (
         <Section>
           <Label>카테고리 선택</Label>
-          {CATEGORY_GROUPS.map((group) => (
-            <div key={group.id}>
-              <CatGroupLabel>{group.label}</CatGroupLabel>
-              <CatGrid>
-                {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
-                  const Icon = CATEGORY_ICONS[cat.id];
-                  return (
-                    <CatGridItem
-                      key={cat.id}
-                      $selected={selectedCategory === cat.id}
-                      onClick={() => {
-                        setSelectedCategory(cat.id);
-                        resetForm();
-                      }}
-                    >
-                      <CatGridIcon $selected={selectedCategory === cat.id}>
-                        {Icon ? <Icon /> : cat.shortName.charAt(0)}
-                      </CatGridIcon>
-                      <CatGridName $selected={selectedCategory === cat.id}>{cat.shortName}</CatGridName>
-                    </CatGridItem>
-                  );
-                })}
-              </CatGrid>
-            </div>
-          ))}
+          {CATEGORY_GROUPS.map((group) => {
+            const isOpen = expandedGroup === group.id;
+            const groupCats = CATEGORIES.filter((c) => c.group === group.id);
+            const selectedInGroup = groupCats.find((c) => c.id === selectedCategory);
+            return (
+              <CatAccordion key={group.id}>
+                <CatAccordionHeader onClick={() => setExpandedGroup(isOpen ? null : group.id)} $active={!!selectedInGroup}>
+                  <CatAccordionLabel>{group.label}</CatAccordionLabel>
+                  {selectedInGroup && <CatAccordionSelected>{selectedInGroup.shortName}</CatAccordionSelected>}
+                  <CatAccordionArrow>{isOpen ? "▲" : "▼"}</CatAccordionArrow>
+                </CatAccordionHeader>
+                {isOpen && (
+                  <CatGrid>
+                    {groupCats.map((cat) => {
+                      const Icon = CATEGORY_ICONS[cat.id];
+                      return (
+                        <CatChipBtn
+                          key={cat.id}
+                          $selected={selectedCategory === cat.id}
+                          onClick={() => {
+                            setSelectedCategory(cat.id);
+                            resetForm();
+                            setExpandedGroup(null);
+                          }}
+                        >
+                          {Icon && <CatChipIcon><Icon /></CatChipIcon>}
+                          {(() => { const n = cat.shortName.replace(/[./·\-]/g, ""); return n.length > 6 ? n.slice(0, 6) : n; })()}
+                        </CatChipBtn>
+                      );
+                    })}
+                  </CatGrid>
+                )}
+              </CatAccordion>
+            );
+          })}
         </Section>
       )}
 

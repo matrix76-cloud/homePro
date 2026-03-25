@@ -19,6 +19,7 @@ export const AIEstimateContent = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [showDetail, setShowDetail] = useState(true);
+  const [expandedGroup, setExpandedGroup] = useState(null);
   const [showReasoning, setShowReasoning] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -62,29 +63,40 @@ export const AIEstimateContent = () => {
 
   return (
     <PageWrap>
-        {/* 카테고리 선택 */}
+        {/* 카테고리 선택 (아코디언) */}
         <Section>
           <Label>카테고리 선택</Label>
-          {CATEGORY_GROUPS.map((group) => (
-            <div key={group.id}>
-              <CatGroupLabel>{group.label}</CatGroupLabel>
-              <CatGrid>
-                {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
-                  const Icon = CATEGORY_ICONS[cat.id];
-                  return (
-                    <CatChip
-                      key={cat.id}
-                      $active={selectedCat === cat.id}
-                      onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}
-                    >
-                      <CatChipIcon>{Icon ? <Icon /> : null}</CatChipIcon>
-                      {cat.shortName}
-                    </CatChip>
-                  );
-                })}
-              </CatGrid>
-            </div>
-          ))}
+          {CATEGORY_GROUPS.map((group) => {
+            const isOpen = expandedGroup === group.id;
+            const groupCats = CATEGORIES.filter((c) => c.group === group.id);
+            const selectedInGroup = groupCats.find((c) => c.id === selectedCat);
+            return (
+              <CatAccordion key={group.id}>
+                <CatAccordionHeader onClick={() => setExpandedGroup(isOpen ? null : group.id)} $active={!!selectedInGroup}>
+                  <CatAccordionLabel>{group.label}</CatAccordionLabel>
+                  {selectedInGroup && <CatAccordionSelected>{selectedInGroup.shortName}</CatAccordionSelected>}
+                  <CatAccordionArrow>{isOpen ? "▲" : "▼"}</CatAccordionArrow>
+                </CatAccordionHeader>
+                {isOpen && (
+                  <CatGrid>
+                    {groupCats.map((cat) => {
+                      const Icon = CATEGORY_ICONS[cat.id];
+                      return (
+                        <CatChip
+                          key={cat.id}
+                          $active={selectedCat === cat.id}
+                          onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); setExpandedGroup(null); }}
+                        >
+                          <CatChipIcon>{Icon ? <Icon /> : null}</CatChipIcon>
+                          {(() => { const n = cat.shortName.replace(/[./·\-]/g, ""); return n.length > 6 ? n.slice(0, 6) : n; })()}
+                        </CatChip>
+                      );
+                    })}
+                  </CatGrid>
+                )}
+              </CatAccordion>
+            );
+          })}
         </Section>
 
         {/* 세부 항목 선택 */}
@@ -358,20 +370,58 @@ const CatGroupLabel = styled.div`
   margin: 14px 0 8px;
 `;
 
-const CatGrid = styled.div`
+const CatAccordion = styled.div`
+  margin-bottom: 4px;
+`;
+
+const CatAccordionHeader = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 14px;
+  background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.background};
+  border-radius: 8px;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+`;
+
+const CatAccordionLabel = styled.div`
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const CatAccordionSelected = styled.span`
+  font-size: 12px;
+  color: ${THEME.primary};
+  margin-right: 8px;
+`;
+
+const CatAccordionArrow = styled.span`
+  font-size: 10px;
+  color: ${THEME.muted};
+`;
+
+const CatGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
+  padding: 10px 0;
 `;
 
 const CatChip = styled.button`
-  padding: 8px 14px;
-  border-radius: 20px;
-  border: ${({ $active }) => $active ? "none" : `1.5px solid ${THEME.border}`};
-  background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
-  color: ${({ $active }) => $active ? "#fff" : THEME.text};
-  font-size: 13px;
-  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  white-space: nowrap;
+  justify-content: flex-start;
+  border-radius: 6px;
+  border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
+  background: ${({ $active }) => $active ? `${THEME.primary}15` : THEME.surface};
+  color: ${({ $active }) => $active ? THEME.primary : THEME.text};
+  font-size: 11px;
+  font-weight: ${({ $active }) => $active ? 600 : 400};
   font-family: inherit;
   cursor: pointer;
   display: flex;
@@ -382,13 +432,13 @@ const CatChip = styled.button`
 `;
 
 const CatChipIcon = styled.span`
-  width: 24px;
-  height: 24px;
+  width: 54px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  svg { width: 24px; height: 24px; }
+  svg { width: 54px; height: 54px; }
 `;
 
 const TextArea = styled.textarea`

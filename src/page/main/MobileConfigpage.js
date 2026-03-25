@@ -3,7 +3,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
-import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline } from "react-icons/io5";
+import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline } from "react-icons/io5";
 import { UserContext } from "../../context/User";
 import { signOutUser } from "../../service/AuthService";
 import { useAuth } from "../../context/AuthContext";
@@ -290,8 +290,8 @@ const CardHeader = styled.div`
 `;
 
 const CardTitle = styled.div`
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
@@ -311,6 +311,21 @@ const ArrowBtn = styled.button`
   display: flex;
   align-items: center;
   &:active { opacity: 0.6; }
+`;
+
+const MenuRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-top: 1px solid ${THEME.border};
+  &:active { background: ${THEME.background}; }
+`;
+
+const MenuLabel = styled.div`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${THEME.text};
 `;
 
 /* ─── 개별 메뉴 카드 ─── */
@@ -546,14 +561,17 @@ const SubBadge = styled.span`
   border-radius: 20px;
   font-size: 12px;
   font-weight: 400;
+  white-space: nowrap;
+  flex-shrink: 0;
   background: ${({ $active }) => ($active ? THEME.purpleLight : THEME.background)};
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
 `;
 
 const SubText = styled.div`
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
   color: ${THEME.muted};
+  white-space: nowrap;
 `;
 
 const CashGrid = styled.div`
@@ -645,7 +663,7 @@ const MobileConfigpage = () => {
   const [showGradeSheet, setShowGradeSheet] = useState(false);
   const [gradeRules, setGradeRules] = useState(null);
 
-  // 추천인 코드 로드
+  // 추천코드 로드
   useEffect(() => {
     if (!uid) return;
     (async () => {
@@ -682,7 +700,7 @@ const MobileConfigpage = () => {
       const { regenerateReferralCode } = await import("../../service/ReferralService");
       const newCode = await regenerateReferralCode(uid, referralCode);
       setReferralCode(newCode);
-      alert("새 추천인 코드가 발행되었습니다");
+      alert("새 추천코드가 발행되었습니다");
     } catch (e) {
       alert("재발행 실패 — 다시 시도해주세요");
     } finally { setRefBusy(false); }
@@ -867,22 +885,27 @@ const MobileConfigpage = () => {
         </CardHeader>
       </ContentCard>
 
-      {/* 기본 계정정보 */}
-      <ContentCard>
+      {/* 전문가 리스트 */}
+      <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
         <CardHeader>
-          <div><CardTitle>기본 계정정보</CardTitle></div>
+          <div><CardTitle>전문가 리스트</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
-        <InfoGrid>
-          <InfoItem><InfoLabel2>이름</InfoLabel2><InfoValue2>{userData?.name || nickname}</InfoValue2></InfoItem>
-          <InfoItem><InfoLabel2>전화번호</InfoLabel2><InfoValue2>{userData?.phone || user?.USERINFO?.phone || "미등록"}</InfoValue2></InfoItem>
-        </InfoGrid>
       </ContentCard>
 
-      {/* 추천인 코드 */}
+      {/* 커뮤니티 */}
+      <ContentCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div><CardTitle>커뮤니티</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
+      {/* 추천코드 */}
       <ContentCard>
         <CardHeader>
           <div>
-            <CardTitle>추천인 코드</CardTitle>
+            <CardTitle>추천코드</CardTitle>
             <CardDesc>친구를 초대하고 포인트를 받으세요</CardDesc>
           </div>
         </CardHeader>
@@ -890,7 +913,6 @@ const MobileConfigpage = () => {
           <ReferralCode>{referralCode || "..."}</ReferralCode>
           <CopyBtn onClick={handleCopyCode}>복사</CopyBtn>
         </ReferralBox>
-        <RegenBtn onClick={handleRegenerateCode} disabled={refBusy}>코드 재발행</RegenBtn>
         <ReferralStat>
           <ReferralStatItem onClick={() => navigate("/referral/friends")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralCount}</ReferralNum><ReferralLabel>초대한 친구</ReferralLabel></ReferralStatItem>
           <StatDivider2 />
@@ -937,24 +959,32 @@ const MobileConfigpage = () => {
         </CashGrid>
       </ContentCard>
 
-      {/* 알림 설정 */}
+      {/* 홈프로 가이드 */}
       <ContentCard>
-        <CardHeader>
-          <div><CardTitle>알림 설정</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-        <ToggleRow>
-          <ToggleLabel>새 오더 알림</ToggleLabel>
-          <ToggleSwitch $on={true} />
-        </ToggleRow>
-        <ToggleRow>
-          <ToggleLabel>채팅 알림</ToggleLabel>
-          <ToggleSwitch $on={true} />
-        </ToggleRow>
-        <ToggleRow style={{ borderBottom: "none" }}>
-          <ToggleLabel>마케팅 알림</ToggleLabel>
-          <ToggleSwitch $on={false} />
-        </ToggleRow>
+        <CardTitle>홈프로 가이드</CardTitle>
+        <ConfigCardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</ConfigCardDesc>
+        <ConfigScrollRow>
+          <ConfigGuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
+            <ConfigGuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><ConfigGuideSubIcon><IoSendOutline size={18} color="#B45309" /></ConfigGuideSubIcon></ConfigGuideIconWrap>
+            <ConfigGuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/2")}>
+            <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><ConfigGuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></ConfigGuideSubIcon></ConfigGuideIconWrap>
+            <ConfigGuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
+            <ConfigGuideIconWrap><IoWalletOutline size={32} color={THEME.primaryDark} /><ConfigGuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></ConfigGuideSubIcon></ConfigGuideIconWrap>
+            <ConfigGuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
+            <ConfigGuideIconWrap><IoCameraOutline size={32} color="#059669" /></ConfigGuideIconWrap>
+            <ConfigGuideText>프로필 사진,{"\n"}이렇게 찍으세요</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/5")}>
+            <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></ConfigGuideIconWrap>
+            <ConfigGuideText>등급 시스템{"\n"}포인트로 올리세요</ConfigGuideText>
+          </ConfigGuideCard>
+        </ConfigScrollRow>
       </ContentCard>
 
       {/* 고객지원 */}
@@ -1097,6 +1127,107 @@ const GradeSheetLabel = styled.div`
 
 const GradeSheetPts = styled.div`
   font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.muted};
+`;
+
+/* ─── 가이드 & 커뮤니티 (홈 스타일) ─── */
+
+const ConfigCardDesc = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  font-weight: 400;
+`;
+
+const ConfigScrollRow = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const ConfigGuideCard = styled.div`
+  flex-shrink: 0;
+  width: 150px;
+  padding: 20px 16px;
+  border-radius: 16px;
+  background: ${({ $bg }) => $bg || THEME.background};
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+`;
+
+const ConfigGuideIconWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+  margin-bottom: 14px;
+`;
+
+const ConfigGuideSubIcon = styled.div`
+  position: absolute;
+  bottom: -4px;
+  right: -8px;
+`;
+
+const ConfigGuideText = styled.div`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${THEME.text};
+  line-height: 1.4;
+  white-space: pre-line;
+`;
+
+const ConfigComHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const ConfigPostCard = styled.div`
+  flex-shrink: 0;
+  width: 220px;
+  padding: 16px;
+  background: ${THEME.background};
+  border-radius: 12px;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+`;
+
+const ConfigPostBadge = styled.div`
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: ${THEME.purpleLight};
+  color: ${THEME.purple};
+  font-size: 11px;
+  font-weight: 400;
+  margin-bottom: 10px;
+`;
+
+const ConfigPostTitle = styled.div`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${THEME.text};
+  line-height: 1.4;
+`;
+
+const ConfigPostDesc = styled.div`
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const ConfigPostDate = styled.div`
+  margin-top: 10px;
+  font-size: 12px;
   font-weight: 400;
   color: ${THEME.muted};
 `;

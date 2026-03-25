@@ -325,7 +325,7 @@ const OrderDetailPage = () => {
       <FixedBottom>
         <ActionRow>
           <SmallBtn onClick={handleCall}>
-            <IoCallOutline size={20} color={THEME.text} />
+            <IoCallOutline size={20} color="#fff" />
           </SmallBtn>
           <MainCTA onClick={handleQuote}>견적 보내기</MainCTA>
         </ActionRow>
@@ -618,15 +618,15 @@ const SmallBtn = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 10px;
-  border: 1px solid ${THEME.border};
-  background: ${THEME.surface};
+  border: none;
+  background: ${THEME.purple};
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   &:active {
-    background: ${THEME.background};
+    background: ${THEME.primaryDark};
   }
 `;
 

@@ -112,8 +112,8 @@ export const CATEGORY_GROUPS = [
     { id: "cleaning", label: "청소", categoryIds: ["move_cleaning", "regular_cleaning", "special_cleaning", "appliance_cleaning", "mattress_care", "business_cleaning"] },
     { id: "pipe", label: "배관/설비", categoryIds: ["drain_pipe", "leak_detection", "leak_construction", "home_repair", "boiler"] },
     { id: "install", label: "설치/전기", categoryIds: ["aircon_install", "appliance_install", "electrical", "pest_control", "mold", "electrical_work"] },
-    { id: "construction", label: "시공", categoryIds: ["partial_interior", "full_remodel", "demolition", "waste", "training"] },
     { id: "equipment", label: "장비/서비스", categoryIds: ["heavy_equipment", "inspection", "supplies", "computer", "auto"] },
+    { id: "construction", label: "시공", categoryIds: ["partial_interior", "full_remodel", "demolition", "waste", "training"] },
     { id: "life", label: "생활", categoryIds: ["realestate", "moving", "appliance_rental", "insurance", "fortune"] },
 ];
 

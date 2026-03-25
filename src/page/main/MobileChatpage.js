@@ -2,9 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoLockClosedOutline, IoChevronForward } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
-import { MOBILEMAINMENU } from "../../utility/constants";
 import { useAuth } from "../../context/AuthContext";
 import { subscribeChatRooms } from "../../service/ChatService";
 import { format, isToday, isYesterday } from "date-fns";
@@ -24,7 +23,7 @@ const MobileChatpage = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [focusedRoom, setFocusedRoom] = useState(null);
-  const [toast, setToast] = useState("");
+  const [activeTab, setActiveTab] = useState("quote");
 
   const myUid = userData?.uid;
 
@@ -45,182 +44,143 @@ const MobileChatpage = () => {
 
   const getRoomAvatar = (room) => {
     const otherUid = (room.participants || []).find((uid) => uid !== myUid);
-    return (room.participantPhotos || {})[otherUid] || null;
+    const photos = room.participantPhotos || {};
+    return photos[otherUid] || null;
   };
 
-  const getUnread = (room) => (room.unreadCount || {})[myUid] || 0;
+  const getUnread = (room) => {
+    const counts = room.unreadCount || {};
+    return counts[myUid] || 0;
+  };
 
-  const isEmpty = !loading && rooms.length === 0;
+  const quoteRooms = rooms.filter((r) => r.roomType === "quote");
+  const generalRooms = rooms.filter((r) => r.roomType !== "quote");
+  const filteredRooms = activeTab === "quote" ? quoteRooms : generalRooms;
 
   return (
-    <MainListLayout NAME="채팅" hideBack footerType={MOBILEMAINMENU.CHAT}>
-      <PageWrap>
+    <MainListLayout NAME="채팅" footerType="CHAT" hideBack>
+      <TabRow>
+        <Tab $active={activeTab === "quote"} onClick={() => setActiveTab("quote")}>
+          견적 채팅{quoteRooms.length > 0 ? ` (${quoteRooms.length})` : ""}
+        </Tab>
+        <Tab $active={activeTab === "general"} onClick={() => setActiveTab("general")}>
+          일반 채팅{generalRooms.length > 0 ? ` (${generalRooms.length})` : ""}
+        </Tab>
+      </TabRow>
+      <RoomList>
         {loading ? (
-          <EmptyWrap><EmptyDesc>로딩 중...</EmptyDesc></EmptyWrap>
-        ) : isEmpty ? (
-          <EmptyWrap>
-            <IconCircle>
-              <IoChatbubbleEllipsesOutline size={48} color={THEME.primary} />
-            </IconCircle>
-            <EmptyTitle>아직 채팅이 없어요</EmptyTitle>
-            <EmptyDesc>전문가에게 견적을 요청하면{"\n"}채팅이 시작됩니다</EmptyDesc>
-          </EmptyWrap>
+          <EmptyState>
+            <EmptyText>로딩 중...</EmptyText>
+          </EmptyState>
+        ) : filteredRooms.length === 0 ? (
+          <EmptyState>
+            <IoChatbubbleEllipsesOutline size={40} color={THEME.muted} />
+            <EmptyText>채팅방이 없습니다</EmptyText>
+          </EmptyState>
         ) : (
-          <RoomList>
-            {rooms.map((room) => {
-              const unread = getUnread(room);
-              const isLocked = room.orderId && room.quoteStatus !== "accepted";
-              return (
-                <RoomItem
-                  key={room.id}
-                  $focused={focusedRoom === room.id}
-                  onClick={() => {
-                    if (focusedRoom === room.id) {
-                      navigate(`/chat/${room.id}`);
-                    } else {
-                      setFocusedRoom(room.id);
-                    }
-                  }}
-                >
-                  <Avatar>
-                    {getRoomAvatar(room) ? (
-                      <AvatarImg src={getRoomAvatar(room)} alt="" />
-                    ) : (
-                      <IoPersonCircleOutline size={56} color="#B0B8C0" />
-                    )}
-                  </Avatar>
-                  <RoomInfo>
-                    <RoomNameRow>
-                      <RoomName>{getRoomDisplayName(room)}</RoomName>
-                      <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
-                    </RoomNameRow>
-                    <RoomBottomRow>
-                      <LastMessage>{room.lastMessage || "대화를 시작해보세요"}</LastMessage>
-                      {unread > 0 && (
-                        <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>
-                      )}
-                    </RoomBottomRow>
-                  </RoomInfo>
-                </RoomItem>
-              );
-            })}
-          </RoomList>
+          filteredRooms.map((room) => {
+            const unread = getUnread(room);
+            return (
+              <RoomItem
+                key={room.id}
+                $focused={focusedRoom === room.id}
+                onClick={() => {
+                  if (focusedRoom === room.id) {
+                    navigate(`/chat/${room.id}`);
+                  } else {
+                    setFocusedRoom(room.id);
+                  }
+                }}
+              >
+                <Avatar>
+                  {getRoomAvatar(room) ? (
+                    <AvatarImg src={getRoomAvatar(room)} alt="" />
+                  ) : (
+                    <IoPersonCircleOutline size={56} color={THEME.muted} />
+                  )}
+                </Avatar>
+                <RoomInfo>
+                  <RoomName>{getRoomDisplayName(room)}</RoomName>
+                  <LastMessage>{room.lastMessage || "대화를 시작해보세요"}</LastMessage>
+                </RoomInfo>
+                <RoomMeta>
+                  <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
+                  {unread > 0 && (
+                    <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>
+                  )}
+                </RoomMeta>
+              </RoomItem>
+            );
+          })
         )}
-
-        <ComSpacer />
-
-        {/* 홈프로 커뮤니티 */}
-        <CommunityCard onClick={() => navigate("/community")}>
-          <ComCardHeader>
-            <div>
-              <ComTitle>홈프로 커뮤니티</ComTitle>
-              <ComDesc>고객과 소통하고, 홈프로들과 경험을 나눠보세요</ComDesc>
-            </div>
-            <IoChevronForward size={22} color={THEME.muted} />
-          </ComCardHeader>
-          <ComScrollRow>
-            <ComPostCard>
-              <ComBadge>이벤트/공지</ComBadge>
-              <ComPostTitle>홈프로 오픈 기념 이벤트!</ComPostTitle>
-              <ComPostDesc>지금 가입하면 첫 오더 수수료 무료</ComPostDesc>
-              <ComPostDate>2026.02.08</ComPostDate>
-            </ComPostCard>
-            <ComPostCard>
-              <ComBadge>이벤트/공지</ComBadge>
-              <ComPostTitle>추천인 보상 프로그램 안내</ComPostTitle>
-              <ComPostDesc>친구를 초대하고 포인트를 받으세요</ComPostDesc>
-              <ComPostDate>2026.02.08</ComPostDate>
-            </ComPostCard>
-            <ComPostCard>
-              <ComBadge>팁/노하우</ComBadge>
-              <ComPostTitle>프로필 완성도 높이는 법</ComPostTitle>
-              <ComPostDesc>완성도가 높을수록 고객 매칭률 UP</ComPostDesc>
-              <ComPostDate>2026.02.08</ComPostDate>
-            </ComPostCard>
-          </ComScrollRow>
-        </CommunityCard>
-      </PageWrap>
+      </RoomList>
     </MainListLayout>
   );
 };
 
 export default MobileChatpage;
 
-/* ─── styles ─── */
+/* ─── Styled Components ─── */
 
-const PageWrap = styled.div`
+const TabRow = styled.div`
   display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  background: ${THEME.background};
-  padding: 0 0 12px;
+  border-bottom: 1px solid ${THEME.border};
 `;
 
-const EmptyWrap = styled.div`
+const Tab = styled.button`
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-`;
-
-const IconCircle = styled.div`
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: ${THEME.surface};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: ${THEME.cardShadow};
-  margin-bottom: 24px;
-`;
-
-const EmptyTitle = styled.div`
-  font-size: 18px;
-  font-weight: 700;
-  color: ${THEME.text};
-  letter-spacing: -0.03em;
-  margin-bottom: 8px;
-`;
-
-const EmptyDesc = styled.div`
+  padding: 12px 0;
+  border: none;
+  border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
+  background: none;
+  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.muted};
-  text-align: center;
-  line-height: 1.6;
-  white-space: pre-line;
+  font-weight: 600;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
 `;
 
 const RoomList = styled.div`
-  background: ${THEME.surface};
+  padding: 0 12px;
+`;
+
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 80px 0;
+`;
+
+const EmptyText = styled.p`
+  font-size: 14px;
+  color: ${THEME.muted};
 `;
 
 const RoomItem = styled.div`
   display: flex;
   gap: 14px;
-  padding: 14px 16px;
+  padding: 14px 8px;
   border-bottom: 1px solid ${THEME.border};
   cursor: pointer;
-  align-items: flex-start;
-  padding-top: 16px;
-  background: ${({ $focused }) => ($focused ? THEME.background : THEME.surface)};
+  align-items: center;
+  border-radius: 12px;
+  background: ${({ $focused }) => ($focused ? THEME.background : "transparent")};
   transition: background 0.15s;
   &:last-child { border-bottom: none; }
+  &:active { background: ${THEME.background}; }
 `;
 
 const Avatar = styled.div`
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #F0F0F0;
+  background: ${THEME.background};
 `;
 
 const AvatarImg = styled.img`
@@ -235,38 +195,14 @@ const RoomInfo = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 1px;
-  padding-top: 6px;
+  gap: 4px;
 `;
 
-const RoomNameRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-`;
-
-const RoomName = styled.span`
+const RoomName = styled.p`
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   color: ${THEME.text};
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const RoomTime = styled.span`
-  font-size: 12px;
-  color: ${THEME.muted};
-  white-space: nowrap;
-  flex-shrink: 0;
-`;
-
-const RoomBottomRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  margin: 0;
 `;
 
 const LastMessage = styled.p`
@@ -274,136 +210,39 @@ const LastMessage = styled.p`
   color: ${THEME.muted};
   font-weight: 400;
   line-height: 1.4;
-  flex: 1;
-  min-width: 0;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 `;
 
-const LockIcon = styled.span`
-  color: ${THEME.muted};
-  margin-left: 4px;
-  display: inline-flex;
-  align-items: center;
-  vertical-align: middle;
-`;
-
-const QuotePendingBadge = styled.span`
-  min-width: 22px;
-  height: 22px;
-  border-radius: 11px;
-  background: ${THEME.border};
-  color: ${THEME.muted};
-  font-size: 11px;
-  font-weight: 600;
+const RoomMeta = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 2px;
+`;
+
+const RoomTime = styled.span`
+  font-size: 12px;
+  color: ${THEME.muted};
+  white-space: nowrap;
 `;
 
 const UnreadBadge = styled.span`
-  min-width: 22px;
-  height: 22px;
-  border-radius: 11px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
   background: ${THEME.primary};
-  color: white;
-  font-size: 12px;
+  color: #fff;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
-`;
-
-const ComSpacer = styled.div`
-  flex: 1;
-`;
-
-/* ─── 커뮤니티 카드 (홈과 동일 스타일) ─── */
-
-const CommunityCard = styled.div`
-  margin: 12px 12px 0;
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
-`;
-
-const ComCardHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const ComTitle = styled.div`
-  font-size: 18px;
-  font-weight: 700;
-  color: ${THEME.text};
-  letter-spacing: -0.03em;
-`;
-
-const ComDesc = styled.div`
-  font-size: 14px;
-  color: ${THEME.muted};
-  margin-top: 4px;
-  font-weight: 400;
-`;
-
-const ComScrollRow = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 4px;
-  &::-webkit-scrollbar { display: none; }
-`;
-
-const ComPostCard = styled.div`
-  flex-shrink: 0;
-  width: 220px;
-  padding: 16px;
-  background: ${THEME.background};
-  border-radius: 12px;
-  cursor: pointer;
-  &:active { opacity: 0.8; }
-`;
-
-const ComBadge = styled.div`
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 20px;
-  background: ${THEME.purpleLight};
-  color: ${THEME.purple};
-  font-size: 11px;
-  font-weight: 400;
-  margin-bottom: 10px;
-`;
-
-const ComPostTitle = styled.div`
-  font-size: 14px;
-  font-weight: 500;
-  color: ${THEME.text};
-  line-height: 1.4;
-  letter-spacing: -0.02em;
-`;
-
-const ComPostDesc = styled.div`
-  font-size: 13px;
-  font-weight: 400;
-  color: ${THEME.muted};
-  margin-top: 4px;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const ComPostDate = styled.div`
-  margin-top: 10px;
-  font-size: 12px;
-  font-weight: 400;
-  color: ${THEME.muted};
+  padding: 0 5px;
 `;

@@ -11,32 +11,53 @@ import { getProCategoryIds } from "../../service/ProService";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
-import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline } from "react-icons/io5";
+import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
 /* ─── 오더 상태 ─── */
-const STATUS_TABS = ["접수", "지원", "배차", "대기", "취소", "완료"];
+const STATUS_TABS = ["접수", "마감", "취소"];
 const STATUS_STYLE = {
-  "접수": { bg: THEME.purple, color: "#fff" },
-  "지원": { bg: THEME.primary, color: "#fff" },
-  "배차": { bg: "#F59E0B", color: "#fff" },
-  "대기": { bg: "#EA580C", color: "#fff" },
+  "접수": { bg: "#F59E0B", color: "#fff" },
+  "마감": { bg: "#3B82F6", color: "#fff" },
   "취소": { bg: THEME.danger, color: "#fff" },
+  "요청": { bg: "#F59E0B", color: "#fff" },
   "완료": { bg: THEME.success, color: "#fff" },
 };
 
-/* ─── 상단 액션 탭 ─── */
-const ACTION_TABS = [
-  { key: "all_orders", label: "요청목록", icon: null },
-  { key: "my_orders", label: "내 요청", icon: null },
-];
-
 /* ─── 필터 옵션 ─── */
 const DISTANCE_OPTIONS = ["전체", "10km", "20km", "30km", "50km", "100km"];
-const TIME_OPTIONS = ["전체", "당일"];
+const PERIOD_OPTIONS = ["전체", "1주일", "1개월", "미래"];
+
+/* ─── 날짜 포맷 ─── */
+const formatOrderDate = (createdAt) => {
+  if (!createdAt) return "-";
+  const now = new Date();
+  const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+  const diffMs = now - date;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // 미래 일정
+  if (diffMs < 0) return "미래";
+
+  // 긴급 (3시간 이내)
+  if (diffHours <= 3) return "긴급";
+
+  // 당일
+  const isToday = now.toDateString() === date.toDateString();
+  if (isToday) return "당일";
+
+  // 내일 체크
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() - 1);
+  if (tomorrow.toDateString() === date.toDateString()) return "내일";
+
+  // MM/DD
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+};
 
 /* ================================================================
    사용자 모드 메인
@@ -143,7 +164,7 @@ const InviteTabContent = () => {
       const { regenerateReferralCode } = await import("../../service/ReferralService");
       const newCode = await regenerateReferralCode(uid, myCode);
       setMyCode(newCode);
-      showToast("새 추천인 코드가 발행되었습니다");
+      showToast("새 추천코드가 발행되었습니다");
     } catch (e) {
       showToast("재발행 실패 — 다시 시도해주세요");
     } finally { setBusy(false); }
@@ -166,13 +187,12 @@ const InviteTabContent = () => {
     <InviteWrap>
       {/* 내 코드 */}
       <InviteCard>
-        <InviteCardTitle>내 추천인 코드</InviteCardTitle>
+        <InviteCardTitle>내 추천코드</InviteCardTitle>
         <InviteCardDesc>친구에게 코드를 공유하고 포인트를 받으세요</InviteCardDesc>
         <InviteCodeBox>
           <InviteCode>{myCode || "..."}</InviteCode>
           <InviteCopyBtn onClick={handleCopy}>복사</InviteCopyBtn>
         </InviteCodeBox>
-        <InviteRegenBtn onClick={handleRegenerate} disabled={busy}>코드 재발행</InviteRegenBtn>
       </InviteCard>
 
       {/* 통계 */}
@@ -193,11 +213,11 @@ const InviteTabContent = () => {
 
       {/* 코드 입력 */}
       <InviteCard>
-        <InviteCardTitle>추천인 코드 입력</InviteCardTitle>
+        <InviteCardTitle>추천코드 입력</InviteCardTitle>
         <InviteCardDesc>추천받은 코드가 있다면 입력하세요</InviteCardDesc>
         <InviteInputRow>
           <InviteInput
-            placeholder="추천인 코드 입력"
+            placeholder="추천코드 입력"
             value={inputCode}
             onChange={(e) => setInputCode(e.target.value)}
           />
@@ -216,15 +236,17 @@ const InviteTabContent = () => {
 const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("all_orders");
-  const [activeStatusTab, setActiveStatusTab] = useState("접수");
+  const [activeStatusFilter, setActiveStatusFilter] = useState("전체");
   const [activeCatFilters, setActiveCatFilters] = useState([]);
   const [activeDist, setActiveDist] = useState("전체");
-  const [activeTime, setActiveTime] = useState("전체");
+  const [activePeriod, setActivePeriod] = useState("전체");
   const [showCatSheet, setShowCatSheet] = useState(false);
   const [showDistSheet, setShowDistSheet] = useState(false);
-  const [showTimeSheet, setShowTimeSheet] = useState(false);
+  const [showPeriodSheet, setShowPeriodSheet] = useState(false);
+  const [showStatusSheet, setShowStatusSheet] = useState(false);
   const [rawOrders, setRawOrders] = useState([]);
   const [toast, setToast] = useState("");
+  const [userPoints, setUserPoints] = useState(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 5000); };
 
@@ -237,6 +259,19 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       console.error("오더 숨기기 실패:", e);
     }
   };
+
+  // 포인트 로드
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("../../api/config");
+        const snap = await getDoc(doc(db, "users", uid));
+        if (snap.exists()) setUserPoints(snap.data().referralPoints || snap.data().points || 0);
+      } catch (e) { console.error(e); }
+    })();
+  }, [uid]);
 
   // 홈 탭 클릭 시 첫 번째 탭으로 리셋
   useEffect(() => {
@@ -257,91 +292,103 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       .filter((o) => !(o.hiddenBy || []).includes(uid))
       .map((o) => {
         const cat = CATEGORIES.find((c) => c.id === o.categoryId);
-        return { ...o, categoryName: cat?.shortName, categoryIcon: cat?.icon };
+        return { ...o, categoryName: cat?.shortName || o.categoryName || o.categoryId, categoryIcon: cat?.icon };
       });
   }, [rawOrders, proCategories, uid]);
 
-  // 상태 + 카테고리 필터 적용
+  // 상태 매핑 (요청/접수 → 접수, 완료/배차 → 마감)
+  const mapStatus = (status) => {
+    if (status === "요청" || status === "접수") return "접수";
+    if (status === "완료" || status === "배차" || status === "마감" || status === "지원") return "마감";
+    if (status === "취소") return "취소";
+    return "접수";
+  };
+
+  // 기간 필터
+  const filterByPeriod = (order) => {
+    if (activePeriod === "전체") return true;
+    const now = new Date();
+    const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+    const diffMs = now - date;
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    if (activePeriod === "1주일") return diffDays <= 7;
+    if (activePeriod === "1개월") return diffDays <= 30;
+    if (activePeriod === "미래") return diffMs < 0;
+    return true;
+  };
+
+  // 상태 + 카테고리 + 기간 필터 적용
   const filteredOrders = allOrders.filter((o) => {
-    const statusMatch = o.orderStatus === activeStatusTab;
+    const mapped = mapStatus(o.orderStatus);
+    const statusMatch = activeStatusFilter === "전체" || mapped === activeStatusFilter;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
-    return statusMatch && catMatch;
+    const periodMatch = filterByPeriod(o);
+    return statusMatch && catMatch && periodMatch;
   });
 
   // 바텀시트에는 항상 전체 카테고리 표시
   const filterCats = CATEGORIES;
 
-  // 상태별 카운트
-  const statusCounts = useMemo(() => {
-    const counts = {};
-    STATUS_TABS.forEach((s) => { counts[s] = 0; });
-    allOrders.forEach((o) => {
-      if (counts[o.orderStatus] !== undefined) counts[o.orderStatus]++;
-    });
-    return counts;
-  }, [allOrders]);
+  const HOME_TABS = [
+    { key: "assets", label: `보유자산`, sub: `${userPoints.toLocaleString()}P` },
+    { key: "all_orders", label: "요청목록" },
+    { key: "my_orders", label: "나의오더현황" },
+    { key: "ai", label: "AI견적" },
+    { key: "referral", label: "초대코드" },
+  ];
 
   return (
     <PageWrap>
-      {/* ── 홈프로 가이드 ── */}
-      <GuideSection>
-        <CardTitle>홈프로 가이드</CardTitle>
-        <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
-        <HScrollRow>
-          <GuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
-            <GuideIconWrap>
-              <IoDocumentTextOutline size={32} color="#B45309" />
-              <GuideSubIcon><IoSendOutline size={18} color="#B45309" /></GuideSubIcon>
-            </GuideIconWrap>
-            <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
-          </GuideCard>
-          <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/2")}>
-            <GuideIconWrap>
-              <IoStarOutline size={32} color={THEME.primary} />
-              <GuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></GuideSubIcon>
-            </GuideIconWrap>
-            <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
-          </GuideCard>
-          <GuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
-            <GuideIconWrap>
-              <IoWalletOutline size={32} color={THEME.primaryDark} />
-              <GuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></GuideSubIcon>
-            </GuideIconWrap>
-            <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
-          </GuideCard>
-          <GuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
-            <GuideIconWrap>
-              <IoCameraOutline size={32} color="#059669" />
-              <GuideSubIcon><IoPersonOutline size={18} color="#059669" /></GuideSubIcon>
-            </GuideIconWrap>
-            <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
-          </GuideCard>
-          <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/5")}>
-            <GuideIconWrap>
-              <IoStarOutline size={32} color={THEME.primary} />
-            </GuideIconWrap>
-            <GuideText>등급 시스템{"\n"}포인트로 올리세요</GuideText>
-          </GuideCard>
-        </HScrollRow>
-      </GuideSection>
+      {/* ── 상단 탭 버튼 ── */}
+      <HomeTabRow>
+        {HOME_TABS.map((tab) => (
+          <HomeTabBtn key={tab.key} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
+            {tab.label}
+            {tab.sub && <HomeTabSub $active={activeTab === tab.key}>{tab.sub}</HomeTabSub>}
+          </HomeTabBtn>
+        ))}
+      </HomeTabRow>
 
-      {/* ══════ 요청목록 ══════ */}
+      {/* ══════ 보유자산 ══════ */}
+      {activeTab === "assets" && (
+        <>
+          <AssetSection>
+            <AssetCard>
+              <AssetLabel>포인트</AssetLabel>
+              <AssetValue>{userPoints.toLocaleString()}P</AssetValue>
+              <AssetDesc>적립된 포인트를 확인하세요</AssetDesc>
+            </AssetCard>
+            <AssetCard $muted>
+              <AssetLabel>블록체인 자산</AssetLabel>
+              <AssetValue style={{color: THEME.muted}}>준비중</AssetValue>
+              <AssetDesc>향후 블록체인 기반 자산이 추가됩니다</AssetDesc>
+            </AssetCard>
+          </AssetSection>
+        </>
+      )}
+
+      {/* ══════ 요청목록 (전체) ══════ */}
+      {activeTab === "all_orders" && (
       <>
           <FilterBtnRow>
+            <RefreshBtn onClick={() => { setRawOrders([]); }}>
+              <IoRefreshOutline size={18} />
+            </RefreshBtn>
             <FilterBtn $active={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
-              <IoLocationOutline size={14} />
               거리{activeDist !== "전체" ? `: ${activeDist}` : ""}
-              <IoChevronDown size={14} />
+              <IoChevronDown size={12} />
             </FilterBtn>
-            <FilterBtn $active={activeTime !== "전체"} onClick={() => setShowTimeSheet(true)}>
-              <IoTimeOutline size={14} />
-              시간{activeTime !== "전체" ? `: ${activeTime}` : ""}
-              <IoChevronDown size={14} />
+            <FilterBtn $active={activeStatusFilter !== "전체"} onClick={() => setShowStatusSheet(true)}>
+              상태{activeStatusFilter !== "전체" ? `: ${activeStatusFilter}` : ""}
+              <IoChevronDown size={12} />
+            </FilterBtn>
+            <FilterBtn $active={activePeriod !== "전체"} onClick={() => setShowPeriodSheet(true)}>
+              기간{activePeriod !== "전체" ? `: ${activePeriod}` : ""}
+              <IoChevronDown size={12} />
             </FilterBtn>
             <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
-              <IoGridOutline size={14} />
               카테고리{activeCatFilters.length > 0 ? ` (${activeCatFilters.length})` : ""}
-              <IoChevronDown size={14} />
+              <IoChevronDown size={12} />
             </FilterBtn>
           </FilterBtnRow>
 
@@ -351,117 +398,101 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               <EmptySubText>새로운 요청이 들어오면 알려드릴게요!</EmptySubText>
             </EmptyWrap>
           ) : (
-            <>
-              {filteredOrders.slice(0, 5).map((order, idx) => {
+            <TableWrap>
+              <TableHeader>
+                <ThCell $flex={1}>날짜</ThCell>
+                <ThCell $flex={0.8} style={{textAlign:"center"}}>상태</ThCell>
+                <ThCell $flex={1.5} style={{textAlign:"center"}}>카테고리</ThCell>
+                <ThCell $flex={1.5} style={{textAlign:"center"}}>지역</ThCell>
+                <ThCell $flex={1} style={{textAlign:"center"}}>단가유형</ThCell>
+                <ThCell $flex={1.2} style={{textAlign:"right"}}>금액</ThCell>
+              </TableHeader>
+              {filteredOrders.map((order) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
-                const timeLabel = formatOrderTime(order.createdAt);
-                const customerName = order.writer || order.customerName || order.nickname || "고객";
-                const quoteCount = order.quoteCount || 0;
-                const desc = order.description || order.details || "";
-                const isPriority = order.matchType === "우선";
+                const dateLabel = formatOrderDate(order.createdAt);
+                const status = mapStatus(order.orderStatus);
+                const sStyle = STATUS_STYLE[status] || STATUS_STYLE["접수"];
+                const isUrgent = dateLabel === "긴급";
                 return (
-                  <React.Fragment key={order.id}>
-                    {idx === 3 && (
-                      <AICard onClick={() => navigate("/order/ai-estimate")}>
-                        <AIIconWrap><IoSparklesOutline size={26} color="#fff" /></AIIconWrap>
-                        <div><AICardTitle>AI 견적 분석</AICardTitle><AICardDesc>작업 내용을 알려주시면 AI가 예상 견적을 분석해드려요</AICardDesc></div>
-                      </AICard>
-                    )}
-                    <OrderCard>
-                      <OrderTop>
-                        {order.writerPhoto ? (
-                          <OrderAvatarImg src={order.writerPhoto} alt="" />
-                        ) : (
-                          <OrderAvatar>{(() => { const Icon = CATEGORY_ICONS[order.categoryId]; return Icon ? <Icon /> : customerName.charAt(0); })()}</OrderAvatar>
-                        )}
-                        <OrderTopInfo>
-                          <OrderCustomer>
-                            {customerName}
-                            <OrderQuote> · 견적 보낸 프로 <QuoteNum>{quoteCount}</QuoteNum>명</OrderQuote>
-                          </OrderCustomer>
-                        </OrderTopInfo>
-                        <OrderTime>{timeLabel}</OrderTime>
-                      </OrderTop>
-
-                      <OrderMiddle>
-                        <OrderCatName>{order.categoryName}</OrderCatName>
-                        <OrderSubRow>
-                          <OrderSubName>{order.subcategory}</OrderSubName>
-                          {isPriority && <MatchBadge>우선</MatchBadge>}
-                        </OrderSubRow>
-                        {order.location && (
-                          <OrderLocation>
-                            <IoLocationOutline size={14} color={THEME.textSecondary} />
-                            {order.location}
-                          </OrderLocation>
-                        )}
-                        {desc && <OrderDesc>{desc}</OrderDesc>}
-                        {order.price && (
-                          <OrderPrice>
-                            {order.price === "협의 가능" ? (
-                              <>협의 가능해요 <NegoDot /></>
-                            ) : (
-                              order.price
-                            )}
-                          </OrderPrice>
-                        )}
-                      </OrderMiddle>
-
-                      <OrderDivider />
-                      <OrderActions>
-                        <OrderActionBtn onClick={(e) => { e.stopPropagation(); handleHideOrder(order.id); }}>삭제하기</OrderActionBtn>
-                        <OrderActionDivider />
-                        <OrderActionBtn $primary onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>자세히 보기</OrderActionBtn>
-                      </OrderActions>
-                    </OrderCard>
-                  </React.Fragment>
+                  <TableRow key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
+                    <TdCell $flex={1}>
+                      <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
+                    </TdCell>
+                    <TdCell $flex={0.8} style={{alignItems:"center"}}>
+                      <TdStatusBadge style={{background: sStyle.bg, color: sStyle.color}}>{status}</TdStatusBadge>
+                    </TdCell>
+                    <TdCell $flex={1.5} style={{alignItems:"center"}}>
+                      <TdCatName>{order.categoryName}</TdCatName>
+                    </TdCell>
+                    <TdCell $flex={1.5}>
+                      <TdLocation>{order.location ? order.location.split(" ").slice(0, 2).join(" ") : "-"}</TdLocation>
+                    </TdCell>
+                    <TdCell $flex={1} style={{alignItems:"center"}}>
+                      <TdPrice>{order.price && Number(order.price.replace(/[^0-9]/g, "")) > 0 ? "확정가" : "견적협의"}</TdPrice>
+                    </TdCell>
+                    <TdCell $flex={1.2} style={{alignItems:"flex-end"}}>
+                      <TdAmount>{order.price ? Number(order.price.replace(/[^0-9]/g, "")).toLocaleString() : "-"}</TdAmount>
+                    </TdCell>
+                  </TableRow>
                 );
               })}
-              {filteredOrders.length <= 3 && (
-                <AICard onClick={() => navigate("/order/ai-estimate")}>
-                  <AIIconWrap><IoSparklesOutline size={26} color="#fff" /></AIIconWrap>
-                  <div><AICardTitle>AI 견적 분석</AICardTitle><AICardDesc>작업 내용을 알려주시면 AI가 예상 견적을 분석해드려요</AICardDesc></div>
-                </AICard>
-              )}
-              <ViewAllBtn onClick={() => navigate("/order/list")}>전체 보기 &gt;</ViewAllBtn>
-            </>
+            </TableWrap>
           )}
 
-          {/* ── 홈프로 커뮤니티 ── */}
-          <CommunityCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
-            <ComCardHeader>
-              <div>
-                <CardTitle>홈프로 커뮤니티</CardTitle>
-                <CardDesc>고객과 소통하고, 홈프로들과 경험을 나눠보세요</CardDesc>
-              </div>
-              <ComArrowBtn>
-                <IoChevronForward size={22} color={THEME.muted} />
-              </ComArrowBtn>
-            </ComCardHeader>
-            <HScrollRow>
-              <PostCard>
-                <PostBadge>이벤트/공지</PostBadge>
-                <PostTitle>홈프로 오픈 기념 이벤트!</PostTitle>
-                <PostDesc>지금 가입하면 첫 오더 수수료 무료</PostDesc>
-                <PostDate>2026.02.08</PostDate>
-              </PostCard>
-              <PostCard>
-                <PostBadge>이벤트/공지</PostBadge>
-                <PostTitle>추천인 보상 프로그램 안내</PostTitle>
-                <PostDesc>친구를 초대하고 포인트를 받으세요</PostDesc>
-                <PostDate>2026.02.08</PostDate>
-              </PostCard>
-              <PostCard>
-                <PostBadge>팁/노하우</PostBadge>
-                <PostTitle>프로필 완성도 높이는 법</PostTitle>
-                <PostDesc>완성도가 높을수록 고객 매칭률 UP</PostDesc>
-                <PostDate>2026.02.08</PostDate>
-              </PostCard>
-            </HScrollRow>
-          </CommunityCard>
-
+        <FloatBtn onClick={() => navigate("/order/create")}>+ 예약접수</FloatBtn>
         </>
+      )}
 
+      {/* ══════ 나의오더현황 ══════ */}
+      {activeTab === "my_orders" && (
+        <>
+          <MyOrdersContent />
+        </>
+      )}
+
+      {/* ══════ AI견적 ══════ */}
+      {activeTab === "ai" && (
+        <>
+          <AIEstimateContent />
+        </>
+      )}
+
+      {/* ══════ 초대코드 ══════ */}
+      {activeTab === "referral" && (
+        <>
+          <InviteTabContent />
+        </>
+      )}
+
+      {/* ══════ 가이드 ══════ */}
+      {activeTab === "guide" && (
+        <GuideSection>
+          <CardTitle>홈프로 가이드</CardTitle>
+          <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
+          <HScrollRow>
+            <GuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
+              <GuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><GuideSubIcon><IoSendOutline size={18} color="#B45309" /></GuideSubIcon></GuideIconWrap>
+              <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
+            </GuideCard>
+            <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/2")}>
+              <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><GuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
+              <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
+            </GuideCard>
+            <GuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
+              <GuideIconWrap><IoWalletOutline size={32} color={THEME.primaryDark} /><GuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></GuideSubIcon></GuideIconWrap>
+              <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
+            </GuideCard>
+            <GuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
+              <GuideIconWrap><IoCameraOutline size={32} color="#059669" /></GuideIconWrap>
+              <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
+            </GuideCard>
+            <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/5")}>
+              <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></GuideIconWrap>
+              <GuideText>등급 시스템{"\n"}포인트로 올리세요</GuideText>
+            </GuideCard>
+          </HScrollRow>
+        </GuideSection>
+      )}
 
       <BottomSpacer />
 
@@ -532,24 +563,53 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         </SheetOverlay>
       )}
 
-      {/* 시간 필터 바텀시트 */}
-      {showTimeSheet && (
-        <SheetOverlay onClick={() => setShowTimeSheet(false)}>
+      {/* 기간 필터 바텀시트 */}
+      {showPeriodSheet && (
+        <SheetOverlay onClick={() => setShowPeriodSheet(false)}>
           <SheetContent onClick={(e) => e.stopPropagation()}>
             <SheetHandle />
             <SheetHeader>
-              <SheetTitle>시간 선택</SheetTitle>
-              <SheetCloseBtn onClick={() => setShowTimeSheet(false)}>
+              <SheetTitle>기간 선택</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowPeriodSheet(false)}>
                 <IoCloseOutline size={24} color={THEME.text} />
               </SheetCloseBtn>
             </SheetHeader>
             <SheetList>
-              {TIME_OPTIONS.map((t) => (
-                <SheetItem key={t} onClick={() => { setActiveTime(t); setShowTimeSheet(false); }}>
+              {PERIOD_OPTIONS.map((t) => (
+                <SheetItem key={t} onClick={() => { setActivePeriod(t); setShowPeriodSheet(false); }}>
                   <SheetItemName>{t}</SheetItemName>
-                  {activeTime === t && <IoCheckmarkCircle size={22} color={THEME.primary} />}
+                  {activePeriod === t && <IoCheckmarkCircle size={22} color={THEME.primary} />}
                 </SheetItem>
               ))}
+            </SheetList>
+          </SheetContent>
+        </SheetOverlay>
+      )}
+
+      {/* 상태 필터 바텀시트 */}
+      {showStatusSheet && (
+        <SheetOverlay onClick={() => setShowStatusSheet(false)}>
+          <SheetContent onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>상태 선택</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowStatusSheet(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </SheetCloseBtn>
+            </SheetHeader>
+            <SheetList>
+              {["전체", ...STATUS_TABS].map((s) => {
+                const sStyle = STATUS_STYLE[s];
+                return (
+                  <SheetItem key={s} onClick={() => { setActiveStatusFilter(s); setShowStatusSheet(false); }}>
+                    <SheetItemLeft>
+                      {sStyle && <TdStatusBadge style={{background: sStyle.bg, color: sStyle.color}}>{s}</TdStatusBadge>}
+                      {!sStyle && <SheetItemName>{s}</SheetItemName>}
+                    </SheetItemLeft>
+                    {activeStatusFilter === s && <IoCheckmarkCircle size={22} color={THEME.primary} />}
+                  </SheetItem>
+                );
+              })}
             </SheetList>
           </SheetContent>
         </SheetOverlay>
@@ -610,7 +670,7 @@ const MobileMainpage = () => {
   const { user } = useContext(UserContext);
   const { userData, refreshUser } = useAuth();
   const [proCategories, setProCategories] = useAtom(proCategoriesAtom);
-  const { showUpdateBanner, versionName } = useForceReloadIfVersionChanged();
+  const { showUpdateToast, updateInfo, checkVersion } = useForceReloadIfVersionChanged();
 
   // AuthContext fallback (리프레시 시 UserContext 날아가는 문제 보완)
   const uid = user?.USERS_ID || userData?.uid;
@@ -626,6 +686,9 @@ const MobileMainpage = () => {
   }, [uid]);
 
   useEffect(() => { loadProCategories(); }, [loadProCategories]);
+
+  // 홈 진입 시마다 버전 체크
+  useEffect(() => { checkVersion(); }, [location.pathname]);
 
   // 10초 자동 갱신
   useEffect(() => {
@@ -649,9 +712,11 @@ const MobileMainpage = () => {
 
   return (
     <>
-      {showUpdateBanner && (
+      {showUpdateToast && (
         <UpdateToast>
-          <UpdateText>{versionName ? `v${versionName}` : ""} 업데이트 중... 곧 새로고침돼요!</UpdateText>
+          <UpdateVersion>v{updateInfo.version} 업데이트</UpdateVersion>
+          {updateInfo.content && <UpdateContent>{updateInfo.content}</UpdateContent>}
+          <UpdateText>새로운 버전으로 업데이트 중...</UpdateText>
         </UpdateToast>
       )}
       <HomeLayout>
@@ -718,25 +783,42 @@ const PullArrow = styled.div`
 const UpdateToast = styled.div`
   position: fixed;
   bottom: 80px;
-  left: 16px;
-  right: 16px;
-  background: ${THEME.text};
-  padding: 14px 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 368px;
+  background: #fff;
+  padding: 16px 20px;
   border-radius: 16px;
   z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   text-align: left;
   animation: slideUp 0.3s ease-out;
   @keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0); opacity: 1; }
   }
 `;
 
-const UpdateText = styled.div`
-  font-size: 14px;
+const UpdateVersion = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  margin-bottom: 4px;
+`;
+
+const UpdateContent = styled.div`
+  font-size: 13px;
   font-weight: 400;
-  color: #fff;
+  color: ${THEME.text};
+  line-height: 1.4;
+  margin-bottom: 6px;
+`;
+
+const UpdateText = styled.div`
+  font-size: 12px;
+  font-weight: 400;
+  color: ${THEME.muted};
 `;
 
 /* ===================== 공통 styles ===================== */
@@ -970,8 +1052,8 @@ const InviteCard = styled.div`
 `;
 
 const InviteCardTitle = styled.div`
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   color: ${THEME.text};
 `;
 
@@ -994,8 +1076,8 @@ const InviteCodeBox = styled.div`
 
 const InviteCode = styled.div`
   flex: 1;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: ${THEME.primary};
   letter-spacing: 0.05em;
 `;
@@ -1039,7 +1121,7 @@ const InviteStatItem = styled.div`
 `;
 
 const InviteStatNum = styled.div`
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -1106,7 +1188,115 @@ const InviteToast = styled.div`
   white-space: nowrap;
 `;
 
-/* 필터 버튼 행 */
+/* 상단 탭 행 */
+const HomeTabRow = styled.div`
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid ${THEME.border};
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const HomeTabBtn = styled.button`
+  flex: 1;
+  padding: 10px 8px 8px;
+  border: none;
+  border-bottom: 2px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
+  background: ${THEME.surface};
+  color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  &:active { opacity: 0.8; }
+`;
+
+const HomeTabSub = styled.span`
+  font-size: 11px;
+  font-weight: 700;
+  color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
+`;
+
+/* 보유자산 */
+const AssetSection = styled.div`
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const AssetCard = styled.div`
+  background: ${({ $muted }) => $muted ? THEME.background : THEME.surface};
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: ${({ $muted }) => $muted ? "none" : THEME.cardShadow};
+  ${({ $muted }) => $muted ? `border: 1px dashed ${THEME.border};` : ""}
+`;
+
+const AssetLabel = styled.div`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+`;
+
+const AssetValue = styled.div`
+  font-size: 28px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  margin-top: 8px;
+`;
+
+const AssetDesc = styled.div`
+  font-size: 12px;
+  color: ${THEME.muted};
+  margin-top: 6px;
+`;
+
+/* 새로고침 버튼 */
+const RefreshBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  cursor: pointer;
+  flex-shrink: 0;
+  &:active { opacity: 0.6; }
+`;
+
+const FloatBtn = styled.button`
+  position: fixed;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  right: calc(50% - 163px);
+  padding: 10px 18px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  z-index: 90;
+  &:active { opacity: 0.85; }
+`;
+
+const SectionTitle = styled.div`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${THEME.text};
+  padding: 16px 16px 0;
+`;
+
 const FilterBtnRow = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -1118,13 +1308,13 @@ const FilterBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1.5px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -1461,6 +1651,177 @@ const OrderActionBtn = styled.button`
   color: ${({ $primary }) => ($primary ? THEME.primary : THEME.textSecondary)};
   cursor: pointer;
   &:active { opacity: 0.6; }
+`;
+
+/* ─── 테이블 스타일 ─── */
+
+const TableWrap = styled.div`
+  margin: 0 12px;
+  background: ${THEME.surface};
+  overflow: hidden;
+  border: 1px solid ${THEME.border};
+`;
+
+const TableHeader = styled.div`
+  display: flex;
+  padding: 8px 12px;
+  gap: 4px;
+  background: #4A5568;
+  border-bottom: 1px solid ${THEME.border};
+  align-items: center;
+`;
+
+const ThCell = styled.div`
+  flex: ${({ $flex }) => $flex || 1};
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+`;
+
+const TableRow = styled.div`
+  display: flex;
+  padding: 8px 12px;
+  gap: 4px;
+  border-bottom: 1px solid ${THEME.border};
+  cursor: pointer;
+  align-items: center;
+  min-height: 40px;
+  &:last-child { border-bottom: none; }
+  &:active { background: ${THEME.background}; }
+`;
+
+const TdCell = styled.div`
+  flex: ${({ $flex }) => $flex || 1};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+`;
+
+const TdAvatar = styled.img`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+`;
+
+const TdAvatarDefault = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: ${THEME.background};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: ${THEME.muted};
+`;
+
+const TdInfoRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const TdInfoText = styled.div`
+  min-width: 0;
+`;
+
+const TdName = styled.div`
+  font-size: 9px;
+  color: ${THEME.muted};
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const TdCatName = styled.div`
+  font-size: 10px;
+  font-weight: 400;
+  color: ${THEME.text};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const TdBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  color: ${THEME.primary};
+  background: ${THEME.purpleLight};
+  padding: 1px 5px;
+  border-radius: 3px;
+`;
+
+const TdSub = styled.div`
+  font-size: 11px;
+  color: ${THEME.muted};
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const TdLocation = styled.div`
+  font-size: 10px;
+  color: ${THEME.textSecondary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+`;
+
+const TdPrice = styled.div`
+  font-size: 10px;
+  font-weight: 400;
+  color: ${THEME.text};
+  white-space: nowrap;
+`;
+
+const TdQuote = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${THEME.primary};
+`;
+
+const TdQuoteUnit = styled.span`
+  font-size: 11px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-left: 1px;
+`;
+
+const TdTime = styled.div`
+  font-size: 11px;
+  color: ${THEME.muted};
+`;
+
+const TdDate = styled.div`
+  font-size: 10px;
+  font-weight: ${({ $urgent }) => $urgent ? 700 : 400};
+  color: ${({ $urgent }) => $urgent ? THEME.danger : THEME.text};
+  white-space: nowrap;
+`;
+
+const TdStatusBadge = styled.span`
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+`;
+
+const TdAmount = styled.div`
+  font-size: 10px;
+  font-weight: 600;
+  color: ${THEME.text};
+  text-align: right;
+  white-space: nowrap;
 `;
 
 const ViewAllBtn = styled.div`

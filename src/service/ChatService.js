@@ -19,7 +19,7 @@ const roomsRef = collection(db, "chatRooms");
  * @param {object} options - { orderId, quoteId } 견적 연동 정보
  */
 export async function createChatRoom(myUid, myName, myPhoto, otherUid, otherName, otherPhoto, options = {}) {
-  const { orderId, quoteId } = options;
+  const { orderId, quoteId, type } = options;
 
   // orderId 기반 중복 체크 (같은 오더+같은 프로 조합)
   if (orderId) {
@@ -28,12 +28,14 @@ export async function createChatRoom(myUid, myName, myPhoto, otherUid, otherName
     const existing = snap.docs.find((d) => d.data().participants.includes(otherUid));
     if (existing) return existing.id;
   } else {
-    // 기존 방 검색 (orderId 없는 경우 fallback)
+    // 기존 방 검색 (orderId 없는 경우 — 같은 타입의 일반 채팅방만)
     const q = query(roomsRef, where("participants", "array-contains", myUid));
     const snap = await getDocs(q);
+    const roomType = type || "general";
     const existing = snap.docs.find((d) => {
       const data = d.data();
-      return data.participants.length === 2 && data.participants.includes(otherUid) && !data.orderId;
+      return data.participants.length === 2 && data.participants.includes(otherUid)
+        && !data.orderId && (data.roomType || "general") === roomType;
     });
     if (existing) return existing.id;
   }
@@ -49,6 +51,7 @@ export async function createChatRoom(myUid, myName, myPhoto, otherUid, otherName
     createdAt: serverTimestamp(),
     messageCount: 0,
     ...(orderId ? { orderId, quoteId: quoteId || "", quoteStatus: "pending" } : {}),
+    roomType: type || (orderId ? "quote" : "general"),
   });
   return docRef.id;
 }

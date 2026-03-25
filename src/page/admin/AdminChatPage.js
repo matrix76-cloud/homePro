@@ -119,7 +119,8 @@ const AdminChatPage = () => {
                 <Table>
                     <thead>
                         <tr>
-                            <Th>참여자</Th>
+                            <Th>대화 참여자</Th>
+                            <Th>상태</Th>
                             <Th>마지막 메시지</Th>
                             <Th>시간</Th>
                             <Th>메시지 수</Th>
@@ -127,13 +128,21 @@ const AdminChatPage = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map((room) => (
+                        {filtered.map((room) => {
+                            const names = room.participantNames
+                                ? Object.values(room.participantNames).join(" ↔ ")
+                                : Array.isArray(room.participants) ? room.participants.join(", ") : "-";
+                            const status = room.quoteStatus === "cancelled" ? "취소"
+                                : room.workStatus === "completed" ? "완료"
+                                : room.paymentStatus === "paid" ? "결제완료"
+                                : room.quoteStatus === "accepted" ? "수락"
+                                : room.quoteStatus === "rejected" ? "거절"
+                                : room.quoteStatus === "pending" ? "대기"
+                                : "일반";
+                            return (
                             <Tr key={room.id} onClick={() => openDetail(room)}>
-                                <Td>
-                                    {Array.isArray(room.participants)
-                                        ? room.participants.join(", ")
-                                        : "-"}
-                                </Td>
+                                <Td>{names}</Td>
+                                <Td><StatusTag $status={status}>{status}</StatusTag></Td>
                                 <Td>{room.lastMessage || "-"}</Td>
                                 <Td>{formatTime(room.lastMessageAt)}</Td>
                                 <Td style={{ textAlign: "center" }}>
@@ -149,7 +158,8 @@ const AdminChatPage = () => {
                                     </DeleteBtn>
                                 </Td>
                             </Tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </Table>
             )}
@@ -167,9 +177,9 @@ const AdminChatPage = () => {
                             <InfoRow>
                                 <InfoLabel>참여자</InfoLabel>
                                 <InfoValue>
-                                    {Array.isArray(selectedRoom.participants)
-                                        ? selectedRoom.participants.join(", ")
-                                        : "-"}
+                                    {selectedRoom.participantNames
+                                        ? Object.values(selectedRoom.participantNames).join(" ↔ ")
+                                        : Array.isArray(selectedRoom.participants) ? selectedRoom.participants.join(", ") : "-"}
                                 </InfoValue>
                             </InfoRow>
                             <InfoRow>
@@ -286,6 +296,26 @@ const Td = styled.td`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+`;
+
+const STATUS_COLORS = {
+    "대기": { bg: "#F3F4F6", color: "#6B7280" },
+    "수락": { bg: "#DBEAFE", color: "#2563EB" },
+    "결제완료": { bg: "#D1FAE5", color: "#059669" },
+    "완료": { bg: "#D1FAE5", color: "#059669" },
+    "거절": { bg: "#FEE2E2", color: "#DC2626" },
+    "취소": { bg: "#FEE2E2", color: "#DC2626" },
+    "일반": { bg: "#F3F4F6", color: "#6B7280" },
+};
+
+const StatusTag = styled.span`
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: ${({ $status }) => STATUS_COLORS[$status]?.bg || "#F3F4F6"};
+    color: ${({ $status }) => STATUS_COLORS[$status]?.color || "#6B7280"};
 `;
 
 const DeleteBtn = styled.button`

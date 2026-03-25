@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import CommonHeader from "../Header/CommonHeader";
 import MobileFooter from "../Footer/MobileFooter";
@@ -19,7 +20,7 @@ const Main = styled.main`
   width: 100%;
   box-sizing: border-box;
   padding-top: calc(env(safe-area-inset-top, 0px) + 52px);
-  padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: ${({ $hideFooter }) => $hideFooter ? "0px" : "calc(65px + env(safe-area-inset-bottom, 0px))"};
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -27,15 +28,18 @@ const Main = styled.main`
 `;
 
 const MainListLayout = (props) => {
+  const navigate = useNavigate();
   return (
     <Container>
       <CommonHeader
         name={props.NAME}
         hideBack={props.hideBack}
-        onSearchClick={props.onSearchClick}
+        onSearchClick={props.onSearchClick || (() => navigate("/search"))}
+        hideActions={!props.hideBack}
+        location={props.location}
       />
-      <Main>{props.children}</Main>
-      <MobileFooter type={props.footerType} />
+      <Main $hideFooter={props.hideFooter}>{props.children}</Main>
+      {!props.hideFooter && <MobileFooter type={props.footerType} />}
     </Container>
   );
 };

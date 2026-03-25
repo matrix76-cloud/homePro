@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoDocumentTextOutline, IoDocumentText, IoCreateOutline, IoSparklesOutline, IoCloseOutline } from "react-icons/io5";
+import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoDocumentTextOutline, IoDocumentText, IoCreateOutline, IoSparklesOutline, IoCloseOutline, IoPeopleOutline, IoPeople, IoGridOutline, IoGrid, IoBookOutline, IoBook, IoConstructOutline, IoConstruct } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../../utility/constants";
 import { useAuth } from "../../../context/AuthContext";
@@ -17,17 +17,11 @@ const TAB_LIST = [
     InactiveIcon: IoHomeOutline,
   },
   {
-    key: MOBILEMAINMENU.MYORDERS,
-    label: "내 요청",
-    path: "/my-orders",
-    ActiveIcon: IoDocumentText,
-    InactiveIcon: IoDocumentTextOutline,
-  },
-  {
-    key: MOBILEMAINMENU.CREATE,
-    label: "",
-    path: "/order/create",
-    isCenter: true,
+    key: "training",
+    label: "기술전수교육",
+    path: "/training",
+    ActiveIcon: IoBook,
+    InactiveIcon: IoBookOutline,
   },
   {
     key: MOBILEMAINMENU.CHAT,
@@ -35,6 +29,13 @@ const TAB_LIST = [
     path: "/MobileChat",
     ActiveIcon: IoChatbubbleEllipses,
     InactiveIcon: IoChatbubbleEllipsesOutline,
+  },
+  {
+    key: "supplies",
+    label: "자재.장비",
+    path: "/supplies",
+    ActiveIcon: IoConstruct,
+    InactiveIcon: IoConstructOutline,
   },
   {
     key: MOBILEMAINMENU.CONFIG,

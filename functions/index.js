@@ -160,6 +160,31 @@ exports.onNotificationSend = onDocumentCreated(
         const targetUids = data.targetUids || [];
         if (targetUids.length === 0) return;
 
+        // 알림 설정 체크 — 관리자가 off한 카테고리면 스킵
+        try {
+            const notiSettingsSnap = await db.doc("settings/notifications").get();
+            if (notiSettingsSnap.exists) {
+                const settings = notiSettingsSnap.data();
+                const type = data.type || "general";
+                // type → 카테고리 매핑
+                const ORDER_TYPES = ["order", "quote", "quote_accepted", "quote_rejected", "payment", "work_complete", "review", "order_cancelled"];
+                const CHAT_TYPES = ["chat"];
+                const NOTICE_TYPES = ["point", "grade_up", "pro_approval", "pro_rejection", "notice"];
+
+                let category = null;
+                if (ORDER_TYPES.includes(type)) category = "order";
+                else if (CHAT_TYPES.includes(type)) category = "chat";
+                else if (NOTICE_TYPES.includes(type)) category = "notice";
+
+                if (category && settings[category] === false) {
+                    await snap.ref.set({ sent: true, skipped: true, skipReason: `${category} disabled` }, { merge: true });
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn("알림 설정 확인 실패 (발송 진행):", e.message);
+        }
+
         // FCM 토큰 조회
         const tokens = [];
         for (const uid of targetUids) {
@@ -217,6 +242,24 @@ exports.onNotificationSend = onDocumentCreated(
         }, { merge: true });
     }
 );
+
+// ─── 역지오코딩 프록시 (카카오 CORS 우회) ───
+exports.reverseGeocode = onRequest({ region: "asia-northeast3", cors: true }, async (req, res) => {
+    const { x, y } = req.query;
+    if (!x || !y) return res.status(400).json({ error: "x, y 필수" });
+
+    const KAKAO_KEY = process.env.KAKAO_REST_KEY || "ae8b70dff25588465673b02b1b0cf162";
+    try {
+        const response = await fetch(
+            `https://dapi.kakao.com/v2/local/geo/coord2regioninfo.json?x=${x}&y=${y}`,
+            { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } }
+        );
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // ─── 관리자 계정 초기 생성 ───
 exports.seedAdmin = onRequest({ region: "asia-northeast3", cors: true }, async (req, res) => {
@@ -499,6 +542,38 @@ exports.onChatMessageCreated = onDocumentCreated(
             body,
             targetUids,
             { roomId, senderId }
+        );
+    }
+);
+
+// ─── 앱 업데이트 알림 (모든 사용자에게 푸시) ───
+exports.onAppUpdate = onDocumentCreated(
+    { document: "app_updates/{updateId}", region: "asia-northeast3" },
+    async (event) => {
+        const snap = event.data;
+        if (!snap) return;
+
+        const data = snap.data();
+        const version = data.version || "";
+        const content = data.content || "";
+
+        // 모든 fcmTokens에서 고유 uid 수집
+        const tokenSnap = await db.collection("fcmTokens").get();
+        const uidSet = new Set();
+        tokenSnap.forEach((doc) => {
+            const uid = doc.data().uid;
+            if (uid) uidSet.add(uid);
+        });
+
+        const targetUids = [...uidSet];
+        if (targetUids.length === 0) return;
+
+        await createNotification(
+            "update",
+            `홈프로 v${version} 업데이트`,
+            content || "새로운 버전이 출시되었습니다",
+            targetUids,
+            { version, updateId: event.params.updateId }
         );
     }
 );

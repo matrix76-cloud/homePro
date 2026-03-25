@@ -426,7 +426,7 @@ const BizProfilePage = () => {
   }
 
   return (
-    <SimpleBackLayout NAME="비즈프로필">
+    <SimpleBackLayout NAME="비즈프로필" hideFooter>
       {ProfileContent}
     </SimpleBackLayout>
   );

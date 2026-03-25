@@ -11,11 +11,13 @@ import {
 const CODES_COL = "referral_codes";
 const USERS_COL = "users";
 
-/** 랜덤 6자리 숫자 */
+/** 영문 대문자 2자 + 숫자 6자리 */
 const randomStr = () => {
-  const chars = "0123456789";
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const digits = "0123456789";
   let s = "";
-  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 2; i++) s += letters[Math.floor(Math.random() * letters.length)];
+  for (let i = 0; i < 6; i++) s += digits[Math.floor(Math.random() * digits.length)];
   return s;
 };
 

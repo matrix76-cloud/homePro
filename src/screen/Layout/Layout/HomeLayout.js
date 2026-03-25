@@ -1,11 +1,12 @@
 /* eslint-disable */
 import React, { useState, useContext, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import CommonHeaderHome from "../Header/CommonHeaderHome";
 import MobileFooter from "../Footer/MobileFooter";
 import RegionSelectModal from "../../../modal/RegionSelectModal";
 import { MOBILEMAINMENU } from "../../../utility/constants";
+import { IoNavigateOutline, IoMapOutline } from "react-icons/io5";
 import { UserContext } from "../../../context/User";
 import { useAuth } from "../../../context/AuthContext";
 import { isInRnWebView, requestLocationAsync } from "../../../bridge/webviewBridge";
@@ -126,11 +127,15 @@ const HomeLayout = (props) => {
     setGpsLoading(true);
     try {
       let coords = null;
-      if (isInRnWebView()) {
+      const inRn = isInRnWebView();
+      console.log("[HomeLayout] isInRnWebView:", inRn, "ReactNativeWebView:", typeof window?.ReactNativeWebView);
+      if (inRn) {
         const res = await requestLocationAsync(8000);
+        console.log("[HomeLayout] requestLocationAsync result:", JSON.stringify(res));
         if (res?.latitude && res?.longitude) coords = { latitude: res.latitude, longitude: res.longitude };
       } else {
         coords = await getWebLocation(8000);
+        console.log("[HomeLayout] getWebLocation result:", JSON.stringify(coords));
       }
       if (coords) {
         const geo = await reverseGeocode(coords.latitude, coords.longitude);
@@ -177,6 +182,7 @@ const HomeLayout = (props) => {
         onCalendarClick={() => navigate("/calendar")}
         onLocationClick={() => setShowLocationMenu((v) => !v)}
         onSearchClick={() => navigate("/search")}
+        onNoticeClick={() => navigate("/notice")}
       />
       {/* 위치 설정 드롭다운 */}
       {showLocationMenu && (
@@ -184,16 +190,25 @@ const HomeLayout = (props) => {
           <LocationMenuOverlay onClick={() => setShowLocationMenu(false)} />
           <LocationMenu>
             <LocationMenuItem onClick={handleSetCurrentLocation}>
-              <IoLocateIcon>📍</IoLocateIcon>
-              {gpsLoading ? "위치 확인 중..." : "현재위치로 설정"}
+              <IoNavigateOutline size={16} />
+              현재위치로 설정
             </LocationMenuItem>
             <LocationMenuDivider />
             <LocationMenuItem onClick={handleOpenRegionSelect}>
-              <IoLocateIcon>🗺️</IoLocateIcon>
+              <IoMapOutline size={16} />
               지역으로 설정
             </LocationMenuItem>
           </LocationMenu>
         </>
+      )}
+      {/* GPS 로딩 스피너 */}
+      {gpsLoading && (
+        <SpinnerOverlay>
+          <SpinnerBox>
+            <Spinner />
+            <SpinnerText>현재 위치를 확인하고 있습니다...</SpinnerText>
+          </SpinnerBox>
+        </SpinnerOverlay>
       )}
       <Main>{props.children}</Main>
       <MobileFooter type={footerType} />
@@ -217,14 +232,11 @@ const LocationMenuOverlay = styled.div`
 
 const LocationMenu = styled.div`
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 52px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 368px;
+  top: calc(env(safe-area-inset-top, 0px) + 52px + 4px);
+  left: 16px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
   z-index: 999;
   overflow: hidden;
 `;
@@ -232,23 +244,58 @@ const LocationMenu = styled.div`
 const LocationMenuItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 12px 20px;
   font-size: 14px;
   font-weight: 500;
   color: #191F28;
   cursor: pointer;
+  white-space: nowrap;
   &:active { background: #F7F8FA; }
 `;
 
 const LocationMenuDivider = styled.div`
   height: 1px;
   background: #F0F0F4;
-  margin: 0 16px;
 `;
 
-const IoLocateIcon = styled.span`
-  font-size: 18px;
+const SpinnerOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const SpinnerBox = styled.div`
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const spinAnim = keyframes`
+  to { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #7C5CFC;
+  border-radius: 50%;
+  animation: ${spinAnim} 0.8s linear infinite;
+  flex-shrink: 0;
+`;
+
+const SpinnerText = styled.div`
+  font-size: 13px;
+  color: #191F28;
+  font-weight: 500;
 `;
 
 export default HomeLayout;

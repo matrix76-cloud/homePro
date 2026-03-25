@@ -5,9 +5,9 @@ import styled from "styled-components";
 import { IoHeartOutline, IoChatbubbleOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { getPosts } from "../../service/CommunityService";
-import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 
-const TABS = ["이벤트/공지", "자유게시판"];
+const TABS = ["자유게시판", "이벤트/공지"];
 
 const DEFAULT_NOTICES = [
   {
@@ -44,7 +44,7 @@ const DEFAULT_NOTICES = [
 
 const CommunityPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("이벤트/공지");
+  const [activeTab, setActiveTab] = useState("자유게시판");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,7 +76,7 @@ const CommunityPage = () => {
   };
 
   return (
-    <SimpleBackLayout NAME="게시판" hideFooter>
+    <MainListLayout NAME="커뮤니티" hideFooter>
       <PageWrap>
         <TabRow>
           {TABS.map((tab) => (
@@ -120,7 +120,7 @@ const CommunityPage = () => {
           </WriteBtn>
         )}
       </PageWrap>
-    </SimpleBackLayout>
+    </MainListLayout>
   );
 };
 
@@ -184,7 +184,7 @@ const PostBadge = styled.div`
 `;
 
 const PostTitle = styled.div`
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.text};
   line-height: 1.4;
@@ -192,7 +192,7 @@ const PostTitle = styled.div`
 `;
 
 const PostContent = styled.div`
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
@@ -252,17 +252,14 @@ const EmptyText = styled.div`
 
 const WriteBtn = styled.button`
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  right: calc(50% - 180px);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 20px;
-  border-radius: 24px;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  right: calc(50% - 163px);
+  padding: 10px 18px;
+  border-radius: 4px;
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   box-shadow: 0 4px 12px rgba(124, 92, 252, 0.4);

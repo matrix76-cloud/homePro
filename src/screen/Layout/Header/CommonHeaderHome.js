@@ -1,11 +1,12 @@
 /* eslint-disable */
 import React, { useContext } from "react";
 import styled from "styled-components";
-import { IoCalendarOutline, IoLocationOutline, IoSearchOutline } from "react-icons/io5";
+import { IoCalendarOutline, IoLocationOutline, IoSearchOutline, IoNotificationsOutline } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { UserContext } from "../../../context/User";
+import LogoIcon from "../../../assets/icons/homepro-symbol.svg";
 
-const CommonHeaderHome = ({ onCalendarClick, onLocationClick, onSearchClick }) => {
+const CommonHeaderHome = ({ onCalendarClick, onLocationClick, onSearchClick, onNoticeClick }) => {
   const { user } = useContext(UserContext);
   const address = user?.USERINFO?.address_name || "서울시 중구";
 
@@ -13,7 +14,7 @@ const CommonHeaderHome = ({ onCalendarClick, onLocationClick, onSearchClick }) =
     <HeaderWrapper>
       <HeaderInner>
         <LeftSection>
-          <AppTitle>홈프로</AppTitle>
+          <AppLogo src={LogoIcon} alt="홈프로" />
           <LocationWrap onClick={onLocationClick}>
             <IoLocationOutline size={16} color={THEME.text} />
             <LocationText>{address}</LocationText>
@@ -21,10 +22,13 @@ const CommonHeaderHome = ({ onCalendarClick, onLocationClick, onSearchClick }) =
         </LeftSection>
         <RightSection>
           <IconBtn onClick={onSearchClick}>
-            <IoSearchOutline size={22} color={THEME.text} />
+            <IoSearchOutline size={20} color={THEME.text} />
           </IconBtn>
           <IconBtn onClick={onCalendarClick}>
-            <IoCalendarOutline size={22} color={THEME.text} />
+            <IoCalendarOutline size={20} color={THEME.text} />
+          </IconBtn>
+          <IconBtn onClick={onNoticeClick}>
+            <IoNotificationsOutline size={20} color={THEME.text} />
           </IconBtn>
         </RightSection>
       </HeaderInner>
@@ -62,11 +66,10 @@ const LeftSection = styled.div`
   gap: 8px;
 `;
 
-const AppTitle = styled.div`
-  font-size: 20px;
-  font-weight: 800;
-  color: ${THEME.text};
-  letter-spacing: -0.03em;
+const AppLogo = styled.img`
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
 `;
 
 const LocationWrap = styled.div`
@@ -90,12 +93,12 @@ const LocationText = styled.div`
 const RightSection = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 `;
 
 const IconBtn = styled.button`
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: none;
   border: none;
