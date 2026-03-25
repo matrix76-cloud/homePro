@@ -137,7 +137,7 @@ export async function acceptQuote(orderId, quoteId, proUid) {
     status: "accepted",
   });
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-    orderStatus: "결제",
+    orderStatus: "진행",
     matchedProUid: proUid,
   });
 }
@@ -162,4 +162,24 @@ export function formatOrderTime(timestamp) {
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
   return `${mm}.${dd}.`;
+}
+
+/** 오더 상태 변경 */
+export async function updateOrderStatus(orderId, newStatus) {
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    orderStatus: newStatus,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** 리뷰 작성 + 상태 변경 */
+export async function submitOrderReview(orderId, reviewData) {
+  await addDoc(collection(db, COLLECTIONS.ORDERS, orderId, "reviews"), {
+    ...reviewData,
+    createdAt: serverTimestamp(),
+  });
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    orderStatus: "리뷰",
+    updatedAt: serverTimestamp(),
+  });
 }

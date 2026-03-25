@@ -48,10 +48,15 @@ async function ensureUserDoc({ uid, email, provider }) {
     const uidText = safeTrim(uid);
     if (!uidText) throw new Error("UID_REQUIRED");
 
-    // 이미 linkedSocialUid로 연결된 기존 사용자가 있으면 스킵
-    const linkedQ = query(collection(db, "users"), where("linkedSocialUid", "==", uidText));
+    // 이미 linkedSocialUids 배열에 연결된 기존 사용자가 있으면 스킵
+    const linkedQ = query(collection(db, "users"), where("linkedSocialUids", "array-contains", uidText));
     const linkedSnap = await getDocs(linkedQ);
     if (!linkedSnap.empty) return;
+
+    // 기존 linkedSocialUid(단수) 하위 호환
+    const linkedOldQ = query(collection(db, "users"), where("linkedSocialUid", "==", uidText));
+    const linkedOldSnap = await getDocs(linkedOldQ);
+    if (!linkedOldSnap.empty) return;
 
     // 이미 linkedEmailUid로 연결된 기존 사용자가 있으면 스킵
     const linkedEQ = query(collection(db, "users"), where("linkedEmailUid", "==", uidText));

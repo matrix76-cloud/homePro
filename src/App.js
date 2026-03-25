@@ -58,6 +58,7 @@ import CommunityWritePage from "./page/community/CommunityWritePage";
 import GuidePage from "./page/guide/GuidePage";
 import ReferralFriendsPage from "./page/referral/ReferralFriendsPage";
 import ReferralPointsPage from "./page/referral/ReferralPointsPage";
+import ReferralInputPage from "./page/referral/ReferralInputPage";
 
 /* Admin Pages */
 import AdminLoginPage from "./page/admin/AdminLoginPage";
@@ -216,6 +217,7 @@ const AnimatedRoutes = () => {
           <Route element={<RequireAuth />}>
             <Route path="/MobileLinkPhone" element={wrap(<MobileLinkPhonepage />)} />
             <Route path="/MobileSetNickname" element={wrap(<MobileSetNicknamepage />)} />
+            <Route path="/ReferralInput" element={wrap(<ReferralInputPage />)} />
 
             <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
             <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />

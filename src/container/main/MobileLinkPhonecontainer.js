@@ -204,7 +204,7 @@ export default function MobileLinkPhonecontainer() {
                 try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
 
                 await refreshUser();
-                nav("/MobileSetNickname", { replace: true });
+                nav("/ReferralInput", { replace: true });
             }
         } catch (e) {
             console.error("[LinkPhone] 전화번호 저장 실패:", e?.code, e?.message, e);

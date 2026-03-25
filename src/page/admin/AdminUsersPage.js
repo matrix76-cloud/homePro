@@ -285,8 +285,8 @@ const AdminUsersPage = () => {
             <FieldRow><FL>상태</FL><FV>{renderStatus(selectedUser.status)}</FV></FieldRow>
             <FieldRow><FL>지역</FL><FV>{selectedUser.region || "-"}</FV></FieldRow>
             <FieldRow><FL>가입일</FL><FV>{formatDateTime(selectedUser.createdAt)}</FV></FieldRow>
-            {selectedUser.linkedSocialUid && (
-                <FieldRow><FL>소셜 연결</FL><FV style={{ fontSize: 11 }}>{selectedUser.linkedSocialUid}</FV></FieldRow>
+            {selectedUser.linkedSocialUids?.length > 0 && (
+                <FieldRow><FL>소셜 연결</FL><FV style={{ fontSize: 11 }}>{selectedUser.linkedSocialUids.join(", ")}</FV></FieldRow>
             )}
             {selectedUser.linkedEmailUid && (
                 <FieldRow><FL>이메일 연결</FL><FV style={{ fontSize: 11 }}>{selectedUser.linkedEmailUid}</FV></FieldRow>

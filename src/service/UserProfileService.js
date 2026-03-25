@@ -20,7 +20,7 @@ function normalizeProvider(provider) {
 /**
  * 3단계 UID 조회 (jogunBiz 패턴)
  * 1) authUid 필드로 조회
- * 2) linkedSocialUid 필드로 조회
+ * 2) linkedSocialUids 배열에 포함 여부로 조회
  * 3) linkedEmailUid 필드로 조회
  * 4) 문서 ID로 직접 조회
  */
@@ -36,11 +36,19 @@ export async function getUserProfileByUid(uid) {
         return { uid: d.id, ...d.data() };
     }
 
-    // 2) linkedSocialUid로 조회
-    const q2 = query(collection(db, "users"), where("linkedSocialUid", "==", u));
+    // 2) linkedSocialUids 배열에서 조회
+    const q2 = query(collection(db, "users"), where("linkedSocialUids", "array-contains", u));
     const q2Snap = await getDocs(q2);
     if (!q2Snap.empty) {
         const d = q2Snap.docs[0];
+        return { uid: d.id, ...d.data() };
+    }
+
+    // 2-b) 기존 linkedSocialUid(단수) 하위 호환
+    const q2b = query(collection(db, "users"), where("linkedSocialUid", "==", u));
+    const q2bSnap = await getDocs(q2b);
+    if (!q2bSnap.empty) {
+        const d = q2bSnap.docs[0];
         return { uid: d.id, ...d.data() };
     }
 
@@ -117,7 +125,7 @@ export async function getUserByPhone(phoneE164) {
 
 /**
  * 소셜 로그인 UID를 기존 사용자에 연결
- * - 기존 사용자 문서에 linkedSocialUid 저장
+ * - 기존 사용자 문서에 linkedSocialUids 배열에 추가
  * - 소셜 빈 문서 삭제
  */
 export async function linkSocialToExistingUser({ existingUid, socialUid, provider }) {
@@ -128,7 +136,7 @@ export async function linkSocialToExistingUser({ existingUid, socialUid, provide
     const existingProvider = existingSnap.exists() ? normalizeProvider(existingSnap.data().provider) : "";
     const providersToAdd = [existingProvider, providerKey].filter(Boolean);
 
-    const updates = { linkedSocialUid: socialUid, updatedAt: serverTimestamp() };
+    const updates = { linkedSocialUids: arrayUnion(socialUid), updatedAt: serverTimestamp() };
     if (providersToAdd.length > 0) updates.providers = arrayUnion(...providersToAdd);
     await setDoc(userRef, updates, { merge: true });
 

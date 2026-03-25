@@ -24,6 +24,7 @@ const STATUS_STYLE = {
   "마감": { bg: "#3B82F6", color: "#fff" },
   "취소": { bg: THEME.danger, color: "#fff" },
   "요청": { bg: "#F59E0B", color: "#fff" },
+  "진행": { bg: THEME.primary, color: "#fff" },
   "완료": { bg: THEME.success, color: "#fff" },
 };
 
@@ -137,6 +138,7 @@ const InviteTabContent = () => {
   const [stats, setStats] = useState({ referralCount: 0, referralPoints: 0 });
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
+  const [alreadyReferred, setAlreadyReferred] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 5000); };
 
@@ -144,10 +146,17 @@ const InviteTabContent = () => {
     if (!uid) return;
     (async () => {
       const { getReferralCode, getReferralStats } = await import("../../service/ReferralService");
+      const { doc, getDoc } = await import("firebase/firestore");
+      const { db } = await import("../../api/config");
       const code = await getReferralCode(uid);
       setMyCode(code);
       const s = await getReferralStats(uid);
       setStats(s);
+      // 이미 추천코드 사용 여부 확인
+      const userSnap = await getDoc(doc(db, "users", uid));
+      if (userSnap.exists() && userSnap.data()?.referredBy) {
+        setAlreadyReferred(true);
+      }
     })();
   }, [uid]);
 
@@ -176,8 +185,13 @@ const InviteTabContent = () => {
     try {
       const { applyReferralCode } = await import("../../service/ReferralService");
       const res = await applyReferralCode(uid, inputCode.trim());
-      showToast(res.message);
-      if (res.success) setInputCode("");
+      if (res.success) {
+        setInputCode("");
+        setAlreadyReferred(true);
+        showToast("추천코드가 적용되었습니다! 포인트가 충전되었습니다 🎉");
+      } else {
+        showToast(res.message);
+      }
     } catch (e) {
       showToast("적용 실패 — 다시 시도해주세요");
     } finally { setBusy(false); }
@@ -213,16 +227,25 @@ const InviteTabContent = () => {
 
       {/* 코드 입력 */}
       <InviteCard>
-        <InviteCardTitle>추천코드 입력</InviteCardTitle>
-        <InviteCardDesc>추천받은 코드가 있다면 입력하세요</InviteCardDesc>
-        <InviteInputRow>
-          <InviteInput
-            placeholder="추천코드 입력"
-            value={inputCode}
-            onChange={(e) => setInputCode(e.target.value)}
-          />
-          <InviteApplyBtn onClick={handleApply} disabled={busy || !inputCode.trim()}>적용</InviteApplyBtn>
-        </InviteInputRow>
+        {alreadyReferred ? (
+          <>
+            <InviteCardTitle>추천코드</InviteCardTitle>
+            <ReferredDoneText>이미 추천코드로 가입되었습니다 ✓</ReferredDoneText>
+          </>
+        ) : (
+          <>
+            <InviteCardTitle>추천코드 입력</InviteCardTitle>
+            <InviteCardDesc>추천받은 코드가 있다면 입력하세요</InviteCardDesc>
+            <InviteInputRow>
+              <InviteInput
+                placeholder="추천코드 입력"
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+              />
+              <InviteApplyBtn onClick={handleApply} disabled={busy || !inputCode.trim()}>적용</InviteApplyBtn>
+            </InviteInputRow>
+          </>
+        )}
       </InviteCard>
 
       {toast && <InviteToast>{toast}</InviteToast>}
@@ -1172,6 +1195,13 @@ const InviteApplyBtn = styled.button`
   flex-shrink: 0;
   &:active { opacity: 0.85; }
   &:disabled { background: ${THEME.border}; color: ${THEME.muted}; }
+`;
+
+const ReferredDoneText = styled.div`
+  margin-top: 8px;
+  font-size: 14px;
+  color: ${THEME.success || "#10B981"};
+  font-weight: 500;
 `;
 
 const InviteToast = styled.div`

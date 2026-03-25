@@ -370,6 +370,8 @@ export const OrderCreateContent = () => {
   const fileInputRef = useRef(null);
   const [addressDetail, setAddressDetail] = useState("");
   const [customInput, setCustomInput] = useState("");
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
+  const addressEmbedRef = useRef(null);
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
@@ -385,15 +387,27 @@ export const OrderCreateContent = () => {
   }, []);
 
   const openDaumPostcode = () => {
+    if (!window.daum?.Postcode) {
+      alert("주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    setShowAddressSearch(true);
+  };
+
+  useEffect(() => {
+    if (!showAddressSearch || !addressEmbedRef.current) return;
     if (!window.daum?.Postcode) return;
     new window.daum.Postcode({
       oncomplete: (data) => {
         const addr = data.userSelectedType === "R" ? data.roadAddress : data.jibunAddress;
         setAddress(addr);
         setAddressDetail("");
+        setShowAddressSearch(false);
       },
-    }).open();
-  };
+      width: "100%",
+      height: "100%",
+    }).embed(addressEmbedRef.current);
+  }, [showAddressSearch]);
 
   const handlePhotoAdd = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -757,6 +771,17 @@ export const OrderCreateContent = () => {
         </>
       )}
       {toast && <OrderToast>{toast}</OrderToast>}
+      {showAddressSearch && (
+        <AddressModalOverlay onClick={() => setShowAddressSearch(false)}>
+          <AddressModalBox onClick={(e) => e.stopPropagation()}>
+            <AddressModalHeader>
+              <AddressModalTitle>주소 검색</AddressModalTitle>
+              <AddressCloseBtn onClick={() => setShowAddressSearch(false)}>✕</AddressCloseBtn>
+            </AddressModalHeader>
+            <AddressEmbedWrap ref={addressEmbedRef} />
+          </AddressModalBox>
+        </AddressModalOverlay>
+      )}
     </>
   );
 };
@@ -817,6 +842,56 @@ const AreaRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+const AddressModalOverlay = styled.div`
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const AddressModalBox = styled.div`
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const AddressModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid ${THEME.border};
+`;
+
+const AddressModalTitle = styled.div`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const AddressCloseBtn = styled.button`
+  border: none;
+  background: none;
+  font-size: 20px;
+  color: ${THEME.muted};
+  cursor: pointer;
+  padding: 4px;
+`;
+
+const AddressEmbedWrap = styled.div`
+  flex: 1;
+  width: 100%;
 `;
 
 const OrderCreatePage = () => (
