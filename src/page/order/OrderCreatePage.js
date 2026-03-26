@@ -14,7 +14,7 @@ import {
   STORAGE_PATH_PREFIX,
 } from "../../config/homeproConfig";
 import { createOrder } from "../../service/OrderService";
-import ORDER_FORM_CONFIG from "../../config/orderFormConfig";
+import ORDER_FORM_CONFIG, { COMMON_B2B_FIELDS } from "../../config/orderFormConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCloseCircle } from "react-icons/io5";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
@@ -73,6 +73,7 @@ const Chip = styled.button`
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
+  white-space: nowrap;
   border: 1px solid ${({ $selected }) => ($selected ? THEME.primary : THEME.border)};
   background: ${({ $selected }) => ($selected ? THEME.primary : THEME.surface)};
   color: ${({ $selected }) => ($selected ? "#fff" : THEME.text)};
@@ -84,6 +85,7 @@ const Chip = styled.button`
 
 const TextArea = styled.textarea`
   width: 100%;
+  box-sizing: border-box;
   min-height: 100px;
   padding: 12px;
   border: 1px solid ${THEME.border};
@@ -99,6 +101,7 @@ const TextArea = styled.textarea`
 
 const Input = styled.input`
   width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
@@ -373,6 +376,23 @@ export const OrderCreateContent = () => {
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const addressEmbedRef = useRef(null);
 
+  // B2B 공통 필드
+  const [workDate, setWorkDate] = useState("");
+  const [workDatePicker, setWorkDatePicker] = useState("");
+  const [workTimeMode, setWorkTimeMode] = useState("");
+  const [workTimeStart, setWorkTimeStart] = useState("");
+  const [workTimeEnd, setWorkTimeEnd] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [b2bPriceType, setB2bPriceType] = useState("");
+  const [b2bPriceAmount, setB2bPriceAmount] = useState("");
+  const [referralFeeType, setReferralFeeType] = useState("none");
+  const [referralFeeFixed, setReferralFeeFixed] = useState("");
+  const [referralFeeFixedCustom, setReferralFeeFixedCustom] = useState("");
+  const [referralFeeRate, setReferralFeeRate] = useState("");
+  const [referralPayMethod, setReferralPayMethod] = useState("");
+  const [matchType, setMatchType] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
 
@@ -479,6 +499,14 @@ export const OrderCreateContent = () => {
 
       const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
       const writerPhoto = userData?.profileImage || userData?.photoURL || user?.USERINFO?.userimg || "";
+      // 소개 수수료 값 계산
+      let referralFeeValue = null;
+      if (referralFeeType === "fixed") {
+        referralFeeValue = { type: "fixed", amount: referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed) };
+      } else if (referralFeeType === "rate") {
+        referralFeeValue = { type: "rate", rate: Number(referralFeeRate) };
+      }
+
       await createOrder({
         categoryId: selectedCategory,
         categoryName: category?.shortName || "",
@@ -502,6 +530,17 @@ export const OrderCreateContent = () => {
         writerPhoto,
         location: addressDetail ? `${address} ${addressDetail}` : address,
         photos: photoURLs,
+        // B2B 공통 필드
+        workDate: workDate || null,
+        workDatePicker: workDate === "희망날짜지정" ? workDatePicker : null,
+        workTime: workTimeMode === "시간설정" ? { start: workTimeStart, end: workTimeEnd } : workTimeMode || null,
+        contactPhone: contactPhone || null,
+        paymentMethod: paymentMethod || null,
+        b2bPriceType: b2bPriceType || null,
+        b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance") ? Number(b2bPriceAmount) || null : null,
+        referralFee: referralFeeType === "none" ? null : referralFeeValue,
+        referralPayMethod: referralFeeType !== "none" ? (referralPayMethod || null) : null,
+        matchType: matchType || null,
       });
       showToast("오더가 등록되었습니다!");
       setTimeout(() => navigate("/MobileMain"), 1000);
@@ -533,7 +572,6 @@ export const OrderCreateContent = () => {
                 {isOpen && (
                   <CatGrid>
                     {groupCats.map((cat) => {
-                      const Icon = CATEGORY_ICONS[cat.id];
                       return (
                         <CatChipBtn
                           key={cat.id}
@@ -544,7 +582,6 @@ export const OrderCreateContent = () => {
                             setExpandedGroup(null);
                           }}
                         >
-                          {Icon && <CatChipIcon><Icon /></CatChipIcon>}
                           {(() => { const n = cat.shortName.replace(/[./·\-]/g, ""); return n.length > 6 ? n.slice(0, 6) : n; })()}
                         </CatChipBtn>
                       );
@@ -569,7 +606,9 @@ export const OrderCreateContent = () => {
           {formConfig?.subGroups && (
             <Section>
               <Label>세부 항목 선택</Label>
-              {formConfig.subGroups.map((group) => (
+              {formConfig.subGroups
+                .filter((group) => group.label !== "기타")
+                .map((group) => (
                 <div key={group.label}>
                   <GroupLabel>{group.label}</GroupLabel>
                   <ChipGrid>
@@ -579,35 +618,15 @@ export const OrderCreateContent = () => {
                         <Chip
                           key={uniqueKey}
                           $selected={selectedSub.includes(uniqueKey)}
-                          onClick={() => {
-                            if (item === "직접입력" || item === "입력") return;
-                            handleSubToggle(uniqueKey);
-                          }}
+                          onClick={() => handleSubToggle(uniqueKey)}
                         >
                           {item}
                         </Chip>
                       );
                     })}
                   </ChipGrid>
-                  {group.items.includes("직접입력") && selectedSub.includes(`${group.label}:직접입력`) && (
-                    <Input style={{ marginTop: 8 }} placeholder="직접 입력" value={customInput} onChange={(e) => setCustomInput(e.target.value)} />
-                  )}
                 </div>
               ))}
-              {/* 직접입력 필드 (subGroups에 "직접입력"/"입력" 항목이 있을 때) */}
-              {formConfig.subGroups.some((g) => g.items.includes("직접입력") || g.items.includes("입력")) && (
-                <div style={{ marginTop: 8 }}>
-                  <Chip
-                    $selected={selectedSub.includes("직접입력")}
-                    onClick={() => handleSubToggle("직접입력")}
-                  >
-                    직접입력
-                  </Chip>
-                  {selectedSub.includes("직접입력") && (
-                    <Input style={{ marginTop: 8 }} placeholder="항목을 직접 입력하세요" value={customInput} onChange={(e) => setCustomInput(e.target.value)} />
-                  )}
-                </div>
-              )}
             </Section>
           )}
 
@@ -750,16 +769,119 @@ export const OrderCreateContent = () => {
             )}
           </Section>
 
-          {/* 서비스 단가 */}
+          {/* ─── B2B 거래 조건 필드들 ─── */}
+
+          {/* 작업날짜 */}
           <Section>
-            <Label>서비스 단가입력</Label>
-            <RadioGroup>
-              <RadioButton $selected={priceType === "direct"} onClick={() => setPriceType("direct")}>단가 직접입력</RadioButton>
-              <RadioButton $selected={priceType === "estimate"} onClick={() => setPriceType("estimate")}>견적 제시요청</RadioButton>
-            </RadioGroup>
-            {priceType === "direct" && (
-              <Input style={{ marginTop: 12 }} type="number" placeholder="서비스 금액 (원)" value={directPrice} onChange={(e) => setDirectPrice(e.target.value)} />
+            <Label>{COMMON_B2B_FIELDS.workDate.label}</Label>
+            <ChipGrid>
+              {COMMON_B2B_FIELDS.workDate.options.map((opt) => (
+                <Chip key={opt} $selected={workDate === opt} onClick={() => setWorkDate(opt)}>{opt}</Chip>
+              ))}
+            </ChipGrid>
+            {workDate === "희망날짜지정" && (
+              <Input style={{ marginTop: 10 }} type="date" value={workDatePicker} onChange={(e) => setWorkDatePicker(e.target.value)} />
             )}
+          </Section>
+
+          {/* 작업시간 */}
+          <Section>
+            <Label>{COMMON_B2B_FIELDS.workTime.label}</Label>
+            <ChipGrid>
+              {COMMON_B2B_FIELDS.workTime.options.map((opt) => (
+                <Chip key={opt} $selected={workTimeMode === opt} onClick={() => setWorkTimeMode(opt)}>{opt}</Chip>
+              ))}
+            </ChipGrid>
+            {workTimeMode === "시간설정" && (
+              <TimeRow>
+                <Input style={{ flex: 1 }} type="time" value={workTimeStart} onChange={(e) => setWorkTimeStart(e.target.value)} />
+                <span style={{ color: THEME.muted, fontSize: 14 }}>~</span>
+                <Input style={{ flex: 1 }} type="time" value={workTimeEnd} onChange={(e) => setWorkTimeEnd(e.target.value)} />
+              </TimeRow>
+            )}
+          </Section>
+
+          {/* 연락처 */}
+          <Section>
+            <Label>연락처</Label>
+            <Input type="tel" placeholder="010-0000-0000" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+          </Section>
+
+          {/* 결제수단 (프로 간 정산 조건) */}
+          <Section>
+            <Label>{COMMON_B2B_FIELDS.paymentMethod.label}</Label>
+            <ChipRow4>
+              {COMMON_B2B_FIELDS.paymentMethod.options.map((opt) => (
+                <Chip key={opt} $selected={paymentMethod === opt} onClick={() => setPaymentMethod(opt)}>{opt}</Chip>
+              ))}
+            </ChipRow4>
+          </Section>
+
+          {/* 단가유형 */}
+          <Section>
+            <Label>{COMMON_B2B_FIELDS.priceType.label}</Label>
+            <ChipRow4>
+              {COMMON_B2B_FIELDS.priceType.options.map((opt) => (
+                <Chip key={opt.value} $selected={b2bPriceType === opt.value} onClick={() => setB2bPriceType(opt.value)}>{opt.label}</Chip>
+              ))}
+            </ChipRow4>
+            {COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType)?.hasInput && (
+              <Input style={{ marginTop: 10 }} type="number" placeholder="금액 입력 (원)" value={b2bPriceAmount} onChange={(e) => setB2bPriceAmount(e.target.value)} />
+            )}
+          </Section>
+
+          {/* 소개(캐시백) 수수료 */}
+          <Section>
+            <Label>{COMMON_B2B_FIELDS.referralFee.label}</Label>
+            <ChipGrid style={{ marginBottom: 12 }}>
+              {COMMON_B2B_FIELDS.referralFee.types.map((t) => (
+                <Chip key={t.value} $selected={referralFeeType === t.value} onClick={() => setReferralFeeType(t.value)}>{t.label}</Chip>
+              ))}
+            </ChipGrid>
+            {referralFeeType === "fixed" && (
+              <>
+                <ChipGrid>
+                  {COMMON_B2B_FIELDS.referralFee.fixedAmounts.map((amt) => (
+                    <Chip key={amt} $selected={referralFeeFixed === String(amt)} onClick={() => { setReferralFeeFixed(String(amt)); setReferralFeeFixedCustom(""); }}>
+                      {amt.toLocaleString()}원
+                    </Chip>
+                  ))}
+                  <Chip $selected={referralFeeFixed === "custom"} onClick={() => setReferralFeeFixed("custom")}>직접입력</Chip>
+                </ChipGrid>
+                {referralFeeFixed === "custom" && (
+                  <Input style={{ marginTop: 10 }} type="number" placeholder="수수료 금액 (원)" value={referralFeeFixedCustom} onChange={(e) => setReferralFeeFixedCustom(e.target.value)} />
+                )}
+              </>
+            )}
+            {referralFeeType === "rate" && (
+              <ChipGrid>
+                {COMMON_B2B_FIELDS.referralFee.rates.map((r) => (
+                  <Chip key={r} $selected={referralFeeRate === String(r)} onClick={() => setReferralFeeRate(String(r))}>{r}%</Chip>
+                ))}
+              </ChipGrid>
+            )}
+          </Section>
+
+          {/* 소개 수수료 지급방법 */}
+          {referralFeeType !== "none" && (
+            <Section>
+              <Label>{COMMON_B2B_FIELDS.referralPayMethod.label}</Label>
+              <ChipGrid>
+                {COMMON_B2B_FIELDS.referralPayMethod.options.map((opt) => (
+                  <Chip key={opt} $selected={referralPayMethod === opt} onClick={() => setReferralPayMethod(opt)}>{opt}</Chip>
+                ))}
+              </ChipGrid>
+            </Section>
+          )}
+
+          {/* 홈프로 선택 */}
+          <Section>
+            <Label>{COMMON_B2B_FIELDS.matchType.label}</Label>
+            <ChipGrid>
+              {COMMON_B2B_FIELDS.matchType.options.map((opt) => (
+                <Chip key={opt.value} $selected={matchType === opt.value} onClick={() => setMatchType(opt.value)}>{opt.label}</Chip>
+              ))}
+            </ChipGrid>
           </Section>
 
           {/* 등록 버튼 */}
@@ -814,6 +936,7 @@ const FieldGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+  overflow: hidden;
 `;
 
 const FieldItem = styled.div`
@@ -829,6 +952,8 @@ const FieldLabel = styled.div`
 `;
 
 const FieldInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
@@ -842,6 +967,18 @@ const AreaRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+const TimeRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+`;
+
+const ChipRow4 = styled.div`
+  display: flex;
+  gap: 8px;
 `;
 
 const AddressModalOverlay = styled.div`

@@ -7,6 +7,7 @@ import {
   IoCloseOutline, IoCalendarOutline, IoLocationOutline,
   IoTimeOutline, IoExitOutline, IoEllipsisHorizontal, IoSearchOutline,
   IoPencilOutline, IoTrashOutline, IoCloseCircle, IoStar, IoStarOutline,
+  IoReceiptOutline,
 } from "react-icons/io5";
 import { THEME, CATEGORIES } from "../../config/homeproConfig";
 import { db } from "../../api/config";
@@ -19,8 +20,9 @@ import {
   subscribeChatRoom, subscribeMessages, clearUnread, leaveChatRoom,
   sendTextMessage, sendFileMessage, sendScheduleMessage, sendSchedulesMessage,
   deleteMessage, editMessage, setTyping, clearTyping, updateQuoteStatus,
-  processPayment, completeWork, submitReview, cancelOrder,
+  processPayment, completeWork, submitReview, cancelOrder, sendSystemMessage,
 } from "../../service/ChatService";
+import { updateOrderStatus } from "../../service/OrderService";
 
 const formatMsgTime = (timestamp) => {
   if (!timestamp) return "";
@@ -391,17 +393,66 @@ const ChatDetailPage = () => {
     })();
   }, [messages]);
 
+  // 오더 정보 로드
+  const [orderData, setOrderData] = useState(null);
+  useEffect(() => {
+    if (!room?.orderId) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "homepro_orders", room.orderId));
+        if (snap.exists()) setOrderData({ id: snap.id, ...snap.data() });
+      } catch (e) { console.warn("오더 조회 실패:", e); }
+    })();
+  }, [room?.orderId]);
+
+  // 오더 상태 관련
+  const normalizeOrderStatus = (s) => {
+    if (s === "요청") return "접수";
+    if (s === "진행" || s === "결제") return "배정";
+    if (s === "리뷰") return "정산";
+    return s;
+  };
+  const orderDisplayStatus = orderData ? normalizeOrderStatus(orderData.orderStatus) : null;
+  const isOrderCreator = orderData?.createdBy === myUid;
+  const isMatchedPro = orderData?.matchedProUid === myUid;
+
+  const handleOrderStatusChange = async (newStatus, label) => {
+    if (!window.confirm(`${label} 하시겠습니까?`)) return;
+    try {
+      await updateOrderStatus(room.orderId, newStatus);
+      setOrderData((prev) => prev ? { ...prev, orderStatus: newStatus } : prev);
+      const statusLabel = normalizeOrderStatus(newStatus);
+      await sendSystemMessage(roomId, { text: `상태가 "${statusLabel}"(으)로 변경되었습니다.`, type: "system" });
+      // 상대방에게 푸시 알림
+      try {
+        const { addDoc, collection: col, serverTimestamp: ts } = await import("firebase/firestore");
+        const other = (room?.participants || []).find((u) => u !== myUid);
+        if (other) {
+          await addDoc(col(db, "notifications"), {
+            targetUids: [other], title: "상태 변경", body: `오더 상태가 "${statusLabel}"(으)로 변경되었습니다`,
+            type: "order_status_changed", data: { orderId: room.orderId }, read: false, sent: false, createdAt: ts(),
+          });
+        }
+      } catch {}
+      showToast(`${statusLabel} 처리되었습니다`);
+    } catch (e) {
+      showToast("상태 변경에 실패했습니다");
+    }
+  };
+
   // 견적 연동 채팅방: 메시지 입력 잠금 여부
   const isQuoteRoom = !!room?.orderId;
   const quoteStatus = room?.quoteStatus || "";
   const isQuoteLocked = isQuoteRoom && (quoteStatus === "pending" || quoteStatus === "rejected" || quoteStatus === "cancelled");
-  const isOrderOwner = room?.orderId && room?.participants
-    ? (() => { /* 의뢰자인지 판단 — orderId의 createdBy와 비교하기 어려우므로 시스템 메시지의 quoteData.proUid로 판단 */
-        const quoteMsg = messages.find((m) => m.type === "quote" && m.senderId === "system");
-        if (quoteMsg?.quoteData?.proUid) return myUid !== quoteMsg.quoteData.proUid;
-        return false;
-      })()
-    : false;
+  const isOrderOwner = orderData
+    ? orderData.createdBy === myUid
+    : room?.orderId && room?.participants
+      ? (() => {
+          const quoteMsg = messages.find((m) => m.type === "quote" && m.senderId === "system");
+          if (quoteMsg?.quoteData?.proUid) return myUid !== quoteMsg.quoteData.proUid;
+          return false;
+        })()
+      : false;
 
   const handleAcceptQuote = async () => {
     if (!room?.orderId) return;
@@ -609,10 +660,61 @@ const ChatDetailPage = () => {
   return (
     <Container>
       <Header>
-        <BackBtn onClick={() => navigate(-1)}><IoChevronBack size={22} /></BackBtn>
+        <BackBtn onClick={() => {
+          if (window.history.length > 1) navigate(-1);
+          else navigate("/MobileMain", { state: { resetTab: Date.now(), initialTab: "my_orders" } });
+        }}><IoChevronBack size={22} /></BackBtn>
         <HeaderTitle>{roomName}</HeaderTitle>
         <LeaveBtn onClick={handleLeaveRoom}><IoExitOutline size={20} /></LeaveBtn>
       </Header>
+
+      {/* 견적 상세 보기 버튼 */}
+      {orderData && (
+        <OrderInfoBar onClick={() => navigate(`/order/detail/${orderData.id}`, { state: { order: orderData, category: CATEGORIES.find(c => c.id === orderData.categoryId) } })}>
+          {orderDisplayStatus && <OrderStatusBadge $status={orderDisplayStatus}>{orderDisplayStatus}</OrderStatusBadge>}
+          <OrderInfoText>{orderData.title || "견적 상세 보기"}</OrderInfoText>
+          <OrderInfoArrow>상세보기 ›</OrderInfoArrow>
+        </OrderInfoBar>
+      )}
+
+      {/* 상태 변경 버튼 (모든 상태 표시, 가능한 것만 활성화) */}
+      {orderData && (() => {
+        const s = orderDisplayStatus;
+        const creator = isOrderCreator;
+        const pro = isMatchedPro || !isOrderCreator;
+        // 각 상태별 활성화 조건
+        const canDo = {
+          "접수": false, // 현재 상태 표시용, 되돌릴 수 없음
+          "배정": s === "접수" && creator,
+          "완료": s === "배정" && pro,
+          "정산": s === "완료",
+          "취소": (s === "접수" || s === "배정") && creator,
+        };
+        const STATUS_COLORS = {
+          "접수": "#3B82F6", "배정": "#7C5CFC", "완료": "#10B981", "정산": "#F59E0B", "취소": "#EF4444",
+        };
+        const STATUS_LABELS = {
+          "배정": "배정하기", "완료": "작업완료", "정산": "정산완료", "취소": "취소하기",
+        };
+        const STATUS_CONFIRM = {
+          "배정": "이 프로에게 배정", "완료": "작업완료 처리", "정산": "정산완료 처리", "취소": "취소",
+        };
+        return (
+          <StatusStepBar>
+            {["접수", "배정", "완료", "정산", "취소"].map((st) => (
+              <StatusStepBtn
+                key={st}
+                $color={STATUS_COLORS[st]}
+                $active={s === st}
+                $enabled={canDo[st]}
+                onClick={() => canDo[st] && handleOrderStatusChange(st, STATUS_CONFIRM[st])}
+              >
+                {s === st ? `● ${st}` : STATUS_LABELS[st] || st}
+              </StatusStepBtn>
+            ))}
+          </StatusStepBar>
+        );
+      })()}
 
       {showSearch && (
         <SearchBar>
@@ -1076,16 +1178,7 @@ const ChatDetailPage = () => {
         </LockedInputArea>
       ) : (
         <>
-          {/* 의뢰자 액션 버튼 */}
-          {isQuoteRoom && isOrderOwner && quoteStatus === "accepted" && paymentStatus === "unpaid" && (
-            <ActionBtnArea><ActionBtnFull onClick={handleOpenPay}>결제하기</ActionBtnFull></ActionBtnArea>
-          )}
-          {isQuoteRoom && isOrderOwner && paymentStatus === "paid" && workStatus !== "completed" && (
-            <ActionBtnArea><ActionBtnFull $green onClick={handleCompleteWork}>작업완료</ActionBtnFull></ActionBtnArea>
-          )}
-          {isQuoteRoom && isOrderOwner && workStatus === "completed" && !hasReview && (
-            <ActionBtnArea><ActionBtnFull $gold onClick={handleOpenReview}>리뷰 작성</ActionBtnFull></ActionBtnArea>
-          )}
+          {/* 상태 변경은 상단 StatusStepBar로 이동 */}
           <InputArea>
             <HiddenFileInput ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.hwp,.zip,.txt" onChange={handleFileSelect} />
             <InputWrap>
@@ -1183,6 +1276,102 @@ const Header = styled.div`
   background: ${THEME.surface};
   border-bottom: 1px solid ${THEME.border};
   flex-shrink: 0;
+`;
+
+const OrderInfoBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: ${THEME.purpleLight || "#F3EEFF"};
+  border-bottom: 1px solid ${THEME.border};
+  cursor: pointer;
+  flex-shrink: 0;
+  &:active { opacity: 0.7; }
+`;
+
+const OrderInfoText = styled.div`
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: ${THEME.text};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const OrderInfoArrow = styled.div`
+  font-size: 12px;
+  font-weight: 500;
+  color: ${THEME.primary};
+  flex-shrink: 0;
+`;
+
+const StatusStepBar = styled.div`
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: ${THEME.surface};
+  border-bottom: 1px solid ${THEME.border};
+  flex-shrink: 0;
+`;
+
+const StatusStepBtn = styled.button`
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid ${({ $color, $active, $enabled }) => $active ? $color : $enabled ? $color : "#E0E0E0"};
+  background: ${({ $color, $active }) => $active ? $color : "#fff"};
+  color: ${({ $color, $active, $enabled }) => $active ? "#fff" : $enabled ? $color : "#999"};
+  cursor: ${({ $enabled }) => $enabled ? "pointer" : "default"};
+  opacity: 1;
+  transition: all 0.15s;
+  &:active {
+    ${({ $enabled }) => $enabled ? "transform: scale(0.95);" : ""}
+  }
+`;
+
+const ORDER_STATUS_COLORS = {
+  "접수": "#3B82F6",
+  "배정": "#7C5CFC",
+  "완료": "#10B981",
+  "정산": "#F59E0B",
+  "취소": "#9CA3AF",
+};
+
+const OrderStatusBadge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: ${({ $status }) => ORDER_STATUS_COLORS[$status] || "#9CA3AF"};
+  color: #fff;
+  flex-shrink: 0;
+`;
+
+const StatusActionBar = styled.div`
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #fff;
+  border-top: 1px solid ${THEME.border};
+  flex-shrink: 0;
+`;
+
+const StatusActionBtn = styled.button`
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: ${({ $color }) => $color || THEME.primary};
+  color: #fff;
+  &:active { opacity: 0.8; }
 `;
 
 const BackBtn = styled.button`

@@ -1369,4 +1369,52 @@ const ORDER_FORM_CONFIG = {
 
 };
 
+// ─────────────────────────────────────────────
+// 공통 B2B 거래 조건 필드 (모든 오더에 적용)
+// ─────────────────────────────────────────────
+export const COMMON_B2B_FIELDS = {
+  workDate: {
+    label: "작업날짜",
+    options: ["긴급", "오늘", "내일", "희망날짜지정", "가능한 빨리 진행 원해요", "협의가능해요!"],
+  },
+  workTime: {
+    label: "작업시간",
+    options: ["시간설정", "시간무관"],
+  },
+  paymentMethod: {
+    label: "결제수단 (프로 간 정산 조건)",
+    options: ["현금", "카드", "포인트", "PI"],
+  },
+  priceType: {
+    label: "단가유형",
+    options: [
+      { value: "fixed", label: "확정가", hasInput: true },
+      { value: "balance", label: "잔금", hasInput: true },
+      { value: "onsite", label: "현장견적", hasInput: false },
+      { value: "estimate", label: "견적제시", hasInput: false },
+    ],
+  },
+  referralFee: {
+    label: "소개(캐시백) 수수료",
+    types: [
+      { value: "none", label: "수수료없음" },
+      { value: "fixed", label: "정액설정" },
+      { value: "rate", label: "정률설정" },
+    ],
+    fixedAmounts: [10000, 15000, 20000, 25000, 30000, 35000],
+    rates: [5, 10, 15, 20, 25, 30],
+  },
+  referralPayMethod: {
+    label: "소개 수수료 지급방법",
+    options: ["계좌이체", "포인트", "PI"],
+  },
+  matchType: {
+    label: "홈프로 선택",
+    options: [
+      { value: "priority", label: "우선배정호출" },
+      { value: "compare", label: "다중비교호출" },
+    ],
+  },
+};
+
 export default ORDER_FORM_CONFIG;

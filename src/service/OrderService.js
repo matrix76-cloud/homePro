@@ -61,11 +61,29 @@ export async function getOrdersByCategory(categoryId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+/** 오더 1건 조회 */
+export async function getOrderById(orderId) {
+  const snap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() };
+}
+
 /** 내 오더 조회 */
 export async function getOrdersByUser(uid) {
   const q = query(
     ordersRef,
     where("createdBy", "==", uid),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** 받은 일감 조회 (내가 수주한 오더) */
+export async function getOrdersByMatchedPro(uid) {
+  const q = query(
+    ordersRef,
+    where("matchedProUid", "==", uid),
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);

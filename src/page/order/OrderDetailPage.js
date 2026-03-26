@@ -1,9 +1,9 @@
 /* eslint-disable */
 import React, { useState, useEffect, useCallback, useContext } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { THEME } from "../../config/homeproConfig";
-import { formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote } from "../../service/OrderService";
+import { THEME, CATEGORIES } from "../../config/homeproConfig";
+import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
 import { getUserProfileByUid } from "../../service/UserProfileService";
@@ -42,12 +42,22 @@ const STATUS_BADGE = {
 
 const OrderDetailPage = () => {
   const { state } = useLocation();
+  const { orderId } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
-  const order = state?.order;
-  const category = state?.category;
+  const [fetchedOrder, setFetchedOrder] = useState(null);
+  const order = state?.order || fetchedOrder;
+  const category = state?.category || (order ? CATEGORIES.find((c) => c.id === order.categoryId) : null);
   const myUid = userData?.uid || user?.USERS_ID;
+
+  // state 없으면 Firestore에서 직접 조회
+  useEffect(() => {
+    if (state?.order || !orderId) return;
+    getOrder(orderId).then((data) => {
+      if (data) setFetchedOrder(data);
+    }).catch((err) => console.error("오더 조회 실패:", err));
+  }, [orderId, state?.order]);
 
   const [photoIdx, setPhotoIdx] = useState(0);
   const [toast, setToast] = useState("");
@@ -230,87 +240,167 @@ const OrderDetailPage = () => {
   return (
     <SimpleBackLayout NAME={headerName} hideFooter>
       <Wrapper>
-        {/* 상단 사진 영역 */}
-        {photos.length > 0 ? (
-          <HeroArea $bg={THEME.background}>
-            <HeroPhoto src={photos[photoIdx]} alt={`사진${photoIdx + 1}`} />
-            {photos.length > 1 && (
-              <>
-                <NavBtn $left onClick={() => setPhotoIdx((p) => (p - 1 + photos.length) % photos.length)}>
-                  <IoChevronBack size={20} color="#fff" />
-                </NavBtn>
-                <NavBtn onClick={() => setPhotoIdx((p) => (p + 1) % photos.length)}>
-                  <IoChevronForward size={20} color="#fff" />
-                </NavBtn>
-              </>
-            )}
-            <BadgeRow />
-            <PhotoCounter>{photoIdx + 1} / {photos.length}</PhotoCounter>
-          </HeroArea>
-        ) : (
-          <HeroCompact>
-            <TimeLabel style={{ color: THEME.muted }}>{timeLabel}</TimeLabel>
-          </HeroCompact>
-        )}
-
-        {/* 태그 */}
-        <TagSection>
-          {order.subcategory && order.subcategory.split(", ").map((s, i) => (
-            <SubTag key={i}>{s.trim()}</SubTag>
-          ))}
-          {order.matchType && <MatchTag>[{order.matchType}]</MatchTag>}
-          {order.spaceType && <SpaceTag>{order.spaceType}</SpaceTag>}
-        </TagSection>
-
-        {/* 제목 */}
+        {/* ── 제목 (최상단) ── */}
         <TitleSection>
           <OrderTitle>{order.title}</OrderTitle>
           <WriterRow>
             <IoPersonOutline size={14} color={THEME.muted} />
             <WriterText>{order.writer}</WriterText>
+            <TimeLabel style={{ color: THEME.muted, marginLeft: "auto" }}>{timeLabel}</TimeLabel>
           </WriterRow>
         </TitleSection>
 
-        {/* 정보 카드 */}
-        <InfoCard>
-          <InfoRow>
-            <InfoIcon><IoLocationOutline size={22} color={THEME.muted} /></InfoIcon>
-            <InfoContent>
-              <InfoLabel>지역</InfoLabel>
-              <InfoValue>{order.location || "-"}</InfoValue>
-            </InfoContent>
-          </InfoRow>
-          <Divider />
-          <InfoRow>
-            <InfoIcon><IoCalendarOutline size={22} color={THEME.muted} /></InfoIcon>
-            <InfoContent>
-              <InfoLabel>일정</InfoLabel>
-              <InfoValue>{scheduleLabel}</InfoValue>
-            </InfoContent>
-          </InfoRow>
-          <Divider />
-          <InfoRow>
-            <InfoIcon><IoCashOutline size={22} color={THEME.muted} /></InfoIcon>
-            <InfoContent>
-              <InfoLabel>금액</InfoLabel>
-              <InfoValue>{order.price || "-"}</InfoValue>
-            </InfoContent>
-          </InfoRow>
-          {order.spaceType && (
-            <>
-              <Divider />
-              <InfoRow>
-                <InfoIcon><IoHomeOutline size={22} color={THEME.muted} /></InfoIcon>
-                <InfoContent>
-                  <InfoLabel>공간 유형</InfoLabel>
-                  <InfoValue>{order.spaceType}</InfoValue>
-                </InfoContent>
-              </InfoRow>
-            </>
-          )}
-        </InfoCard>
+        {/* ── 업무 분류 ── */}
+        {(order.subcategory || order.matchType || order.spaceType) && (
+          <DetailSection>
+            <SectionTitle>업무 분류</SectionTitle>
+            <TagSection>
+              {order.subcategory && order.subcategory.split(", ").map((s, i) => (
+                <SubTag key={i}>{s.trim()}</SubTag>
+              ))}
+              {order.spaceType && <SpaceTag>{order.spaceType}</SpaceTag>}
+              {order.matchType && <MatchTag>{order.matchType}</MatchTag>}
+            </TagSection>
+          </DetailSection>
+        )}
 
-        {/* 상세 내용 */}
+        {/* ── 사진 ── */}
+        {photos.length > 0 && (
+          <DetailSection>
+            <SectionTitle>첨부 사진</SectionTitle>
+            <PhotoWrap>
+              <HeroPhoto src={photos[photoIdx]} alt={`사진${photoIdx + 1}`} style={{ borderRadius: 10 }} />
+              {photos.length > 1 && (
+                <PhotoNavRow>
+                  <NavBtnInline onClick={() => setPhotoIdx((p) => (p - 1 + photos.length) % photos.length)}>
+                    <IoChevronBack size={18} color={THEME.muted} />
+                  </NavBtnInline>
+                  <PhotoCounterInline>{photoIdx + 1} / {photos.length}</PhotoCounterInline>
+                  <NavBtnInline onClick={() => setPhotoIdx((p) => (p + 1) % photos.length)}>
+                    <IoChevronForward size={18} color={THEME.muted} />
+                  </NavBtnInline>
+                </PhotoNavRow>
+              )}
+            </PhotoWrap>
+          </DetailSection>
+        )}
+
+        {/* ── 기본 정보 ── */}
+        <DetailSection>
+          <SectionTitle>기본 정보</SectionTitle>
+          <ConditionRow>
+            <ConditionLabel>지역</ConditionLabel>
+            <ConditionValue>{order.location || "-"}</ConditionValue>
+          </ConditionRow>
+          <ConditionRow>
+            <ConditionLabel>일정</ConditionLabel>
+            <ConditionValue>{scheduleLabel}</ConditionValue>
+          </ConditionRow>
+          <ConditionRow>
+            <ConditionLabel>금액</ConditionLabel>
+            <ConditionValue>{order.price || "-"}</ConditionValue>
+          </ConditionRow>
+          {order.spaceType && (
+            <ConditionRow>
+              <ConditionLabel>공간 유형</ConditionLabel>
+              <ConditionValue>{order.spaceType}</ConditionValue>
+            </ConditionRow>
+          )}
+        </DetailSection>
+
+        {/* ── 작업 일정 ── */}
+        {(order.workDate || order.workTime) && (
+          <DetailSection>
+            <SectionTitle>작업 일정</SectionTitle>
+            {order.workDate && (
+              <ConditionRow>
+                <ConditionLabel>작업날짜</ConditionLabel>
+                <ConditionValue>{order.workDate}{order.workDatePicker ? ` (${order.workDatePicker})` : ""}</ConditionValue>
+              </ConditionRow>
+            )}
+            {order.workTime && (
+              <ConditionRow>
+                <ConditionLabel>작업시간</ConditionLabel>
+                <ConditionValue>{typeof order.workTime === "object" ? `${order.workTime.start} ~ ${order.workTime.end}` : order.workTime}</ConditionValue>
+              </ConditionRow>
+            )}
+          </DetailSection>
+        )}
+
+        {/* ── 연락처 ── */}
+        {(order.ordererPhone || order.clientPhone) && (
+          <DetailSection>
+            <SectionTitle>연락처</SectionTitle>
+            {order.ordererPhone && (
+              <ConditionRow>
+                <ConditionLabel>접수자</ConditionLabel>
+                <ConditionValue>{order.ordererPhone}</ConditionValue>
+              </ConditionRow>
+            )}
+            {order.clientPhone && (
+              <ConditionRow>
+                <ConditionLabel>고객(실무자)</ConditionLabel>
+                <ConditionValue>{order.clientPhone}</ConditionValue>
+              </ConditionRow>
+            )}
+          </DetailSection>
+        )}
+
+        {/* ── 단가 · 결제 ── */}
+        {(order.b2bPriceType || order.paymentMethod) && (
+          <DetailSection>
+            <SectionTitle>단가 · 결제</SectionTitle>
+            {order.b2bPriceType && (
+              <ConditionRow>
+                <ConditionLabel>단가유형</ConditionLabel>
+                <ConditionValue>
+                  {order.b2bPriceType === "fixed" ? "확정가" : order.b2bPriceType === "balance" ? "잔금" : order.b2bPriceType === "onsite" ? "현장견적후" : order.b2bPriceType === "quote" ? "견적제시형" : order.b2bPriceType}
+                  {order.b2bPriceAmount ? ` ${Number(order.b2bPriceAmount).toLocaleString()}원` : ""}
+                </ConditionValue>
+              </ConditionRow>
+            )}
+            {order.paymentMethod && (
+              <ConditionRow>
+                <ConditionLabel>결제수단</ConditionLabel>
+                <ConditionValue>{order.paymentMethod}</ConditionValue>
+              </ConditionRow>
+            )}
+          </DetailSection>
+        )}
+
+        {/* ── 소개 수수료 ── */}
+        {order.referralFee && (
+          <DetailSection>
+            <SectionTitle>소개(캐시백) 수수료</SectionTitle>
+            <ConditionRow>
+              <ConditionLabel>수수료</ConditionLabel>
+              <ConditionValue>
+                {order.referralFee.type === "fixed"
+                  ? `정액 ${Number(order.referralFee.amount).toLocaleString()}원`
+                  : `정률 ${order.referralFee.rate}%`}
+              </ConditionValue>
+            </ConditionRow>
+            {order.referralPayMethod && (
+              <ConditionRow>
+                <ConditionLabel>지급방법</ConditionLabel>
+                <ConditionValue>{order.referralPayMethod}</ConditionValue>
+              </ConditionRow>
+            )}
+          </DetailSection>
+        )}
+
+        {/* ── 매칭 방식 ── */}
+        {order.matchType && (
+          <DetailSection>
+            <SectionTitle>홈프로 선택</SectionTitle>
+            <ConditionRow>
+              <ConditionLabel>매칭방식</ConditionLabel>
+              <ConditionValue>{order.matchType}</ConditionValue>
+            </ConditionRow>
+          </DetailSection>
+        )}
+
+        {/* ── 요청 상세 내용 ── */}
         <DetailSection>
           <SectionTitle>요청 상세 내용</SectionTitle>
           <DetailText>{order.description || "-"}</DetailText>
@@ -325,7 +415,7 @@ const OrderDetailPage = () => {
       <FixedBottom>
         <ActionRow>
           <SmallBtn onClick={handleCall}>
-            <IoCallOutline size={20} color="#fff" />
+            <IoCallOutline size={20} color="#555" />
           </SmallBtn>
           <MainCTA onClick={handleQuote}>견적 보내기</MainCTA>
         </ActionRow>
@@ -469,7 +559,6 @@ const TagSection = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 16px 16px 0;
 `;
 
 const SubTag = styled.span`
@@ -477,14 +566,8 @@ const SubTag = styled.span`
   border-radius: 20px;
   font-size: 12px;
   font-weight: 400;
-  background: ${THEME.purpleLight};
-  color: ${THEME.purple};
-`;
-
-const MatchTag = styled.span`
-  font-size: 12px;
-  font-weight: 400;
-  color: ${THEME.purple};
+  background: ${THEME.background};
+  color: ${THEME.textSecondary};
 `;
 
 const SpaceTag = styled.span`
@@ -590,6 +673,69 @@ const DetailText = styled.div`
   white-space: pre-line;
 `;
 
+const ConditionRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+
+const ConditionLabel = styled.div`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${THEME.muted};
+`;
+
+const ConditionValue = styled.div`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${THEME.text};
+  text-align: right;
+`;
+
+const PhotoWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+`;
+
+const PhotoNavRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const NavBtnInline = styled.button`
+  background: ${THEME.background};
+  border: 1px solid ${THEME.border};
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
+`;
+
+const PhotoCounterInline = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  font-weight: 500;
+`;
+
+const MatchTag = styled.span`
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background: ${THEME.background};
+  color: ${THEME.textSecondary};
+`;
+
 const BottomSpacer = styled.div`
   height: 100px;
 `;
@@ -618,15 +764,15 @@ const SmallBtn = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 10px;
-  border: none;
-  background: ${THEME.purple};
+  border: 1.5px solid #D1D5DB;
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   &:active {
-    background: ${THEME.primaryDark};
+    background: #F3F4F6;
   }
 `;
 
@@ -634,14 +780,14 @@ const MainCTA = styled.button`
   flex: 1;
   height: 48px;
   border-radius: 10px;
-  border: none;
-  background: ${THEME.primary};
-  color: #fff;
+  border: 1.5px solid #D1D5DB;
+  background: #fff;
+  color: #333;
   font-size: 16px;
-  font-weight: 400;
+  font-weight: 600;
   cursor: pointer;
   &:active {
-    background: ${THEME.primaryDark};
+    background: #F3F4F6;
   }
 `;
 

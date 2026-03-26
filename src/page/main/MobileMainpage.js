@@ -353,7 +353,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const filterCats = CATEGORIES;
 
   const HOME_TABS = [
-    { key: "assets", label: `보유자산`, sub: `${userPoints.toLocaleString()}P` },
+    { key: "assets", label: "보유자산" },
     { key: "all_orders", label: "요청목록" },
     { key: "my_orders", label: "나의오더현황" },
     { key: "ai", label: "AI견적" },

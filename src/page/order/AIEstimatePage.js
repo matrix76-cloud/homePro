@@ -80,14 +80,12 @@ export const AIEstimateContent = () => {
                 {isOpen && (
                   <CatGrid>
                     {groupCats.map((cat) => {
-                      const Icon = CATEGORY_ICONS[cat.id];
                       return (
                         <CatChip
                           key={cat.id}
                           $active={selectedCat === cat.id}
                           onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); setExpandedGroup(null); }}
                         >
-                          <CatChipIcon>{Icon ? <Icon /> : null}</CatChipIcon>
                           {(() => { const n = cat.shortName.replace(/[./·\-]/g, ""); return n.length > 6 ? n.slice(0, 6) : n; })()}
                         </CatChip>
                       );

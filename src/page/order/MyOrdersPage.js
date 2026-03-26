@@ -3,61 +3,88 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
-import { getOrdersByUser, formatOrderTime, updateOrderStatus, submitOrderReview } from "../../service/OrderService";
+import { getOrdersByUser, getOrdersByMatchedPro, formatOrderTime, updateOrderStatus, getOrderById } from "../../service/OrderService";
+import { subscribeChatRooms } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { MOBILEMAINMENU } from "../../utility/constants";
-import { IoStarOutline } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
 
-/* ─── 상태 탭 ─── */
-const STATUS_TABS = ["전체", "요청", "진행", "완료", "리뷰", "취소"];
+/* ─── 상태 필터 탭 ─── */
+const STATUS_TABS = ["전체", "접수", "배정", "완료", "정산", "취소"];
+
 const STATUS_DESC = {
-  "전체": "내가 올린 모든 요청이에요.\n각 요청이 지금 어떤 단계인지 한눈에 볼 수 있어요.",
-  "요청": "내 요청을 전문가들이 보고 있어요.\n곧 견적이 도착하면 채팅으로 알려드릴게요!",
-  "진행": "전문가와 매칭되어 작업이 진행 중이에요.\n채팅으로 소통하세요.",
-  "완료": "전문가가 작업을 마쳤어요.\n리뷰를 남겨주시면 전문가에게 큰 힘이 돼요!",
-  "리뷰": "리뷰가 등록된 요청이에요.\n감사합니다!",
-  "취소": "취소된 요청 목록이에요.\n같은 내용으로 다시 요청하실 수 있어요.",
-};
-const STATUS_STYLE = {
-  "요청": { bg: "#F59E0B", color: "#fff" },
-  "진행": { bg: THEME.primary, color: "#fff" },
-  "완료": { bg: THEME.success, color: "#fff" },
-  "리뷰": { bg: "#3B82F6", color: "#fff" },
-  "취소": { bg: THEME.danger, color: "#fff" },
-};
-const STATUS_TRANSITIONS = {
-  "요청": ["진행", "취소"],
-  "진행": ["완료", "취소"],
-  "완료": [],
-  "리뷰": [],
-  "취소": [],
+  "전체": "내가 등록한 일감과 받은 일감을\n한눈에 볼 수 있어요.",
+  "접수": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.\n내가 준 일감, 받은 일감 모두 여기에 표시돼요.",
+  "배정": "홈프로가 수락하여 진행 중인 오더입니다.\n일감을 준 프로는 취소, 받은 프로는 작업완료\n변경이 가능해요.",
+  "완료": "작업이 완료된 오더입니다.\n정산이 필요하면 정산완료로 변경해 주세요.",
+  "정산": "소개비·시공비 등 프로 간 정산이\n완료된 오더입니다.",
+  "취소": "취소된 오더입니다.\n취소 후에는 되돌릴 수 없어요.",
 };
 
-const normalizeStatus = (s) => s === "결제" ? "진행" : s;
+/* ─── 상태 배지 스타일 ─── */
+const STATUS_STYLE = {
+  "접수": { bg: "#3B82F6", color: "#fff" },
+  "배정": { bg: "#7C5CFC", color: "#fff" },
+  "완료": { bg: "#10B981", color: "#fff" },
+  "정산": { bg: "#F59E0B", color: "#fff" },
+  "취소": { bg: "#9CA3AF", color: "#fff" },
+};
+
+// Firestore 상태값 → 표시 상태 매핑
+const normalizeStatus = (s) => {
+  if (s === "요청") return "접수";
+  if (s === "진행" || s === "결제") return "배정";
+  if (s === "리뷰") return "정산";
+  return s;
+};
+
+const formatChatTime = (ts) => {
+  if (!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return "방금";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
+  if (diff < 86400000) return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+};
 
 /* 탭 내장용 콘텐츠 컴포넌트 */
 export const MyOrdersContent = () => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
-  const uid = userData?.uid || user?.USERS_ID || user?.uid;
+  const uid = user?.uid || userData?.uid || user?.USERS_ID;
   const [activeTab, setActiveTab] = useState("전체");
-  const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [reviewModal, setReviewModal] = useState(null);
+  const [chatMap, setChatMap] = useState({}); // orderId → [{ roomId, lastMessage, lastMessageAt, unreadCount, otherName }]
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       try {
-        const data = await getOrdersByUser(uid);
-        if (!cancelled) setOrders(data);
+        const [given, received] = await Promise.all([
+          getOrdersByUser(uid),
+          getOrdersByMatchedPro(uid),
+        ]);
+        if (!cancelled) {
+          // 준 일감 + 받은 일감 합치고 중복 제거 후 최신순 정렬
+          const merged = [...given, ...received];
+          const unique = merged.filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i);
+          unique.sort((a, b) => {
+            const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+            const tb = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+            return tb - ta;
+          });
+          setAllOrders(unique);
+        }
       } catch (err) {
-        console.error("내 오더 조회 실패:", err);
+        console.error("오더 조회 실패:", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -65,45 +92,70 @@ export const MyOrdersContent = () => {
     return () => { cancelled = true; };
   }, [uid]);
 
+  // 채팅방 실시간 구독 → orderId별 배열 매핑
+  useEffect(() => {
+    if (!uid) return;
+    return subscribeChatRooms(uid, (rooms) => {
+      const map = {};
+      rooms.forEach((r) => {
+        if (r.orderId) {
+          // 상대방 이름 추출
+          const otherUid = (r.participants || []).find((p) => p !== uid);
+          const otherName = otherUid && r.participantNames ? r.participantNames[otherUid] : "프로";
+          if (!map[r.orderId]) map[r.orderId] = [];
+          map[r.orderId].push({
+            roomId: r.id,
+            lastMessage: r.lastMessage || "",
+            lastMessageAt: r.lastMessageAt,
+            unreadCount: r.unreadCount?.[uid] || 0,
+            otherName,
+          });
+        }
+      });
+      setChatMap(map);
+
+      // 채팅방에 있는 오더 중 allOrders에 없는 것 추가 조회 (내가 견적 보낸 오더)
+      const missingIds = Object.keys(map).filter((oid) => !allOrders.find((o) => o.id === oid));
+      if (missingIds.length > 0) {
+        Promise.all(missingIds.map((oid) => getOrderById(oid))).then((results) => {
+          const valid = results.filter(Boolean);
+          if (valid.length > 0) {
+            setAllOrders((prev) => {
+              const merged = [...prev, ...valid];
+              const unique = merged.filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i);
+              unique.sort((a, b) => {
+                const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+                const tb = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                return tb - ta;
+              });
+              return unique;
+            });
+          }
+        });
+      }
+    });
+  }, [uid]);
+
+  const filtered = activeTab === "전체" ? allOrders : allOrders.filter((o) => normalizeStatus(o.orderStatus) === activeTab);
+
   const handleStatusChange = async (e, orderId, newStatus) => {
     e.stopPropagation();
     const label = newStatus === "취소" ? "취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다." : `상태를 "${newStatus}"(으)로 변경하시겠습니까?`;
     if (!window.confirm(label)) return;
     try {
       await updateOrderStatus(orderId, newStatus);
-      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
+      setAllOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
     } catch (e) {
       alert("상태 변경에 실패했습니다.");
     }
   };
 
-  const handleReviewSubmit = async ({ rating, content }) => {
-    if (!reviewModal) return;
-    try {
-      await submitOrderReview(reviewModal.orderId, {
-        rating,
-        content,
-        reviewerUid: uid,
-        reviewerName: userData?.name || "",
-      });
-      setOrders((prev) => prev.map((o) => o.id === reviewModal.orderId ? { ...o, orderStatus: "리뷰" } : o));
-      setReviewModal(null);
-      alert("리뷰가 등록되었습니다!");
-    } catch (e) {
-      alert("리뷰 등록에 실패했습니다.");
-    }
-  };
-
-  const filtered = activeTab === "전체"
-    ? orders
-    : orders.filter((o) => normalizeStatus(o.orderStatus) === activeTab);
-
   return (
     <PageWrap>
-        {/* 상태 탭 */}
+        {/* 상태 필터 탭 */}
         <TabRow>
           {STATUS_TABS.map((tab) => {
-            const count = tab === "전체" ? orders.length : orders.filter((o) => normalizeStatus(o.orderStatus) === tab).length;
+            const count = tab === "전체" ? allOrders.length : allOrders.filter((o) => normalizeStatus(o.orderStatus) === tab).length;
             return (
               <TabItem key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
                 <TabCount $active={activeTab === tab}>{count}</TabCount>
@@ -122,25 +174,32 @@ export const MyOrdersContent = () => {
           <EmptyWrap>
             <EmptyText>불러오는 중...</EmptyText>
           </EmptyWrap>
-        ) : filtered.length === 0 ? null : (
+        ) : filtered.length === 0 ? (
+          <EmptyWrap>
+            <EmptyText>해당 상태의 오더가 없어요.</EmptyText>
+          </EmptyWrap>
+        ) : (
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
             const displayStatus = normalizeStatus(order.orderStatus);
-            const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["요청"];
+            const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["접수"];
+            const chats = chatMap[order.id] || [];
             return (
-              <OrderCard key={order.id}>
+              <OrderCard
+                key={order.id}
+                onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}
+              >
                 <CardTop>
-                  <StatusBadge $bg={st.bg} $color={st.color}>{displayStatus}</StatusBadge>
+                  <CardTopLeft>
+                    <StatusBadge $bg={st.bg} $color={st.color}>{displayStatus}</StatusBadge>
+                    {order.createdBy === uid
+                      ? <RoleTag $type="request">내가 요청</RoleTag>
+                      : <RoleTag $type="support">견적 지원</RoleTag>
+                    }
+                  </CardTopLeft>
                   <OrderDate>{formatOrderTime(order.createdAt)}</OrderDate>
                 </CardTop>
                 <CardTitle>{order.title}</CardTitle>
-                <TagRow>
-                  <Tag>{cat?.shortName}</Tag>
-                  {order.subcategory && order.subcategory.split(", ").map((s, i) => (
-                    <Tag key={i}>{s.trim()}</Tag>
-                  ))}
-                  {order.matchType && <MatchTag>[{order.matchType}]</MatchTag>}
-                </TagRow>
                 <CardBottom>
                   <BottomLeft>
                     <BottomText>{order.location}</BottomText>
@@ -149,30 +208,47 @@ export const MyOrdersContent = () => {
                   <PriceText>{order.price}</PriceText>
                 </CardBottom>
 
-                {/* 상태 변경 콤보 */}
-                {STATUS_TRANSITIONS[displayStatus]?.length > 0 && (
-                  <ActionRow>
-                    <StatusSelect
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) handleStatusChange(e, order.id, e.target.value);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <option value="">상태 변경</option>
-                      {STATUS_TRANSITIONS[displayStatus].map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </StatusSelect>
-                  </ActionRow>
+                {/* 프로별 채팅 미리보기 목록 */}
+                {chats.length > 0 && (
+                  <ChatListWrap>
+                    <ChatListTitle>
+                      {order.createdBy === uid
+                        ? `견적 받은 프로 ${chats.length}명`
+                        : "견적 대화"
+                      }
+                    </ChatListTitle>
+                    {chats.map((chat) => {
+                      const hasUnread = chat.unreadCount > 0;
+                      return (
+                        <ChatPreviewRow key={chat.roomId} $unread={hasUnread} onClick={(e) => { e.stopPropagation(); navigate(`/chat/${chat.roomId}`); }}>
+                          <ChatLeft>
+                            <IoChatbubbleEllipsesOutline size={14} color={hasUnread ? THEME.primary : THEME.muted} />
+                            <ChatProName $unread={hasUnread}>{chat.otherName}</ChatProName>
+                            <ChatMsg $unread={hasUnread}>{chat.lastMessage}</ChatMsg>
+                          </ChatLeft>
+                          <ChatRight>
+                            <ChatTime>{formatChatTime(chat.lastMessageAt)}</ChatTime>
+                            {hasUnread
+                              ? <UnreadBadge>{chat.unreadCount > 99 ? "99+" : chat.unreadCount}</UnreadBadge>
+                              : <ReadLabel>읽음</ReadLabel>
+                            }
+                          </ChatRight>
+                        </ChatPreviewRow>
+                      );
+                    })}
+                  </ChatListWrap>
                 )}
 
-                {/* 완료 상태 → 리뷰 작성 버튼 */}
+                {/* 상태 변경 버튼 */}
+                {displayStatus === "배정" && (
+                  <ActionRow>
+                    {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
+                    {order.matchedProUid === uid && <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>}
+                  </ActionRow>
+                )}
                 {displayStatus === "완료" && (
                   <ActionRow>
-                    <ReviewBtn onClick={(e) => { e.stopPropagation(); setReviewModal({ orderId: order.id, order }); }}>
-                      <IoStarOutline size={16} /> 리뷰 작성
-                    </ReviewBtn>
+                    <ActionBtn $variant="warning" onClick={(e) => handleStatusChange(e, order.id, "정산")}>정산완료</ActionBtn>
                   </ActionRow>
                 )}
               </OrderCard>
@@ -180,41 +256,6 @@ export const MyOrdersContent = () => {
           })
         )}
 
-        {/* 리뷰 모달 */}
-        {reviewModal && (
-          <ReviewModalOverlay onClick={() => setReviewModal(null)}>
-            <ReviewModalBox onClick={(e) => e.stopPropagation()}>
-              <ReviewModalTitle>리뷰 작성</ReviewModalTitle>
-              <ReviewModalDesc>{reviewModal.order?.title}</ReviewModalDesc>
-              <ReviewStars>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    $active={star <= (reviewModal.rating || 0)}
-                    onClick={() => setReviewModal((prev) => ({ ...prev, rating: star }))}
-                  >
-                    ★
-                  </Star>
-                ))}
-              </ReviewStars>
-              <ReviewTextarea
-                placeholder="작업은 어떠셨나요? 후기를 남겨주세요."
-                value={reviewModal.content || ""}
-                onChange={(e) => setReviewModal((prev) => ({ ...prev, content: e.target.value }))}
-                rows={4}
-              />
-              <ReviewBtnRow>
-                <ReviewCancelBtn onClick={() => setReviewModal(null)}>취소</ReviewCancelBtn>
-                <ReviewSubmitBtn
-                  disabled={!reviewModal.rating}
-                  onClick={() => handleReviewSubmit({ rating: reviewModal.rating, content: reviewModal.content || "" })}
-                >
-                  등록
-                </ReviewSubmitBtn>
-              </ReviewBtnRow>
-            </ReviewModalBox>
-          </ReviewModalOverlay>
-        )}
     </PageWrap>
   );
 };
@@ -246,7 +287,19 @@ const TabRow = styled.div`
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 8px;
-  padding: 12px 12px 4px;
+  padding: 12px 12px 8px;
+`;
+
+const TabItem = styled.div`
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 0;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  border: 1px solid ${({ $active }) => $active ? THEME.primary : "#EEEEED"};
+  cursor: pointer;
+  transition: all 0.15s;
+  &:active { transform: scale(0.96); }
 `;
 
 const TabDescWrap = styled.div`
@@ -275,18 +328,9 @@ const TabDesc = styled.div`
   border-radius: 10px;
   line-height: 1.5;
   white-space: pre-line;
-`;
-
-const TabItem = styled.div`
-  background: #fff;
-  border-radius: 12px;
-  padding: 8px 0;
-  text-align: center;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1px solid ${({ $active }) => $active ? THEME.primary : "#EEEEED"};
-  cursor: pointer;
-  transition: all 0.15s;
-  &:active { transform: scale(0.96); }
+  min-height: 56px;
+  display: flex;
+  align-items: center;
 `;
 
 const TabCount = styled.div`
@@ -318,6 +362,21 @@ const CardTop = styled.div`
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+`;
+
+const CardTopLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const RoleTag = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: ${({ $type }) => $type === "request" ? "#EFF6FF" : "#FEF3C7"};
+  color: ${({ $type }) => $type === "request" ? "#3B82F6" : "#B45309"};
 `;
 
 const StatusBadge = styled.span`
@@ -393,6 +452,89 @@ const PriceText = styled.div`
   color: ${THEME.primary};
 `;
 
+const ChatListWrap = styled.div`
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid ${THEME.border};
+`;
+
+const ChatListTitle = styled.div`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${THEME.muted};
+  margin-bottom: 4px;
+`;
+
+const ChatPreviewRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  background: ${({ $unread }) => $unread ? "#F8F6FF" : "transparent"};
+  &:not(:last-child) {
+    border-bottom: 1px solid ${THEME.border};
+  }
+  &:active { opacity: 0.7; }
+`;
+
+const ChatLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+`;
+
+const ChatProName = styled.span`
+  font-size: 13px;
+  font-weight: ${({ $unread }) => $unread ? 700 : 500};
+  color: ${({ $unread }) => $unread ? THEME.text : THEME.textSecondary};
+  flex-shrink: 0;
+`;
+
+const ChatMsg = styled.div`
+  font-size: 13px;
+  font-weight: ${({ $unread }) => $unread ? 600 : 400};
+  color: ${({ $unread }) => $unread ? THEME.text : THEME.muted};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const ChatRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+`;
+
+const ChatTime = styled.div`
+  font-size: 11px;
+  color: ${THEME.muted};
+`;
+
+const UnreadBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+`;
+
+const ReadLabel = styled.span`
+  font-size: 10px;
+  color: ${THEME.muted};
+`;
+
 const ActionRow = styled.div`
   margin-top: 10px;
   padding-top: 10px;
@@ -402,118 +544,22 @@ const ActionRow = styled.div`
   gap: 8px;
 `;
 
-const StatusSelect = styled.select`
-  border: 1px solid ${THEME.border};
-  background: ${THEME.surface};
-  color: ${THEME.text};
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  outline: none;
-  &:focus { border-color: ${THEME.primary}; }
-`;
+const VARIANT_COLORS = {
+  danger: "#EF4444",
+  success: "#10B981",
+  warning: "#F59E0B",
+};
 
-const ReviewBtn = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid ${THEME.primary};
-  background: ${THEME.primary}10;
-  color: ${THEME.primary};
+const ActionBtn = styled.button`
+  border: 1px solid ${({ $variant }) => VARIANT_COLORS[$variant] || THEME.primary};
+  background: ${({ $variant }) => (VARIANT_COLORS[$variant] || THEME.primary) + "10"};
+  color: ${({ $variant }) => VARIANT_COLORS[$variant] || THEME.primary};
   font-size: 13px;
   font-weight: 500;
   padding: 6px 16px;
   border-radius: 8px;
   cursor: pointer;
   &:active { opacity: 0.7; }
-`;
-
-const ReviewModalOverlay = styled.div`
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-`;
-
-const ReviewModalBox = styled.div`
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  width: 100%;
-  max-width: 360px;
-`;
-
-const ReviewModalTitle = styled.div`
-  font-size: 18px;
-  font-weight: 600;
-  color: ${THEME.text};
-  margin-bottom: 4px;
-`;
-
-const ReviewModalDesc = styled.div`
-  font-size: 13px;
-  color: ${THEME.muted};
-  margin-bottom: 16px;
-`;
-
-const ReviewStars = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  justify-content: center;
-`;
-
-const Star = styled.span`
-  font-size: 32px;
-  cursor: pointer;
-  color: ${({ $active }) => $active ? "#F59E0B" : "#E5E7EB"};
-  transition: color 0.15s;
-`;
-
-const ReviewTextarea = styled.textarea`
-  width: 100%;
-  border: 1px solid ${THEME.border};
-  border-radius: 10px;
-  padding: 12px;
-  font-size: 14px;
-  resize: none;
-  outline: none;
-  box-sizing: border-box;
-  &:focus { border-color: ${THEME.primary}; }
-`;
-
-const ReviewBtnRow = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-`;
-
-const ReviewCancelBtn = styled.button`
-  flex: 1;
-  padding: 12px;
-  border: 1px solid ${THEME.border};
-  background: #fff;
-  border-radius: 10px;
-  font-size: 15px;
-  cursor: pointer;
-`;
-
-const ReviewSubmitBtn = styled.button`
-  flex: 1;
-  padding: 12px;
-  border: none;
-  background: ${THEME.primary};
-  color: #fff;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
 const EmptyWrap = styled.div`

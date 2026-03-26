@@ -66,7 +66,6 @@ const TrainingPage = () => {
                     filtered.map((item) => (
                         <Card key={item.id} onClick={() => navigate(`/training/${item.id}`)}>
                             <CardTop>
-                                <CategoryBadge>{item.category}</CategoryBadge>
                                 <StatusBadge $status={item.status}>
                                     {item.status || "모집중"}
                                 </StatusBadge>
