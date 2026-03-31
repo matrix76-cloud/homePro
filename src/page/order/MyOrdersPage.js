@@ -13,32 +13,36 @@ import { MOBILEMAINMENU } from "../../utility/constants";
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
 
 /* ─── 상태 필터 탭 ─── */
-const STATUS_TABS = ["전체", "접수", "배정", "완료", "정산", "취소"];
+const STATUS_TABS = ["전체", "등록", "배정", "업체선택", "완료", "취소", "거부"];
 
 const STATUS_DESC = {
   "전체": "내가 등록한 일감과 받은 일감을\n한눈에 볼 수 있어요.",
-  "접수": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.\n내가 준 일감, 받은 일감 모두 여기에 표시돼요.",
+  "등록": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.",
   "배정": "홈프로가 수락하여 진행 중인 오더입니다.\n일감을 준 프로는 취소, 받은 프로는 작업완료\n변경이 가능해요.",
-  "완료": "작업이 완료된 오더입니다.\n정산이 필요하면 정산완료로 변경해 주세요.",
-  "정산": "소개비·시공비 등 프로 간 정산이\n완료된 오더입니다.",
+  "업체선택": "다중비교호출로 지원자가 모집된 오더입니다.\n지원자 중 1명을 선정해 주세요.",
+  "완료": "작업이 완료된 오더입니다.",
   "취소": "취소된 오더입니다.\n취소 후에는 되돌릴 수 없어요.",
+  "거부": "거부 등록된 오더입니다.",
 };
 
 /* ─── 상태 배지 스타일 ─── */
 const STATUS_STYLE = {
-  "접수": { bg: "#3B82F6", color: "#fff" },
+  "등록": { bg: "#3B82F6", color: "#fff" },
   "배정": { bg: "#7C5CFC", color: "#fff" },
+  "업체선택": { bg: "#F59E0B", color: "#fff" },
   "완료": { bg: "#10B981", color: "#fff" },
-  "정산": { bg: "#F59E0B", color: "#fff" },
   "취소": { bg: "#9CA3AF", color: "#fff" },
+  "거부": { bg: "#EF4444", color: "#fff" },
+  "대기": { bg: "#F97316", color: "#fff" },
 };
 
 // Firestore 상태값 → 표시 상태 매핑
 const normalizeStatus = (s) => {
-  if (s === "요청") return "접수";
+  if (s === "요청" || s === "접수") return "등록";
   if (s === "진행" || s === "결제") return "배정";
-  if (s === "리뷰") return "정산";
-  return s;
+  if (s === "업체선택") return "업체선택";
+  if (s === "거부") return "거부";
+  return s; // 배정, 완료, 취소, 대기 등은 그대로
 };
 
 const formatChatTime = (ts) => {
@@ -182,7 +186,7 @@ export const MyOrdersContent = () => {
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
             const displayStatus = normalizeStatus(order.orderStatus);
-            const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["접수"];
+            const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["등록"];
             const chats = chatMap[order.id] || [];
             return (
               <OrderCard
@@ -246,9 +250,21 @@ export const MyOrdersContent = () => {
                     {order.matchedProUid === uid && <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>}
                   </ActionRow>
                 )}
-                {displayStatus === "완료" && (
+                {displayStatus === "업체선택" && order.createdBy === uid && (
                   <ActionRow>
-                    <ActionBtn $variant="warning" onClick={(e) => handleStatusChange(e, order.id, "정산")}>정산완료</ActionBtn>
+                    <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
+                  </ActionRow>
+                )}
+                {displayStatus === "등록" && order.createdBy === uid && (
+                  <ActionRow>
+                    <ActionBtn $variant="warning" onClick={(e) => handleStatusChange(e, order.id, "대기")}>대기</ActionBtn>
+                    <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
+                  </ActionRow>
+                )}
+                {displayStatus === "대기" && order.createdBy === uid && (
+                  <ActionRow>
+                    <ActionBtn $variant="primary" onClick={(e) => handleStatusChange(e, order.id, "접수")}>재접수</ActionBtn>
+                    <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); navigate("/order/create", { state: { order } }); }}>수정</ActionBtn>
                   </ActionRow>
                 )}
               </OrderCard>
@@ -285,7 +301,7 @@ const PageWrap = styled.div`
 
 const TabRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   padding: 12px 12px 8px;
 `;
@@ -310,7 +326,10 @@ const TabDescWrap = styled.div`
 const TabDescArrow = styled.div`
   position: absolute;
   top: -6px;
-  left: calc(${({ $idx }) => ($idx * 100 / 6 + 100 / 12)}% - 6px);
+  left: calc(${({ $idx }) => {
+    const col = $idx < 4 ? $idx : $idx - 4;
+    return col * 100 / 4 + 100 / 8;
+  }}% - 6px);
   width: 12px;
   height: 12px;
   background: ${THEME.primary};
@@ -341,7 +360,7 @@ const TabCount = styled.div`
 `;
 
 const TabLabel = styled.div`
-  font-size: 11px;
+  font-size: 12px;
   color: ${THEME.muted};
   margin-top: 4px;
   font-weight: 500;
@@ -548,6 +567,7 @@ const VARIANT_COLORS = {
   danger: "#EF4444",
   success: "#10B981",
   warning: "#F59E0B",
+  primary: "#7C5CFC",
 };
 
 const ActionBtn = styled.button`

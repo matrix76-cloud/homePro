@@ -19,6 +19,8 @@ import { getProsByCategory } from "../../service/ProService";
 import { createChatRoom } from "../../service/ChatService";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { GradeBadge, GradeProgressBar } from "../../utility/gradeUtils";
+import { addToBlacklist } from "../../service/BlacklistService";
+import { IoShieldOutline } from "react-icons/io5";
 
 const BizProfilePage = () => {
   const navigate = useNavigate();
@@ -411,6 +413,23 @@ const BizProfilePage = () => {
               })
             )}
           </>
+        )}
+
+        {isViewingOther && (
+          <BlacklistBtnWrap>
+            <BlacklistBtn onClick={async () => {
+              const reason = window.prompt("블랙리스트 사유를 입력해주세요 (선택)");
+              if (reason === null) return; // 취소
+              try {
+                await addToBlacklist(myUid, viewUid, reason);
+                alert("블랙리스트에 등록되었습니다");
+              } catch (e) {
+                alert(e.message || "등록 실패");
+              }
+            }}>
+              <IoShieldOutline size={16} /> 블랙리스트 신고
+            </BlacklistBtn>
+          </BlacklistBtnWrap>
         )}
 
         <BottomSpacer />
@@ -1067,6 +1086,23 @@ const ViewBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { background: ${THEME.background}; }
+`;
+
+const BlacklistBtnWrap = styled.div`
+  padding: 16px 20px;
+`;
+const BlacklistBtn = styled.button`
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #EF4444;
+  background: #FEF2F2;
+  color: #EF4444;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
 `;
 
 const BottomSpacer = styled.div`

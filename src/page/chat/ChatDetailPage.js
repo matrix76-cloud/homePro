@@ -109,6 +109,22 @@ const ChatDetailPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 더보기 메뉴
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  const handleBlockUser = async () => {
+    setShowMoreMenu(false);
+    const reason = window.prompt("거부 사유를 입력해주세요 (선택)");
+    if (reason === null) return; // 취소
+    try {
+      const { blockUser } = await import("../../service/BlockService");
+      await blockUser(myUid, otherUid, reason || "");
+      alert("거부 등록되었습니다");
+    } catch (e) {
+      alert(e.message || "거부 등록 실패");
+    }
+  };
+
   // 타이핑 표시 — 상대방
   const otherTyping = (() => {
     if (!room?.typing || !myUid) return false;
@@ -407,19 +423,30 @@ const ChatDetailPage = () => {
 
   // 오더 상태 관련
   const normalizeOrderStatus = (s) => {
-    if (s === "요청") return "접수";
+    if (s === "요청" || s === "접수") return "등록";
     if (s === "진행" || s === "결제") return "배정";
-    if (s === "리뷰") return "정산";
+    if (s === "업체선택대기") return "업체선택대기";
+    if (s === "리뷰" || s === "정산") return "완료";
     return s;
   };
   const orderDisplayStatus = orderData ? normalizeOrderStatus(orderData.orderStatus) : null;
   const isOrderCreator = orderData?.createdBy === myUid;
   const isMatchedPro = orderData?.matchedProUid === myUid;
 
-  const handleOrderStatusChange = async (newStatus, label) => {
-    if (!window.confirm(`${label} 하시겠습니까?`)) return;
+  const handleOrderStatusChange = async (newStatus, cancelReason) => {
     try {
-      await updateOrderStatus(room.orderId, newStatus);
+      // 대기 전환 시 특별 처리
+      if (newStatus === "대기") {
+        try {
+          const { setOrderWaiting } = await import("../../service/OrderService");
+          await setOrderWaiting(orderData.id);
+        } catch {
+          await updateOrderStatus(room.orderId, "대기");
+        }
+      } else {
+        const extra = cancelReason ? { cancelReason } : {};
+        await updateOrderStatus(room.orderId, newStatus, extra);
+      }
       setOrderData((prev) => prev ? { ...prev, orderStatus: newStatus } : prev);
       const statusLabel = normalizeOrderStatus(newStatus);
       await sendSystemMessage(roomId, { text: `상태가 "${statusLabel}"(으)로 변경되었습니다.`, type: "system" });
@@ -515,6 +542,7 @@ const ChatDetailPage = () => {
   const [reviewSending, setReviewSending] = useState(false);
   const [toast, setToast] = useState("");
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const handleOpenPay = () => {
     setPayAmount(String(quoteAmount || ""));
@@ -665,7 +693,11 @@ const ChatDetailPage = () => {
           else navigate("/MobileMain", { state: { resetTab: Date.now(), initialTab: "my_orders" } });
         }}><IoChevronBack size={22} /></BackBtn>
         <HeaderTitle>{roomName}</HeaderTitle>
-        <LeaveBtn onClick={handleLeaveRoom}><IoExitOutline size={20} /></LeaveBtn>
+        <HeaderRight>
+          <HeaderIconBtn onClick={() => setShowSearch(!showSearch)}><IoSearchOutline size={20} /></HeaderIconBtn>
+          <HeaderIconBtn onClick={() => setShowMoreMenu(!showMoreMenu)}><IoEllipsisHorizontal size={20} /></HeaderIconBtn>
+          <LeaveBtn onClick={handleLeaveRoom}><IoExitOutline size={20} /></LeaveBtn>
+        </HeaderRight>
       </Header>
 
       {/* 견적 상세 보기 버튼 */}
@@ -682,32 +714,39 @@ const ChatDetailPage = () => {
         const s = orderDisplayStatus;
         const creator = isOrderCreator;
         const pro = isMatchedPro || !isOrderCreator;
-        // 각 상태별 활성화 조건
         const canDo = {
-          "접수": false, // 현재 상태 표시용, 되돌릴 수 없음
-          "배정": s === "접수" && creator,
+          "등록": false,
+          "배정": s === "등록" && creator,
           "완료": s === "배정" && pro,
-          "정산": s === "완료",
-          "취소": (s === "접수" || s === "배정") && creator,
+          "대기": (s === "등록" || s === "배정") && creator,
+          "취소": (s === "등록" || s === "배정") && creator,
         };
         const STATUS_COLORS = {
-          "접수": "#3B82F6", "배정": "#7C5CFC", "완료": "#10B981", "정산": "#F59E0B", "취소": "#EF4444",
+          "등록": "#3B82F6", "배정": "#7C5CFC", "완료": "#10B981", "대기": "#F97316", "취소": "#EF4444",
         };
         const STATUS_LABELS = {
-          "배정": "배정하기", "완료": "작업완료", "정산": "정산완료", "취소": "취소하기",
+          "배정": "배정하기", "완료": "작업완료", "대기": "대기전환", "취소": "취소하기",
         };
         const STATUS_CONFIRM = {
-          "배정": "이 프로에게 배정", "완료": "작업완료 처리", "정산": "정산완료 처리", "취소": "취소",
+          "배정": "이 프로에게 배정하시겠습니까?",
+          "완료": "작업완료 처리하시겠습니까?",
+          "대기": "대기 상태로 전환하시겠습니까?\n배정된 홈프로의 매칭이 취소됩니다.",
+          "취소": "취소하시겠습니까?",
         };
         return (
           <StatusStepBar>
-            {["접수", "배정", "완료", "정산", "취소"].map((st) => (
+            {["등록", "배정", "완료", "대기", "취소"].map((st) => (
               <StatusStepBtn
                 key={st}
                 $color={STATUS_COLORS[st]}
                 $active={s === st}
                 $enabled={canDo[st]}
-                onClick={() => canDo[st] && handleOrderStatusChange(st, STATUS_CONFIRM[st])}
+                onClick={() => {
+                  if (!canDo[st]) return;
+                  if (st === "취소") { setShowCancelModal(true); return; }
+                  if (!window.confirm(STATUS_CONFIRM[st])) return;
+                  handleOrderStatusChange(st);
+                }}
               >
                 {s === st ? `● ${st}` : STATUS_LABELS[st] || st}
               </StatusStepBtn>
@@ -1249,6 +1288,34 @@ const ChatDetailPage = () => {
         </PayOverlay>
       )}
 
+      {/* 더보기 메뉴 */}
+      {showMoreMenu && (
+        <MenuOverlay onClick={() => setShowMoreMenu(false)}>
+          <MsgMenu onClick={(e) => e.stopPropagation()}>
+            <MsgMenuItem onClick={handleBlockUser}>
+              <IoCloseCircle size={16} /> 거부 등록
+            </MsgMenuItem>
+          </MsgMenu>
+        </MenuOverlay>
+      )}
+
+      {/* 취소 사유 선택 바텀시트 */}
+      {showCancelModal && (
+        <CancelModalOverlay onClick={() => setShowCancelModal(false)}>
+          <CancelModalSheet onClick={(e) => e.stopPropagation()}>
+            <CancelTitle>취소 사유를 선택해주세요</CancelTitle>
+            {["잘못접수", "일정변경", "오더수정", "기타"].map((reason) => (
+              <CancelOption key={reason} onClick={() => {
+                handleOrderStatusChange("취소", reason);
+                setShowCancelModal(false);
+              }}>
+                {reason}
+              </CancelOption>
+            ))}
+          </CancelModalSheet>
+        </CancelModalOverlay>
+      )}
+
       {toast && <ChatToast>{toast}</ChatToast>}
     </Container>
   );
@@ -1318,13 +1385,13 @@ const StatusStepBar = styled.div`
 
 const StatusStepBtn = styled.button`
   flex: 1;
-  padding: 8px 4px;
+  padding: 10px 4px;
   border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid ${({ $color, $active, $enabled }) => $active ? $color : $enabled ? $color : "#E0E0E0"};
-  background: ${({ $color, $active }) => $active ? $color : "#fff"};
-  color: ${({ $color, $active, $enabled }) => $active ? "#fff" : $enabled ? $color : "#999"};
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid ${({ $active, $enabled }) => $active ? THEME.primary : $enabled ? THEME.primary : "#E0E0E0"};
+  background: ${({ $active }) => $active ? THEME.primary : "#fff"};
+  color: ${({ $active, $enabled }) => $active ? "#fff" : $enabled ? THEME.primary : "#999"};
   cursor: ${({ $enabled }) => $enabled ? "pointer" : "default"};
   opacity: 1;
   transition: all 0.15s;
@@ -1334,11 +1401,13 @@ const StatusStepBtn = styled.button`
 `;
 
 const ORDER_STATUS_COLORS = {
-  "접수": "#3B82F6",
+  "등록": "#3B82F6",
   "배정": "#7C5CFC",
+  "업체선택대기": "#F59E0B",
   "완료": "#10B981",
-  "정산": "#F59E0B",
+  "대기": "#F97316",
   "취소": "#9CA3AF",
+  "거부": "#EF4444",
 };
 
 const OrderStatusBadge = styled.span`
@@ -2914,6 +2983,26 @@ const ReviewCharCount = styled.div`
   font-size: 12px;
   color: ${THEME.muted};
   margin-top: 4px;
+`;
+
+const CancelModalOverlay = styled.div`
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 1000;
+`;
+const CancelModalSheet = styled.div`
+  background: #fff; border-radius: 16px 16px 0 0;
+  padding: 20px; width: 100%; max-width: 400px;
+`;
+const CancelTitle = styled.div`
+  font-size: 16px; font-weight: 700; margin-bottom: 16px;
+`;
+const CancelOption = styled.div`
+  padding: 14px 0; font-size: 15px; color: #333;
+  border-bottom: 1px solid #F0F0F4; cursor: pointer;
+  &:last-child { border-bottom: none; }
+  &:active { background: #F7F8FA; }
 `;
 
 const ChatToast = styled.div`

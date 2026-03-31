@@ -18,7 +18,7 @@ import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
 /* ─── 오더 상태 ─── */
-const STATUS_TABS = ["접수", "마감", "취소"];
+const STATUS_TABS = ["접수", "마감"];
 const STATUS_STYLE = {
   "접수": { bg: "#F59E0B", color: "#fff" },
   "마감": { bg: "#3B82F6", color: "#fff" },
@@ -140,7 +140,7 @@ const InviteTabContent = () => {
   const [busy, setBusy] = useState(false);
   const [alreadyReferred, setAlreadyReferred] = useState(false);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 5000); };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
 
   useEffect(() => {
     if (!uid) return;
@@ -271,7 +271,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [toast, setToast] = useState("");
   const [userPoints, setUserPoints] = useState(0);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 5000); };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
 
   const handleHideOrder = async (orderId) => {
     if (!uid || !orderId) return;
@@ -322,8 +322,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   // 상태 매핑 (요청/접수 → 접수, 완료/배차 → 마감)
   const mapStatus = (status) => {
     if (status === "요청" || status === "접수") return "접수";
-    if (status === "완료" || status === "배차" || status === "마감" || status === "지원") return "마감";
-    if (status === "취소") return "취소";
+    if (status === "배정" || status === "완료" || status === "마감" || status === "업체선택대기") return "마감";
+    if (status === "취소" || status === "대기" || status === "거부") return "마감";
     return "접수";
   };
 
@@ -394,24 +394,18 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {activeTab === "all_orders" && (
       <>
           <FilterBtnRow>
-            <RefreshBtn onClick={() => { setRawOrders([]); }}>
-              <IoRefreshOutline size={18} />
-            </RefreshBtn>
+            <FilterBtn onClick={() => { setRawOrders([]); }}>새로고침</FilterBtn>
             <FilterBtn $active={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
-              거리{activeDist !== "전체" ? `: ${activeDist}` : ""}
-              <IoChevronDown size={12} />
+              {activeDist !== "전체" ? activeDist : "거리"} <IoChevronDown size={11} />
             </FilterBtn>
             <FilterBtn $active={activeStatusFilter !== "전체"} onClick={() => setShowStatusSheet(true)}>
-              상태{activeStatusFilter !== "전체" ? `: ${activeStatusFilter}` : ""}
-              <IoChevronDown size={12} />
+              {activeStatusFilter !== "전체" ? activeStatusFilter : "상태"} <IoChevronDown size={11} />
             </FilterBtn>
             <FilterBtn $active={activePeriod !== "전체"} onClick={() => setShowPeriodSheet(true)}>
-              기간{activePeriod !== "전체" ? `: ${activePeriod}` : ""}
-              <IoChevronDown size={12} />
+              {activePeriod !== "전체" ? activePeriod : "기간"} <IoChevronDown size={11} />
             </FilterBtn>
             <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
-              카테고리{activeCatFilters.length > 0 ? ` (${activeCatFilters.length})` : ""}
-              <IoChevronDown size={12} />
+              {activeCatFilters.length > 0 ? `${activeCatFilters.length}개` : "카테고리"} <IoChevronDown size={11} />
             </FilterBtn>
           </FilterBtnRow>
 
@@ -423,12 +417,11 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
           ) : (
             <TableWrap>
               <TableHeader>
-                <ThCell $flex={1}>날짜</ThCell>
+                <ThCell $flex={1} style={{textAlign:"center"}}>날짜</ThCell>
                 <ThCell $flex={0.8} style={{textAlign:"center"}}>상태</ThCell>
                 <ThCell $flex={1.5} style={{textAlign:"center"}}>카테고리</ThCell>
                 <ThCell $flex={1.5} style={{textAlign:"center"}}>지역</ThCell>
-                <ThCell $flex={1} style={{textAlign:"center"}}>단가유형</ThCell>
-                <ThCell $flex={1.2} style={{textAlign:"right"}}>금액</ThCell>
+                <ThCell $flex={1.5} style={{textAlign:"center"}}>금액</ThCell>
               </TableHeader>
               {filteredOrders.map((order) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
@@ -437,7 +430,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const sStyle = STATUS_STYLE[status] || STATUS_STYLE["접수"];
                 const isUrgent = dateLabel === "긴급";
                 return (
-                  <TableRow key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
+                  <TableRow key={order.id} onClick={() => {
+                    if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
+                    navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
+                  }}>
                     <TdCell $flex={1}>
                       <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
                     </TdCell>
@@ -450,11 +446,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                     <TdCell $flex={1.5}>
                       <TdLocation>{order.location ? order.location.split(" ").slice(0, 2).join(" ") : "-"}</TdLocation>
                     </TdCell>
-                    <TdCell $flex={1} style={{alignItems:"center"}}>
-                      <TdPrice>{order.price && Number(order.price.replace(/[^0-9]/g, "")) > 0 ? "확정가" : "견적협의"}</TdPrice>
-                    </TdCell>
-                    <TdCell $flex={1.2} style={{alignItems:"flex-end"}}>
-                      <TdAmount>{order.price ? Number(order.price.replace(/[^0-9]/g, "")).toLocaleString() : "-"}</TdAmount>
+                    <TdCell $flex={1.5} style={{alignItems:"flex-end"}}>
+                      <TdAmount>{order.price && Number(order.price.replace(/[^0-9]/g, "")) > 0 ? `${Number(order.price.replace(/[^0-9]/g, "")).toLocaleString()}원` : "견적협의"}</TdAmount>
                     </TdCell>
                   </TableRow>
                 );
@@ -621,18 +614,12 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               </SheetCloseBtn>
             </SheetHeader>
             <SheetList>
-              {["전체", ...STATUS_TABS].map((s) => {
-                const sStyle = STATUS_STYLE[s];
-                return (
+              {["전체", ...STATUS_TABS].map((s) => (
                   <SheetItem key={s} onClick={() => { setActiveStatusFilter(s); setShowStatusSheet(false); }}>
-                    <SheetItemLeft>
-                      {sStyle && <TdStatusBadge style={{background: sStyle.bg, color: sStyle.color}}>{s}</TdStatusBadge>}
-                      {!sStyle && <SheetItemName>{s}</SheetItemName>}
-                    </SheetItemLeft>
+                    <SheetItemName>{s}</SheetItemName>
                     {activeStatusFilter === s && <IoCheckmarkCircle size={22} color={THEME.primary} />}
                   </SheetItem>
-                );
-              })}
+              ))}
             </SheetList>
           </SheetContent>
         </SheetOverlay>
@@ -1329,9 +1316,20 @@ const SectionTitle = styled.div`
 
 const FilterBtnRow = styled.div`
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   padding: 12px 16px 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const FilterLabel = styled.div`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${THEME.text};
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 `;
 
 const FilterBtn = styled.button`
@@ -1343,7 +1341,7 @@ const FilterBtn = styled.button`
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1703,7 +1701,7 @@ const TableHeader = styled.div`
 
 const ThCell = styled.div`
   flex: ${({ $flex }) => $flex || 1};
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
@@ -1769,7 +1767,7 @@ const TdName = styled.div`
 `;
 
 const TdCatName = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.text};
   white-space: nowrap;
@@ -1796,7 +1794,7 @@ const TdSub = styled.div`
 `;
 
 const TdLocation = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   color: ${THEME.textSecondary};
   white-space: nowrap;
   overflow: hidden;
@@ -1830,7 +1828,7 @@ const TdTime = styled.div`
 `;
 
 const TdDate = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   font-weight: ${({ $urgent }) => $urgent ? 700 : 400};
   color: ${({ $urgent }) => $urgent ? THEME.danger : THEME.text};
   white-space: nowrap;
@@ -1838,16 +1836,16 @@ const TdDate = styled.div`
 
 const TdStatusBadge = styled.span`
   display: inline-block;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
 `;
 
 const TdAmount = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.text};
   text-align: right;

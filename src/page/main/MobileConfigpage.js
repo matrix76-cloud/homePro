@@ -987,6 +987,21 @@ const MobileConfigpage = () => {
         </ConfigScrollRow>
       </ContentCard>
 
+      {/* 차단/거부 관리 */}
+      <ContentCard>
+        <CardTitle>차단 관리</CardTitle>
+        <SupportList>
+          <SupportItem onClick={() => navigate("/mypage/blacklist")}>
+            <SupportLabel>블랙리스트</SupportLabel>
+            <IoChevronForward size={18} color={THEME.muted} />
+          </SupportItem>
+          <SupportItem onClick={() => navigate("/mypage/blocks")} style={{ borderBottom: "none" }}>
+            <SupportLabel>거부 목록</SupportLabel>
+            <IoChevronForward size={18} color={THEME.muted} />
+          </SupportItem>
+        </SupportList>
+      </ContentCard>
+
       {/* 고객지원 */}
       <ContentCard>
         <CardTitle>고객지원</CardTitle>

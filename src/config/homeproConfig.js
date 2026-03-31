@@ -24,6 +24,8 @@ export const COLLECTIONS = {
     REFERRALS: "homepro_referrals",
     CASH: "homepro_cash",
     CHAT: "homepro_chat",
+    BLOCKS: "homepro_blocks",
+    BLACKLIST: "homepro_blacklist",
 };
 
 // ─── 로컬 스토리지 / 세션 키 ───
@@ -88,9 +90,29 @@ export const COMMISSION_PRESETS = {
 
 // ─── 프로 선택 방식 ───
 export const MATCH_TYPES = {
-    PRIORITY: "priority",        // 우선 배정호출
-    MULTI: "multi",              // 다중 비교호출
+    PRIORITY: "priority",        // 우선배정호출
+    COMPARE: "compare",          // 다중비교호출
+    DIRECT: "direct",            // 지정배정
 };
+
+// ─── 오더 상태 ───
+export const ORDER_STATUS = {
+    REGISTERED: "접수",           // 홈프로 수락 대기, 누구나 지원 가능
+    ASSIGNED: "배정",             // 홈프로 매칭 완료
+    WAITING: "대기",              // 오더 수정/재접수 전 보류 (메인에 안 올라감)
+    SELECTING: "업체선택대기",     // 다중비교호출 진행 중
+    COMPLETED: "완료",            // 홈프로가 작업완료 클릭
+    CANCELLED: "취소",            // 접수자 취소 또는 시간초과 자동취소
+    REJECTED: "거부",             // 거부 등록
+};
+
+// ─── 취소 사유 ───
+export const CANCEL_REASONS = [
+    "잘못접수",
+    "일정변경",
+    "오더수정",
+    "기타",
+];
 
 // ─── 회원 유형 ───
 export const USER_TYPES = {

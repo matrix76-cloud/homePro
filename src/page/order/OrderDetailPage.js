@@ -3,12 +3,27 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { THEME, CATEGORIES } from "../../config/homeproConfig";
-import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote } from "../../service/OrderService";
+import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
 import { getUserProfileByUid } from "../../service/UserProfileService";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
+// TODO: 에이전트A가 만들 함수들 — 아직 없으면 런타임에서 에러 catch
+let acceptOrder, applyToOrder, setOrderWaiting, getApplicants, selectPro;
+try {
+  const os = require("../../service/OrderService");
+  acceptOrder = os.acceptOrder;
+  applyToOrder = os.applyToOrder;
+  setOrderWaiting = os.setOrderWaiting;
+  getApplicants = os.getApplicants;
+  selectPro = os.selectPro;
+} catch (e) {}
+let isBlockedEither;
+try {
+  const bs = require("../../service/BlockService");
+  isBlockedEither = bs.isBlockedEither;
+} catch (e) {}
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import {
   IoLocationOutline,
@@ -67,7 +82,13 @@ const OrderDetailPage = () => {
   const [quoteMsg, setQuoteMsg] = useState("");
   const [quoteSending, setQuoteSending] = useState(false);
   const [quotes, setQuotes] = useState([]);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [applicants, setApplicants] = useState([]);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const isOwner = order?.createdBy === myUid;
+  const matchType = order?.matchType; // "priority" | "compare" | "direct"
+  const isMatchedPro = order?.matchedProUid === myUid;
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
 
@@ -92,6 +113,102 @@ const OrderDetailPage = () => {
   }, [order?.id]);
 
   useEffect(() => { loadQuotes(); }, [loadQuotes]);
+
+  // 거부 체크
+  useEffect(() => {
+    if (!myUid || !order?.createdBy || !isBlockedEither) return;
+    isBlockedEither(myUid, order.createdBy).then(setIsBlocked).catch(() => {});
+  }, [myUid, order?.createdBy]);
+
+  // 다중비교 지원자 목록 (접수자 전용)
+  useEffect(() => {
+    if (!isOwner || matchType !== "compare" || !order?.id || !getApplicants) return;
+    getApplicants(order.id).then(setApplicants).catch(() => setApplicants([]));
+  }, [isOwner, matchType, order?.id]);
+
+  // 호출 유형별 핸들러
+  const handleAcceptOrder = async () => {
+    if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    try {
+      if (!acceptOrder) throw new Error("acceptOrder 함수 없음");
+      await acceptOrder(order.id, myUid);
+      showToast("수락되었습니다");
+      // 새로고침
+      const updated = await getOrder(order.id);
+      if (updated) setFetchedOrder(updated);
+    } catch (e) {
+      if (e.message?.includes("배정")) showToast("배정된 오더입니다");
+      else showToast(e.message || "수락에 실패했습니다");
+    }
+  };
+
+  const handleApplyOrder = async () => {
+    if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    try {
+      if (!applyToOrder) throw new Error("applyToOrder 함수 없음");
+      const proName = userData?.nickname || userData?.name || "전문가";
+      const proProfile = userData?.profileImage || userData?.photoURL || "";
+      await applyToOrder(order.id, myUid, { proName, proProfile });
+      showToast("지원이 완료되었습니다");
+    } catch (e) {
+      if (e.message?.includes("이미")) showToast("이미 지원한 오더입니다");
+      else showToast(e.message || "지원에 실패했습니다");
+    }
+  };
+
+  const handleRejectDirect = async () => {
+    try {
+      if (!setOrderWaiting) throw new Error("setOrderWaiting 함수 없음");
+      await setOrderWaiting(order.id);
+      showToast("거절되었습니다");
+      navigate(-1);
+    } catch (e) {
+      showToast(e.message || "거절에 실패했습니다");
+    }
+  };
+
+  // 접수자 핸들러
+  const handleOwnerWaiting = async () => {
+    try {
+      if (!setOrderWaiting) throw new Error("setOrderWaiting 함수 없음");
+      await setOrderWaiting(order.id);
+      showToast("대기 상태로 변경되었습니다");
+      const updated = await getOrder(order.id);
+      if (updated) setFetchedOrder(updated);
+    } catch (e) {
+      showToast(e.message || "상태 변경에 실패했습니다");
+    }
+  };
+
+  const handleOwnerCancel = async () => {
+    if (!cancelReason) { showToast("취소 사유를 선택해주세요"); return; }
+    try {
+      await updateOrderStatus(order.id, "취소");
+      // cancelReason도 저장
+      try {
+        const { doc: docRef, updateDoc: ud } = await import("firebase/firestore");
+        await ud(docRef(db, "orders", order.id), { cancelReason });
+      } catch (e) {}
+      setShowCancelModal(false);
+      showToast("오더가 취소되었습니다");
+      navigate(-1);
+    } catch (e) {
+      showToast(e.message || "취소에 실패했습니다");
+    }
+  };
+
+  const handleSelectPro = async (proUid) => {
+    try {
+      if (!selectPro) throw new Error("selectPro 함수 없음");
+      await selectPro(order.id, proUid);
+      showToast("홈프로가 선정되었습니다");
+      const updated = await getOrder(order.id);
+      if (updated) setFetchedOrder(updated);
+      if (getApplicants) getApplicants(order.id).then(setApplicants).catch(() => {});
+    } catch (e) {
+      showToast(e.message || "선정에 실패했습니다");
+    }
+  };
 
   const checkPermission = () => {
     if (isOwner) { showToast("본인이 등록한 오더입니다"); return false; }
@@ -290,7 +407,11 @@ const OrderDetailPage = () => {
           <SectionTitle>기본 정보</SectionTitle>
           <ConditionRow>
             <ConditionLabel>지역</ConditionLabel>
-            <ConditionValue>{order.location || "-"}</ConditionValue>
+            <ConditionValue>
+              {(isOwner || isMatchedPro)
+                ? (order.location || "-")
+                : (order.location ? order.location.split(" ").slice(0, 2).join(" ") : "-")}
+            </ConditionValue>
           </ConditionRow>
           <ConditionRow>
             <ConditionLabel>일정</ConditionLabel>
@@ -327,8 +448,8 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 연락처 ── */}
-        {(order.ordererPhone || order.clientPhone) && (
+        {/* ── 연락처 (배정 후에만 공개) ── */}
+        {(isOwner || isMatchedPro) && (order.ordererPhone || order.clientPhone) && (
           <DetailSection>
             <SectionTitle>연락처</SectionTitle>
             {order.ordererPhone && (
@@ -406,20 +527,101 @@ const OrderDetailPage = () => {
           <DetailText>{order.description || "-"}</DetailText>
         </DetailSection>
 
+        {/* ── 다중비교 지원자 목록 (접수자 전용) ── */}
+        {isOwner && matchType === "compare" && applicants.length > 0 && (
+          <DetailSection>
+            <SectionTitle>지원자 목록</SectionTitle>
+            {applicants.map((app) => (
+              <ApplicantCard key={app.proUid}>
+                <ApplicantTop>
+                  {app.proProfile ? (
+                    <QuoteAvatar src={app.proProfile} alt={app.proName} />
+                  ) : (
+                    <QuoteAvatarPlaceholder>
+                      <IoPersonCircleOutline size={36} color={THEME.muted} />
+                    </QuoteAvatarPlaceholder>
+                  )}
+                  <ApplicantInfo>
+                    <ApplicantName>{app.proName || "전문가"}</ApplicantName>
+                    {app.intro && <ApplicantIntro>{app.intro}</ApplicantIntro>}
+                  </ApplicantInfo>
+                  <SelectProBtn onClick={() => handleSelectPro(app.proUid)}>선정</SelectProBtn>
+                </ApplicantTop>
+              </ApplicantCard>
+            ))}
+          </DetailSection>
+        )}
+
         {/* 견적 확인/수락은 채팅방에서 처리 */}
 
         <BottomSpacer />
       </Wrapper>
 
-      {/* 고정 하단 CTA */}
+      {/* 고정 하단 CTA — 호출 유형별 분기 */}
       <FixedBottom>
-        <ActionRow>
-          <SmallBtn onClick={handleCall}>
-            <IoCallOutline size={20} color="#555" />
-          </SmallBtn>
-          <MainCTA onClick={handleQuote}>견적 보내기</MainCTA>
-        </ActionRow>
+        {isOwner ? (
+          /* 접수자 버튼 */
+          <ActionRow>
+            <OutlinedBtn onClick={() => navigate("/order/create", { state: { order } })}>수정</OutlinedBtn>
+            <OutlinedBtn onClick={handleOwnerWaiting}>대기</OutlinedBtn>
+            <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
+          </ActionRow>
+        ) : matchType === "priority" ? (
+          /* 우선배정호출 */
+          <ActionRow>
+            <SmallBtn onClick={handleCall}>
+              <IoCallOutline size={20} color="#555" />
+            </SmallBtn>
+            <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
+          </ActionRow>
+        ) : matchType === "compare" ? (
+          /* 다중비교호출 */
+          <ActionRow>
+            <SmallBtn onClick={handleCall}>
+              <IoCallOutline size={20} color="#555" />
+            </SmallBtn>
+            <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
+          </ActionRow>
+        ) : matchType === "direct" ? (
+          /* 지정배정 */
+          <ActionRow>
+            <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
+            <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
+          </ActionRow>
+        ) : (
+          /* fallback — 기존 견적 보내기 */
+          <ActionRow>
+            <SmallBtn onClick={handleCall}>
+              <IoCallOutline size={20} color="#555" />
+            </SmallBtn>
+            <MainCTA onClick={handleQuote}>견적 보내기</MainCTA>
+          </ActionRow>
+        )}
       </FixedBottom>
+
+      {/* 취소 사유 선택 모달 */}
+      {showCancelModal && (
+        <SheetOverlay onClick={() => setShowCancelModal(false)}>
+          <CancelSheet onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>취소 사유 선택</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowCancelModal(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </SheetCloseBtn>
+            </SheetHeader>
+            <CancelOptions>
+              {["잘못접수", "일정변경", "오더수정", "기타"].map((reason) => (
+                <CancelOption key={reason} $selected={cancelReason === reason} onClick={() => setCancelReason(reason)}>
+                  <CancelRadio $selected={cancelReason === reason} />
+                  <CancelLabel>{reason}</CancelLabel>
+                </CancelOption>
+              ))}
+            </CancelOptions>
+            <CancelConfirmBtn onClick={handleOwnerCancel} disabled={!cancelReason}>확인</CancelConfirmBtn>
+          </CancelSheet>
+        </SheetOverlay>
+      )}
 
       {/* 견적 바텀시트 */}
       {showQuoteSheet && (
@@ -1062,6 +1264,154 @@ const SheetCharCount = styled.div`
 const SheetSubmitBtn = styled.button`
   width: 100%;
   margin-top: 16px;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
+  &:disabled { opacity: 0.5; cursor: default; }
+`;
+
+/* ── 호출 유형별 CTA ── */
+const PrimaryCTA = styled.button`
+  flex: 1;
+  height: 48px;
+  border-radius: 10px;
+  border: none;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
+`;
+
+const OutlinedBtn = styled.button`
+  flex: 1;
+  height: 48px;
+  border-radius: 10px;
+  border: 1.5px solid ${({ $danger }) => $danger ? THEME.danger : "#D1D5DB"};
+  background: #fff;
+  color: ${({ $danger }) => $danger ? THEME.danger : "#333"};
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { background: #F3F4F6; }
+`;
+
+/* ── 지원자 목록 ── */
+const ApplicantCard = styled.div`
+  padding: 14px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+
+const ApplicantTop = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const ApplicantInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const ApplicantName = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const ApplicantIntro = styled.div`
+  font-size: 12px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const SelectProBtn = styled.button`
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:active { opacity: 0.85; }
+`;
+
+/* ── 취소 사유 모달 ── */
+const CancelSheet = styled.div`
+  width: 100%;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  animation: sheetUp 0.25s ease-out;
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+`;
+
+const CancelOptions = styled.div`
+  padding: 8px 16px 16px;
+`;
+
+const CancelOption = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  cursor: pointer;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+
+const CancelRadio = styled.div`
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid ${({ $selected }) => $selected ? THEME.primary : "#D1D5DB"};
+  background: ${({ $selected }) => $selected ? THEME.primary : "#fff"};
+  flex-shrink: 0;
+  position: relative;
+  &::after {
+    content: "";
+    display: ${({ $selected }) => $selected ? "block" : "none"};
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+`;
+
+const CancelLabel = styled.div`
+  font-size: 15px;
+  font-weight: 500;
+  color: ${THEME.text};
+`;
+
+const CancelConfirmBtn = styled.button`
+  width: calc(100% - 32px);
+  margin: 0 16px;
   padding: 14px;
   border: none;
   border-radius: 10px;

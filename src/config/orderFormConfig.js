@@ -1413,6 +1413,7 @@ export const COMMON_B2B_FIELDS = {
     options: [
       { value: "priority", label: "우선배정호출" },
       { value: "compare", label: "다중비교호출" },
+      { value: "direct", label: "지정배정" },
     ],
   },
 };

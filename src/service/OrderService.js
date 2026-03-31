@@ -15,6 +15,7 @@ import {
   serverTimestamp,
   limit,
   startAfter,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../api/config";
 import { COLLECTIONS } from "../config/homeproConfig";
@@ -183,12 +184,118 @@ export function formatOrderTime(timestamp) {
 }
 
 /** 오더 상태 변경 */
-export async function updateOrderStatus(orderId, newStatus) {
+export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
     orderStatus: newStatus,
     updatedAt: serverTimestamp(),
+    ...extra,
   });
 }
+
+/** 우선배정호출 — 홈프로가 수락하기 */
+export const acceptOrder = async (orderId, proUid) => {
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  const orderSnap = await getDoc(orderRef);
+  if (!orderSnap.exists()) throw new Error("오더를 찾을 수 없습니다");
+  const data = orderSnap.data();
+  if (data.matchedProUid) throw new Error("배정된 오더입니다");
+  await updateDoc(orderRef, {
+    matchedProUid: proUid,
+    orderStatus: "배정",
+    assignedAt: serverTimestamp(),
+  });
+};
+
+/** 다중비교호출 — 홈프로가 지원하기 */
+export const applyToOrder = async (orderId, proUid, proData = {}) => {
+  const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
+  // 중복 지원 체크
+  const q = query(applicantsRef, where("proUid", "==", proUid));
+  const existing = await getDocs(q);
+  if (!existing.empty) throw new Error("이미 지원한 오더입니다");
+  // 지원 등록
+  await addDoc(applicantsRef, {
+    proUid,
+    proName: proData.proName || "",
+    proProfile: proData.proProfile || "",
+    appliedAt: serverTimestamp(),
+    rejected: false,
+  });
+  // 지원자 수 체크 → 3명이면 자동 마감
+  const allApplicants = await getDocs(applicantsRef);
+  if (allApplicants.size >= 3) {
+    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+    await updateDoc(orderRef, { orderStatus: "업체선택대기" });
+  }
+};
+
+/** 지원자 목록 조회 */
+export const getApplicants = async (orderId) => {
+  const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
+  const snap = await getDocs(applicantsRef);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.appliedAt?.toMillis?.() || 0) - (b.appliedAt?.toMillis?.() || 0));
+};
+
+/** 다중비교 — 접수자가 1명 선정 */
+export const selectPro = async (orderId, selectedProUid) => {
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  await updateDoc(orderRef, {
+    matchedProUid: selectedProUid,
+    orderStatus: "배정",
+    assignedAt: serverTimestamp(),
+  });
+  // 나머지 지원자 rejected 처리
+  const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
+  const snap = await getDocs(applicantsRef);
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => {
+    if (d.data().proUid !== selectedProUid) {
+      batch.update(d.ref, { rejected: true });
+    }
+  });
+  await batch.commit();
+};
+
+/** 대기 전환 */
+export const setOrderWaiting = async (orderId) => {
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  await updateDoc(orderRef, {
+    orderStatus: "대기",
+    matchedProUid: null,
+  });
+  // applicants 서브컬렉션 전체 삭제 (재접수 시 새로 모집)
+  const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
+  const snap = await getDocs(applicantsRef);
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+};
+
+/** 대기 → 재접수 */
+export const resubmitOrder = async (orderId) => {
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  await updateDoc(orderRef, {
+    orderStatus: "접수",
+    matchedProUid: null,
+    resubmittedAt: serverTimestamp(),
+  });
+};
+
+/** 지정배정 */
+export const directAssign = async (orderId, targetPhone) => {
+  // phones 컬렉션에서 전화번호로 홈프로 UID 검색
+  const phonesRef = collection(db, "phones");
+  const q = query(phonesRef, where("phone", "==", targetPhone));
+  const snap = await getDocs(q);
+  if (snap.empty) throw new Error("해당 전화번호의 홈프로를 찾을 수 없습니다");
+  const targetUid = snap.docs[0].data().uid;
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  await updateDoc(orderRef, {
+    orderStatus: "접수",
+    directAssignTarget: { uid: targetUid, phone: targetPhone },
+  });
+};
 
 /** 리뷰 작성 + 상태 변경 */
 export async function submitOrderReview(orderId, reviewData) {

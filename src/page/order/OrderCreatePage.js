@@ -391,6 +391,7 @@ export const OrderCreateContent = () => {
   const [referralFeeRate, setReferralFeeRate] = useState("");
   const [referralPayMethod, setReferralPayMethod] = useState("");
   const [matchType, setMatchType] = useState("");
+  const [directPhone, setDirectPhone] = useState("");
   const [contactPhone, setContactPhone] = useState("");
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
@@ -541,6 +542,7 @@ export const OrderCreateContent = () => {
         referralFee: referralFeeType === "none" ? null : referralFeeValue,
         referralPayMethod: referralFeeType !== "none" ? (referralPayMethod || null) : null,
         matchType: matchType || null,
+        directPhone: matchType === "direct" ? directPhone : null,
       });
       showToast("오더가 등록되었습니다!");
       setTimeout(() => navigate("/MobileMain"), 1000);
@@ -882,6 +884,17 @@ export const OrderCreateContent = () => {
                 <Chip key={opt.value} $selected={matchType === opt.value} onClick={() => setMatchType(opt.value)}>{opt.label}</Chip>
               ))}
             </ChipGrid>
+            {matchType === "direct" && (
+              <DirectAssignWrap>
+                <FieldLabel>지정할 홈프로 전화번호</FieldLabel>
+                <PhoneInput
+                  placeholder="010-0000-0000"
+                  value={directPhone}
+                  onChange={e => setDirectPhone(e.target.value)}
+                />
+                <DirectDesc>사전에 약속된 홈프로의 전화번호를 입력해주세요.</DirectDesc>
+              </DirectAssignWrap>
+            )}
           </Section>
 
           {/* 등록 버튼 */}
@@ -1042,6 +1055,30 @@ export default OrderCreatePage;
 const toastFadeIn = keyframes`
   from { transform: translate(-50%, 10px); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }
+`;
+
+const DirectAssignWrap = styled.div`
+  margin-top: 12px;
+`;
+
+const PhoneInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  &:focus {
+    border-color: ${THEME.primary};
+  }
+`;
+
+const DirectDesc = styled.div`
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
 `;
 
 const OrderToast = styled.div`

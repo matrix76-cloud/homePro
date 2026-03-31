@@ -59,6 +59,8 @@ import GuidePage from "./page/guide/GuidePage";
 import ReferralFriendsPage from "./page/referral/ReferralFriendsPage";
 import ReferralPointsPage from "./page/referral/ReferralPointsPage";
 import ReferralInputPage from "./page/referral/ReferralInputPage";
+import BlockListPage from "./page/mypage/BlockListPage";
+import BlacklistPage from "./page/mypage/BlacklistPage";
 
 /* Admin Pages */
 import AdminLoginPage from "./page/admin/AdminLoginPage";
@@ -266,6 +268,10 @@ const AnimatedRoutes = () => {
 
             {/* Guide */}
             <Route path="/guide/:guideId" element={wrap(<GuidePage />)} />
+
+            {/* Mypage */}
+            <Route path="/mypage/blocks" element={wrap(<BlockListPage />)} />
+            <Route path="/mypage/blacklist" element={wrap(<BlacklistPage />)} />
 
             {/* Community */}
             <Route path="/community" element={wrap(<CommunityPage />)} />
