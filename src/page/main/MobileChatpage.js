@@ -54,31 +54,50 @@ const MobileChatpage = () => {
   };
 
   const quoteRooms = rooms.filter((r) => r.roomType === "quote");
-  const generalRooms = rooms.filter((r) => r.roomType !== "quote");
-  const filteredRooms = activeTab === "quote" ? quoteRooms : generalRooms;
+  const generalRooms = rooms.filter((r) => r.roomType !== "quote" && r.roomType !== "open");
+  const openRooms = rooms.filter((r) => r.roomType === "open");
+  const filteredRooms = activeTab === "quote" ? quoteRooms : activeTab === "general" ? generalRooms : openRooms;
+
+  const OPEN_CATEGORIES = ["전체", "오더", "인력", "기술교육", "매매양도", "자재.장비"];
+  const [openCat, setOpenCat] = useState("전체");
+  const visibleRooms = activeTab === "open" && openCat !== "전체"
+    ? filteredRooms.filter((r) => r.openCategory === openCat)
+    : filteredRooms;
 
   return (
     <MainListLayout NAME="채팅" footerType="CHAT" hideBack>
       <TabRow>
         <Tab $active={activeTab === "quote"} onClick={() => setActiveTab("quote")}>
-          견적 채팅{quoteRooms.length > 0 ? ` (${quoteRooms.length})` : ""}
+          견적{quoteRooms.length > 0 ? ` (${quoteRooms.length})` : ""}
         </Tab>
         <Tab $active={activeTab === "general"} onClick={() => setActiveTab("general")}>
-          일반 채팅{generalRooms.length > 0 ? ` (${generalRooms.length})` : ""}
+          일반{generalRooms.length > 0 ? ` (${generalRooms.length})` : ""}
+        </Tab>
+        <Tab $active={activeTab === "open"} onClick={() => setActiveTab("open")}>
+          오픈채팅{openRooms.length > 0 ? ` (${openRooms.length})` : ""}
         </Tab>
       </TabRow>
+      {activeTab === "open" && (
+        <OpenCatRow>
+          {OPEN_CATEGORIES.map((c) => (
+            <OpenCatChip key={c} $active={openCat === c} onClick={() => setOpenCat(c)}>
+              {c}
+            </OpenCatChip>
+          ))}
+        </OpenCatRow>
+      )}
       <RoomList>
         {loading ? (
           <EmptyState>
             <EmptyText>로딩 중...</EmptyText>
           </EmptyState>
-        ) : filteredRooms.length === 0 ? (
+        ) : visibleRooms.length === 0 ? (
           <EmptyState>
             <IoChatbubbleEllipsesOutline size={40} color={THEME.muted} />
-            <EmptyText>채팅방이 없습니다</EmptyText>
+            <EmptyText>{activeTab === "open" ? "오픈채팅방이 없습니다 (준비 중)" : "채팅방이 없습니다"}</EmptyText>
           </EmptyState>
         ) : (
-          filteredRooms.map((room) => {
+          visibleRooms.map((room) => {
             const unread = getUnread(room);
             return (
               <RoomItem
@@ -142,6 +161,28 @@ const Tab = styled.button`
 
 const RoomList = styled.div`
   padding: 0 12px;
+`;
+
+const OpenCatRow = styled.div`
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  &::-webkit-scrollbar { display: none; }
+  scrollbar-width: none;
+`;
+
+const OpenCatChip = styled.button`
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  border-radius: 20px;
+  background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
+  color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
+  cursor: pointer;
+  white-space: nowrap;
 `;
 
 const EmptyState = styled.div`
