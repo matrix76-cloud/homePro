@@ -10,39 +10,88 @@ import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { MOBILEMAINMENU } from "../../utility/constants";
-import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline, IoCalendarOutline, IoListOutline, IoCloseOutline } from "react-icons/io5";
 
-/* ─── 상태 필터 탭 ─── */
-const STATUS_TABS = ["전체", "등록", "배정", "업체선택", "완료", "취소", "거부"];
+/* ─── 지난오더조회 옵션 (사양: 당일/어제/3일/1주/2주/1개월/3개월/6개월) ─── */
+const PERIOD_OPTIONS = ["전체", "당일", "어제", "3일", "지난1주일", "지난2주일", "지난1개월", "지난3개월", "지난6개월"];
+
+const matchPeriod = (createdAt, period, dateRange) => {
+  if (period === "전체" && !dateRange?.start) return true;
+  const d = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt || 0);
+  if (dateRange?.start || dateRange?.end) {
+    const s = dateRange.start ? new Date(dateRange.start + "T00:00:00") : new Date(0);
+    const e = dateRange.end ? new Date(dateRange.end + "T23:59:59") : new Date();
+    return d >= s && d <= e;
+  }
+  const now = new Date();
+  const isToday = now.toDateString() === d.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = yesterday.toDateString() === d.toDateString();
+  const days = (now - d) / 86400000;
+  switch (period) {
+    case "당일": return isToday;
+    case "어제": return isYesterday;
+    case "3일": return days >= 0 && days <= 3;
+    case "지난1주일": return days >= 0 && days <= 7;
+    case "지난2주일": return days >= 0 && days <= 14;
+    case "지난1개월": return days >= 0 && days <= 30;
+    case "지난3개월": return days >= 0 && days <= 90;
+    case "지난6개월": return days >= 0 && days <= 180;
+    default: return true;
+  }
+};
+
+/* ─── 홈프로 사이드 카드 라벨 (사양: priority→수락오더, compare→지원오더, direct→지정오더) ─── */
+const PRO_ROLE_TAG_BY_MATCH = { priority: "수락오더", compare: "지원오더", direct: "지정오더" };
+
+/* ─── 홈프로 취소요청 사유 (사양: 8개) ─── */
+const CANCEL_REQ_REASONS = ["시간조율불가", "안전상 작업불가", "사전정보와 상이", "작업환경 불가", "견적조건 미합의", "요청내용 변경", "연락불가", "상세사유 입력"];
+
+/* ─── 상태 필터 탭 (사양: 전체/접수/대기/비교선택/배정/완료/취소) ─── */
+const STATUS_TABS = ["전체", "접수", "대기", "비교선택", "배정", "완료", "취소"];
 
 const STATUS_DESC = {
   "전체": "내가 등록한 일감과 받은 일감을\n한눈에 볼 수 있어요.",
-  "등록": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.",
+  "접수": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.",
+  "대기": "수정을 위해 일시 보류된 오더입니다.\n재접수하면 다시 노출돼요.",
+  "비교선택": "다중비교호출로 지원자가 모집된 오더입니다.\n지원자 중 1명을 선정해 주세요.",
   "배정": "홈프로가 수락하여 진행 중인 오더입니다.\n일감을 준 프로는 취소, 받은 프로는 작업완료\n변경이 가능해요.",
-  "업체선택": "다중비교호출로 지원자가 모집된 오더입니다.\n지원자 중 1명을 선정해 주세요.",
   "완료": "작업이 완료된 오더입니다.",
   "취소": "취소된 오더입니다.\n취소 후에는 되돌릴 수 없어요.",
-  "거부": "거부 등록된 오더입니다.",
 };
 
 /* ─── 상태 배지 스타일 ─── */
 const STATUS_STYLE = {
-  "등록": { bg: "#3B82F6", color: "#fff" },
-  "배정": { bg: "#7C5CFC", color: "#fff" },
-  "업체선택": { bg: "#F59E0B", color: "#fff" },
-  "완료": { bg: "#10B981", color: "#fff" },
-  "취소": { bg: "#9CA3AF", color: "#fff" },
-  "거부": { bg: "#EF4444", color: "#fff" },
-  "대기": { bg: "#F97316", color: "#fff" },
+  "접수":     { bg: "#3B82F6", color: "#fff" },
+  "대기":     { bg: "#F97316", color: "#fff" },
+  "비교선택": { bg: "#F59E0B", color: "#fff" },
+  "배정":     { bg: "#7C5CFC", color: "#fff" },
+  "완료":     { bg: "#10B981", color: "#fff" },
+  "취소":     { bg: "#9CA3AF", color: "#fff" },
 };
 
 // Firestore 상태값 → 표시 상태 매핑
 const normalizeStatus = (s) => {
-  if (s === "요청" || s === "접수") return "등록";
+  if (s === "요청" || s === "접수") return "접수";
+  if (s === "대기") return "대기";
+  if (s === "업체선택대기" || s === "업체선택") return "비교선택";
   if (s === "진행" || s === "결제") return "배정";
-  if (s === "업체선택") return "업체선택";
-  if (s === "거부") return "거부";
-  return s; // 배정, 완료, 취소, 대기 등은 그대로
+  if (s === "거부") return "취소"; // 거부는 차단관리로 이관, 카드에선 취소 취급
+  return s; // 배정, 완료, 취소 등은 그대로
+};
+
+/* ─── 단가유형/요청방식 표시 (메인화면 사양과 동일 포맷) ─── */
+const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
+const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선택", direct: "지정배정" };
+
+const formatPriceLine = (order) => {
+  const amt = Number(order.b2bPriceAmount) || 0;
+  const unit = order.b2bPriceType === "hpoint" ? "P" : "원";
+  const valueText = amt > 0 ? ` ${amt.toLocaleString()}${unit}` : "";
+  if (order.b2bPriceType && PRICE_TYPE_LABEL[order.b2bPriceType]) {
+    return `${PRICE_TYPE_LABEL[order.b2bPriceType]}${valueText}`;
+  }
+  return order.price || "-";
 };
 
 const formatChatTime = (ts) => {
@@ -65,7 +114,13 @@ export const MyOrdersContent = () => {
   const [activeTab, setActiveTab] = useState("전체");
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [chatMap, setChatMap] = useState({}); // orderId → [{ roomId, lastMessage, lastMessageAt, unreadCount, otherName }]
+  const [chatMap, setChatMap] = useState({});
+  const [activePeriod, setActivePeriod] = useState("전체");
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
+  const [cancelReqOpen, setCancelReqOpen] = useState(null); // { orderId } | null
+  const [cancelReqReason, setCancelReqReason] = useState("");
+  const [cancelReqDetail, setCancelReqDetail] = useState("");
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
@@ -140,7 +195,29 @@ export const MyOrdersContent = () => {
     });
   }, [uid]);
 
-  const filtered = activeTab === "전체" ? allOrders : allOrders.filter((o) => normalizeStatus(o.orderStatus) === activeTab);
+  const periodFiltered = allOrders.filter((o) => matchPeriod(o.createdAt, activePeriod, dateRange));
+  const filtered = activeTab === "전체" ? periodFiltered : periodFiltered.filter((o) => normalizeStatus(o.orderStatus) === activeTab);
+
+  const submitCancelRequest = async () => {
+    if (!cancelReqReason) { alert("사유를 선택해주세요"); return; }
+    try {
+      const reasonText = cancelReqReason === "상세사유 입력" ? (cancelReqDetail.trim() || "상세사유") : cancelReqReason;
+      const { doc: dref, updateDoc: ud, serverTimestamp: ts } = await import("firebase/firestore");
+      const { db } = await import("../../api/config");
+      await ud(dref(db, COLLECTIONS.ORDERS, cancelReqOpen.orderId), {
+        cancelRequestReason: reasonText,
+        cancelRequestedAt: ts(),
+        cancelRequestedBy: uid,
+      });
+      setAllOrders((prev) => prev.map((o) => o.id === cancelReqOpen.orderId ? { ...o, cancelRequestReason: reasonText } : o));
+      setCancelReqOpen(null);
+      setCancelReqReason("");
+      setCancelReqDetail("");
+      alert("취소요청을 보냈습니다");
+    } catch (e) {
+      alert("취소요청 실패: " + (e.message || e));
+    }
+  };
 
   const handleStatusChange = async (e, orderId, newStatus) => {
     e.stopPropagation();
@@ -156,10 +233,25 @@ export const MyOrdersContent = () => {
 
   return (
     <PageWrap>
+        {/* 지난오더조회 + 뷰 토글 */}
+        <PeriodRow>
+          <PeriodSelect value={activePeriod} onChange={(e) => { setActivePeriod(e.target.value); setDateRange({ start: "", end: "" }); }}>
+            {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p === "전체" ? "지난오더 조회" : p}</option>)}
+          </PeriodSelect>
+          <DateRangeInput type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} />
+          <DateRangeInput type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} />
+          <ViewToggleBtn $active={viewMode === "list"} onClick={() => setViewMode("list")}>
+            <IoListOutline size={16} />
+          </ViewToggleBtn>
+          <ViewToggleBtn $active={viewMode === "calendar"} onClick={() => setViewMode("calendar")}>
+            <IoCalendarOutline size={16} />
+          </ViewToggleBtn>
+        </PeriodRow>
+
         {/* 상태 필터 탭 */}
         <TabRow>
           {STATUS_TABS.map((tab) => {
-            const count = tab === "전체" ? allOrders.length : allOrders.filter((o) => normalizeStatus(o.orderStatus) === tab).length;
+            const count = tab === "전체" ? periodFiltered.length : periodFiltered.filter((o) => normalizeStatus(o.orderStatus) === tab).length;
             return (
               <TabItem key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
                 <TabCount $active={activeTab === tab}>{count}</TabCount>
@@ -173,6 +265,11 @@ export const MyOrdersContent = () => {
           <TabDesc>{STATUS_DESC[activeTab]}</TabDesc>
         </TabDescWrap>
 
+        {/* 달력 뷰 (월 단위) */}
+        {viewMode === "calendar" ? (
+          <CalendarView orders={filtered} navigate={navigate} />
+        ) : (
+        <>
         {/* 오더 리스트 */}
         {loading ? (
           <EmptyWrap>
@@ -198,7 +295,7 @@ export const MyOrdersContent = () => {
                     <StatusBadge $bg={st.bg} $color={st.color}>{displayStatus}</StatusBadge>
                     {order.createdBy === uid
                       ? <RoleTag $type="request">내가 요청</RoleTag>
-                      : <RoleTag $type="support">견적 지원</RoleTag>
+                      : <RoleTag $type="support">{PRO_ROLE_TAG_BY_MATCH[order.matchType] || "견적 지원"}</RoleTag>
                     }
                   </CardTopLeft>
                   <OrderDate>{formatOrderTime(order.createdAt)}</OrderDate>
@@ -208,8 +305,9 @@ export const MyOrdersContent = () => {
                   <BottomLeft>
                     <BottomText>{order.location}</BottomText>
                     <BottomText>{order.writer}</BottomText>
+                    <BottomText>{MATCH_TYPE_LABEL[order.matchType] || ""}</BottomText>
                   </BottomLeft>
-                  <PriceText>{order.price}</PriceText>
+                  <PriceText>{formatPriceLine(order)}</PriceText>
                 </CardBottom>
 
                 {/* 프로별 채팅 미리보기 목록 */}
@@ -247,16 +345,22 @@ export const MyOrdersContent = () => {
                 {displayStatus === "배정" && (
                   <ActionRow>
                     {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
-                    {order.matchedProUid === uid && <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>}
+                    {order.matchedProUid === uid && (
+                      <>
+                        <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>
+                        <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
+                      </>
+                    )}
                   </ActionRow>
                 )}
-                {displayStatus === "업체선택" && order.createdBy === uid && (
+                {displayStatus === "비교선택" && order.createdBy === uid && (
                   <ActionRow>
                     <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
                   </ActionRow>
                 )}
-                {displayStatus === "등록" && order.createdBy === uid && (
+                {displayStatus === "접수" && order.createdBy === uid && (
                   <ActionRow>
+                    <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); navigate("/order/create", { state: { order } }); }}>수정</ActionBtn>
                     <ActionBtn $variant="warning" onClick={(e) => handleStatusChange(e, order.id, "대기")}>대기</ActionBtn>
                     <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
                   </ActionRow>
@@ -271,8 +375,91 @@ export const MyOrdersContent = () => {
             );
           })
         )}
+        </>
+        )}
 
+        {/* 홈프로 취소요청 사유 모달 */}
+        {cancelReqOpen && (
+          <ModalOverlay onClick={() => setCancelReqOpen(null)}>
+            <ModalSheet onClick={(e) => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>취소요청 사유</ModalTitle>
+                <ModalClose onClick={() => setCancelReqOpen(null)}>
+                  <IoCloseOutline size={22} />
+                </ModalClose>
+              </ModalHeader>
+              <ReasonList>
+                {CANCEL_REQ_REASONS.map((r) => (
+                  <ReasonRow key={r} $selected={cancelReqReason === r} onClick={() => setCancelReqReason(r)}>
+                    <ReasonRadio $selected={cancelReqReason === r} />
+                    <ReasonLabel>{r}</ReasonLabel>
+                  </ReasonRow>
+                ))}
+              </ReasonList>
+              {cancelReqReason === "상세사유 입력" && (
+                <DetailInput
+                  placeholder="사유를 입력해주세요"
+                  value={cancelReqDetail}
+                  onChange={(e) => setCancelReqDetail(e.target.value.slice(0, 200))}
+                  rows={3}
+                />
+              )}
+              <ConfirmBtn onClick={submitCancelRequest} disabled={!cancelReqReason}>요청 보내기</ConfirmBtn>
+            </ModalSheet>
+          </ModalOverlay>
+        )}
     </PageWrap>
+  );
+};
+
+/* ─── 달력 뷰 (월 단위) ─── */
+const CalendarView = ({ orders, navigate }) => {
+  const [cursor, setCursor] = useState(new Date());
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startWeekday = firstDay.getDay();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const ordersByDay = {};
+  orders.forEach((o) => {
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || 0);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const day = d.getDate();
+      if (!ordersByDay[day]) ordersByDay[day] = [];
+      ordersByDay[day].push(o);
+    }
+  });
+
+  return (
+    <CalWrap>
+      <CalHeader>
+        <CalNavBtn onClick={() => setCursor(new Date(year, month - 1, 1))}>‹</CalNavBtn>
+        <CalTitle>{year}년 {month + 1}월</CalTitle>
+        <CalNavBtn onClick={() => setCursor(new Date(year, month + 1, 1))}>›</CalNavBtn>
+      </CalHeader>
+      <CalGrid>
+        {["일","월","화","수","목","금","토"].map((w) => <CalWeekCell key={w}>{w}</CalWeekCell>)}
+        {cells.map((d, i) => (
+          <CalDayCell key={i} $empty={!d}>
+            {d && (
+              <>
+                <CalDayNum>{d}</CalDayNum>
+                {(ordersByDay[d] || []).slice(0, 2).map((o) => (
+                  <CalDot key={o.id} onClick={() => navigate(`/order/detail/${o.id}`, { state: { order: o } })}>
+                    {o.title?.slice(0, 6) || "오더"}
+                  </CalDot>
+                ))}
+                {(ordersByDay[d]?.length || 0) > 2 && <CalDotMore>+{ordersByDay[d].length - 2}</CalDotMore>}
+              </>
+            )}
+          </CalDayCell>
+        ))}
+      </CalGrid>
+    </CalWrap>
   );
 };
 
@@ -596,4 +783,225 @@ const EmptyText = styled.div`
   font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
+`;
+
+/* ─── 지난오더조회 row + 뷰 토글 ─── */
+const PeriodRow = styled.div`
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 12px 4px;
+`;
+
+const PeriodSelect = styled.select`
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid ${THEME.border};
+  border-radius: 8px;
+  background: #fff;
+  color: ${THEME.text};
+  flex: 1.2;
+  min-width: 0;
+`;
+
+const DateRangeInput = styled.input`
+  font-size: 11px;
+  padding: 6px 6px;
+  border: 1px solid ${THEME.border};
+  border-radius: 8px;
+  background: #fff;
+  color: ${THEME.text};
+  flex: 1;
+  min-width: 0;
+`;
+
+const ViewToggleBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid ${THEME.border};
+  border-radius: 8px;
+  background: ${(p) => p.$active ? THEME.primary : "#fff"};
+  color: ${(p) => p.$active ? "#fff" : THEME.muted};
+  cursor: pointer;
+`;
+
+/* ─── 취소요청 모달 ─── */
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalSheet = styled.div`
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 20px 24px;
+  box-sizing: border-box;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+
+const ModalTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const ModalClose = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: ${THEME.muted};
+`;
+
+const ReasonList = styled.div`
+  display: flex;
+  flex-direction: column;
+  max-height: 300px;
+  overflow-y: auto;
+`;
+
+const ReasonRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 4px;
+  border-bottom: 1px solid ${THEME.border};
+  cursor: pointer;
+  background: ${(p) => p.$selected ? "#F7F4FF" : "transparent"};
+`;
+
+const ReasonRadio = styled.div`
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid ${(p) => p.$selected ? THEME.primary : THEME.border};
+  background: ${(p) => p.$selected ? THEME.primary : "transparent"};
+  flex-shrink: 0;
+`;
+
+const ReasonLabel = styled.div`
+  font-size: 14px;
+  color: ${THEME.text};
+`;
+
+const DetailInput = styled.textarea`
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  border: 1px solid ${THEME.border};
+  border-radius: 8px;
+  resize: none;
+  box-sizing: border-box;
+  font-family: inherit;
+`;
+
+const ConfirmBtn = styled.button`
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: ${(p) => p.disabled ? THEME.muted : THEME.primary};
+  border: none;
+  border-radius: 10px;
+  cursor: ${(p) => p.disabled ? "not-allowed" : "pointer"};
+`;
+
+/* ─── 달력 뷰 ─── */
+const CalWrap = styled.div`
+  margin: 8px 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+`;
+
+const CalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+`;
+
+const CalNavBtn = styled.button`
+  width: 28px;
+  height: 28px;
+  border: 1px solid ${THEME.border};
+  border-radius: 8px;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  color: ${THEME.text};
+`;
+
+const CalTitle = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const CalGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+`;
+
+const CalWeekCell = styled.div`
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${THEME.muted};
+  padding: 6px 0;
+`;
+
+const CalDayCell = styled.div`
+  min-height: 56px;
+  padding: 4px;
+  border-radius: 6px;
+  background: ${(p) => p.$empty ? "transparent" : "#F7F8FA"};
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const CalDayNum = styled.div`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+const CalDot = styled.div`
+  font-size: 9px;
+  background: ${THEME.primary};
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const CalDotMore = styled.div`
+  font-size: 9px;
+  color: ${THEME.muted};
+  text-align: center;
 `;

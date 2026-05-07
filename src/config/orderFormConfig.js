@@ -1388,10 +1388,11 @@ export const COMMON_B2B_FIELDS = {
   priceType: {
     label: "단가유형",
     options: [
-      { value: "fixed", label: "확정가", hasInput: true },
-      { value: "balance", label: "잔금", hasInput: true },
+      { value: "fixed", label: "시공금액", hasInput: true, unit: "원" },
+      { value: "balance", label: "잔금", hasInput: true, unit: "원" },
+      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P" },
       { value: "onsite", label: "현장견적", hasInput: false },
-      { value: "estimate", label: "견적제시", hasInput: false },
+      { value: "estimate", label: "견적요청", hasInput: false },
     ],
   },
   referralFee: {

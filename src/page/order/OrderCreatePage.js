@@ -538,7 +538,7 @@ export const OrderCreateContent = () => {
         contactPhone: contactPhone || null,
         paymentMethod: paymentMethod || null,
         b2bPriceType: b2bPriceType || null,
-        b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance") ? Number(b2bPriceAmount) || null : null,
+        b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") ? Number(b2bPriceAmount) || null : null,
         referralFee: referralFeeType === "none" ? null : referralFeeValue,
         referralPayMethod: referralFeeType !== "none" ? (referralPayMethod || null) : null,
         matchType: matchType || null,
@@ -827,9 +827,13 @@ export const OrderCreateContent = () => {
                 <Chip key={opt.value} $selected={b2bPriceType === opt.value} onClick={() => setB2bPriceType(opt.value)}>{opt.label}</Chip>
               ))}
             </ChipRow4>
-            {COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType)?.hasInput && (
-              <Input style={{ marginTop: 10 }} type="number" placeholder="금액 입력 (원)" value={b2bPriceAmount} onChange={(e) => setB2bPriceAmount(e.target.value)} />
-            )}
+            {COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType)?.hasInput && (() => {
+              const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
+              const unit = opt?.unit || "원";
+              return (
+                <Input style={{ marginTop: 10 }} type="number" placeholder={`금액 입력 (${unit})`} value={b2bPriceAmount} onChange={(e) => setB2bPriceAmount(e.target.value)} />
+              );
+            })()}
           </Section>
 
           {/* 소개(캐시백) 수수료 */}

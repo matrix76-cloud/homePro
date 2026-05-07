@@ -27,6 +27,7 @@ export async function createOrder(data) {
   const docRef = await addDoc(ordersRef, {
     ...data,
     orderStatus: "요청",
+    applicantCount: 0,
     createdAt: serverTimestamp(),
   });
 
@@ -221,12 +222,12 @@ export const applyToOrder = async (orderId, proUid, proData = {}) => {
     appliedAt: serverTimestamp(),
     rejected: false,
   });
-  // 지원자 수 체크 → 3명이면 자동 마감
+  // 지원자 수 카운트 비정규화 + 3명 이상이면 자동 마감
   const allApplicants = await getDocs(applicantsRef);
-  if (allApplicants.size >= 3) {
-    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-    await updateDoc(orderRef, { orderStatus: "업체선택대기" });
-  }
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  const updates = { applicantCount: allApplicants.size };
+  if (allApplicants.size >= 3) updates.orderStatus = "업체선택대기";
+  await updateDoc(orderRef, updates);
 };
 
 /** 지원자 목록 조회 */

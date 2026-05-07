@@ -18,9 +18,10 @@ import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
 /* ─── 오더 상태 ─── */
-const STATUS_TABS = ["접수", "마감"];
+const STATUS_TABS = ["접수", "대기", "마감", "취소"];
 const STATUS_STYLE = {
   "접수": { bg: "#F59E0B", color: "#fff" },
+  "대기": { bg: "#9CA3AF", color: "#fff" },
   "마감": { bg: "#3B82F6", color: "#fff" },
   "취소": { bg: THEME.danger, color: "#fff" },
   "요청": { bg: "#F59E0B", color: "#fff" },
@@ -29,8 +30,94 @@ const STATUS_STYLE = {
 };
 
 /* ─── 필터 옵션 ─── */
-const DISTANCE_OPTIONS = ["전체", "10km", "20km", "30km", "50km", "100km"];
-const PERIOD_OPTIONS = ["전체", "1주일", "1개월", "미래"];
+const DISTANCE_OPTIONS = ["전체", "내 동네", "같은 시", "타지역"];
+const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
+const SORT_OPTIONS = ["등록순", "가까운거리순", "서비스순", "지역순", "요청방식순", "단가유형순"];
+
+/* ─── 지역 헬퍼: order.location 문자열에서 시/구 추출 + 사용자 region과 비교 ─── */
+const SIDO_NORMALIZE_RE = /(특별자치시|특별자치도|광역시|특별시|도|시)$/;
+const normalizeSido = (raw) => (raw || "").replace(SIDO_NORMALIZE_RE, "");
+
+const extractRegionFromLocation = (location) => {
+  if (!location) return null;
+  const parts = location.trim().split(/\s+/);
+  if (parts.length === 0) return null;
+  return { sido: normalizeSido(parts[0]), gu: parts[1] || "" };
+};
+
+const getDistanceCategory = (orderLocation, myRegion) => {
+  if (!myRegion?.sido) return null;
+  const ord = extractRegionFromLocation(orderLocation);
+  if (!ord?.sido) return null;
+  const mySido = normalizeSido(myRegion.sido);
+  if (ord.sido !== mySido) return "타지역";
+  if (myRegion.gu && ord.gu && myRegion.gu === ord.gu) return "내 동네";
+  return "같은 시";
+};
+
+const DISTANCE_RANK = { "내 동네": 0, "같은 시": 1, "타지역": 2 };
+
+/* ─── 지역 표시 라벨 (스크린샷 사양) ───
+   서울 → 구만 / 광역시 → 약칭+구 / 도+시 → 시만 / 일반시+자치구 → 시(시제거)+구
+   매칭 못 하면 원본 앞 두 단어
+*/
+const METRO_FULL_TO_SHORT = {
+  "부산광역시": "부산", "대구광역시": "대구", "인천광역시": "인천",
+  "광주광역시": "광주", "대전광역시": "대전", "울산광역시": "울산",
+};
+const METRO_SHORT_SET = new Set(Object.values(METRO_FULL_TO_SHORT));
+const PROVINCE_SHORTS = new Set(["충북","충남","경기","경남","경북","전남","전북","강원","제주","세종"]);
+
+const formatRegionLabel = (location) => {
+  if (!location) return "-";
+  const parts = location.trim().split(/\s+/);
+  if (parts.length === 0) return "-";
+  const [first = "", second = "", third = ""] = parts;
+
+  if (first === "서울특별시" || first === "서울") return second || "-";
+  if (METRO_FULL_TO_SHORT[first]) return `${METRO_FULL_TO_SHORT[first]}${second}`;
+  if (METRO_SHORT_SET.has(first)) return `${first}${second}`;
+
+  const isProvince = first.endsWith("도") || first.endsWith("특별자치도") || PROVINCE_SHORTS.has(first);
+  if (isProvince) {
+    if (second && third && (third.endsWith("구") || third.endsWith("군"))) {
+      const cityShort = second.endsWith("시") ? second.slice(0, -1) : second;
+      return `${cityShort}${third}`;
+    }
+    return second || "-";
+  }
+
+  return [first, second].filter(Boolean).join(" ") || "-";
+};
+
+/* ─── 단가유형 표시 (사양: "잔금 320K" / "금액 260K" / "현장견적" / "견적요청") ─── */
+const formatPriceType = (order) => {
+  const amt = Number(order.b2bPriceAmount) || 0;
+  const k = amt > 0 ? `${Math.round(amt / 1000).toLocaleString()}K` : "";
+  switch (order.b2bPriceType) {
+    case "balance": return amt > 0 ? `잔금 ${k}` : "잔금";
+    case "fixed":   return amt > 0 ? `금액 ${k}` : "금액";
+    case "hpoint":  return amt > 0 ? `H-P ${Math.round(amt / 1000).toLocaleString()}K` : "H-P";
+    case "onsite":  return "현장견적";
+    case "estimate": return "견적요청";
+    default: break;
+  }
+  if (order.priceType === "direct" && order.directPrice) {
+    const v = Number(String(order.directPrice).replace(/[^0-9]/g, ""));
+    return v > 0 ? `금액 ${Math.round(v / 1000).toLocaleString()}K` : "견적요청";
+  }
+  return "견적요청";
+};
+
+/* ─── 요청방식 표시 (사양: "0/3"=다중비교 / "빠른"=우선배정 / "지정"=지정배정) ─── */
+const formatMatchType = (order) => {
+  switch (order.matchType) {
+    case "compare":  return `${order.applicantCount || 0}/3`;
+    case "priority": return "빠른";
+    case "direct":   return "지정";
+    default:         return "-";
+  }
+};
 
 /* ─── 날짜 포맷 ─── */
 const formatOrderDate = (createdAt) => {
@@ -53,7 +140,7 @@ const formatOrderDate = (createdAt) => {
 
   // 내일 체크
   const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() - 1);
+  tomorrow.setDate(tomorrow.getDate() + 1);
   if (tomorrow.toDateString() === date.toDateString()) return "내일";
 
   // MM/DD
@@ -124,6 +211,74 @@ const UserMain = ({ navigate, nickname }) => (
     <BottomSpacer />
   </PageWrap>
 );
+
+/* ================================================================
+   작업자요청 탭 콘텐츠 (시트6 사양)
+   ================================================================ */
+const WorkerRequestList = ({ navigate }) => {
+  const [items, setItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { collection, query, orderBy, onSnapshot } = await import("firebase/firestore");
+        const { db } = await import("../../api/config");
+        const q = query(collection(db, "homepro_worker_requests"), orderBy("createdAt", "desc"));
+        const unsub = onSnapshot(q, (snap) => {
+          if (cancelled) return;
+          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setItems(list);
+          setLoading(false);
+        });
+        return () => unsub();
+      } catch (e) {
+        setLoading(false);
+        console.error("worker_requests 로드 실패:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <>
+      {loading ? (
+        <EmptyWrap><EmptyText>불러오는 중...</EmptyText></EmptyWrap>
+      ) : items.length === 0 ? (
+        <EmptyWrap>
+          <EmptyText>등록된 작업자 요청이 없습니다</EmptyText>
+          <EmptySubText>+ 버튼을 눌러 첫 요청을 등록해보세요</EmptySubText>
+        </EmptyWrap>
+      ) : (
+        <TableWrap>
+          <TableHeader>
+            <ThCell $flex={1} style={{textAlign:"center"}}>일자</ThCell>
+            <ThCell $flex={1.4} style={{textAlign:"center"}}>카테고리</ThCell>
+            <ThCell $flex={0.7} style={{textAlign:"center"}}>인원</ThCell>
+            <ThCell $flex={1.4} style={{textAlign:"center"}}>지역</ThCell>
+            <ThCell $flex={1.0} style={{textAlign:"center"}}>인건비</ThCell>
+          </TableHeader>
+          {items.map((it) => {
+            const dateLabel = it.workDate === "날짜지정" ? (it.workDatePicker || "지정") : (it.workDate || "-");
+            const region = formatRegionLabel(it.siteAddr);
+            const wage = it.wage ? `${Math.round(Number(it.wage) / 1000).toLocaleString()}K` : "-";
+            return (
+              <TableRow key={it.id}>
+                <TdCell $flex={1} style={{alignItems:"center"}}><TdDate>{dateLabel}</TdDate></TdCell>
+                <TdCell $flex={1.4} style={{alignItems:"center"}}><TdCatName>{it.category || "-"}</TdCatName></TdCell>
+                <TdCell $flex={0.7} style={{alignItems:"center"}}><TdLocation>{it.headcount ? `${it.headcount}명` : "-"}</TdLocation></TdCell>
+                <TdCell $flex={1.4} style={{alignItems:"center"}}><TdLocation>{region}</TdLocation></TdCell>
+                <TdCell $flex={1.0} style={{alignItems:"center"}}><TdAmount>{wage}</TdAmount></TdCell>
+              </TableRow>
+            );
+          })}
+        </TableWrap>
+      )}
+      <FloatBtn onClick={() => navigate("/order/worker-request/create")}>+ 인력 요청</FloatBtn>
+    </>
+  );
+};
 
 /* ================================================================
    초대코드 탭 콘텐츠
@@ -258,15 +413,19 @@ const InviteTabContent = () => {
    ================================================================ */
 const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const location = useLocation();
+  const { userData } = useAuth();
+  const myRegion = userData?.region;
   const [activeTab, setActiveTab] = useState("all_orders");
   const [activeStatusFilter, setActiveStatusFilter] = useState("전체");
   const [activeCatFilters, setActiveCatFilters] = useState([]);
   const [activeDist, setActiveDist] = useState("전체");
   const [activePeriod, setActivePeriod] = useState("전체");
+  const [activeSort, setActiveSort] = useState("등록순");
   const [showCatSheet, setShowCatSheet] = useState(false);
   const [showDistSheet, setShowDistSheet] = useState(false);
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showStatusSheet, setShowStatusSheet] = useState(false);
+  const [showSortSheet, setShowSortSheet] = useState(false);
   const [rawOrders, setRawOrders] = useState([]);
   const [toast, setToast] = useState("");
   const [userPoints, setUserPoints] = useState(0);
@@ -319,49 +478,109 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       });
   }, [rawOrders, proCategories, uid]);
 
-  // 상태 매핑 (요청/접수 → 접수, 완료/배차 → 마감)
+  // 상태 매핑 (요청/접수→접수, 대기→대기, 취소/거부→취소, 그 외→마감)
   const mapStatus = (status) => {
     if (status === "요청" || status === "접수") return "접수";
+    if (status === "대기") return "대기";
+    if (status === "취소" || status === "거부") return "취소";
     if (status === "배정" || status === "완료" || status === "마감" || status === "업체선택대기") return "마감";
-    if (status === "취소" || status === "대기" || status === "거부") return "마감";
     return "접수";
   };
 
-  // 기간 필터
+  // 기간 필터 (사양: 당일/어제/지난1주/지난2주/지난1개월)
   const filterByPeriod = (order) => {
     if (activePeriod === "전체") return true;
     const now = new Date();
     const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+    const isToday = now.toDateString() === date.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = yesterday.toDateString() === date.toDateString();
     const diffMs = now - date;
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    if (activePeriod === "1주일") return diffDays <= 7;
-    if (activePeriod === "1개월") return diffDays <= 30;
-    if (activePeriod === "미래") return diffMs < 0;
+    if (activePeriod === "당일") return isToday;
+    if (activePeriod === "어제") return isYesterday;
+    if (activePeriod === "지난1주일") return diffDays >= 0 && diffDays <= 7;
+    if (activePeriod === "지난2주일") return diffDays >= 0 && diffDays <= 14;
+    if (activePeriod === "지난1개월") return diffDays >= 0 && diffDays <= 30;
     return true;
   };
 
-  // 상태 + 카테고리 + 기간 필터 적용
+  // 거리 필터 (지역 단순화: 내 동네 / 같은 시 / 타지역)
+  const filterByDistance = (order) => {
+    if (activeDist === "전체") return true;
+    const cat = getDistanceCategory(order.location, myRegion);
+    if (!cat) return false;
+    return cat === activeDist;
+  };
+
+  // 상태 + 카테고리 + 기간 + 거리 필터 적용
   const filteredOrders = allOrders.filter((o) => {
     const mapped = mapStatus(o.orderStatus);
     const statusMatch = activeStatusFilter === "전체" || mapped === activeStatusFilter;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
     const periodMatch = filterByPeriod(o);
-    return statusMatch && catMatch && periodMatch;
+    const distMatch = filterByDistance(o);
+    return statusMatch && catMatch && periodMatch && distMatch;
   });
+
+  // 정렬 적용
+  const sortedOrders = useMemo(() => {
+    const list = [...filteredOrders];
+    const getDate = (o) => (o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || 0));
+    if (activeSort === "등록순") {
+      return list.sort((a, b) => getDate(b) - getDate(a));
+    }
+    if (activeSort === "가까운거리순") {
+      // 내 동네(0) → 같은 시(1) → 타지역(2) → 미상(3), 같은 등급은 최근 등록순
+      const rank = (o) => {
+        const cat = getDistanceCategory(o.location, myRegion);
+        return cat ? DISTANCE_RANK[cat] : 3;
+      };
+      return list.sort((a, b) => {
+        const r = rank(a) - rank(b);
+        if (r !== 0) return r;
+        return getDate(b) - getDate(a);
+      });
+    }
+    if (activeSort === "서비스순") {
+      return list.sort((a, b) => (a.categoryName || "").localeCompare(b.categoryName || "", "ko"));
+    }
+    if (activeSort === "지역순") {
+      const key = (o) => {
+        const r = extractRegionFromLocation(o.location);
+        return r ? `${r.sido} ${r.gu}` : "";
+      };
+      return list.sort((a, b) => key(a).localeCompare(key(b), "ko"));
+    }
+    if (activeSort === "요청방식순") {
+      return list.sort((a, b) => (a.matchType || "").localeCompare(b.matchType || "", "ko"));
+    }
+    if (activeSort === "단가유형순") {
+      return list.sort((a, b) =>
+        (a.priceType || a.b2bPriceType || "").localeCompare(b.priceType || b.b2bPriceType || "", "ko")
+      );
+    }
+    return list;
+  }, [filteredOrders, activeSort, myRegion]);
 
   // 바텀시트에는 항상 전체 카테고리 표시
   const filterCats = CATEGORIES;
 
   const HOME_TABS = [
-    { key: "assets", label: "보유자산" },
     { key: "all_orders", label: "요청목록" },
     { key: "my_orders", label: "나의오더현황" },
-    { key: "ai", label: "AI견적" },
+    { key: "worker_request", label: "작업자요청" },
     { key: "referral", label: "초대코드" },
+    { key: "assets", label: "보유자산" },
   ];
 
   return (
     <PageWrap>
+      {/* ── 상단 포인트 ── */}
+      <PointHeader>
+        <PointValue>{userPoints.toLocaleString()}P</PointValue>
+      </PointHeader>
+
       {/* ── 상단 탭 버튼 ── */}
       <HomeTabRow>
         {HOME_TABS.map((tab) => (
@@ -394,12 +613,14 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {activeTab === "all_orders" && (
       <>
           <FilterBtnRow>
-            <FilterBtn onClick={() => { setRawOrders([]); }}>새로고침</FilterBtn>
-            <FilterBtn $active={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
-              {activeDist !== "전체" ? activeDist : "거리"} <IoChevronDown size={11} />
+            <FilterBtn $active={activeSort !== "등록순"} onClick={() => setShowSortSheet(true)}>
+              {activeSort} <IoChevronDown size={11} />
             </FilterBtn>
             <FilterBtn $active={activeStatusFilter !== "전체"} onClick={() => setShowStatusSheet(true)}>
               {activeStatusFilter !== "전체" ? activeStatusFilter : "상태"} <IoChevronDown size={11} />
+            </FilterBtn>
+            <FilterBtn $active={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
+              {activeDist !== "전체" ? activeDist : "거리"} <IoChevronDown size={11} />
             </FilterBtn>
             <FilterBtn $active={activePeriod !== "전체"} onClick={() => setShowPeriodSheet(true)}>
               {activePeriod !== "전체" ? activePeriod : "기간"} <IoChevronDown size={11} />
@@ -409,7 +630,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </FilterBtn>
           </FilterBtnRow>
 
-          {filteredOrders.length === 0 ? (
+          {sortedOrders.length === 0 ? (
             <EmptyWrap>
               <EmptyText>등록된 요청이 없습니다</EmptyText>
               <EmptySubText>새로운 요청이 들어오면 알려드릴게요!</EmptySubText>
@@ -417,37 +638,44 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
           ) : (
             <TableWrap>
               <TableHeader>
-                <ThCell $flex={1} style={{textAlign:"center"}}>날짜</ThCell>
-                <ThCell $flex={0.8} style={{textAlign:"center"}}>상태</ThCell>
-                <ThCell $flex={1.5} style={{textAlign:"center"}}>카테고리</ThCell>
-                <ThCell $flex={1.5} style={{textAlign:"center"}}>지역</ThCell>
-                <ThCell $flex={1.5} style={{textAlign:"center"}}>금액</ThCell>
+                <ThCell $flex={0.9} style={{textAlign:"center"}}>날짜</ThCell>
+                <ThCell $flex={0.7} style={{textAlign:"center"}}>상태</ThCell>
+                <ThCell $flex={1.2} style={{textAlign:"center"}}>서비스</ThCell>
+                <ThCell $flex={1.0} style={{textAlign:"center"}}>지역</ThCell>
+                <ThCell $flex={1.1} style={{textAlign:"center"}}>단가유형</ThCell>
+                <ThCell $flex={0.7} style={{textAlign:"center"}}>요청방식</ThCell>
               </TableHeader>
-              {filteredOrders.map((order) => {
+              {sortedOrders.map((order) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
                 const dateLabel = formatOrderDate(order.createdAt);
                 const status = mapStatus(order.orderStatus);
                 const sStyle = STATUS_STYLE[status] || STATUS_STYLE["접수"];
                 const isUrgent = dateLabel === "긴급";
+                const regionLabel = formatRegionLabel(order.location);
+                const priceLabel = formatPriceType(order);
+                const matchLabel = formatMatchType(order);
                 return (
                   <TableRow key={order.id} onClick={() => {
                     if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
                   }}>
-                    <TdCell $flex={1}>
+                    <TdCell $flex={0.9} style={{alignItems:"center"}}>
                       <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
                     </TdCell>
-                    <TdCell $flex={0.8} style={{alignItems:"center"}}>
+                    <TdCell $flex={0.7} style={{alignItems:"center"}}>
                       <TdStatusBadge style={{background: sStyle.bg, color: sStyle.color}}>{status}</TdStatusBadge>
                     </TdCell>
-                    <TdCell $flex={1.5} style={{alignItems:"center"}}>
+                    <TdCell $flex={1.2} style={{alignItems:"center"}}>
                       <TdCatName>{order.categoryName}</TdCatName>
                     </TdCell>
-                    <TdCell $flex={1.5}>
-                      <TdLocation>{order.location ? order.location.split(" ").slice(0, 2).join(" ") : "-"}</TdLocation>
+                    <TdCell $flex={1.0} style={{alignItems:"center"}}>
+                      <TdLocation>{regionLabel}</TdLocation>
                     </TdCell>
-                    <TdCell $flex={1.5} style={{alignItems:"flex-end"}}>
-                      <TdAmount>{order.price && Number(order.price.replace(/[^0-9]/g, "")) > 0 ? `${Number(order.price.replace(/[^0-9]/g, "")).toLocaleString()}원` : "견적협의"}</TdAmount>
+                    <TdCell $flex={1.1} style={{alignItems:"center"}}>
+                      <TdLocation>{priceLabel}</TdLocation>
+                    </TdCell>
+                    <TdCell $flex={0.7} style={{alignItems:"center"}}>
+                      <TdLocation>{matchLabel}</TdLocation>
                     </TdCell>
                   </TableRow>
                 );
@@ -466,11 +694,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         </>
       )}
 
-      {/* ══════ AI견적 ══════ */}
-      {activeTab === "ai" && (
-        <>
-          <AIEstimateContent />
-        </>
+      {/* ══════ 작업자요청 (시트6 사양: 작업인력호출 리스트) ══════ */}
+      {activeTab === "worker_request" && (
+        <WorkerRequestList navigate={navigate} />
       )}
 
       {/* ══════ 초대코드 ══════ */}
@@ -595,6 +821,29 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 <SheetItem key={t} onClick={() => { setActivePeriod(t); setShowPeriodSheet(false); }}>
                   <SheetItemName>{t}</SheetItemName>
                   {activePeriod === t && <IoCheckmarkCircle size={22} color={THEME.primary} />}
+                </SheetItem>
+              ))}
+            </SheetList>
+          </SheetContent>
+        </SheetOverlay>
+      )}
+
+      {/* 정렬 바텀시트 */}
+      {showSortSheet && (
+        <SheetOverlay onClick={() => setShowSortSheet(false)}>
+          <SheetContent onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>정렬</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowSortSheet(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </SheetCloseBtn>
+            </SheetHeader>
+            <SheetList>
+              {SORT_OPTIONS.map((s) => (
+                <SheetItem key={s} onClick={() => { setActiveSort(s); setShowSortSheet(false); }}>
+                  <SheetItemName>{s}</SheetItemName>
+                  {activeSort === s && <IoCheckmarkCircle size={22} color={THEME.primary} />}
                 </SheetItem>
               ))}
             </SheetList>
@@ -758,6 +1007,9 @@ const PullContainer = styled.div`
   overflow-y: auto;
   height: 100%;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
 `;
 
 const PullIndicator = styled.div`
@@ -839,6 +1091,22 @@ const PageWrap = styled.div`
   flex-direction: column;
   background: ${THEME.background};
   min-height: 100%;
+`;
+
+const PointHeader = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 6px 14px 0;
+`;
+
+const PointValue = styled.div`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  background: ${THEME.purpleLight};
+  padding: 4px 10px;
+  border-radius: 20px;
 `;
 
 const Card = styled.div`
@@ -1686,7 +1954,8 @@ const OrderActionBtn = styled.button`
 const TableWrap = styled.div`
   margin: 0 12px;
   background: ${THEME.surface};
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid ${THEME.border};
 `;
 
@@ -1697,6 +1966,7 @@ const TableHeader = styled.div`
   background: #4A5568;
   border-bottom: 1px solid ${THEME.border};
   align-items: center;
+  min-width: 520px;
 `;
 
 const ThCell = styled.div`
@@ -1715,6 +1985,7 @@ const TableRow = styled.div`
   cursor: pointer;
   align-items: center;
   min-height: 40px;
+  min-width: 520px;
   &:last-child { border-bottom: none; }
   &:active { background: ${THEME.background}; }
 `;

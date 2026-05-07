@@ -55,6 +55,10 @@ const STATUS_BADGE = {
   "완료": { bg: THEME.success, text: "#fff" },
 };
 
+const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
+const MATCH_TYPE_LABEL = { priority: "우선배정", compare: "다중비교", direct: "지정배정" };
+const HP_ASSIGNED_STATUSES = new Set(["배정", "업체선택대기", "완료", "마감"]);
+
 const OrderDetailPage = () => {
   const { state } = useLocation();
   const { orderId } = useParams();
@@ -177,6 +181,17 @@ const OrderDetailPage = () => {
       if (updated) setFetchedOrder(updated);
     } catch (e) {
       showToast(e.message || "상태 변경에 실패했습니다");
+    }
+  };
+
+  const handleOwnerReregister = async () => {
+    try {
+      await updateOrderStatus(order.id, "요청");
+      showToast("재접수되었습니다");
+      const updated = await getOrder(order.id);
+      if (updated) setFetchedOrder(updated);
+    } catch (e) {
+      showToast(e.message || "재접수에 실패했습니다");
     }
   };
 
@@ -376,7 +391,7 @@ const OrderDetailPage = () => {
                 <SubTag key={i}>{s.trim()}</SubTag>
               ))}
               {order.spaceType && <SpaceTag>{order.spaceType}</SpaceTag>}
-              {order.matchType && <MatchTag>{order.matchType}</MatchTag>}
+              {order.matchType && <MatchTag>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</MatchTag>}
             </TagSection>
           </DetailSection>
         )}
@@ -475,8 +490,8 @@ const OrderDetailPage = () => {
               <ConditionRow>
                 <ConditionLabel>단가유형</ConditionLabel>
                 <ConditionValue>
-                  {order.b2bPriceType === "fixed" ? "확정가" : order.b2bPriceType === "balance" ? "잔금" : order.b2bPriceType === "onsite" ? "현장견적후" : order.b2bPriceType === "quote" ? "견적제시형" : order.b2bPriceType}
-                  {order.b2bPriceAmount ? ` ${Number(order.b2bPriceAmount).toLocaleString()}원` : ""}
+                  {PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType}
+                  {order.b2bPriceAmount ? ` ${Number(order.b2bPriceAmount).toLocaleString()}${order.b2bPriceType === "hpoint" ? "P" : "원"}` : ""}
                 </ConditionValue>
               </ConditionRow>
             )}
@@ -510,13 +525,13 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 매칭 방식 ── */}
+        {/* ── 요청 방식 (매칭) ── */}
         {order.matchType && (
           <DetailSection>
-            <SectionTitle>홈프로 선택</SectionTitle>
+            <SectionTitle>요청 방식</SectionTitle>
             <ConditionRow>
               <ConditionLabel>매칭방식</ConditionLabel>
-              <ConditionValue>{order.matchType}</ConditionValue>
+              <ConditionValue>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</ConditionValue>
             </ConditionRow>
           </DetailSection>
         )}
@@ -526,6 +541,73 @@ const OrderDetailPage = () => {
           <SectionTitle>요청 상세 내용</SectionTitle>
           <DetailText>{order.description || "-"}</DetailText>
         </DetailSection>
+
+        {/* ── 접수자 프로필 (홈프로 시점) ── */}
+        {!isOwner && (order.writer || order.writerPhoto) && (
+          <DetailSection>
+            <SectionTitle>접수자 프로필</SectionTitle>
+            <ApplicantCard>
+              <ApplicantTop>
+                {order.writerPhoto ? (
+                  <QuoteAvatar src={order.writerPhoto} alt={order.writer || "접수자"} />
+                ) : (
+                  <QuoteAvatarPlaceholder>
+                    <IoPersonCircleOutline size={36} color={THEME.muted} />
+                  </QuoteAvatarPlaceholder>
+                )}
+                <ApplicantInfo>
+                  <ApplicantName>{order.writer || "접수자"}</ApplicantName>
+                </ApplicantInfo>
+              </ApplicantTop>
+            </ApplicantCard>
+          </DetailSection>
+        )}
+
+        {/* ── 받은견적 (접수자 시점) ── 사양 R83: 금액/범위/조건 표시, 수정 불가 */}
+        {isOwner && quotes.length > 0 && (
+          <DetailSection>
+            <SectionTitle>받은견적</SectionTitle>
+            {quotes.map((q) => (
+              <QuoteCard key={q.id}>
+                <ApplicantTop>
+                  {q.proPhoto ? (
+                    <QuoteAvatar src={q.proPhoto} alt={q.proName} />
+                  ) : (
+                    <QuoteAvatarPlaceholder>
+                      <IoPersonCircleOutline size={32} color={THEME.muted} />
+                    </QuoteAvatarPlaceholder>
+                  )}
+                  <ApplicantInfo>
+                    <ApplicantName>{q.proName || "전문가"}</ApplicantName>
+                    <ConditionValue>{Number(q.price || 0).toLocaleString()}원</ConditionValue>
+                    {q.message && <ApplicantIntro>{q.message}</ApplicantIntro>}
+                  </ApplicantInfo>
+                  {q.status !== "accepted" ? (
+                    <SelectProBtn onClick={() => handleAcceptQuote(q)}>수락</SelectProBtn>
+                  ) : (
+                    <ConditionValue style={{ color: THEME.success, fontWeight: 600 }}>수락됨</ConditionValue>
+                  )}
+                </ApplicantTop>
+              </QuoteCard>
+            ))}
+          </DetailSection>
+        )}
+
+        {/* ── 견적제출 (홈프로 시점) ── 사양 R165: 현장견적/견적요청만 작성 가능 */}
+        {!isOwner && order.b2bPriceType && (
+          <DetailSection>
+            <SectionTitle>견적제출</SectionTitle>
+            {(order.b2bPriceType === "onsite" || order.b2bPriceType === "estimate" || order.b2bPriceType === "quote") && order.b2bPriceType !== "hpoint" && order.b2bPriceType !== "fixed" && order.b2bPriceType !== "balance" ? (
+              <SelectProBtn onClick={handleQuote} style={{ width: "100%", padding: "12px" }}>
+                견적 작성하기
+              </SelectProBtn>
+            ) : (
+              <DetailText style={{ color: THEME.muted }}>
+                {PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다
+              </DetailText>
+            )}
+          </DetailSection>
+        )}
 
         {/* ── 다중비교 지원자 목록 (접수자 전용) ── */}
         {isOwner && matchType === "compare" && applicants.length > 0 && (
@@ -560,10 +642,20 @@ const OrderDetailPage = () => {
       {/* 고정 하단 CTA — 호출 유형별 분기 */}
       <FixedBottom>
         {isOwner ? (
-          /* 접수자 버튼 */
+          /* 접수자 버튼 — 대기 상태면 재접수 / 그 외면 대기후수정 (홈프로 배정 후엔 비활성) */
           <ActionRow>
             <OutlinedBtn onClick={() => navigate("/order/create", { state: { order } })}>수정</OutlinedBtn>
-            <OutlinedBtn onClick={handleOwnerWaiting}>대기</OutlinedBtn>
+            {order.orderStatus === "대기" ? (
+              <OutlinedBtn onClick={handleOwnerReregister}>재접수</OutlinedBtn>
+            ) : (
+              <OutlinedBtn
+                onClick={handleOwnerWaiting}
+                disabled={HP_ASSIGNED_STATUSES.has(order.orderStatus)}
+                style={HP_ASSIGNED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+              >
+                대기후수정
+              </OutlinedBtn>
+            )}
             <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
           </ActionRow>
         ) : matchType === "priority" ? (

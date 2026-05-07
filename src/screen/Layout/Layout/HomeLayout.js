@@ -35,6 +35,9 @@ const Main = styled.main`
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: #F7F8FA;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
 `;
 
 const HomeLayout = (props) => {
