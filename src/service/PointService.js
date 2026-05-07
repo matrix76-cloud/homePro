@@ -22,13 +22,28 @@ const DEFAULT_RULES = {
   referral_invite:    { amount: 100, label: "친구 초대 보상", active: true },
   referral_signup:    { amount: 100, label: "추천코드 사용 보상", active: true },
   order_create:       { amount: 50,  label: "오더 작성 보상", active: true },
-  order_complete:     { amount: 0,   label: "오더 완료 보상", active: false },
+  order_complete:     { amount: 0,   label: "오더 완료 보상 (접수자)", active: false },
+  order_perform:      { amount: 0,   label: "오더 수행 보상 (홈프로)", active: false },
   community_post:     { amount: 30,  label: "게시글 작성 보상", active: true },
   community_like_10:  { amount: 50,  label: "게시물 하트 10개 달성", active: true },
   community_like_50:  { amount: 100, label: "게시물 하트 50개 달성", active: true },
   community_like_100: { amount: 200, label: "게시물 하트 100개 달성", active: true },
   review:             { amount: 30,  label: "리뷰 작성 보상", active: true },
 };
+
+/* ─── 시트8 사양: 토큰화 대비 변수 ─── */
+const DEFAULT_POLICY = {
+  networkFeeRate: 0.05,        // 5% 네트워크 수수료 (포인트/파이/토큰 결제 시)
+  referralRewardRate: 0.03,    // 3% 추천인 보상 (수수료 5% 중)
+  swapRate: 1,                 // 1포인트 → 토큰 스왑 비율 (관리자 변경 가능)
+  monthlySubscriptionPoint: 16500, // 월 구독료 16,500P
+};
+
+export async function getPointPolicy() {
+  const snap = await getDoc(doc(db, RULES_DOC));
+  const data = snap.exists() ? snap.data() : {};
+  return { ...DEFAULT_POLICY, ...(data._policy || {}) };
+}
 
 /** settings/point_rules에서 규칙 조회 (없으면 기본값) */
 async function getRule(category) {
@@ -161,6 +176,93 @@ export async function checkAndGrantLikeMilestone(likeCount, authorUid, authorNam
       });
     }
   }
+}
+
+/**
+ * 포인트 차감 (결제/구독 등) — 원장에 insert 방식 기록 (사양 R41)
+ * @param {string} uid
+ * @param {string} userName
+ * @param {number} amount - 차감할 포인트 (양수)
+ * @param {string} reason
+ * @param {object} options - { relatedDocId, txType }
+ * @returns {Promise<{ id: string, amount: number, balance: number }>}
+ */
+export async function deductPoints(uid, userName, amount, reason, options = {}) {
+  if (!uid || amount <= 0) throw new Error("잘못된 차감 요청");
+  const userSnap = await getDoc(doc(db, USERS_COL, uid));
+  const balance = userSnap.exists() ? (userSnap.data().referralPoints || 0) : 0;
+  if (balance < amount) throw new Error("포인트가 부족합니다");
+
+  // 원장 기록 (insert)
+  const cashDoc = await addDoc(collection(db, CASH_COL), {
+    uid,
+    userName,
+    type: "spend",
+    amount: -amount,
+    reason,
+    category: options.txType || "payment",
+    relatedDocId: options.relatedDocId || null,
+    createdAt: serverTimestamp(),
+  });
+  // 잔액 차감
+  await updateDoc(doc(db, USERS_COL, uid), {
+    referralPoints: increment(-amount),
+  });
+  return { id: cashDoc.id, amount, balance: balance - amount };
+}
+
+/**
+ * 포인트 결제 시 네트워크 수수료 계산 + 추천인 3% 보상 (사양 R23~R27)
+ * @param {string} payerUid - 결제자 UID
+ * @param {string} payerName
+ * @param {number} amount - 결제 금액 (포인트)
+ * @param {string} reason
+ */
+export async function applyPointPayment(payerUid, payerName, amount, reason) {
+  const policy = await getPointPolicy();
+  // 결제자 포인트 차감
+  const result = await deductPoints(payerUid, payerName, amount, reason, { txType: "payment" });
+  // 네트워크 수수료 (5%) — 시스템에 기록만 (실제 송금은 토큰화 후)
+  const fee = Math.round(amount * policy.networkFeeRate);
+  // 추천인 보상 (수수료 5% 중 3%)
+  let referrerReward = null;
+  try {
+    const userSnap = await getDoc(doc(db, USERS_COL, payerUid));
+    const referredBy = userSnap.exists() ? userSnap.data().referredBy : null;
+    if (referredBy) {
+      const rewardAmount = Math.round(amount * policy.referralRewardRate);
+      if (rewardAmount > 0) {
+        await addDoc(collection(db, CASH_COL), {
+          uid: referredBy,
+          userName: "(추천인 보상)",
+          type: "earn",
+          amount: rewardAmount,
+          reason: `${reason} — 추천인 보상`,
+          category: "referral_reward",
+          relatedUid: payerUid,
+          createdAt: serverTimestamp(),
+        });
+        await updateDoc(doc(db, USERS_COL, referredBy), {
+          referralPoints: increment(rewardAmount),
+          totalEarnedPoints: increment(rewardAmount),
+        });
+        referrerReward = { uid: referredBy, amount: rewardAmount };
+      }
+    }
+  } catch (e) {
+    console.warn("추천인 보상 처리 실패:", e);
+  }
+  return { ...result, fee, referrerReward };
+}
+
+/**
+ * 지갑 주소 등록 (토큰화 대비 — 사양 R46)
+ */
+export async function setWalletAddress(uid, walletAddress) {
+  await updateDoc(doc(db, USERS_COL, uid), {
+    walletAddress: walletAddress || null,
+    walletUpdatedAt: serverTimestamp(),
+  });
 }
 
 /** 규칙 정렬 순서 (관리자 페이지용) */

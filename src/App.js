@@ -30,6 +30,10 @@ import OrderListPage from "./page/order/OrderListPage";
 import OrderDetailPage from "./page/order/OrderDetailPage";
 import AIEstimatePage from "./page/order/AIEstimatePage";
 import MyOrdersPage, { MyOrdersFooterPage } from "./page/order/MyOrdersPage";
+import WorkerRequestCreatePage from "./page/order/WorkerRequestCreatePage";
+import MarketplacePage from "./page/order/MarketplacePage";
+import MarketplaceCreatePage from "./page/order/MarketplaceCreatePage";
+import SubscriptionPage from "./page/mypage/SubscriptionPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
@@ -258,6 +262,10 @@ const AnimatedRoutes = () => {
             <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
             <Route path="/order/list" element={wrap(<OrderListPage />)} />
             <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
+            <Route path="/order/worker-request/create" element={wrap(<WorkerRequestCreatePage />)} />
+            <Route path="/marketplace" element={wrap(<MarketplacePage />)} />
+            <Route path="/marketplace/create" element={wrap(<MarketplaceCreatePage />)} />
+            <Route path="/subscription" element={wrap(<SubscriptionPage />)} />
 
             {/* Search */}
             <Route path="/search" element={wrap(<SearchPage />)} />
