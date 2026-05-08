@@ -34,6 +34,7 @@ import WorkerRequestCreatePage from "./page/order/WorkerRequestCreatePage";
 import MarketplacePage from "./page/order/MarketplacePage";
 import MarketplaceCreatePage from "./page/order/MarketplaceCreatePage";
 import SubscriptionPage from "./page/mypage/SubscriptionPage";
+import SeedLoginPage from "./page/test/SeedLoginPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
@@ -218,6 +219,7 @@ const AnimatedRoutes = () => {
           <Route path="/legal/terms" element={wrap(<TermsPage />)} />
           <Route path="/legal/privacy" element={wrap(<PrivacyPage />)} />
           <Route path="/legal/location" element={wrap(<LocationTermsPage />)} />
+          <Route path="/seed-login" element={<SeedLoginPage />} />
 
           {/* Auth Required - 로그인 필요 */}
           <Route element={<RequireAuth />}>

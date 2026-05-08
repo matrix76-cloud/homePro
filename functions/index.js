@@ -577,3 +577,9 @@ exports.onAppUpdate = onDocumentCreated(
         );
     }
 );
+
+/* ─── 테스트 시드/정리 함수 (functions/seed.js) ─── */
+const seedFns = require("./seed");
+exports.cleanAllTestData = seedFns.cleanAllTestData;
+exports.seedTestData = seedFns.seedTestData;
+exports.getSeedLoginToken = seedFns.getSeedLoginToken;
