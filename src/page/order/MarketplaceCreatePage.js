@@ -1,12 +1,17 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../api/config";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { IoCloseCircle } from "react-icons/io5";
+import { db, storage } from "../../api/config";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { THEME } from "../../config/homeproConfig";
+import { THEME, STORAGE_PATH_PREFIX } from "../../config/homeproConfig";
+import { compressDetailImage } from "../../utility/imageUtils";
+
+const MAX_PHOTOS = 4;
 
 /* ─── 시트7 사양 ─── */
 const TRADE_TYPES = ["시공도급", "작업도급", "사업권양도", "물품매매", "장비매매", "업체인수양도", "설치도급", "공사도급"];
@@ -42,8 +47,37 @@ const MarketplaceCreatePage = () => {
   const [amount, setAmount] = useState("");
   const [contractType, setContractType] = useState("");
   const [description, setDescription] = useState("");
+  const [photos, setPhotos] = useState([]); // [{ preview, file }]
+  const fileInputRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
+
+  const handlePhotoAdd = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const remaining = MAX_PHOTOS - photos.length;
+    const toProcess = files.slice(0, remaining);
+    try {
+      const compressed = await Promise.all(
+        toProcess.map(async (f) => {
+          const file = await compressDetailImage(f, 800, 0.7);
+          return { preview: URL.createObjectURL(file), file };
+        })
+      );
+      setPhotos((prev) => [...prev, ...compressed]);
+    } catch (err) {
+      console.error("사진 압축 실패:", err);
+      showToast("사진 처리 실패");
+    }
+    e.target.value = "";
+  };
+
+  const handlePhotoRemove = (idx) => {
+    setPhotos((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
 
   // TODO: 유료구독 회원 체크 (사양 R57~63) — 현재 placeholder
   const isSubscriber = userData?.subscription?.active === true || true; // 임시 통과
@@ -58,6 +92,16 @@ const MarketplaceCreatePage = () => {
     if (!description.trim()) return showToast("상세내용을 입력해주세요");
     setSubmitting(true);
     try {
+      // 사진 업로드
+      const imageURLs = await Promise.all(
+        photos.map(async (p, i) => {
+          const path = `${STORAGE_PATH_PREFIX}/marketplace/${userData?.uid || "anon"}/${Date.now()}_${i}.jpg`;
+          const storageRef = ref(storage, path);
+          await uploadBytes(storageRef, p.file, { contentType: "image/jpeg" });
+          return getDownloadURL(storageRef);
+        })
+      );
+
       await addDoc(collection(db, "homepro_marketplace"), {
         tradeType,
         memberType,
@@ -69,8 +113,10 @@ const MarketplaceCreatePage = () => {
         amount: amount ? Number(amount) : null,
         contractType: contractType || null,
         description: description.trim(),
+        images: imageURLs,
         createdBy: userData?.uid || null,
         writer: userData?.nickname || userData?.name || "",
+        writerPhoto: userData?.profileImage || userData?.photoURL || "",
         status: "active",
         createdAt: serverTimestamp(),
       });
@@ -169,6 +215,35 @@ const MarketplaceCreatePage = () => {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="작업·거래내용, 규모, 계약조건, 대금지급방식, 진행 일정 등"
             rows={6}
+          />
+        </Section>
+
+        {/* 사진 첨부 (최대 4장) */}
+        <Section>
+          <Label>사진 첨부 <PhotoCount>({photos.length}/{MAX_PHOTOS})</PhotoCount></Label>
+          <PhotoGrid>
+            {photos.map((p, i) => (
+              <PhotoSlot key={i}>
+                <PhotoImg src={p.preview} alt={`photo-${i}`} />
+                <PhotoRemove type="button" onClick={() => handlePhotoRemove(i)}>
+                  <IoCloseCircle size={22} />
+                </PhotoRemove>
+              </PhotoSlot>
+            ))}
+            {photos.length < MAX_PHOTOS && (
+              <PhotoAddSlot type="button" onClick={() => fileInputRef.current?.click()}>
+                <PhotoAddIcon>+</PhotoAddIcon>
+                <PhotoAddLabel>사진 추가</PhotoAddLabel>
+              </PhotoAddSlot>
+            )}
+          </PhotoGrid>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={handlePhotoAdd}
           />
         </Section>
 
@@ -302,6 +377,78 @@ const SubmitBtn = styled.button`
 
 const BottomSpacer = styled.div`
   height: 40px;
+`;
+
+const PhotoCount = styled.span`
+  font-size: 12px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  margin-left: 6px;
+`;
+
+const PhotoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+`;
+
+const PhotoSlot = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: ${THEME.background};
+`;
+
+const PhotoImg = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const PhotoRemove = styled.button`
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+`;
+
+const PhotoAddSlot = styled.button`
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  border: 1.5px dashed ${THEME.border};
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 2px;
+  &:active { background: ${THEME.background}; }
+`;
+
+const PhotoAddIcon = styled.div`
+  font-size: 22px;
+  font-weight: 300;
+  color: ${THEME.muted};
+  line-height: 1;
+`;
+
+const PhotoAddLabel = styled.div`
+  font-size: 10px;
+  color: ${THEME.muted};
 `;
 
 const Toast = styled.div`

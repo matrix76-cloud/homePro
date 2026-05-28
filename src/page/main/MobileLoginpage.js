@@ -2,9 +2,13 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { signInWithCustomToken } from "firebase/auth";
 import { UserContext } from "../../context/User";
 import { signInWithSocial, signInWithEmailPassword } from "../../service/AuthService";
+import { auth } from "../../api/config";
 import { THEME, APP_NAME } from "../../config/homeproConfig";
+
+const DEV_BYPASS_IDS = ["test1", "test3"];
 
 const Container = styled.div`
   display: flex;
@@ -170,6 +174,32 @@ const MobileLoginpage = () => {
     }
     setLoading(true);
     setError("");
+
+    if (
+      process.env.NODE_ENV === "development" &&
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      DEV_BYPASS_IDS.includes(loginId.trim())
+    ) {
+      const SECRET = "homepro-seed-2026-x9k3p";
+      const FN_URL = "https://getseedlogintoken-3e76fevucq-du.a.run.app";
+      const email = `${loginId.trim()}@homepro.app`;
+      try {
+        const url = `${FN_URL}?email=${encodeURIComponent(email)}&secret=${SECRET}`;
+        const r = await fetch(url);
+        const j = await r.json();
+        if (!r.ok || !j.token) throw new Error(j.error || "토큰 발급 실패");
+        const cred = await signInWithCustomToken(auth, j.token);
+        setLoading(false);
+        dispatch({ USERS_ID: cred.user.uid });
+        navigate("/MobileSplash", { replace: true });
+        return;
+      } catch (e) {
+        setLoading(false);
+        setError(`[dev 우회] ${e.message || "로그인 실패"}`);
+        return;
+      }
+    }
 
     const res = await signInWithEmailPassword({ email: loginId, password });
     setLoading(false);

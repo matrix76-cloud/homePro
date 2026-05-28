@@ -264,7 +264,7 @@ const WorkerRequestList = ({ navigate }) => {
             const region = formatRegionLabel(it.siteAddr);
             const wage = it.wage ? `${Math.round(Number(it.wage) / 1000).toLocaleString()}K` : "-";
             return (
-              <TableRow key={it.id}>
+              <TableRow key={it.id} onClick={() => navigate(`/order/worker-request/detail/${it.id}`)} style={{ cursor: "pointer" }}>
                 <TdCell $flex={1} style={{alignItems:"center"}}><TdDate>{dateLabel}</TdDate></TdCell>
                 <TdCell $flex={1.4} style={{alignItems:"center"}}><TdCatName>{it.category || "-"}</TdCatName></TdCell>
                 <TdCell $flex={0.7} style={{alignItems:"center"}}><TdLocation>{it.headcount ? `${it.headcount}명` : "-"}</TdLocation></TdCell>
@@ -411,11 +411,19 @@ const InviteTabContent = () => {
 /* ================================================================
    전문가 모드 메인 — 기획안 구조
    ================================================================ */
+const ACTIVE_TAB_STORAGE_KEY = "homepro.main.activeTab";
+
 const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const location = useLocation();
   const { userData } = useAuth();
   const myRegion = userData?.region;
-  const [activeTab, setActiveTab] = useState("all_orders");
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+      if (saved) return saved;
+    } catch (e) { /* ignore */ }
+    return "all_orders";
+  });
   const [activeStatusFilter, setActiveStatusFilter] = useState("전체");
   const [activeCatFilters, setActiveCatFilters] = useState([]);
   const [activeDist, setActiveDist] = useState("전체");
@@ -455,10 +463,16 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     })();
   }, [uid]);
 
+  // activeTab 변경 시 sessionStorage 동기화 (뒤로가기 시 탭 유지)
+  useEffect(() => {
+    try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab); } catch (e) { /* ignore */ }
+  }, [activeTab]);
+
   // 홈 탭 클릭 시 첫 번째 탭으로 리셋
   useEffect(() => {
     if (location.state?.resetTab) {
       setActiveTab("all_orders");
+      try { sessionStorage.removeItem(ACTIVE_TAB_STORAGE_KEY); } catch (e) { /* ignore */ }
     }
   }, [location.state?.resetTab]);
 

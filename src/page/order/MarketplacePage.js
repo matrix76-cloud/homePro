@@ -51,7 +51,7 @@ const MarketplacePage = () => {
         ) : (
           <List>
             {filtered.map((it) => (
-              <Card key={it.id}>
+              <Card key={it.id} onClick={() => navigate(`/marketplace/${it.id}`)}>
                 <CardTop>
                   <TypeBadge>{it.tradeType}</TypeBadge>
                   <CardDate>{it.createdAt?.toDate ? new Date(it.createdAt.toDate()).toLocaleDateString() : ""}</CardDate>
@@ -60,6 +60,9 @@ const MarketplacePage = () => {
                 <CardMeta>
                   <MetaItem>{it.region || "지역미정"}</MetaItem>
                   {it.contractType && <MetaItem>{it.contractType}</MetaItem>}
+                  {Array.isArray(it.images) && it.images.length > 0 && (
+                    <MetaItem>사진 {it.images.length}</MetaItem>
+                  )}
                   {it.amount > 0 && <MetaAmount>{Number(it.amount).toLocaleString()}원</MetaAmount>}
                 </CardMeta>
                 <CardDesc>{it.description?.slice(0, 80)}{it.description?.length > 80 ? "..." : ""}</CardDesc>
@@ -125,6 +128,10 @@ const Card = styled.div`
   border-radius: 12px;
   padding: 14px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  cursor: pointer;
+  &:active {
+    background: #FAFAFB;
+  }
 `;
 
 const CardTop = styled.div`

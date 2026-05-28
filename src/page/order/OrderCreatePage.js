@@ -161,6 +161,92 @@ const SubmitButton = styled.button`
   }
 `;
 
+const PreviewHeader = styled.div`
+  margin: 16px 12px 4px;
+  padding: 14px 16px;
+  background: ${THEME.surface};
+  border-radius: 16px;
+  box-shadow: ${THEME.cardShadow};
+  font-size: 17px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+const PreviewHint = styled.div`
+  margin: 0 12px 8px;
+  padding: 10px 14px;
+  background: ${THEME.purpleLight};
+  color: ${THEME.textSecondary};
+  font-size: 12.5px;
+  border-radius: 12px;
+  line-height: 1.5;
+`;
+const PreviewSection = styled.div`
+  background: ${THEME.surface};
+  margin: 8px 12px 0;
+  padding: 16px 20px;
+  border-radius: 16px;
+  box-shadow: ${THEME.cardShadow};
+`;
+const PreviewSectionLabel = styled.div`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${THEME.textSecondary};
+  margin-bottom: 10px;
+`;
+const PreviewPhotoRow = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+const PreviewPhotoThumb = styled.img`
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid ${THEME.border};
+`;
+const PreviewRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+const PreviewKey = styled.div`
+  flex: 0 0 96px;
+  font-size: 13px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+`;
+const PreviewVal = styled.div`
+  flex: 1;
+  font-size: 14px;
+  color: ${THEME.text};
+  word-break: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5;
+`;
+const PreviewActions = styled.div`
+  display: flex;
+  gap: 8px;
+  margin: 16px 12px 32px;
+`;
+const PreviewSecondaryBtn = styled.button`
+  flex: 1;
+  padding: 16px;
+  margin-top: 12px;
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 400;
+  cursor: pointer;
+  font-family: inherit;
+  &:active { background: ${THEME.background}; }
+  &:disabled { color: #999; }
+`;
+
 const PhotoGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -394,6 +480,8 @@ export const OrderCreateContent = () => {
   const [directPhone, setDirectPhone] = useState("");
   const [contactPhone, setContactPhone] = useState("");
 
+  const [step, setStep] = useState("form"); // "form" | "preview"
+
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
 
@@ -478,14 +566,25 @@ export const OrderCreateContent = () => {
     setCustomInput("");
   };
 
+  const validateForm = () => {
+    if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
+    if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return false; }
+    if (!schedule) { showToast("일정을 선택해주세요"); return false; }
+    if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
+    if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
+    if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
+    return true;
+  };
+
+  const handleGoPreview = () => {
+    if (!validateForm()) return;
+    setStep("preview");
+    window.scrollTo(0, 0);
+  };
+
   const handleSubmit = async () => {
     if (submitting) return;
-    if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return; }
-    if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return; }
-    if (!schedule) { showToast("일정을 선택해주세요"); return; }
-    if (!address.trim()) { showToast("주소를 입력해주세요"); return; }
-    if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return; }
-    if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return; }
+    if (!validateForm()) return;
     setSubmitting(true);
     try {
       // 사진 업로드
@@ -553,6 +652,92 @@ export const OrderCreateContent = () => {
       setSubmitting(false);
     }
   };
+
+  // 미리보기 라벨 매핑 헬퍼
+  const labelOf = (options, value) => {
+    if (!value) return "";
+    const found = options.find((o) => (typeof o === "string" ? o === value : o.value === value));
+    return found ? (typeof found === "string" ? found : found.label) : value;
+  };
+  const previewItems = (() => {
+    const items = [];
+    items.push({ k: "카테고리", v: category?.shortName || "" });
+    if (selectedSub.length) items.push({ k: "세부 항목", v: selectedSub.map((s) => s.includes(":") ? s.split(":")[1] : s).join(", ") });
+    if (buildingType) items.push({ k: "건물 유형", v: buildingType });
+    if (spaceType) items.push({ k: "공간 유형", v: spaceType });
+    if (areaValue) items.push({ k: "면적", v: `${areaValue}${areaUnit}` });
+    if (selectedOptions.length) items.push({ k: "옵션", v: selectedOptions.join(", ") });
+    if (Object.keys(spaceFields).length) {
+      const fmt = Object.entries(spaceFields).filter(([_, v]) => v).map(([k, v]) => `${k} ${v}`).join(" / ");
+      if (fmt) items.push({ k: "공간 상세", v: fmt });
+    }
+    if (customInput) items.push({ k: "기타 입력", v: customInput });
+    items.push({ k: "일정", v: schedule });
+    items.push({ k: "주소", v: addressDetail ? `${address} ${addressDetail}` : address });
+    items.push({ k: "요청 내용", v: detail });
+    if (callFirst) items.push({ k: "선통화 요청", v: "예" });
+    if (contactPhone) items.push({ k: "연락처", v: contactPhone });
+    if (priceType === "direct") items.push({ k: "단가(직접)", v: `${Number(directPrice).toLocaleString()}원` });
+    if (workDate) items.push({ k: "작업 날짜", v: workDate === "희망날짜지정" && workDatePicker ? `${workDate} (${workDatePicker})` : workDate });
+    if (workTimeMode) items.push({ k: "작업 시간", v: workTimeMode === "시간설정" ? `${workTimeStart} ~ ${workTimeEnd}` : workTimeMode });
+    if (paymentMethod) items.push({ k: "결제수단", v: paymentMethod });
+    if (b2bPriceType) {
+      const ptLabel = labelOf(COMMON_B2B_FIELDS.priceType.options, b2bPriceType);
+      const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
+      const amt = b2bPriceAmount ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : "";
+      items.push({ k: "단가유형", v: `${ptLabel}${amt}` });
+    }
+    if (referralFeeType && referralFeeType !== "none") {
+      let v = "";
+      if (referralFeeType === "fixed") {
+        const amt = referralFeeFixed === "custom" ? referralFeeFixedCustom : referralFeeFixed;
+        v = `정액 ${Number(amt || 0).toLocaleString()}원`;
+      } else if (referralFeeType === "rate") {
+        v = `정률 ${referralFeeRate}%`;
+      }
+      if (referralPayMethod) v += ` (${referralPayMethod})`;
+      items.push({ k: "소개 수수료", v });
+    }
+    if (matchType) {
+      const mt = labelOf(COMMON_B2B_FIELDS.matchType.options, matchType);
+      items.push({ k: "홈프로 선택", v: matchType === "direct" && directPhone ? `${mt} → ${directPhone}` : mt });
+    }
+    return items;
+  })();
+
+  if (step === "preview") {
+    return (
+      <>
+        <PreviewHeader>등록 전 입력 내용 확인</PreviewHeader>
+        <PreviewHint>아래 내용으로 등록됩니다. 잘못된 항목은 [수정하기]로 돌아가서 변경하세요.</PreviewHint>
+        {photos.length > 0 && (
+          <PreviewSection>
+            <PreviewSectionLabel>사진 ({photos.length}/{MAX_PHOTOS})</PreviewSectionLabel>
+            <PreviewPhotoRow>
+              {photos.map((p, i) => (
+                <PreviewPhotoThumb key={i} src={p.preview} alt={`photo-${i}`} />
+              ))}
+            </PreviewPhotoRow>
+          </PreviewSection>
+        )}
+        <PreviewSection>
+          {previewItems.map((it, i) => (
+            <PreviewRow key={i}>
+              <PreviewKey>{it.k}</PreviewKey>
+              <PreviewVal>{it.v || "—"}</PreviewVal>
+            </PreviewRow>
+          ))}
+        </PreviewSection>
+        <PreviewActions>
+          <PreviewSecondaryBtn disabled={submitting} onClick={() => setStep("form")}>수정하기</PreviewSecondaryBtn>
+          <SubmitButton style={{ flex: 1, marginTop: 12 }} disabled={submitting} onClick={handleSubmit}>
+            {submitting ? "등록 중..." : "등록하기"}
+          </SubmitButton>
+        </PreviewActions>
+        {toast && <OrderToast>{toast}</OrderToast>}
+      </>
+    );
+  }
 
   return (
     <>
@@ -901,10 +1086,10 @@ export const OrderCreateContent = () => {
             )}
           </Section>
 
-          {/* 등록 버튼 */}
+          {/* 등록 버튼 — 미리보기 화면으로 진입 */}
           <Section>
-            <SubmitButton disabled={!selectedCategory || submitting} onClick={handleSubmit}>
-              {submitting ? "등록 중..." : "등록하기"}
+            <SubmitButton disabled={!selectedCategory} onClick={handleGoPreview}>
+              다음 (입력 확인)
             </SubmitButton>
           </Section>
         </>

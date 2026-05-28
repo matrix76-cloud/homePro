@@ -885,6 +885,17 @@ const MobileConfigpage = () => {
         </CardHeader>
       </ContentCard>
 
+      {/* 지갑주소 등록 (토큰화 대비) */}
+      <ContentCard onClick={() => navigate("/mypage/wallet")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>지갑주소 등록</CardTitle>
+            <CardDesc>{userData?.walletAddress ? `${userData.walletAddress.slice(0, 6)}…${userData.walletAddress.slice(-4)}` : "토큰 발행 시 사용될 지갑주소를 미리 등록"}</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
       {/* 전문가 리스트 */}
       <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
         <CardHeader>

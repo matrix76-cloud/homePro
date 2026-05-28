@@ -371,6 +371,84 @@ const RuleSaveBtnWrap = styled.div`
     margin-top: 16px;
 `;
 
+// ─── 토큰 정책 (시트8) 스타일 ───
+const PolicyCard = styled.div`
+    background: #fff;
+    border: 1px solid ${THEME.border};
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+`;
+const PolicyRow = styled.div`
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid ${THEME.border};
+    &:last-of-type { border-bottom: none; }
+    @media (max-width: 640px) {
+        flex-direction: column;
+        gap: 8px;
+    }
+`;
+const PolicyLabel = styled.div`
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: ${THEME.text};
+`;
+const PolicyHint = styled.div`
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 400;
+    color: ${THEME.muted};
+`;
+const PolicyInputBox = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+`;
+const PolicyInput = styled.input`
+    width: 120px;
+    padding: 8px 10px;
+    border: 1px solid ${THEME.border};
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: right;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    &:focus { outline: none; border-color: ${THEME.primary}; }
+`;
+const PolicyUnit = styled.span`
+    font-size: 12px;
+    color: ${THEME.muted};
+    min-width: 40px;
+`;
+const PolicyActions = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 16px;
+`;
+const PolicySaved = styled.span`
+    font-size: 13px;
+    font-weight: 600;
+    color: #16A34A;
+`;
+const PolicySaveBtn = styled.button`
+    padding: 10px 22px;
+    background: ${THEME.primary};
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    &:hover { opacity: 0.9; }
+    &:disabled { background: ${THEME.muted}; cursor: not-allowed; }
+`;
+
 // ─── Helpers ───
 
 const TABS = [
@@ -434,15 +512,65 @@ const AdminPointsPage = () => {
     const [rulesLoading, setRulesLoading] = useState(false);
     const [rulesSaving, setRulesSaving] = useState(false);
 
+    // ─── 토큰 정책 state (시트8) ───
+    const DEFAULT_POLICY = {
+        networkFeeRate: 0.05,
+        referralRewardRate: 0.03,
+        swapRate: 1,
+        monthlySubscriptionPoint: 16500,
+    };
+    const [policy, setPolicy] = useState(DEFAULT_POLICY);
+    const [policySaving, setPolicySaving] = useState(false);
+    const [policySaved, setPolicySaved] = useState(false);
+
     const fetchRules = async () => {
         setRulesLoading(true);
         try {
             const snap = await getDoc(doc(db, "settings", "point_rules"));
-            if (snap.exists()) setRules(snap.data());
+            if (snap.exists()) {
+                const data = snap.data();
+                // _policy 필드 분리, 나머지는 규칙
+                const { _policy, ...ruleData } = data;
+                setRules(ruleData);
+                setPolicy({ ...DEFAULT_POLICY, ...(_policy || {}) });
+            }
         } catch (e) {
             console.error("rules fetch error:", e);
         }
         setRulesLoading(false);
+    };
+
+    const handlePolicyChange = (key, value) => {
+        setPolicy((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const handleSavePolicy = async () => {
+        // 검증
+        const fr = Number(policy.networkFeeRate);
+        const rr = Number(policy.referralRewardRate);
+        const sr = Number(policy.swapRate);
+        const ms = Number(policy.monthlySubscriptionPoint);
+        if (isNaN(fr) || fr < 0 || fr > 1) { alert("네트워크 수수료율은 0~1 사이여야 합니다 (예: 0.05 = 5%)"); return; }
+        if (isNaN(rr) || rr < 0 || rr > 1) { alert("추천인 보상률은 0~1 사이여야 합니다 (예: 0.03 = 3%)"); return; }
+        if (rr > fr) { alert("추천인 보상률은 네트워크 수수료율보다 작거나 같아야 합니다"); return; }
+        if (isNaN(sr) || sr <= 0) { alert("스왑 비율은 0보다 커야 합니다"); return; }
+        if (isNaN(ms) || ms < 0) { alert("월 구독료는 0 이상이어야 합니다"); return; }
+
+        setPolicySaving(true);
+        setPolicySaved(false);
+        try {
+            await setDoc(
+                doc(db, "settings", "point_rules"),
+                { _policy: { networkFeeRate: fr, referralRewardRate: rr, swapRate: sr, monthlySubscriptionPoint: ms } },
+                { merge: true }
+            );
+            setPolicySaved(true);
+            setTimeout(() => setPolicySaved(false), 2500);
+        } catch (e) {
+            console.error("policy save error:", e);
+            alert("저장 실패: " + e.message);
+        }
+        setPolicySaving(false);
     };
 
     const handleRuleChange = (key, field, value) => {
@@ -576,6 +704,86 @@ const AdminPointsPage = () => {
             {/* ═══ 규칙 설정 탭 ═══ */}
             {mainTab === "rules" && (
                 <>
+                    {/* ─── 토큰 정책 (시트8) ─── */}
+                    <Header>
+                        <Title>토큰화 정책 (시트8)</Title>
+                        <SubTitle>포인트 → 토큰 전환 시 사용되는 정책 변수입니다. 변경 시 즉시 반영됩니다.</SubTitle>
+                    </Header>
+                    <PolicyCard>
+                        <PolicyRow>
+                            <PolicyLabel>
+                                네트워크 수수료율
+                                <PolicyHint>포인트/파이/토큰 결제 시 부과 (0~1, 0.05 = 5%)</PolicyHint>
+                            </PolicyLabel>
+                            <PolicyInputBox>
+                                <PolicyInput
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="1"
+                                    value={policy.networkFeeRate}
+                                    onChange={(e) => handlePolicyChange("networkFeeRate", Number(e.target.value) || 0)}
+                                />
+                                <PolicyUnit>({Math.round((policy.networkFeeRate || 0) * 100)}%)</PolicyUnit>
+                            </PolicyInputBox>
+                        </PolicyRow>
+                        <PolicyRow>
+                            <PolicyLabel>
+                                추천인 보상률
+                                <PolicyHint>네트워크 수수료 중 추천인에게 환원되는 비율 (0~1, 0.03 = 3%)</PolicyHint>
+                            </PolicyLabel>
+                            <PolicyInputBox>
+                                <PolicyInput
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="1"
+                                    value={policy.referralRewardRate}
+                                    onChange={(e) => handlePolicyChange("referralRewardRate", Number(e.target.value) || 0)}
+                                />
+                                <PolicyUnit>({Math.round((policy.referralRewardRate || 0) * 100)}%)</PolicyUnit>
+                            </PolicyInputBox>
+                        </PolicyRow>
+                        <PolicyRow>
+                            <PolicyLabel>
+                                스왑 비율
+                                <PolicyHint>1 포인트 → N 토큰 (1 = 1:1)</PolicyHint>
+                            </PolicyLabel>
+                            <PolicyInputBox>
+                                <PolicyInput
+                                    type="number"
+                                    step="0.0001"
+                                    min="0"
+                                    value={policy.swapRate}
+                                    onChange={(e) => handlePolicyChange("swapRate", Number(e.target.value) || 0)}
+                                />
+                                <PolicyUnit>토큰</PolicyUnit>
+                            </PolicyInputBox>
+                        </PolicyRow>
+                        <PolicyRow>
+                            <PolicyLabel>
+                                월 구독료 (포인트)
+                                <PolicyHint>마켓·교육 등 구독 게이트 금액 (기본 16,500P)</PolicyHint>
+                            </PolicyLabel>
+                            <PolicyInputBox>
+                                <PolicyInput
+                                    type="number"
+                                    step="100"
+                                    min="0"
+                                    value={policy.monthlySubscriptionPoint}
+                                    onChange={(e) => handlePolicyChange("monthlySubscriptionPoint", Number(e.target.value) || 0)}
+                                />
+                                <PolicyUnit>P</PolicyUnit>
+                            </PolicyInputBox>
+                        </PolicyRow>
+                        <PolicyActions>
+                            {policySaved && <PolicySaved>✓ 저장됨</PolicySaved>}
+                            <PolicySaveBtn onClick={handleSavePolicy} disabled={policySaving}>
+                                {policySaving ? "저장 중..." : "정책 저장"}
+                            </PolicySaveBtn>
+                        </PolicyActions>
+                    </PolicyCard>
+
                     <Header>
                         <Title>포인트 지급 규칙</Title>
                         <SubTitle>각 활동별 포인트 지급 금액과 활성 여부를 설정합니다</SubTitle>

@@ -19,19 +19,28 @@ const REGION = "asia-northeast3";
 
 /* ──────────────────────────────────────────
    3) 시드 계정 로그인용 customToken 발급
+   - uid 또는 email 받음 (email은 admin.auth().getUserByEmail로 uid 조회)
    ────────────────────────────────────────── */
 exports.getSeedLoginToken = onRequest({ region: REGION, cors: true }, async (req, res) => {
   const secret = req.headers["x-seed-secret"] || req.query.secret;
   if (secret !== SECRET) {
     return res.status(403).json({ error: "forbidden" });
   }
-  const uid = req.query.uid || (req.body && req.body.uid);
-  if (!uid) return res.status(400).json({ error: "uid required" });
+  const uidParam = req.query.uid || (req.body && req.body.uid);
+  const emailParam = req.query.email || (req.body && req.body.email);
+  if (!uidParam && !emailParam) {
+    return res.status(400).json({ error: "uid or email required" });
+  }
   try {
-    const token = await auth.createCustomToken(uid);
-    return res.json({ token, uid });
+    let targetUid = uidParam;
+    if (!targetUid && emailParam) {
+      const userRecord = await auth.getUserByEmail(emailParam);
+      targetUid = userRecord.uid;
+    }
+    const token = await auth.createCustomToken(targetUid);
+    return res.json({ token, uid: targetUid });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: e.message, code: e.code });
   }
 });
 
@@ -48,6 +57,7 @@ const COLLECTIONS_TO_WIPE = [
   "users",
   "phones",
   "homepro_subscriptions",
+  "homepro_blacklist",
 ];
 
 const ORDER_SUBCOLLECTIONS = ["applicants", "quotes", "reviews", "messages"];
@@ -129,7 +139,18 @@ exports.cleanAllTestData = onRequest({ region: REGION, cors: true, timeoutSecond
       result.collections[col] = await deleteCollection(col);
     }
 
-    // 4) Auth 사용자 전체 삭제
+    // 4) _isSeed 한정 정리 (notifications — 운영 데이터 보존)
+    const notifSnap = await db.collection("notifications").where("_isSeed", "==", true).get();
+    let notifDeleted = 0;
+    if (!notifSnap.empty) {
+      const batch = db.batch();
+      notifSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      notifDeleted = notifSnap.size;
+    }
+    result.notifications = notifDeleted;
+
+    // 5) Auth 사용자 전체 삭제
     result.authUsers = await deleteAllAuthUsers();
 
     return res.json({ ok: true, result });
@@ -374,15 +395,50 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
       created.cash += 1;
     }
 
-    /* ── 6. 채팅방 (배정 오더 4개) ── */
+    /* ── 6. 채팅방 (배정 오더 4개) + 메시지 서브컬렉션 ── */
     const CHATS = [
-      { orderId: "O10", a: "seed_A1", aName: "성실한청소부", b: "seed_B1", bName: "용감한강아지", lastMessage: "내일 오전 10시에 도착하겠습니다" },
-      { orderId: "O11", a: "seed_A2", aName: "부지런한사장", b: "seed_B2", bName: "든든한기술자", lastMessage: "견적 수락했습니다 감사합니다" },
-      { orderId: "O12", a: "seed_A4", aName: "친절한매니저", b: "seed_B4", bName: "정직한작업자", lastMessage: "지정 감사합니다 진행하겠습니다" },
-      { orderId: "O13", a: "seed_A5", aName: "빠른오너",     b: "seed_B3", bName: "노련한장인",   lastMessage: "현재 작업 중입니다" },
+      {
+        orderId: "O10", a: "seed_A1", aName: "성실한청소부", b: "seed_B1", bName: "용감한강아지",
+        lastMessage: "내일 오전 10시에 도착하겠습니다",
+        messages: [
+          { senderUid: "seed_A1", senderName: "성실한청소부", text: "안녕하세요, 수락 감사합니다", offsetMin: -180 },
+          { senderUid: "seed_B1", senderName: "용감한강아지", text: "네 일정 확인했습니다", offsetMin: -160 },
+          { senderUid: "seed_A1", senderName: "성실한청소부", text: "현장 주소는 강남구 신사동입니다", offsetMin: -140 },
+          { senderUid: "seed_B1", senderName: "용감한강아지", text: "내일 오전 10시에 도착하겠습니다", offsetMin: -120 },
+        ],
+      },
+      {
+        orderId: "O11", a: "seed_A2", aName: "부지런한사장", b: "seed_B2", bName: "든든한기술자",
+        lastMessage: "견적 수락했습니다 감사합니다",
+        messages: [
+          { senderUid: "seed_B2", senderName: "든든한기술자", text: "견적 80,000원으로 제안드립니다", offsetMin: -240 },
+          { senderUid: "seed_A2", senderName: "부지런한사장", text: "조금 더 협의 가능할까요?", offsetMin: -220 },
+          { senderUid: "seed_B2", senderName: "든든한기술자", text: "75,000원까지 가능합니다", offsetMin: -200 },
+          { senderUid: "seed_A2", senderName: "부지런한사장", text: "견적 수락했습니다 감사합니다", offsetMin: -60 },
+        ],
+      },
+      {
+        orderId: "O12", a: "seed_A4", aName: "친절한매니저", b: "seed_B4", bName: "정직한작업자",
+        lastMessage: "지정 감사합니다 진행하겠습니다",
+        messages: [
+          { senderUid: "seed_A4", senderName: "친절한매니저", text: "가전청소 지정으로 요청드립니다", offsetMin: -300 },
+          { senderUid: "seed_B4", senderName: "정직한작업자", text: "확인했습니다, H-포인트 80,000P 결제 처리하시면 진행합니다", offsetMin: -280 },
+          { senderUid: "seed_A4", senderName: "친절한매니저", text: "결제 완료했습니다", offsetMin: -260 },
+          { senderUid: "seed_B4", senderName: "정직한작업자", text: "지정 감사합니다 진행하겠습니다", offsetMin: -240 },
+        ],
+      },
+      {
+        orderId: "O13", a: "seed_A5", aName: "빠른오너", b: "seed_B3", bName: "노련한장인",
+        lastMessage: "현재 작업 중입니다",
+        messages: [
+          { senderUid: "seed_B3", senderName: "노련한장인", text: "타일 시공 들어갑니다", offsetMin: -480 },
+          { senderUid: "seed_A5", senderName: "빠른오너",   text: "잘 부탁드립니다", offsetMin: -460 },
+          { senderUid: "seed_B3", senderName: "노련한장인", text: "현재 작업 중입니다", offsetMin: -30 },
+        ],
+      },
     ];
     for (const c of CHATS) {
-      await db.collection("chatRooms").add({
+      const chatRef = await db.collection("chatRooms").add({
         orderId: c.orderId,
         roomType: "quote",
         participants: [c.a, c.b],
@@ -393,6 +449,18 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
         _isSeed: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      for (const m of c.messages) {
+        const sentAt = new Date(Date.now() + (m.offsetMin || 0) * 60 * 1000);
+        await chatRef.collection("messages").add({
+          senderUid: m.senderUid,
+          senderName: m.senderName,
+          text: m.text,
+          readBy: [m.senderUid],
+          source: m.source || "user",
+          _isSeed: true,
+          createdAt: ts(sentAt),
+        });
+      }
       created.chatRooms += 1;
     }
 
@@ -454,6 +522,197 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
       });
       created.posts += 1;
     }
+
+    /* ── 10. 등급 차등 적용 (B 그룹) ── */
+    // 등급 임계값: rookie 0 / bronze 500 / silver 2000 / gold 5000 / diamond 15000 / master 50000
+    const GRADE_OVERRIDES = [
+      { uid: "seed_B1", totalEarnedPoints: 5500,  referralPoints: 5500,  grade: "gold" },
+      { uid: "seed_B2", totalEarnedPoints: 2300,  referralPoints: 2300,  grade: "silver" },
+      { uid: "seed_B3", totalEarnedPoints: 16000, referralPoints: 16000, grade: "diamond" },
+      { uid: "seed_B4", totalEarnedPoints: 850,   referralPoints: 850,   grade: "bronze" },
+      { uid: "seed_B5", totalEarnedPoints: 700,   referralPoints: 700,   grade: "bronze" },
+      { uid: "seed_B7", totalEarnedPoints: 3200,  referralPoints: 3200,  grade: "silver" },
+    ];
+    for (const g of GRADE_OVERRIDES) {
+      await db.collection("users").doc(g.uid).update({
+        totalEarnedPoints: g.totalEarnedPoints,
+        referralPoints: g.referralPoints,
+        grade: g.grade,
+      });
+    }
+    created.gradeOverrides = GRADE_OVERRIDES.length;
+
+    /* ── 11. 지갑 주소 등록 (A1, B1) ── */
+    const WALLETS = [
+      { uid: "seed_A1", walletAddress: "0xAbC1234567890DefAbC1234567890DefAbC12345" },
+      { uid: "seed_B1", walletAddress: "0xDe0987654321FeDcBa0987654321FeDcBa098765" },
+    ];
+    for (const w of WALLETS) {
+      await db.collection("users").doc(w.uid).update({
+        walletAddress: w.walletAddress,
+        walletUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    created.wallets = WALLETS.length;
+
+    /* ── 12. 월 구독 (B1 active) + 결제 ledger + A1 추천인 보상(3%) ── */
+    await db.collection("homepro_subscriptions").add({
+      uid: "seed_B1",
+      userName: "용감한강아지",
+      status: "active",
+      paymentMethod: "point",
+      monthlyPoint: 16500,
+      startDate: admin.firestore.FieldValue.serverTimestamp(),
+      nextBillingDate: ts(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+      _isSeed: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection("homepro_cash").add({
+      uid: "seed_B1",
+      userName: "용감한강아지",
+      type: "spend",
+      amount: -16500,
+      reason: "월 구독료",
+      category: "subscription",
+      _isSeed: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // 추천인 보상 3% (B1의 referredBy = A1) — 16500 * 0.03 = 495
+    await db.collection("homepro_cash").add({
+      uid: "seed_A1",
+      userName: "(추천인 보상)",
+      type: "earn",
+      amount: 495,
+      reason: "월 구독료 — 추천인 보상",
+      category: "referral_reward",
+      relatedUid: "seed_B1",
+      _isSeed: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection("users").doc("seed_A1").update({
+      referralPoints: admin.firestore.FieldValue.increment(495),
+      totalEarnedPoints: admin.firestore.FieldValue.increment(495),
+    });
+    created.subscriptions = 1;
+    created.cash += 2;
+
+    /* ── 13. 블랙리스트 1건 (B4 → A2 차단) ── */
+    await db.collection("homepro_blacklist").add({
+      reporterUid: "seed_B4",
+      targetUid: "seed_A2",
+      reason: "이전 거래에서 연락 두절",
+      _isSeed: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    created.blacklist = 1;
+
+    /* ── 14. 지정배정 거절 기록 (O4 applicants에 B 측 거절) ── */
+    // O4는 A4 → B4 지정배정 + 접수 상태. B4가 일정조율불가로 거절한 흔적.
+    await db.collection("homepro_orders").doc("O4").collection("applicants").add({
+      proUid: "seed_B4",
+      proName: "정직한작업자",
+      proProfile: "",
+      rejected: true,
+      rejectReason: "시간조율불가",
+      rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      _isSeed: true,
+      appliedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    created.applicants += 1;
+
+    /* ── 15. 마켓플레이스 사진 URL (placeholder 4장씩) ── */
+    const marketSnap = await db.collection("homepro_marketplace").where("_isSeed", "==", true).get();
+    let marketIdx = 0;
+    for (const doc of marketSnap.docs) {
+      marketIdx += 1;
+      const images = [
+        `https://picsum.photos/seed/market${marketIdx}a/600/600`,
+        `https://picsum.photos/seed/market${marketIdx}b/600/600`,
+        `https://picsum.photos/seed/market${marketIdx}c/600/600`,
+        `https://picsum.photos/seed/market${marketIdx}d/600/600`,
+      ];
+      await doc.ref.update({ images, writerPhoto: "" });
+    }
+    created.marketImages = marketSnap.size;
+
+    /* ── 16. 작업자요청 응답 (B 측에서 지원 — applicants 배열) ── */
+    const workerSnap = await db.collection("homepro_worker_requests").where("_isSeed", "==", true).get();
+    if (!workerSnap.empty) {
+      const firstWorker = workerSnap.docs[0]; // 입주청소
+      await firstWorker.ref.update({
+        applicants: admin.firestore.FieldValue.arrayUnion(
+          {
+            uid: "seed_B5",
+            name: "성실프로A",
+            photo: "",
+            message: "당일 가능합니다, 도구 지참",
+            createdAt: admin.firestore.Timestamp.now(),
+          },
+          {
+            uid: "seed_B6",
+            name: "성실프로B",
+            photo: "",
+            message: "2명 한 팀으로 갈 수 있습니다",
+            createdAt: admin.firestore.Timestamp.now(),
+          }
+        ),
+        applicantCount: 2,
+        lastApplicantAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      created.workerApplicants = 2;
+    }
+
+    /* ── 17. settings/point_rules ._policy + settings/grade_rules ── */
+    await db.collection("settings").doc("point_rules").set({
+      _policy: {
+        networkFeeRate: 0.05,
+        referralRewardRate: 0.03,
+        swapRate: 1,
+        monthlySubscriptionPoint: 16500,
+      },
+      referral_invite:    { amount: 100, label: "친구 초대 보상", active: true },
+      referral_signup:    { amount: 100, label: "추천코드 사용 보상", active: true },
+      order_create:       { amount: 50,  label: "오더 작성 보상", active: true },
+      community_post:     { amount: 30,  label: "게시글 작성 보상", active: true },
+      community_like_10:  { amount: 50,  label: "게시물 하트 10개 달성", active: true },
+      community_like_50:  { amount: 100, label: "게시물 하트 50개 달성", active: true },
+      community_like_100: { amount: 200, label: "게시물 하트 100개 달성", active: true },
+      review:             { amount: 30,  label: "리뷰 작성 보상", active: true },
+    }, { merge: true });
+    await db.collection("settings").doc("grade_rules").set({
+      rookie:  { label: "루키",   minPoints: 0,     color: "#9CA3AF" },
+      bronze:  { label: "브론즈", minPoints: 500,   color: "#A1887F" },
+      silver:  { label: "실버",   minPoints: 2000,  color: "#90A4AE" },
+      gold:    { label: "골드",   minPoints: 5000,  color: "#F59E0B" },
+      diamond: { label: "다이아", minPoints: 15000, color: "#7C5CFC" },
+      master:  { label: "마스터", minPoints: 50000, color: "#EF4444" },
+    }, { merge: true });
+    created.settings = 2;
+
+    /* ── 18. 알림 (등급 상승 + 포인트 적립 예시) ── */
+    await db.collection("notifications").add({
+      targetUids: ["seed_B1"],
+      title: "등급 상승",
+      body: "등급이 골드(으)로 올랐습니다!",
+      type: "grade_up",
+      data: { grade: "gold" },
+      read: false,
+      sent: false,
+      _isSeed: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection("notifications").add({
+      targetUids: ["seed_A1"],
+      title: "포인트 적립",
+      body: "+495P 월 구독료 — 추천인 보상이 적립되었습니다",
+      type: "point",
+      data: { category: "referral_reward", amount: 495 },
+      read: false,
+      sent: false,
+      _isSeed: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    created.notifications = 2;
 
     return res.json({ ok: true, created, accounts: ACCOUNTS.map(a => ({ id: a.id, uid: a.uid, phone: a.phone, password })) });
   } catch (e) {

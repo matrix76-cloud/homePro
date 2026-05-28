@@ -31,9 +31,12 @@ import OrderDetailPage from "./page/order/OrderDetailPage";
 import AIEstimatePage from "./page/order/AIEstimatePage";
 import MyOrdersPage, { MyOrdersFooterPage } from "./page/order/MyOrdersPage";
 import WorkerRequestCreatePage from "./page/order/WorkerRequestCreatePage";
+import WorkerRequestDetailPage from "./page/order/WorkerRequestDetailPage";
 import MarketplacePage from "./page/order/MarketplacePage";
 import MarketplaceCreatePage from "./page/order/MarketplaceCreatePage";
+import MarketplaceDetailPage from "./page/order/MarketplaceDetailPage";
 import SubscriptionPage from "./page/mypage/SubscriptionPage";
+import WalletRegisterPage from "./page/mypage/WalletRegisterPage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
@@ -265,9 +268,12 @@ const AnimatedRoutes = () => {
             <Route path="/order/list" element={wrap(<OrderListPage />)} />
             <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
             <Route path="/order/worker-request/create" element={wrap(<WorkerRequestCreatePage />)} />
+            <Route path="/order/worker-request/detail/:requestId" element={wrap(<WorkerRequestDetailPage />)} />
             <Route path="/marketplace" element={wrap(<MarketplacePage />)} />
             <Route path="/marketplace/create" element={wrap(<MarketplaceCreatePage />)} />
+            <Route path="/marketplace/:marketplaceId" element={wrap(<MarketplaceDetailPage />)} />
             <Route path="/subscription" element={wrap(<SubscriptionPage />)} />
+            <Route path="/mypage/wallet" element={wrap(<WalletRegisterPage />)} />
 
             {/* Search */}
             <Route path="/search" element={wrap(<SearchPage />)} />
