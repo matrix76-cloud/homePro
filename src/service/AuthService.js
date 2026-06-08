@@ -272,6 +272,85 @@ async function webSignInWithApple({ keepLogin }) {
     }
 }
 
+// ─── 웹 카카오 로그인 (REST authorization code 방식) ───
+const KAKAO_REST_KEY = process.env.REACT_APP_KAKAO_REST_KEY || "";
+function getKakaoRedirectUri() {
+    // authorize 요청과 token 교환 시 redirect_uri가 정확히 일치해야 함
+    return `${window.location.origin}/MobileLogin`;
+}
+
+export function startWebKakaoLogin() {
+    if (!KAKAO_REST_KEY) {
+        window.alert("카카오 키가 설정되지 않았습니다. (.env REACT_APP_KAKAO_REST_KEY)");
+        return;
+    }
+    const redirectUri = getKakaoRedirectUri();
+    const url =
+        `https://kauth.kakao.com/oauth/authorize` +
+        `?response_type=code` +
+        `&client_id=${encodeURIComponent(KAKAO_REST_KEY)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    window.location.href = url;
+}
+
+// 카카오에서 ?code= 를 달고 돌아왔을 때 로그인 마무리
+export async function consumeKakaoRedirectIfAny({ keepLogin = true } = {}) {
+    if (typeof window === "undefined") return { success: true, consumed: false };
+    if (isInRnWebView()) return { success: true, consumed: false, strategy: "rn_ssot" };
+
+    const params = new URLSearchParams(window.location.search);
+    const code = safeTrim(params.get("code"));
+    if (!code) return { success: true, consumed: false };
+
+    const auth = getAuthInstance();
+    try {
+        await applyPersistence(auth, keepLogin);
+
+        const redirectUri = getKakaoRedirectUri();
+        const call = httpsCallable(getFns(), "kakaoAuth");
+        const out = await call({ code, redirectUri });
+
+        const customToken = safeTrim(out?.data?.customToken || "");
+        const email = safeTrim(out?.data?.email || "");
+
+        if (!customToken) {
+            return {
+                success: false,
+                provider: "kakao",
+                consumed: true,
+                error_code: "no_customToken",
+                error_message: "Functions에서 customToken이 오지 않았습니다.",
+            };
+        }
+
+        const userCred = await signInWithCustomToken(auth, customToken);
+        const uid = safeTrim(userCred?.user?.uid);
+        const emailFinal = safeTrim(userCred?.user?.email || email || "");
+
+        if (!uid) {
+            return { success: false, provider: "kakao", consumed: true, error_code: "no_uid", error_message: "signInWithCustomToken 이후 uid가 없습니다." };
+        }
+
+        await ensureUserDoc({ uid, email: emailFinal, provider: "kakao" });
+        saveSessionFull({ uid, email: emailFinal, keepLogin });
+        try { sessionStorage.setItem("lastSocialProvider", "kakao"); } catch {}
+
+        // URL에서 code 제거 (새로고침 시 재사용 방지)
+        try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+
+        return { success: true, provider: "kakao", consumed: true, uid, user: userCred.user };
+    } catch (e) {
+        try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+        return {
+            success: false,
+            provider: "kakao",
+            consumed: true,
+            error_code: e?.code || "kakao_redirect_error",
+            error_message: e?.message || String(e),
+        };
+    }
+}
+
 export async function signInWithSocial({ provider, keepLogin = true }) {
     const p = safeTrim(provider).toLowerCase();
     if (p !== "google" && p !== "kakao" && p !== "apple") {
@@ -283,11 +362,17 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
     if (!isInRnWebView()) {
         if (p === "google") return await webSignInWithGoogle({ keepLogin });
         if (p === "apple") return await webSignInWithApple({ keepLogin });
+        if (p === "kakao") {
+            // 카카오 인증 페이지로 리다이렉트 → 돌아온 뒤 consumeKakaoRedirectIfAny()가 마무리
+            startWebKakaoLogin();
+            // 페이지가 떠나므로 resolve되지 않는 Promise 반환 (호출부의 후속 navigate 방지)
+            return new Promise(() => {});
+        }
         return {
             success: false,
             provider: p,
             error_code: "web_unsupported",
-            error_message: "웹에서는 구글/애플 로그인만 가능합니다.",
+            error_message: "지원하지 않는 로그인 방식입니다.",
         };
     }
 

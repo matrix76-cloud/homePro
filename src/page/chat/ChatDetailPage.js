@@ -1473,6 +1473,9 @@ const HeaderIconBtn = styled.button`
   display: flex;
   align-items: center;
   padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
   &:active { color: ${PRIMARY}; }
 `;
 

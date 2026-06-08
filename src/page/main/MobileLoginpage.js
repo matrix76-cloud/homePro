@@ -1,10 +1,10 @@
 /* eslint-disable */
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { signInWithCustomToken } from "firebase/auth";
 import { UserContext } from "../../context/User";
-import { signInWithSocial, signInWithEmailPassword } from "../../service/AuthService";
+import { signInWithSocial, signInWithEmailPassword, consumeKakaoRedirectIfAny } from "../../service/AuthService";
 import { auth } from "../../api/config";
 import { THEME, APP_NAME } from "../../config/homeproConfig";
 
@@ -166,6 +166,29 @@ const MobileLoginpage = () => {
     setToast(msg);
     setTimeout(() => setToast(""), 2500);
   };
+
+  // 카카오 로그인 리다이렉트 복귀 처리 (?code= 가 있으면 마무리)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("code")) return;
+    setLoading(true);
+    consumeKakaoRedirectIfAny()
+      .then((res) => {
+        if (res?.consumed && res?.success) {
+          navigate("/MobileSplash", { replace: true });
+        } else if (res?.consumed && !res?.success) {
+          setError(res.error_message || "카카오 로그인에 실패했습니다.");
+          setLoading(false);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((e) => {
+        setError(e?.message || "카카오 로그인에 실패했습니다.");
+        setLoading(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEmailLogin = async () => {
     if (!loginId || !password) {

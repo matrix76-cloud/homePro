@@ -153,9 +153,14 @@ export default function MobileLinkPhonecontainer() {
 
     const handleComplete = async () => {
         if (!uid) return;
-        if (!phoneVerified) return;
 
-        const phoneE164 = sentToE164 || toE164KR(phone);
+        // 전화번호 인증(OTP) 우선 생략 — 입력값 유효성만 확인
+        if (digits.length !== 10 && digits.length !== 11) {
+            window.alert("전화번호를 정확히 입력해주세요.");
+            return;
+        }
+
+        const phoneE164 = toE164KR(phone);
         if (!phoneE164) return;
 
         if (busy) return;
@@ -216,8 +221,8 @@ export default function MobileLinkPhonecontainer() {
 
     return (
         <Wrap>
-            <Title>전화번호 인증</Title>
-            <Desc>안전한 이용을 위해 최초 1회 인증이 필요합니다.</Desc>
+            <Title>전화번호 등록</Title>
+            <Desc>연락 받을 전화번호를 입력해주세요.</Desc>
 
             <Card>
                 <Field>
@@ -226,76 +231,27 @@ export default function MobileLinkPhonecontainer() {
                         <RequiredMark>*</RequiredMark>
                     </LabelRow>
 
-                    <InlineRow>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <Input
-                                id="phone"
-                                type="tel"
-                                inputMode="numeric"
-                                autoComplete="tel"
-                                placeholder="010-1234-5678"
-                                value={phone}
-                                onChange={(e) => handlePhoneChange(e.target.value)}
-                                disabled={busy || otpBusy}
-                            />
-                        </div>
-
-                        <SmallBtn type="button" onClick={handleSendOtp} disabled={!canSendOtp}>
-                            {secondsLeft > 0 ? `재전송 (${secondsLeft}s)` : otpBusy ? "전송중..." : "인증번호 전송"}
-                        </SmallBtn>
-                    </InlineRow>
-
-                    {isDev ? (
-                        <HelperText>테스트 번호(01062141000~01062142000)에서는 인증번호가 화면에 표시됩니다.</HelperText>
-                    ) : (
-                        <HelperText>실번호는 문자로 인증번호가 발송됩니다.</HelperText>
-                    )}
-
-                    {isDev && codeSent && devCode ? (
-                        <CodeBox>
-                            <div>
-                                <CodeLabel>개발모드 코드</CodeLabel>
-                                <CodeValue>{devCode}</CodeValue>
-                            </div>
-                            <div style={{ color: "#6b7280", fontSize: 12 }}>{sentToE164}</div>
-                        </CodeBox>
-                    ) : null}
-
-                    {codeSent ? (
-                        <>
-                            <InlineRow style={{ marginTop: 12 }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <Input
-                                        id="otp"
-                                        type="text"
-                                        inputMode="numeric"
-                                        placeholder="인증번호 6자리"
-                                        value={codeInput}
-                                        onChange={(e) => setCodeInput(onlyDigits(e.target.value).slice(0, 6))}
-                                        disabled={busy || otpBusy || phoneVerified}
-                                    />
-                                </div>
-                                <SmallBtn type="button" onClick={handleVerifyOtp} disabled={!canVerifyOtp}>
-                                    {otpBusy ? "확인중..." : "확인"}
-                                </SmallBtn>
-                            </InlineRow>
-
-                            {phoneVerified ? <VerifiedPill>전화번호 인증 완료</VerifiedPill> : null}
-
-                            {!isDev && !phoneVerified ? <WarnPill>문자로 받은 인증번호를 입력해주세요.</WarnPill> : null}
-                        </>
-                    ) : null}
+                    <Input
+                        id="phone"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        placeholder="010-1234-5678"
+                        value={phone}
+                        onChange={(e) => handlePhoneChange(e.target.value)}
+                        disabled={busy}
+                    />
                 </Field>
 
                 <BtnRow>
-                    <PrimaryBtn type="button" onClick={phoneVerified ? handleComplete : () => window.alert("전화번호 인증을 먼저 완료해주세요.")} disabled={busy || otpBusy}>
+                    <PrimaryBtn type="button" onClick={handleComplete} disabled={busy}>
                         {busy ? "처리중..." : "확인 완료"}
                     </PrimaryBtn>
 
                     <SecondaryBtn
                         type="button"
                         onClick={() => nav("/MobileMain", { replace: true })}
-                        disabled={busy || otpBusy}
+                        disabled={busy}
                     >
                         나중에 하기
                     </SecondaryBtn>

@@ -14,10 +14,33 @@ exports.healthCheck = onRequest({ region: "asia-northeast3" }, (req, res) => {
 
 // ─── 카카오 로그인 - accessToken → customToken 발급 ───
 exports.kakaoAuth = onCall({ region: "asia-northeast3" }, async (request) => {
-    const { accessToken, idToken } = request.data || {};
+    let { accessToken, idToken, code, redirectUri } = request.data || {};
+
+    // 웹(브라우저) 로그인: authorization code → access token 교환
+    if (!accessToken && code) {
+        const KAKAO_REST_KEY = process.env.KAKAO_REST_KEY || "ae8b70dff25588465673b02b1b0cf162";
+        const tokenRes = await fetch("https://kauth.kakao.com/oauth/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+            body: new URLSearchParams({
+                grant_type: "authorization_code",
+                client_id: KAKAO_REST_KEY,
+                redirect_uri: redirectUri || "",
+                code,
+            }).toString(),
+        });
+
+        if (!tokenRes.ok) {
+            const errText = await tokenRes.text().catch(() => "");
+            throw new Error(`Failed to exchange Kakao code: ${errText}`);
+        }
+
+        const tokenJson = await tokenRes.json();
+        accessToken = tokenJson.access_token;
+    }
 
     if (!accessToken) {
-        throw new Error("accessToken is required");
+        throw new Error("accessToken or code is required");
     }
 
     const response = await fetch("https://kapi.kakao.com/v2/user/me", {

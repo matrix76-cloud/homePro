@@ -16,8 +16,9 @@ const RequireAuth = () => {
 
     // 온보딩 페이지 접근 차단: 이미 설정 완료한 사용자는 메인으로
     if (userData && ONBOARDING_PATHS.includes(location.pathname)) {
-        const { phoneE164, phoneVerified, name, role } = userData;
-        if (phoneE164 && phoneVerified && name && role) {
+        // 전화번호 단계 제거 — 닉네임/역할만 완료되면 온보딩 완료로 간주
+        const { name, role } = userData;
+        if (name && role) {
             return <Navigate to="/MobileMain" replace />;
         }
     }

@@ -437,6 +437,21 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [rawOrders, setRawOrders] = useState([]);
   const [toast, setToast] = useState("");
   const [userPoints, setUserPoints] = useState(0);
+  const [companyInfo, setCompanyInfo] = useState(null);
+
+  // 사업자 정보(settings/companyInfo) 로드 — 관리자 설정에서 입력한 값
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getDoc, doc } = await import("firebase/firestore");
+        const { db } = await import("../../api/config");
+        const snap = await getDoc(doc(db, "settings", "companyInfo"));
+        if (!cancelled && snap.exists()) setCompanyInfo(snap.data());
+      } catch (e) { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
 
@@ -748,6 +763,21 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </GuideCard>
           </HScrollRow>
         </GuideSection>
+      )}
+
+      {/* ══════ 사업자 정보 ══════ */}
+      {companyInfo && (companyInfo.companyName || companyInfo.bizNumber) && (
+        <CompanyFooter>
+          <CompanyName>{companyInfo.companyName || "홈프로"}</CompanyName>
+          <CompanyRows>
+            {companyInfo.ceo && <span>대표 {companyInfo.ceo}</span>}
+            {companyInfo.bizNumber && <span>사업자등록번호 {companyInfo.bizNumber}</span>}
+            {companyInfo.address && <span>{companyInfo.address}</span>}
+            {companyInfo.phone && <span>고객센터 {companyInfo.phone}</span>}
+            {companyInfo.email && <span>{companyInfo.email}</span>}
+          </CompanyRows>
+          <CompanyCopy>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</CompanyCopy>
+        </CompanyFooter>
       )}
 
       <BottomSpacer />
@@ -1327,6 +1357,38 @@ const HideToast = styled.div`
 
 const BottomSpacer = styled.div`
   height: 20px;
+`;
+
+/* ===================== 사업자 정보 푸터 ===================== */
+
+const CompanyFooter = styled.footer`
+  margin: 24px 12px 8px;
+  padding: 18px 16px;
+  background: ${THEME.surface || "#fff"};
+  border-radius: 16px;
+`;
+
+const CompanyName = styled.div`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${THEME.text};
+  margin-bottom: 8px;
+`;
+
+const CompanyRows = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: ${THEME.muted};
+`;
+
+const CompanyCopy = styled.div`
+  margin-top: 10px;
+  font-size: 11px;
+  color: ${THEME.muted};
+  opacity: 0.7;
 `;
 
 /* ===================== 초대코드 탭 styles ===================== */

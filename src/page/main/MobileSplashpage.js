@@ -93,11 +93,7 @@ const MobileSplashpage = () => {
           return;
         }
 
-        // 전화번호 미등록 (최초 1회만) → LinkPhone
-        if (!profile.phoneE164 && !profile.phoneVerified) {
-          navigate("/MobileLinkPhone", { replace: true });
-          return;
-        }
+        // 전화번호 등록 단계 제거 — 닉네임/역할만 있으면 바로 메인
 
         // 모든 조건 통과 → UserContext 세팅 후 메인
         const primaryUid = profile.uid || user.uid;

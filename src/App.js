@@ -38,6 +38,7 @@ import MarketplaceDetailPage from "./page/order/MarketplaceDetailPage";
 import SubscriptionPage from "./page/mypage/SubscriptionPage";
 import WalletRegisterPage from "./page/mypage/WalletRegisterPage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
+import LandingPage from "./page/landing/LandingPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
@@ -206,8 +207,10 @@ const AnimatedRoutes = () => {
     }
   });
 
-  const isAdmin = location.pathname.startsWith("/admin");
-  const Wrapper = isAdmin ? FullContainer : Container;
+  const isFullWidth =
+    location.pathname.startsWith("/admin") ||
+    location.pathname === "/intro";
+  const Wrapper = isFullWidth ? FullContainer : Container;
 
   return (
     <AnimatePresence mode="wait">
@@ -215,6 +218,7 @@ const AnimatedRoutes = () => {
         <Routes location={location} key={location.pathname}>
           {/* Public - 인증 불필요 */}
           <Route path="/" element={<Navigate to="/MobileSplash" replace />} />
+          <Route path="/intro" element={<LandingPage />} />
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
           <Route path="/MobileLogin" element={wrap(<MobileLoginpage />)} />
           <Route path="/MobileSignup" element={wrap(<MobileSignuppage />)} />
