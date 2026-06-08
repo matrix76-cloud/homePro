@@ -49,8 +49,10 @@ import BizProfilePage from "./page/pro/BizProfilePage";
 import ProListPage from "./page/pro/ProListPage";
 import TrainingPage from "./page/training/TrainingPage";
 import TrainingCreatePage from "./page/training/TrainingCreatePage";
+import TrainingDetailPage from "./page/training/TrainingDetailPage";
 import SuppliesPage from "./page/supplies/SuppliesPage";
 import SuppliesCreatePage from "./page/supplies/SuppliesCreatePage";
+import SuppliesDetailPage from "./page/supplies/SuppliesDetailPage";
 import TermsPage from "./page/legal/TermsPage";
 import PrivacyPage from "./page/legal/PrivacyPage";
 import LocationTermsPage from "./page/legal/LocationTermsPage";
@@ -61,6 +63,7 @@ import ScheduleCreatePage from "./page/calendar/ScheduleCreatePage";
 import SearchPage from "./page/search/SearchPage";
 import ChatDetailPage from "./page/chat/ChatDetailPage";
 import ChatMemoPage from "./page/chat/ChatMemoPage";
+import OpenChatCreatePage from "./page/chat/OpenChatCreatePage";
 import CommunityPage from "./page/community/CommunityPage";
 import CommunityDetailPage from "./page/community/CommunityDetailPage";
 import CommunityWritePage from "./page/community/CommunityWritePage";
@@ -237,6 +240,7 @@ const AnimatedRoutes = () => {
             <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
             <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
             <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
+            <Route path="/chat/open/create" element={wrap(<OpenChatCreatePage />)} />
             <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
             <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
             <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
@@ -246,8 +250,10 @@ const AnimatedRoutes = () => {
             <Route path="/pro/list" element={wrap(<ProListPage />)} />
             <Route path="/training" element={wrap(<TrainingPage />)} />
             <Route path="/training/create" element={wrap(<TrainingCreatePage />)} />
+            <Route path="/training/:id" element={wrap(<TrainingDetailPage />)} />
             <Route path="/supplies" element={wrap(<SuppliesPage />)} />
             <Route path="/supplies/create" element={wrap(<SuppliesCreatePage />)} />
+            <Route path="/supplies/:id" element={wrap(<SuppliesDetailPage />)} />
             <Route path="/pro/register-category" element={wrap(<ProCategoryRegisterPage />)} />
             <Route path="/pro/categories" element={wrap(<ProCategoryListPage />)} />
             <Route path="/pro/category-detail/:categoryId" element={wrap(<ProCategoryDetailPage />)} />

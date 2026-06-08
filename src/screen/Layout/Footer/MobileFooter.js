@@ -1,9 +1,11 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { IoHomeOutline, IoHome, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct } from "react-icons/io5";
+import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../../utility/constants";
+import { useAuth } from "../../../context/AuthContext";
+import { subscribeChatRooms } from "../../../service/ChatService";
 import "./Footer.css";
 
 const TAB_LIST = [
@@ -20,6 +22,13 @@ const TAB_LIST = [
     path: "/training",
     ActiveIcon: IoBook,
     InactiveIcon: IoBookOutline,
+  },
+  {
+    key: MOBILEMAINMENU.CHAT,
+    label: "채팅",
+    path: "/MobileChat",
+    ActiveIcon: IoChatbubbleEllipses,
+    InactiveIcon: IoChatbubbleEllipsesOutline,
   },
   {
     key: "supplies",
@@ -40,7 +49,19 @@ const TAB_LIST = [
 const MobileFooter = ({ type }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userData } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    const uid = userData?.uid;
+    if (!uid) return;
+    const unsub = subscribeChatRooms(uid, (rooms) => {
+      const total = rooms.reduce((sum, r) => sum + (r.unreadCount?.[uid] || 0), 0);
+      setUnreadCount(total);
+    });
+    return () => unsub();
+  }, [userData?.uid]);
 
   const handleTab = (tab) => {
     if (tab.isCenter) {
@@ -130,9 +151,32 @@ const MobileFooter = ({ type }) => {
             }
             const isActive = type === tab.key;
             const Icon = isActive ? tab.ActiveIcon : tab.InactiveIcon;
+            const showBadge = tab.key === MOBILEMAINMENU.CHAT && unreadCount > 0;
             return (
               <button key={tab.key} className="button" onClick={() => handleTab(tab)}>
-                <Icon size={22} color={isActive ? THEME.primary : "#8B95A1"} />
+                <div style={{ position: "relative", display: "inline-flex" }}>
+                  <Icon size={22} color={isActive ? THEME.primary : "#8B95A1"} />
+                  {showBadge && (
+                    <span style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -8,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      background: THEME.primary,
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 4px",
+                    }}>
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span className={isActive ? "buttonEnableText" : "buttonDisableText"}>
                   {tab.label}
                 </span>

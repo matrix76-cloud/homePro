@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoPeopleOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
-import { subscribeChatRooms } from "../../service/ChatService";
+import { subscribeChatRooms, subscribeOpenRooms, joinOpenRoom } from "../../service/ChatService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 
@@ -21,6 +21,7 @@ const MobileChatpage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const [rooms, setRooms] = useState([]);
+  const [openAll, setOpenAll] = useState([]);
   const [loading, setLoading] = useState(true);
   const [focusedRoom, setFocusedRoom] = useState(null);
   const [activeTab, setActiveTab] = useState("quote");
@@ -34,6 +35,28 @@ const MobileChatpage = () => {
       setLoading(false);
     });
   }, [myUid]);
+
+  // 오픈채팅 둘러보기: 전체 공개방 구독 (참여 여부 무관)
+  useEffect(() => {
+    return subscribeOpenRooms((list) => setOpenAll(list));
+  }, []);
+
+  const handleEnterOpenRoom = async (room) => {
+    const joined = (room.participants || []).includes(myUid);
+    if (!joined && myUid) {
+      try {
+        await joinOpenRoom(
+          room.id,
+          myUid,
+          userData?.nickname || userData?.name || "익명",
+          userData?.profileImage || userData?.photoURL || ""
+        );
+      } catch (e) {
+        console.error("오픈채팅 입장 실패:", e);
+      }
+    }
+    navigate(`/chat/${room.id}`);
+  };
 
   const getRoomDisplayName = (room) => {
     if (room.roomName) return room.roomName;
@@ -55,7 +78,7 @@ const MobileChatpage = () => {
 
   const quoteRooms = rooms.filter((r) => r.roomType === "quote");
   const generalRooms = rooms.filter((r) => r.roomType !== "quote" && r.roomType !== "open");
-  const openRooms = rooms.filter((r) => r.roomType === "open");
+  const openRooms = openAll; // 둘러보기: 전체 공개방
   const filteredRooms = activeTab === "quote" ? quoteRooms : activeTab === "general" ? generalRooms : openRooms;
 
   const OPEN_CATEGORIES = ["전체", "오더", "인력", "기술교육", "매매양도", "자재.장비"];
@@ -94,8 +117,35 @@ const MobileChatpage = () => {
         ) : visibleRooms.length === 0 ? (
           <EmptyState>
             <IoChatbubbleEllipsesOutline size={40} color={THEME.muted} />
-            <EmptyText>{activeTab === "open" ? "오픈채팅방이 없습니다 (준비 중)" : "채팅방이 없습니다"}</EmptyText>
+            <EmptyText>{activeTab === "open" ? "개설된 오픈채팅방이 없습니다" : "채팅방이 없습니다"}</EmptyText>
+            {activeTab === "open" && <EmptyText>아래 + 버튼으로 첫 방을 만들어보세요</EmptyText>}
           </EmptyState>
+        ) : activeTab === "open" ? (
+          visibleRooms.map((room) => {
+            const memberCount = (room.participants || []).length;
+            const joined = (room.participants || []).includes(myUid);
+            return (
+              <RoomItem key={room.id} onClick={() => handleEnterOpenRoom(room)}>
+                <Avatar>
+                  <IoPeopleOutline size={26} color={THEME.primary} />
+                </Avatar>
+                <RoomInfo>
+                  <RoomNameRow>
+                    <RoomName>{room.roomName || "오픈채팅방"}</RoomName>
+                    {room.openCategory && <CatTag>{room.openCategory}</CatTag>}
+                    {joined && <JoinedTag>참여중</JoinedTag>}
+                  </RoomNameRow>
+                  <LastMessage>{room.description || room.lastMessage || "새로 개설된 방이에요"}</LastMessage>
+                </RoomInfo>
+                <RoomMeta>
+                  <MemberCount>
+                    <IoPeopleOutline size={13} color={THEME.muted} /> {memberCount}
+                  </MemberCount>
+                  <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
+                </RoomMeta>
+              </RoomItem>
+            );
+          })
         ) : (
           visibleRooms.map((room) => {
             const unread = getUnread(room);
@@ -133,6 +183,10 @@ const MobileChatpage = () => {
           })
         )}
       </RoomList>
+
+      {activeTab === "open" && (
+        <OpenFab onClick={() => navigate("/chat/open/create")}>+ 채팅방 개설</OpenFab>
+      )}
     </MainListLayout>
   );
 };
@@ -239,11 +293,62 @@ const RoomInfo = styled.div`
   gap: 4px;
 `;
 
+const RoomNameRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
 const RoomName = styled.p`
   font-size: 15px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 0;
+`;
+
+const CatTag = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${THEME.primary};
+  background: ${THEME.purpleLight};
+  padding: 2px 8px;
+  border-radius: 20px;
+`;
+
+const JoinedTag = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${THEME.success};
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 20px;
+`;
+
+const MemberCount = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: ${THEME.muted};
+`;
+
+const OpenFab = styled.button`
+  position: fixed;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  right: calc(50% - 163px);
+  padding: 10px 18px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  z-index: 90;
+  &:active { opacity: 0.85; }
 `;
 
 const LastMessage = styled.p`

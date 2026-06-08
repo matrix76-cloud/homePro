@@ -19,13 +19,32 @@ const roomsRef = collection(db, "chatRooms");
  * @param {object} options - { orderId, quoteId } 견적 연동 정보
  */
 export async function createChatRoom(myUid, myName, myPhoto, otherUid, otherName, otherPhoto, options = {}) {
-  const { orderId, quoteId, type } = options;
+  const { orderId, quoteId, type, trainingId, trainingTitle, supplyId, supplyTitle } = options;
 
   // orderId 기반 중복 체크 (같은 오더+같은 프로 조합)
   if (orderId) {
     const q = query(roomsRef, where("orderId", "==", orderId), where("participants", "array-contains", myUid));
     const snap = await getDocs(q);
     const existing = snap.docs.find((d) => d.data().participants.includes(otherUid));
+    if (existing) return existing.id;
+  } else if (trainingId) {
+    // trainingId 기반 중복 체크 (같은 교육+같은 두 사람 조합 — 교육마다 전용 방)
+    // 단일 필드 쿼리 → 복합 인덱스 불필요, 참가자 매칭은 클라이언트에서
+    const q = query(roomsRef, where("trainingId", "==", trainingId));
+    const snap = await getDocs(q);
+    const existing = snap.docs.find((d) => {
+      const p = d.data().participants || [];
+      return p.includes(myUid) && p.includes(otherUid);
+    });
+    if (existing) return existing.id;
+  } else if (supplyId) {
+    // supplyId 기반 중복 체크 (같은 자재업체+같은 두 사람 조합 — 업체마다 전용 방)
+    const q = query(roomsRef, where("supplyId", "==", supplyId));
+    const snap = await getDocs(q);
+    const existing = snap.docs.find((d) => {
+      const p = d.data().participants || [];
+      return p.includes(myUid) && p.includes(otherUid);
+    });
     if (existing) return existing.id;
   } else {
     // 기존 방 검색 (orderId 없는 경우 — 같은 타입의 일반 채팅방만)
@@ -51,9 +70,64 @@ export async function createChatRoom(myUid, myName, myPhoto, otherUid, otherName
     createdAt: serverTimestamp(),
     messageCount: 0,
     ...(orderId ? { orderId, quoteId: quoteId || "", quoteStatus: "pending" } : {}),
-    roomType: type || (orderId ? "quote" : "general"),
+    ...(trainingId ? { trainingId, trainingTitle: trainingTitle || "" } : {}),
+    ...(supplyId ? { supplyId, supplyTitle: supplyTitle || "" } : {}),
+    roomType: type || (orderId ? "quote" : trainingId ? "training" : supplyId ? "supply" : "general"),
   });
   return docRef.id;
+}
+
+/**
+ * 오픈채팅방 생성 (프로가 직접 개설 — 그룹 공개방)
+ */
+export async function createOpenChatRoom({ ownerUid, ownerName, ownerPhoto, roomName, openCategory, description }) {
+  const docRef = await addDoc(roomsRef, {
+    participants: [ownerUid],
+    participantNames: { [ownerUid]: ownerName || "익명" },
+    participantPhotos: { [ownerUid]: ownerPhoto || "" },
+    unreadCount: { [ownerUid]: 0 },
+    lastMessage: "",
+    lastMessageAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    messageCount: 0,
+    roomType: "open",
+    roomName: roomName || "오픈채팅방",
+    openCategory: openCategory || "전체",
+    description: description || "",
+    ownerUid,
+  });
+  return docRef.id;
+}
+
+/**
+ * 모든 오픈채팅방 실시간 구독 (둘러보기 — 참여 여부 무관)
+ * 정렬은 클라이언트에서 처리(복합 인덱스 회피)
+ */
+export function subscribeOpenRooms(callback) {
+  const q = query(roomsRef, where("roomType", "==", "open"));
+  return onSnapshot(q, (snap) => {
+    const rooms = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    rooms.sort((a, b) => (b.lastMessageAt?.toMillis?.() || 0) - (a.lastMessageAt?.toMillis?.() || 0));
+    callback(rooms);
+  });
+}
+
+/**
+ * 오픈채팅방 입장 (참가자 아니면 추가)
+ */
+export async function joinOpenRoom(roomId, uid, name, photo) {
+  const roomRef = doc(db, "chatRooms", roomId);
+  const snap = await getDoc(roomRef);
+  if (!snap.exists()) return false;
+  const data = snap.data();
+  if ((data.participants || []).includes(uid)) return true; // 이미 참여중
+  await updateDoc(roomRef, {
+    participants: arrayUnion(uid),
+    [`participantNames.${uid}`]: name || "익명",
+    [`participantPhotos.${uid}`]: photo || "",
+    [`unreadCount.${uid}`]: 0,
+  });
+  return true;
 }
 
 /**

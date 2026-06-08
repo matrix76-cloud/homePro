@@ -46,7 +46,7 @@ const SuppliesPage = () => {
           </EmptyState>
         ) : (
           supplies.map((item) => (
-            <Card key={item.id}>
+            <Card key={item.id} onClick={() => navigate(`/supplies/${item.id}`)}>
               <CardHeader>
                 <ShopName>{item.name}</ShopName>
               </CardHeader>
@@ -98,6 +98,9 @@ const Card = styled.div`
   border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
+  cursor: pointer;
+  transition: transform 0.15s;
+  &:active { transform: scale(0.98); }
 `;
 
 const CardHeader = styled.div`

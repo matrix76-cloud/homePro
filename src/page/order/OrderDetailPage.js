@@ -93,6 +93,8 @@ const OrderDetailPage = () => {
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
   const isMatchedPro = order?.matchedProUid === myUid;
+  // 가격 미정(견적요청/현장견적) → 견적 작성으로만 참여 (수락/지원 버튼 숨김)
+  const isQuoteTarget = ["onsite", "estimate", "quote"].includes(order?.b2bPriceType);
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
 
@@ -593,19 +595,13 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 견적제출 (홈프로 시점) ── 사양 R165: 현장견적/견적요청만 작성 가능 */}
-        {!isOwner && order.b2bPriceType && (
+        {/* ── 견적제출 안내 (홈프로 시점) ── 견적작성 대상은 하단 CTA로 처리, 여기선 고정가 안내만 */}
+        {!isOwner && order.b2bPriceType && !isQuoteTarget && (
           <DetailSection>
             <SectionTitle>견적제출</SectionTitle>
-            {(order.b2bPriceType === "onsite" || order.b2bPriceType === "estimate" || order.b2bPriceType === "quote") && order.b2bPriceType !== "hpoint" && order.b2bPriceType !== "fixed" && order.b2bPriceType !== "balance" ? (
-              <SelectProBtn onClick={handleQuote} style={{ width: "100%", padding: "12px" }}>
-                견적 작성하기
-              </SelectProBtn>
-            ) : (
-              <DetailText style={{ color: THEME.muted }}>
-                {PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다
-              </DetailText>
-            )}
+            <DetailText style={{ color: THEME.muted }}>
+              {PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다
+            </DetailText>
           </DetailSection>
         )}
 
@@ -657,6 +653,14 @@ const OrderDetailPage = () => {
               </OutlinedBtn>
             )}
             <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
+          </ActionRow>
+        ) : isQuoteTarget ? (
+          /* 견적요청/현장견적 — 가격 미정이라 수락/지원 없이 견적 작성으로만 참여 */
+          <ActionRow>
+            <SmallBtn onClick={handleCall}>
+              <IoCallOutline size={20} color="#555" />
+            </SmallBtn>
+            <MainCTA onClick={handleQuote}>견적 작성하기</MainCTA>
           </ActionRow>
         ) : matchType === "priority" ? (
           /* 우선배정호출 */
