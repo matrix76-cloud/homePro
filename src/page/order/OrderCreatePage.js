@@ -479,6 +479,11 @@ export const OrderCreateContent = () => {
   const [matchType, setMatchType] = useState("");
   const [directPhone, setDirectPhone] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  // 연락처 기본값 = 접수자(본인) 전화 자동셋팅
+  useEffect(() => {
+    if (userData?.phoneE164 && !contactPhone) setContactPhone(userData.phoneE164);
+  }, [userData?.phoneE164]);
 
   const [step, setStep] = useState("form"); // "form" | "preview"
 
@@ -585,6 +590,7 @@ export const OrderCreateContent = () => {
   const handleSubmit = async () => {
     if (submitting) return;
     if (!validateForm()) return;
+    if (!window.confirm("해당 오더를 접수 하시겠습니까?")) return; // 팝업 확인
     setSubmitting(true);
     try {
       // 사진 업로드
@@ -635,6 +641,7 @@ export const OrderCreateContent = () => {
         workDatePicker: workDate === "희망날짜지정" ? workDatePicker : null,
         workTime: workTimeMode === "시간설정" ? { start: workTimeStart, end: workTimeEnd } : workTimeMode || null,
         contactPhone: contactPhone || null,
+        customerPhone: customerPhone || null,
         paymentMethod: paymentMethod || null,
         b2bPriceType: b2bPriceType || null,
         b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") ? Number(b2bPriceAmount) || null : null,
@@ -644,6 +651,8 @@ export const OrderCreateContent = () => {
         directPhone: matchType === "direct" ? directPhone : null,
       });
       showToast("오더가 등록되었습니다!");
+      // 접수 → 자동으로 나의오더현황으로 이동
+      try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
       setTimeout(() => navigate("/MobileMain"), 1000);
     } catch (err) {
       console.error("오더 등록 실패:", err);
@@ -994,10 +1003,13 @@ export const OrderCreateContent = () => {
             )}
           </Section>
 
-          {/* 연락처 */}
+          {/* 연락처 — 접수자(자동) + 고객(실무자) */}
           <Section>
             <Label>연락처</Label>
+            <div style={{ fontSize: 13, color: THEME.muted, margin: "2px 0 6px" }}>접수자 (본인)</div>
             <Input type="tel" placeholder="010-0000-0000" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+            <div style={{ fontSize: 13, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
+            <Input type="tel" placeholder="고객 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
           </Section>
 
           {/* 결제수단 (프로 간 정산 조건) */}

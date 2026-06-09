@@ -47,14 +47,14 @@ const PRO_ROLE_TAG_BY_MATCH = { priority: "수락오더", compare: "지원오더
 /* ─── 홈프로 취소요청 사유 (사양: 8개) ─── */
 const CANCEL_REQ_REASONS = ["시간조율불가", "안전상 작업불가", "사전정보와 상이", "작업환경 불가", "견적조건 미합의", "요청내용 변경", "연락불가", "상세사유 입력"];
 
-/* ─── 상태 필터 탭 (사양: 전체/접수/대기/비교선택/배정/완료/취소) ─── */
-const STATUS_TABS = ["전체", "접수", "대기", "비교선택", "배정", "완료", "취소"];
+/* ─── 상태 필터 탭 (사양: 전체/접수/대기/선정대기/배정/완료/취소) ─── */
+const STATUS_TABS = ["전체", "접수", "대기", "선정대기", "배정", "완료", "취소"];
 
 const STATUS_DESC = {
   "전체": "내가 등록한 일감과 받은 일감을\n한눈에 볼 수 있어요.",
   "접수": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.",
   "대기": "수정을 위해 일시 보류된 오더입니다.\n재접수하면 다시 노출돼요.",
-  "비교선택": "다중비교호출로 지원자가 모집된 오더입니다.\n지원자 중 1명을 선정해 주세요.",
+  "선정대기": "다중비교호출로 지원자가 모집된 오더입니다.\n지원자 중 1명을 선정해 주세요.",
   "배정": "홈프로가 수락하여 진행 중인 오더입니다.\n일감을 준 프로는 취소, 받은 프로는 작업완료\n변경이 가능해요.",
   "완료": "작업이 완료된 오더입니다.",
   "취소": "취소된 오더입니다.\n취소 후에는 되돌릴 수 없어요.",
@@ -64,7 +64,7 @@ const STATUS_DESC = {
 const STATUS_STYLE = {
   "접수":     { bg: "#3B82F6", color: "#fff" },
   "대기":     { bg: "#F97316", color: "#fff" },
-  "비교선택": { bg: "#F59E0B", color: "#fff" },
+  "선정대기": { bg: "#F59E0B", color: "#fff" },
   "배정":     { bg: "#7C5CFC", color: "#fff" },
   "완료":     { bg: "#10B981", color: "#fff" },
   "취소":     { bg: "#9CA3AF", color: "#fff" },
@@ -74,7 +74,7 @@ const STATUS_STYLE = {
 const normalizeStatus = (s) => {
   if (s === "요청" || s === "접수") return "접수";
   if (s === "대기") return "대기";
-  if (s === "업체선택대기" || s === "업체선택") return "비교선택";
+  if (s === "업체선택대기" || s === "업체선택") return "선정대기";
   if (s === "진행" || s === "결제") return "배정";
   if (s === "거부") return "취소"; // 거부는 차단관리로 이관, 카드에선 취소 취급
   return s; // 배정, 완료, 취소 등은 그대로
@@ -353,7 +353,7 @@ export const MyOrdersContent = () => {
                     )}
                   </ActionRow>
                 )}
-                {displayStatus === "비교선택" && order.createdBy === uid && (
+                {displayStatus === "선정대기" && order.createdBy === uid && (
                   <ActionRow>
                     <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
                   </ActionRow>

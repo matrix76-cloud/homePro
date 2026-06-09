@@ -7,7 +7,7 @@ import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAd
 import { UserContext } from "../../context/User";
 import { signOutUser } from "../../service/AuthService";
 import { useAuth } from "../../context/AuthContext";
-import { THEME, CATEGORIES } from "../../config/homeproConfig";
+import { THEME, CATEGORIES, APP_VERSION } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import MyPageLayout from "../../screen/Layout/Layout/MyPageLayout";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -1033,9 +1033,13 @@ const MobileConfigpage = () => {
             <SupportLabel>개인정보처리방침</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
-          <SupportItem onClick={() => navigate("/legal/location")} style={{ borderBottom: "none" }}>
+          <SupportItem onClick={() => navigate("/legal/location")}>
             <SupportLabel>위치기반서비스 이용약관</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
+          </SupportItem>
+          <SupportItem as="div" style={{ borderBottom: "none", cursor: "default" }}>
+            <SupportLabel>버전 정보</SupportLabel>
+            <span style={{ fontSize: 14, fontWeight: 600, color: THEME.muted }}>v{APP_VERSION}</span>
           </SupportItem>
         </SupportList>
       </ContentCard>

@@ -1429,7 +1429,7 @@ export const COMMON_B2B_FIELDS = {
   },
   workTime: {
     label: "작업시간",
-    options: ["시간설정", "시간무관"],
+    options: ["하루 08:00~17:00", "오전 08:00~12:00", "오후 13:00~17:00", "저녁 18:00~21:00", "시간설정", "시간무관"],
   },
   paymentMethod: {
     label: "결제수단 (프로 간 정산 조건)",

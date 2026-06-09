@@ -133,15 +133,19 @@ const OrderDetailPage = () => {
   }, [isOwner, matchType, order?.id]);
 
   // 호출 유형별 핸들러
+  // 나의오더현황으로 이동
+  const goMyOrders = () => {
+    try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
+    navigate("/MobileMain");
+  };
+
   const handleAcceptOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    if (!window.confirm("해당 오더를 수락 하시겠습니까?")) return; // 팝업 확인
     try {
       if (!acceptOrder) throw new Error("acceptOrder 함수 없음");
       await acceptOrder(order.id, myUid);
-      showToast("수락되었습니다");
-      // 새로고침
-      const updated = await getOrder(order.id);
-      if (updated) setFetchedOrder(updated);
+      goMyOrders(); // 수락 → 자동으로 나의오더현황 이동
     } catch (e) {
       if (e.message?.includes("배정")) showToast("배정된 오더입니다");
       else showToast(e.message || "수락에 실패했습니다");
@@ -150,12 +154,13 @@ const OrderDetailPage = () => {
 
   const handleApplyOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    if (!window.confirm("해당 오더에 지원 하시겠습니까?")) return; // 팝업 확인
     try {
       if (!applyToOrder) throw new Error("applyToOrder 함수 없음");
       const proName = userData?.nickname || userData?.name || "전문가";
       const proProfile = userData?.profileImage || userData?.photoURL || "";
       await applyToOrder(order.id, myUid, { proName, proProfile });
-      showToast("지원이 완료되었습니다");
+      goMyOrders(); // 지원 → 자동으로 나의오더현황 이동
     } catch (e) {
       if (e.message?.includes("이미")) showToast("이미 지원한 오더입니다");
       else showToast(e.message || "지원에 실패했습니다");
@@ -215,9 +220,23 @@ const OrderDetailPage = () => {
   };
 
   const handleSelectPro = async (proUid) => {
+    if (!window.confirm("이 홈프로를 선정 하시겠습니까?\n선정 후 자동으로 배정됩니다.")) return; // 팝업 확인
     try {
       if (!selectPro) throw new Error("selectPro 함수 없음");
-      await selectPro(order.id, proUid);
+      await selectPro(order.id, proUid); // 자동 배정(orderStatus="배정") + 나머지 지원자 rejected
+      // 선정된 수락자에게 푸시
+      try {
+        await addDoc(collection(db, "notifications"), {
+          targetUids: [proUid],
+          title: "홈프로 선정",
+          body: "선정되었습니다! 배정된 오더를 확인하세요",
+          type: "pro_selected",
+          data: { orderId: order.id },
+          read: false,
+          sent: false,
+          createdAt: serverTimestamp(),
+        });
+      } catch (e) {}
       showToast("홈프로가 선정되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
