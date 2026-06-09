@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct } from "react-icons/io5";
+import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct, IoSwapHorizontal, IoSwapHorizontalOutline } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../../utility/constants";
 import { useAuth } from "../../../context/AuthContext";
@@ -31,11 +31,11 @@ const TAB_LIST = [
     InactiveIcon: IoChatbubbleEllipsesOutline,
   },
   {
-    key: "supplies",
-    label: "자재.장비",
-    path: "/supplies",
-    ActiveIcon: IoConstruct,
-    InactiveIcon: IoConstructOutline,
+    key: "marketplace",
+    label: "도급.양도.매매",
+    path: "/marketplace",
+    ActiveIcon: IoSwapHorizontal,
+    InactiveIcon: IoSwapHorizontalOutline,
   },
   {
     key: MOBILEMAINMENU.CONFIG,

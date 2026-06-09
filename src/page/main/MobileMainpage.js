@@ -631,8 +631,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const filterCats = CATEGORIES;
 
   const HOME_TABS = [
-    { key: "all_orders", label: "요청목록" },
+    { key: "all_orders", label: "오더목록" },
     { key: "my_orders", label: "나의오더현황" },
+    { key: "ai_estimate", label: "AI견적" },
     { key: "referral", label: "초대코드" },
     { key: "assets", label: "보유자산" },
   ];
@@ -780,6 +781,11 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         <>
           <MyOrdersContent />
         </>
+      )}
+
+      {/* ══════ AI견적 ══════ */}
+      {activeTab === "ai_estimate" && (
+        <AIEstimateContent />
       )}
 
       {/* ══════ 작업자요청 (시트6 사양: 작업인력호출 리스트) ══════ */}
