@@ -764,6 +764,12 @@ export const OrderCreateContent = () => {
                           key={cat.id}
                           $selected={selectedCategory === cat.id}
                           onClick={() => {
+                            // 작업자요청은 전용 화면으로 (카테고리 편입)
+                            if (cat.id === "worker_call") {
+                              try { sessionStorage.setItem("homepro.main.activeTab", "worker_request"); } catch (e) {}
+                              navigate("/MobileMain");
+                              return;
+                            }
                             setSelectedCategory(cat.id);
                             resetForm();
                             setExpandedGroup(null);

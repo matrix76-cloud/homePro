@@ -17,6 +17,33 @@ import { MyOrdersContent } from "../order/MyOrdersPage";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
+/* ─── 포인트 내역 날짜 표기 ─── */
+const fmtCashDate = (ts) => {
+  if (!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/* ─── 포인트 기간 필터 ─── */
+const POINT_PERIODS = ["전체", "당일", "어제", "지난1주", "지난1개월", "지난3개월"];
+const matchPointPeriod = (createdAt, period) => {
+  if (period === "전체") return true;
+  const d = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt || 0);
+  const now = new Date();
+  const isToday = now.toDateString() === d.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = yesterday.toDateString() === d.toDateString();
+  const days = (now - d) / 86400000;
+  switch (period) {
+    case "당일": return isToday;
+    case "어제": return isYesterday;
+    case "지난1주": return days >= 0 && days <= 7;
+    case "지난1개월": return days >= 0 && days <= 30;
+    case "지난3개월": return days >= 0 && days <= 90;
+    default: return true;
+  }
+};
+
 /* ─── 오더 상태 ─── */
 const STATUS_TABS = ["접수", "대기", "마감", "취소"];
 const STATUS_STYLE = {
@@ -181,7 +208,7 @@ const UserMain = ({ navigate, nickname }) => (
           <CatGroupLabel>{group.label}</CatGroupLabel>
           <CategoryGrid>
             {CATEGORIES.filter((cat) => cat.group === group.id).map((cat) => (
-              <CategoryItem key={cat.id} onClick={() => navigate(`/category/${cat.id}`)}>
+              <CategoryItem key={cat.id} onClick={() => navigate(cat.id === "worker_call" ? "/order/worker-request/create" : `/category/${cat.id}`)}>
                 <CatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</CatIcon>
                 <CatName>{cat.shortName}</CatName>
               </CategoryItem>
@@ -437,6 +464,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [rawOrders, setRawOrders] = useState([]);
   const [toast, setToast] = useState("");
   const [userPoints, setUserPoints] = useState(0);
+  const [pointHistory, setPointHistory] = useState([]);
+  const [pointPeriod, setPointPeriod] = useState("전체");
   const [companyInfo, setCompanyInfo] = useState(null);
 
   // 사업자 정보(settings/companyInfo) 로드 — 관리자 설정에서 입력한 값
@@ -470,10 +499,16 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     if (!uid) return;
     (async () => {
       try {
-        const { doc, getDoc } = await import("firebase/firestore");
+        const { doc, getDoc, collection, query, where, orderBy, getDocs } = await import("firebase/firestore");
         const { db } = await import("../../api/config");
         const snap = await getDoc(doc(db, "users", uid));
         if (snap.exists()) setUserPoints(snap.data().referralPoints || snap.data().points || 0);
+        // 포인트 내역 (homepro_cash)
+        try {
+          const q = query(collection(db, "homepro_cash"), where("uid", "==", uid), orderBy("createdAt", "desc"));
+          const hs = await getDocs(q);
+          setPointHistory(hs.docs.map((d) => ({ id: d.id, ...d.data() })));
+        } catch (he) { console.error("포인트 내역 로드 실패:", he); }
       } catch (e) { console.error(e); }
     })();
   }, [uid]);
@@ -598,7 +633,6 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const HOME_TABS = [
     { key: "all_orders", label: "요청목록" },
     { key: "my_orders", label: "나의오더현황" },
-    { key: "worker_request", label: "작업자요청" },
     { key: "referral", label: "초대코드" },
     { key: "assets", label: "보유자산" },
   ];
@@ -620,22 +654,47 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         ))}
       </HomeTabRow>
 
-      {/* ══════ 보유자산 ══════ */}
+      {/* ══════ 보유자산 (포인트 잔액 + 내역) ══════ */}
       {activeTab === "assets" && (
-        <>
-          <AssetSection>
-            <AssetCard>
-              <AssetLabel>포인트</AssetLabel>
-              <AssetValue>{userPoints.toLocaleString()}P</AssetValue>
-              <AssetDesc>적립된 포인트를 확인하세요</AssetDesc>
-            </AssetCard>
-            <AssetCard $muted>
-              <AssetLabel>블록체인 자산</AssetLabel>
-              <AssetValue style={{color: THEME.muted}}>준비중</AssetValue>
-              <AssetDesc>향후 블록체인 기반 자산이 추가됩니다</AssetDesc>
-            </AssetCard>
-          </AssetSection>
-        </>
+        <AssetWrap>
+          <PointBalanceCard>
+            <PointBalanceLabel>총 보유 포인트</PointBalanceLabel>
+            <PointBalanceValue>{userPoints.toLocaleString()}P</PointBalanceValue>
+          </PointBalanceCard>
+
+          <AssetListHeader>
+            <AssetListTitle>포인트 내역</AssetListTitle>
+          </AssetListHeader>
+
+          <PeriodChipRow>
+            {POINT_PERIODS.map((p) => (
+              <PeriodChip key={p} $active={pointPeriod === p} onClick={() => setPointPeriod(p)}>
+                {p}
+              </PeriodChip>
+            ))}
+          </PeriodChipRow>
+
+          {(() => {
+            const filtered = pointHistory.filter((h) => matchPointPeriod(h.createdAt, pointPeriod));
+            if (pointHistory.length === 0) return <AssetEmpty>아직 포인트 내역이 없어요</AssetEmpty>;
+            if (filtered.length === 0) return <AssetEmpty>해당 기간 내역이 없어요</AssetEmpty>;
+            return (
+            <AssetHistoryList>
+              {filtered.map((h) => (
+                <AssetHistoryItem key={h.id}>
+                  <div style={{ minWidth: 0 }}>
+                    <AssetHistoryReason>{h.reason || "포인트"}</AssetHistoryReason>
+                    <AssetHistoryDate>{fmtCashDate(h.createdAt)}</AssetHistoryDate>
+                  </div>
+                  <AssetHistoryAmt $type={h.type}>
+                    {h.type === "earn" ? "+" : h.type === "use" ? "-" : ""}{(h.amount || 0).toLocaleString()}P
+                  </AssetHistoryAmt>
+                </AssetHistoryItem>
+              ))}
+            </AssetHistoryList>
+            );
+          })()}
+        </AssetWrap>
       )}
 
       {/* ══════ 요청목록 (전체) ══════ */}
@@ -1584,39 +1643,111 @@ const HomeTabSub = styled.span`
   color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
 `;
 
-/* 보유자산 */
-const AssetSection = styled.div`
-  padding: 16px 12px;
+/* 보유자산 (포인트 잔액 + 내역) */
+const AssetWrap = styled.div`
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 `;
 
-const AssetCard = styled.div`
-  background: ${({ $muted }) => $muted ? THEME.background : THEME.surface};
+const PointBalanceCard = styled.div`
+  background: ${THEME.primary};
   border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${({ $muted }) => $muted ? "none" : THEME.cardShadow};
-  ${({ $muted }) => $muted ? `border: 1px dashed ${THEME.border};` : ""}
+  padding: 24px 20px;
+  text-align: center;
 `;
 
-const AssetLabel = styled.div`
-  font-size: 13px;
-  font-weight: 600;
-  color: ${THEME.textSecondary};
+const PointBalanceLabel = styled.div`
+  font-size: 14px;
+  color: rgba(255,255,255,0.85);
 `;
 
-const AssetValue = styled.div`
+const PointBalanceValue = styled.div`
   font-size: 28px;
   font-weight: 700;
-  color: ${THEME.primary};
-  margin-top: 8px;
+  color: #fff;
+  margin-top: 6px;
 `;
 
-const AssetDesc = styled.div`
-  font-size: 12px;
+const AssetListHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 20px 4px 10px;
+`;
+
+const AssetListTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const PeriodChipRow = styled.div`
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 0 12px;
+  &::-webkit-scrollbar { display: none; }
+  scrollbar-width: none;
+`;
+
+const PeriodChip = styled.button`
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  border-radius: 20px;
+  background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
+  color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
+  cursor: pointer;
+  white-space: nowrap;
+`;
+
+const AssetHistoryList = styled.div`
+  background: ${THEME.surface};
+  border-radius: 16px;
+  box-shadow: ${THEME.cardShadow};
+  overflow: hidden;
+`;
+
+const AssetHistoryItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+
+const AssetHistoryReason = styled.div`
+  font-size: 15px;
+  font-weight: 500;
+  color: ${THEME.text};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const AssetHistoryDate = styled.div`
+  font-size: 13px;
   color: ${THEME.muted};
-  margin-top: 6px;
+  margin-top: 2px;
+`;
+
+const AssetHistoryAmt = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: ${({ $type }) => $type === "earn" ? THEME.primary : $type === "use" ? THEME.danger : THEME.text};
+`;
+
+const AssetEmpty = styled.div`
+  text-align: center;
+  padding: 50px 0;
+  font-size: 14px;
+  color: ${THEME.muted};
 `;
 
 /* 새로고침 버튼 */

@@ -88,12 +88,19 @@ export function getWebLocation(timeoutMs = 10000) {
     });
 }
 
+// 광역/특별/특별자치시 — 이것만 "시" 표기 (도(道)는 그대로: 충남 → "충남")
+const METRO_CITIES = new Set(["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종"]);
+
 /**
  * region 객체를 표시용 문자열로 변환
  * { sido: "서울", gu: "강남구" } → "서울시 강남구"
+ * { sido: "충남", gu: "논산시" } → "충남 논산시"  (도에는 '시' 안 붙임)
  */
 export function regionToDisplayName({ sido, gu }) {
-    const sidoDisplay = sido.endsWith("시") || sido.endsWith("도") ? sido : `${sido}시`;
+    if (!sido) return "";
+    const sidoDisplay = (sido.endsWith("시") || sido.endsWith("도"))
+        ? sido
+        : (METRO_CITIES.has(sido) ? `${sido}시` : sido);
     if (!gu || gu === "전체") return `${sidoDisplay} 전체`;
     return `${sidoDisplay} ${gu}`;
 }
