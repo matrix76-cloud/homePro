@@ -8,7 +8,7 @@
 
 // ─── 앱 기본 정보 ───
 // 배포할 때마다 이 버전을 올린다 (마이페이지에 표시됨)
-export const APP_VERSION = "1.0.4";
+export const APP_VERSION = "1.0.5";
 export const APP_NAME = "홈프로";
 export const APP_LABEL = "홈프로";
 export const APP_DESCRIPTION = "각 분야 전문가를 연결하는 실전형 플랫폼";
@@ -148,8 +148,8 @@ export const CATEGORIES = [
         name: "전문청소",
         shortName: "전문청소",
         group: "cleaning",
-        description: "홈클리닝, 정기청소, 준공청소, 특수청소 등 전문 청소",
-        subcategories: ["홈클리닝", "정기청소", "준공청소", "특수청소", "상업.매장청소", "바닥청소", "사업장청소", "외벽.고소청소"],
+        description: "홈클리닝, 정기청소, 준공청소, 특수청소, 화재청소 등 전문 청소",
+        subcategories: ["홈클리닝", "정기청소", "준공청소", "특수청소", "화재청소", "상업.매장청소", "바닥청소", "외벽.고소청소", "기타"],
     },
     {
         id: "appliance_cleaning",
@@ -284,8 +284,8 @@ export const CATEGORIES = [
     },
     {
         id: "heavy_equipment",
-        name: "고소작업.장비",
-        shortName: "고소작업.장비",
+        name: "스카이차.장비",
+        shortName: "스카이차.장비",
         group: "construction",
         description: "스카이차, 크레인, 사다리차, 굴삭기 등",
         subcategories: ["스카이차", "카고크레인", "사다리차", "유압크레인", "굴삭기", "지게차"],
