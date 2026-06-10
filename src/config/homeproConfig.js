@@ -8,7 +8,7 @@
 
 // ─── 앱 기본 정보 ───
 // 배포할 때마다 이 버전을 올린다 (마이페이지에 표시됨)
-export const APP_VERSION = "1.0.5";
+export const APP_VERSION = "1.0.6";
 export const APP_NAME = "홈프로";
 export const APP_LABEL = "홈프로";
 export const APP_DESCRIPTION = "각 분야 전문가를 연결하는 실전형 플랫폼";
@@ -157,7 +157,7 @@ export const CATEGORIES = [
         shortName: "가전분해청소",
         group: "cleaning",
         description: "에어컨, 세탁기, 냉장고, 주방후드 분해 청소",
-        subcategories: ["에어컨청소", "세탁기청소", "냉장고청소", "주방후드", "비데분해청소"],
+        subcategories: ["에어컨청소", "세탁기청소", "냉장고청소", "주방후드", "비데분해청소", "기타"],
     },
     {
         id: "mattress_care",
@@ -165,7 +165,7 @@ export const CATEGORIES = [
         shortName: "침대.소파.카펫",
         group: "cleaning",
         description: "침대매트리스, 소파, 카펫 전문 케어",
-        subcategories: ["침대메트리스", "소파", "카페트"],
+        subcategories: ["침대메트리스", "소파", "카페트", "기타"],
     },
     {
         id: "pest_control",
@@ -181,7 +181,7 @@ export const CATEGORIES = [
         shortName: "곰팡이",
         group: "cleaning",
         description: "곰팡이 제거, 차단코팅, 단열 시공",
-        subcategories: ["곰팡이제거", "곰팡이 차단코팅", "단열 페인트시공", "단열제 시공"],
+        subcategories: ["곰팡이제거", "곰팡이 차단코팅", "단열 페인트시공", "단열제 시공", "기타"],
     },
     // ── 설비/수리 ──
     {
@@ -190,7 +190,7 @@ export const CATEGORIES = [
         shortName: "설비.하수구",
         group: "repair",
         description: "하수구, 배관, 설비, 누수 탐지/공사, 난방",
-        subcategories: ["하수구.배관.설비", "누수탐지", "누수공사", "난방.보일러"],
+        subcategories: ["하수구.배관.설비", "누수탐지", "누수공사", "난방.보일러", "기타"],
     },
     {
         id: "home_repair",
@@ -198,7 +198,7 @@ export const CATEGORIES = [
         shortName: "집수리",
         group: "repair",
         description: "창호, 욕실, 주방, 도어락 등 각종 소수리/보수",
-        subcategories: ["창호 소수리", "욕실 소수리", "주방 소수리", "전기.조명(생활)", "설비연계 소수리", "벽.천장 부분보수", "가구.생활 설치", "도어락.보안 소수리", "베란다.외부 소수리", "문 소수리", "외부 소수리", "도장(페인트)"],
+        subcategories: ["창호 소수리", "욕실 소수리", "주방 소수리", "전기.조명(생활)", "설비연계 소수리", "벽.천장 부분보수", "가구.생활 설치", "도어락.보안 소수리", "베란다.외부 소수리", "문 소수리", "외부 소수리", "도장(페인트)", "기타"],
     },
     {
         id: "boiler",
@@ -206,7 +206,7 @@ export const CATEGORIES = [
         shortName: "난방/보일러",
         group: "repair",
         description: "가스/기름/전기 보일러, 지역난방, 온수기",
-        subcategories: ["가스보일러", "기름보일러", "전기식보일러", "지역난방", "온수기"],
+        subcategories: ["가스보일러", "기름보일러", "전기식보일러", "지역난방", "온수기", "기타"],
     },
     {
         id: "electrical_work",
@@ -214,7 +214,7 @@ export const CATEGORIES = [
         shortName: "전기공사",
         group: "repair",
         description: "배선, 증설, 콘센트/스위치, 조명 공사 등",
-        subcategories: ["배선공사", "전기 용량.증설", "콘센트.스위치 신설", "조명공사", "가전 전용 전기공사", "상가.사무실 전기공사"],
+        subcategories: ["배선공사", "전기 용량.증설", "콘센트.스위치 신설", "조명공사", "가전 전용 전기공사", "상가.사무실 전기공사", "기타"],
     },
     // ── 설치 ──
     {
@@ -223,7 +223,7 @@ export const CATEGORIES = [
         shortName: "에어컨설치",
         group: "install",
         description: "에어컨 신규/이전 설치, 실외기, 고장 점검",
-        subcategories: ["에어컨 신규", "에어컨 이전", "에어컨실외기", "에어컨고장.점검요청"],
+        subcategories: ["에어컨 신규", "에어컨 이전", "에어컨실외기", "에어컨고장.점검요청", "기타"],
     },
     {
         id: "appliance_install",
@@ -231,7 +231,7 @@ export const CATEGORIES = [
         shortName: "가전설치",
         group: "install",
         description: "세탁기, 냉장고, TV, 비데 등 가전 설치",
-        subcategories: ["세탁기", "냉장고", "TV.가구.벽걸이", "인덕션.후드", "음식물처리기", "온수기", "CCTV.네트워크", "비데.정수기"],
+        subcategories: ["세탁기", "냉장고", "TV.가구.벽걸이", "인덕션.후드", "음식물처리기", "온수기", "CCTV.네트워크", "비데.정수기", "기타"],
     },
     // ── 시공/철거 ──
     {
@@ -240,7 +240,7 @@ export const CATEGORIES = [
         shortName: "철거",
         group: "construction",
         description: "내부/부분/원상복구 철거 등",
-        subcategories: ["내부철거", "부분철거", "원상복구 철거", "욕실.주방철거", "상가.사무실철거", "소형철거"],
+        subcategories: ["내부철거", "부분철거", "원상복구 철거", "욕실.주방철거", "상가.사무실철거", "소형철거", "기타"],
     },
     {
         id: "waste",
@@ -248,7 +248,7 @@ export const CATEGORIES = [
         shortName: "폐기물처리",
         group: "construction",
         description: "생활/인테리어/대형/사업장 폐기물 처리",
-        subcategories: ["가정생활 폐기물", "인테리어 폐기물", "혼합 폐기물", "대형.중량폐기물", "사업장폐기물"],
+        subcategories: ["가정생활 폐기물", "인테리어 폐기물", "혼합 폐기물", "대형.중량폐기물", "사업장폐기물", "기타"],
     },
     {
         id: "paint_waterproof",
@@ -256,7 +256,7 @@ export const CATEGORIES = [
         shortName: "페인트.도장.방수",
         group: "construction",
         description: "내외부 페인트, 도장, 방수 시공",
-        subcategories: ["페인트", "도장", "방수"],
+        subcategories: ["페인트", "도장", "방수", "기타"],
     },
     {
         id: "partial_interior",
@@ -264,7 +264,7 @@ export const CATEGORIES = [
         shortName: "부분인테리어",
         group: "construction",
         description: "벽면, 바닥, 필름, 주방, 욕실 등 부분 인테리어",
-        subcategories: ["벽면인테리어", "바닥인테리어", "필름 인테리어", "전기.조명인테리어", "가수.수납인테리어", "주방 인테리어", "욕실인테리어", "유리인테리어", "소규모 인테리어", "전체인테리어"],
+        subcategories: ["벽면인테리어", "바닥인테리어", "필름 인테리어", "전기.조명인테리어", "가수.수납인테리어", "주방 인테리어", "욕실인테리어", "유리인테리어", "소규모 인테리어", "전체인테리어", "기타"],
     },
     {
         id: "full_remodel",
@@ -272,7 +272,7 @@ export const CATEGORIES = [
         shortName: "종합리모델링",
         group: "construction",
         description: "욕실, 주방, 전체, 상가 리모델링",
-        subcategories: ["욕실 리모델링", "주방리모델링", "부분리모델링", "전체 리모델링", "상가.사무실리모델링", "창호리모델링"],
+        subcategories: ["욕실 리모델링", "주방리모델링", "부분리모델링", "전체 리모델링", "상가.사무실리모델링", "창호리모델링", "기타"],
     },
     {
         id: "supplies",
@@ -297,7 +297,7 @@ export const CATEGORIES = [
         shortName: "작업자요청",
         group: "life",
         description: "현장 작업 인력/기술자/장비 요청",
-        subcategories: ["청소작업", "전문작업", "보통인부", "스페어기사"],
+        subcategories: ["청소작업", "전문작업", "보통인부", "스페어기사", "기타"],
     },
     {
         id: "moving",
@@ -329,7 +329,7 @@ export const CATEGORIES = [
         shortName: "컴퓨터.프린터",
         group: "life",
         description: "컴퓨터/프린터 수리, 네트워크, 렌탈",
-        subcategories: ["컴퓨터.점검수리", "소프트웨어.셋팅", "부품교체", "프린터 설치연결", "출력오류 고장점검", "네트워크.공유설정", "소모품 관리", "사무실.상가패키지", "프린터.복합기 렌탈"],
+        subcategories: ["컴퓨터.점검수리", "소프트웨어.셋팅", "부품교체", "프린터 설치연결", "출력오류 고장점검", "네트워크.공유설정", "소모품 관리", "사무실.상가패키지", "프린터.복합기 렌탈", "기타"],
     },
     {
         id: "insurance",
@@ -337,7 +337,7 @@ export const CATEGORIES = [
         shortName: "기업보험",
         group: "life",
         description: "기업/단체/공사/배상 보험",
-        subcategories: ["특수단체보험", "책임배상보험", "공사.시공보험", "기업.법인종합", "상해.인적보험", "운송.물류보험", "건설기계보험", "재물보험", "기업.법인단체보험"],
+        subcategories: ["특수단체보험", "책임배상보험", "공사.시공보험", "기업.법인종합", "상해.인적보험", "운송.물류보험", "건설기계보험", "재물보험", "기업.법인단체보험", "기타"],
     },
     {
         id: "fortune",
