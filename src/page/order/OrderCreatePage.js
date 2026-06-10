@@ -749,49 +749,36 @@ export const OrderCreateContent = () => {
 
   return (
     <>
-      {/* 1. 카테고리 선택 (아코디언) */}
+      {/* 1. 카테고리 선택 — 직관적 평면 나열, 선택 시 바로 아래 접수폼 */}
       {!categoryId && (
         <Section>
           <Label>카테고리 선택</Label>
-          {CATEGORY_GROUPS.map((group) => {
-            const isOpen = expandedGroup === group.id;
-            const groupCats = CATEGORIES.filter((c) => c.group === group.id);
-            const selectedInGroup = groupCats.find((c) => c.id === selectedCategory);
-            return (
-              <CatAccordion key={group.id}>
-                <CatAccordionHeader onClick={() => setExpandedGroup(isOpen ? null : group.id)} $active={!!selectedInGroup}>
-                  <CatAccordionLabel>{group.label}</CatAccordionLabel>
-                  {selectedInGroup && <CatAccordionSelected>{selectedInGroup.shortName}</CatAccordionSelected>}
-                  <CatAccordionArrow>{isOpen ? "▲" : "▼"}</CatAccordionArrow>
+          {!selectedCategory ? (
+            CATEGORIES.map((cat) => (
+              <CatAccordion key={cat.id}>
+                <CatAccordionHeader onClick={() => {
+                  // 작업자요청은 전용 화면으로 (카테고리 편입)
+                  if (cat.id === "worker_call") {
+                    try { sessionStorage.setItem("homepro.main.activeTab", "worker_request"); } catch (e) {}
+                    navigate("/MobileMain");
+                    return;
+                  }
+                  setSelectedCategory(cat.id);
+                  resetForm();
+                }}>
+                  <CatAccordionLabel>{cat.name}</CatAccordionLabel>
+                  <CatAccordionArrow>▼</CatAccordionArrow>
                 </CatAccordionHeader>
-                {isOpen && (
-                  <CatGrid>
-                    {groupCats.map((cat) => {
-                      return (
-                        <CatChipBtn
-                          key={cat.id}
-                          $selected={selectedCategory === cat.id}
-                          onClick={() => {
-                            // 작업자요청은 전용 화면으로 (카테고리 편입)
-                            if (cat.id === "worker_call") {
-                              try { sessionStorage.setItem("homepro.main.activeTab", "worker_request"); } catch (e) {}
-                              navigate("/MobileMain");
-                              return;
-                            }
-                            setSelectedCategory(cat.id);
-                            resetForm();
-                            setExpandedGroup(null);
-                          }}
-                        >
-                          {(() => { const n = cat.shortName.replace(/[./·\-]/g, ""); return n.length > 6 ? n.slice(0, 6) : n; })()}
-                        </CatChipBtn>
-                      );
-                    })}
-                  </CatGrid>
-                )}
               </CatAccordion>
-            );
-          })}
+            ))
+          ) : (
+            <CatAccordion>
+              <CatAccordionHeader $active onClick={() => { setSelectedCategory(""); resetForm(); }}>
+                <CatAccordionLabel>{category?.name}</CatAccordionLabel>
+                <CatAccordionArrow>▲</CatAccordionArrow>
+              </CatAccordionHeader>
+            </CatAccordion>
+          )}
         </Section>
       )}
 

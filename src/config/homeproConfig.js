@@ -8,7 +8,7 @@
 
 // ─── 앱 기본 정보 ───
 // 배포할 때마다 이 버전을 올린다 (마이페이지에 표시됨)
-export const APP_VERSION = "1.0.3";
+export const APP_VERSION = "1.0.4";
 export const APP_NAME = "홈프로";
 export const APP_LABEL = "홈프로";
 export const APP_DESCRIPTION = "각 분야 전문가를 연결하는 실전형 플랫폼";
@@ -136,7 +136,7 @@ export const CATEGORY_GROUPS = [
     { id: "cleaning", label: "청소", categoryIds: ["professional_cleaning", "appliance_cleaning", "mattress_care", "pest_control", "mold"] },
     { id: "repair", label: "설비/수리", categoryIds: ["drain_pipe", "home_repair", "boiler", "electrical_work"] },
     { id: "install", label: "설치", categoryIds: ["aircon_install", "appliance_install"] },
-    { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "partial_interior", "full_remodel", "heavy_equipment"] },
+    { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "paint_waterproof", "partial_interior", "full_remodel", "supplies", "heavy_equipment"] },
     { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer", "insurance", "fortune"] },
 ];
 
@@ -251,6 +251,14 @@ export const CATEGORIES = [
         subcategories: ["가정생활 폐기물", "인테리어 폐기물", "혼합 폐기물", "대형.중량폐기물", "사업장폐기물"],
     },
     {
+        id: "paint_waterproof",
+        name: "페인트.도장.방수",
+        shortName: "페인트.도장.방수",
+        group: "construction",
+        description: "내외부 페인트, 도장, 방수 시공",
+        subcategories: ["페인트", "도장", "방수"],
+    },
+    {
         id: "partial_interior",
         name: "부분 인테리어",
         shortName: "부분인테리어",
@@ -267,6 +275,14 @@ export const CATEGORIES = [
         subcategories: ["욕실 리모델링", "주방리모델링", "부분리모델링", "전체 리모델링", "상가.사무실리모델링", "창호리모델링"],
     },
     {
+        id: "supplies",
+        name: "자재.장비.소모품",
+        shortName: "자재.장비",
+        group: "construction",
+        description: "건축/배관/전기/설비/인테리어 자재, 장비, 공구, 소모품",
+        subcategories: ["건축자재", "배관자재", "전기자재", "설비자재", "인테리어자재", "농자재", "장비", "공구", "안전용품", "소모품", "기타"],
+    },
+    {
         id: "heavy_equipment",
         name: "고소작업.장비",
         shortName: "고소작업.장비",
@@ -281,7 +297,7 @@ export const CATEGORIES = [
         shortName: "작업자요청",
         group: "life",
         description: "현장 작업 인력/기술자/장비 요청",
-        subcategories: [],
+        subcategories: ["청소작업", "전문작업", "보통인부", "스페어기사"],
     },
     {
         id: "moving",
