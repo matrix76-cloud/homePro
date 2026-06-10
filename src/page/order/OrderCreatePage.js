@@ -574,7 +574,7 @@ export const OrderCreateContent = () => {
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
     if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return false; }
-    if (!schedule) { showToast("일정을 선택해주세요"); return false; }
+    if (!workDate) { showToast("작업날짜를 선택해주세요"); return false; }
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
@@ -626,7 +626,7 @@ export const OrderCreateContent = () => {
         areaValue: areaValue ? `${areaValue}${areaUnit}` : "",
         spaceFields: Object.keys(spaceFields).length > 0 ? spaceFields : null,
         customInput: customInput || null,
-        schedule,
+        schedule: workDate, // 작업 희망일정 제거 — 작업날짜로 통합(하위호환)
         address,
         priceType,
         directPrice: priceType === "direct" ? directPrice : "",
@@ -681,7 +681,6 @@ export const OrderCreateContent = () => {
       if (fmt) items.push({ k: "공간 상세", v: fmt });
     }
     if (customInput) items.push({ k: "기타 입력", v: customInput });
-    items.push({ k: "일정", v: schedule });
     items.push({ k: "주소", v: addressDetail ? `${address} ${addressDetail}` : address });
     items.push({ k: "요청 내용", v: detail });
     if (callFirst) items.push({ k: "선통화 요청", v: "예" });
@@ -947,16 +946,6 @@ export const OrderCreateContent = () => {
                 <PhotoBox onClick={() => fileInputRef.current?.click()}>+</PhotoBox>
               )}
             </PhotoGrid>
-          </Section>
-
-          {/* 작업 희망일정 */}
-          <Section>
-            <Label>작업 희망일정</Label>
-            <ChipGrid>
-              {(formConfig?.scheduleOptions || ["긴급", "오늘", "내일", "희망날짜지정", "협의가능해요!", "가능한 빨리 진행 원해요", "일주일 이내 진행 원해요"]).map((opt) => (
-                <Chip key={opt} $selected={schedule === opt} onClick={() => setSchedule(opt)}>{opt}</Chip>
-              ))}
-            </ChipGrid>
           </Section>
 
           {/* 주소 */}
