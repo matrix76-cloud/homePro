@@ -587,10 +587,10 @@ export const OrderCreateContent = () => {
     window.scrollTo(0, 0);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (asWaiting = false) => {
     if (submitting) return;
     if (!validateForm()) return;
-    if (!window.confirm("해당 오더를 접수 하시겠습니까?")) return; // 팝업 확인
+    if (!window.confirm(asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?")) return;
     setSubmitting(true);
     try {
       // 사진 업로드
@@ -639,7 +639,7 @@ export const OrderCreateContent = () => {
         // B2B 공통 필드
         workDate: workDate || null,
         workDatePicker: workDate === "희망날짜지정" ? workDatePicker : null,
-        workTime: workTimeMode === "시간설정" ? { start: workTimeStart, end: workTimeEnd } : workTimeMode || null,
+        workTime: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : (workTimeMode || null),
         contactPhone: contactPhone || null,
         customerPhone: customerPhone || null,
         paymentMethod: paymentMethod || null,
@@ -649,8 +649,9 @@ export const OrderCreateContent = () => {
         referralPayMethod: referralFeeType !== "none" ? (referralPayMethod || null) : null,
         matchType: matchType || null,
         directPhone: matchType === "direct" ? directPhone : null,
+        orderStatus: asWaiting ? "대기" : "요청",
       });
-      showToast("오더가 등록되었습니다!");
+      showToast(asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!");
       // 접수 → 자동으로 나의오더현황으로 이동
       try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
       setTimeout(() => navigate("/MobileMain"), 1000);
@@ -687,8 +688,7 @@ export const OrderCreateContent = () => {
     if (contactPhone) items.push({ k: "연락처", v: contactPhone });
     if (priceType === "direct") items.push({ k: "단가(직접)", v: `${Number(directPrice).toLocaleString()}원` });
     if (workDate) items.push({ k: "작업 날짜", v: workDate === "희망날짜지정" && workDatePicker ? `${workDate} (${workDatePicker})` : workDate });
-    if (workTimeMode) items.push({ k: "작업 시간", v: workTimeMode === "시간설정" ? `${workTimeStart} ~ ${workTimeEnd}` : workTimeMode });
-    if (paymentMethod) items.push({ k: "결제수단", v: paymentMethod });
+    if (workTimeMode) items.push({ k: "작업 시간", v: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : workTimeMode });
     if (b2bPriceType) {
       const ptLabel = labelOf(COMMON_B2B_FIELDS.priceType.options, b2bPriceType);
       const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
@@ -738,7 +738,8 @@ export const OrderCreateContent = () => {
         </PreviewSection>
         <PreviewActions>
           <PreviewSecondaryBtn disabled={submitting} onClick={() => setStep("form")}>수정하기</PreviewSecondaryBtn>
-          <SubmitButton style={{ flex: 1, marginTop: 12 }} disabled={submitting} onClick={handleSubmit}>
+          <PreviewSecondaryBtn disabled={submitting} onClick={() => handleSubmit(true)}>대기</PreviewSecondaryBtn>
+          <SubmitButton style={{ flex: 1, marginTop: 12 }} disabled={submitting} onClick={() => handleSubmit(false)}>
             {submitting ? "등록 중..." : "등록하기"}
           </SubmitButton>
         </PreviewActions>
@@ -970,32 +971,28 @@ export const OrderCreateContent = () => {
                 <Chip key={opt} $selected={workTimeMode === opt} onClick={() => setWorkTimeMode(opt)}>{opt}</Chip>
               ))}
             </ChipGrid>
-            {workTimeMode === "시간설정" && (
-              <TimeRow>
-                <Input style={{ flex: 1 }} type="time" value={workTimeStart} onChange={(e) => setWorkTimeStart(e.target.value)} />
-                <span style={{ color: THEME.muted, fontSize: 14 }}>~</span>
-                <Input style={{ flex: 1 }} type="time" value={workTimeEnd} onChange={(e) => setWorkTimeEnd(e.target.value)} />
-              </TimeRow>
+            {workTimeMode === "작업시작 설정" && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 13, color: THEME.muted, marginBottom: 6 }}>작업 시작 시각 선택</div>
+                <ChipGrid>
+                  {["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00"].map((t) => (
+                    <Chip key={t} $selected={workTimeStart === t} onClick={() => setWorkTimeStart(t)}>{t}</Chip>
+                  ))}
+                </ChipGrid>
+              </div>
             )}
           </Section>
 
-          {/* 연락처 — 접수자(자동) + 고객(실무자) */}
+          {/* 연락처 — 접수자(인증된 본인, 자동) + 고객(실무자) */}
           <Section>
             <Label>연락처</Label>
-            <div style={{ fontSize: 13, color: THEME.muted, margin: "2px 0 6px" }}>접수자 (본인)</div>
-            <Input type="tel" placeholder="010-0000-0000" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 14, color: THEME.text }}>
+              <span style={{ color: THEME.success }}>✓</span>
+              <span style={{ color: THEME.muted }}>접수자(본인)</span>
+              <span style={{ fontWeight: 600 }}>{contactPhone || "인증된 번호"}</span>
+            </div>
             <div style={{ fontSize: 13, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
             <Input type="tel" placeholder="고객 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-          </Section>
-
-          {/* 결제수단 (프로 간 정산 조건) */}
-          <Section>
-            <Label>{COMMON_B2B_FIELDS.paymentMethod.label}</Label>
-            <ChipRow4>
-              {COMMON_B2B_FIELDS.paymentMethod.options.map((opt) => (
-                <Chip key={opt} $selected={paymentMethod === opt} onClick={() => setPaymentMethod(opt)}>{opt}</Chip>
-              ))}
-            </ChipRow4>
           </Section>
 
           {/* 단가유형 */}

@@ -26,7 +26,7 @@ const ordersRef = collection(db, COLLECTIONS.ORDERS);
 export async function createOrder(data) {
   const docRef = await addDoc(ordersRef, {
     ...data,
-    orderStatus: "요청",
+    orderStatus: data.orderStatus || "요청",
     applicantCount: 0,
     createdAt: serverTimestamp(),
   });
