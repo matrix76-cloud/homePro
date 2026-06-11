@@ -8,7 +8,7 @@
 
 // ─── 앱 기본 정보 ───
 // 배포할 때마다 이 버전을 올린다 (마이페이지에 표시됨)
-export const APP_VERSION = "1.0.6";
+export const APP_VERSION = "1.0.7";
 export const APP_NAME = "홈프로";
 export const APP_LABEL = "홈프로";
 export const APP_DESCRIPTION = "각 분야 전문가를 연결하는 실전형 플랫폼";
@@ -345,7 +345,7 @@ export const CATEGORIES = [
         shortName: "사주/작명",
         group: "life",
         description: "사주, 작명, 운세, 상담",
-        subcategories: ["승.패 분석", "진로.적성", "사주상담", "상호.브랜드", "작명.개명", "운세", "기타"],
+        subcategories: ["승.패 분석", "작명.개명", "진로.적성", "상호.브랜드", "기타"],
     },
 ];
 
