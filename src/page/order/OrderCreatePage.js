@@ -490,6 +490,17 @@ export const OrderCreateContent = () => {
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
+  // 통합 카테고리(전문청소/설비.하수구.누수) — 선택한 서비스별 전용 상세폼 매핑
+  const SERVICE_FORM_MAP = {
+    "홈클리닝": "move_cleaning", "정기청소": "regular_cleaning", "특수청소": "special_cleaning",
+    "준공청소": "business_cleaning", "화재청소": "special_cleaning", "상업.매장청소": "business_cleaning",
+    "바닥청소": "business_cleaning", "사업장청소": "business_cleaning", "외벽.고소청소": "business_cleaning",
+    "하수구.배관.설비": "drain_pipe", "누수탐지": "leak_detection", "누수공사": "leak_construction", "난방.보일러": "boiler",
+  };
+  // 상세 필드(옵션/공간구조/주거유형/면적 등)는 선택한 서비스 폼을 따름
+  const detailConfig = (selectedService && ORDER_FORM_CONFIG[SERVICE_FORM_MAP[selectedService]]) || formConfig;
+  // subGroups(서비스 선택) 카테고리는 서비스 고른 뒤에 상세필드 노출
+  const showDetail = !formConfig?.subGroups || !!selectedService;
 
   // Daum 주소 API 스크립트 로드
   useEffect(() => {
@@ -856,11 +867,11 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 공간구조 (방/욕실/베란다 개소 입력) */}
-          {formConfig?.spaceStructure && (
+          {showDetail && detailConfig?.spaceStructure && (
             <Section>
-              <Label>{formConfig.spaceStructure.label || "공간구조"}</Label>
+              <Label>{detailConfig.spaceStructure.label || "공간구조"}</Label>
               <FieldGrid>
-                {formConfig.spaceStructure.fields.map((field) => (
+                {detailConfig.spaceStructure.fields.map((field) => (
                   <FieldItem key={field}>
                     <FieldLabel>{field}</FieldLabel>
                     <FieldInput
@@ -876,11 +887,11 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 옵션 선택 */}
-          {formConfig?.options && formConfig.options.length > 0 && (
+          {showDetail && detailConfig?.options && detailConfig.options.length > 0 && (
             <Section>
               <Label>옵션 선택</Label>
               <ChipGrid>
-                {formConfig.options.map((opt) => {
+                {detailConfig.options.map((opt) => {
                   const label = typeof opt === "string" ? opt : opt.label;
                   return (
                     <Chip key={label} $selected={selectedOptions.includes(label)} onClick={() => handleOptionToggle(label)}>{label}</Chip>
@@ -891,11 +902,11 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 건물유형 */}
-          {formConfig?.buildingTypes && (
+          {showDetail && detailConfig?.buildingTypes && (
             <Section>
               <Label>건물유형</Label>
               <ChipGrid>
-                {formConfig.buildingTypes.map((type) => (
+                {detailConfig.buildingTypes.map((type) => (
                   <Chip key={type} $selected={buildingType === type} onClick={() => setBuildingType(type)}>{type}</Chip>
                 ))}
               </ChipGrid>
@@ -903,13 +914,13 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 면적 입력 */}
-          {formConfig?.areaInput && (
+          {showDetail && detailConfig?.areaInput && (
             <Section>
               <Label>면적</Label>
               <AreaRow>
                 <Input style={{ flex: 1 }} type="number" placeholder="면적 입력" value={areaValue} onChange={(e) => setAreaValue(e.target.value)} />
                 <ChipGrid style={{ flexShrink: 0 }}>
-                  {(Array.isArray(formConfig.areaInput) ? formConfig.areaInput : ["평", "m2"]).map((unit) => (
+                  {(Array.isArray(detailConfig.areaInput) ? detailConfig.areaInput : ["평", "m2"]).map((unit) => (
                     <Chip key={unit} $selected={areaUnit === unit} onClick={() => setAreaUnit(unit)}>{unit}</Chip>
                   ))}
                 </ChipGrid>
@@ -918,7 +929,7 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 공간유형 (config에 buildingTypes 없을 때 기본) */}
-          {!formConfig?.buildingTypes && (
+          {showDetail && !detailConfig?.buildingTypes && (
             <Section>
               <Label>공간유형</Label>
               <ChipGrid>
@@ -933,7 +944,7 @@ export const OrderCreateContent = () => {
           <Section>
             <Label>상세 요청내용</Label>
             <TextArea
-              placeholder={formConfig?.detailPlaceholder || "구체적인 작업내용, 면적, 기타 요청사항을 입력하세요..."}
+              placeholder={detailConfig?.detailPlaceholder || "구체적인 작업내용, 면적, 기타 요청사항을 입력하세요..."}
               value={detail}
               onChange={(e) => setDetail(e.target.value)}
             />
