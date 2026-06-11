@@ -440,6 +440,7 @@ export const OrderCreateContent = () => {
   const [selectedCategory, setSelectedCategory] = useState(categoryId || "");
   const [expandedGroup, setExpandedGroup] = useState(null);
   const [selectedSub, setSelectedSub] = useState([]);
+  const [selectedService, setSelectedService] = useState(""); // 서비스(subGroup 라벨) 드릴다운
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [buildingType, setBuildingType] = useState("");
   const [areaValue, setAreaValue] = useState("");
@@ -569,6 +570,7 @@ export const OrderCreateContent = () => {
     setSchedule("");
     setSpaceType("");
     setCustomInput("");
+    setSelectedService("");
   };
 
   const validateForm = () => {
@@ -791,31 +793,53 @@ export const OrderCreateContent = () => {
             <NoticeBox>{formConfig.notice}</NoticeBox>
           )}
 
-          {/* 세부 항목 (subGroups from config) */}
+          {/* 세부 항목 — 서비스 선택 → 종목 선택 드릴다운 */}
           {formConfig?.subGroups && (
             <Section>
-              <Label>세부 항목 선택</Label>
-              {formConfig.subGroups
-                .filter((group) => group.label !== "기타")
-                .map((group) => (
-                <div key={group.label}>
-                  <GroupLabel>{group.label}</GroupLabel>
-                  <ChipGrid>
-                    {group.items.map((item) => {
-                      const uniqueKey = `${group.label}:${item}`;
-                      return (
-                        <Chip
-                          key={uniqueKey}
-                          $selected={selectedSub.includes(uniqueKey)}
-                          onClick={() => handleSubToggle(uniqueKey)}
-                        >
-                          {item}
-                        </Chip>
-                      );
-                    })}
-                  </ChipGrid>
-                </div>
-              ))}
+              <Label>서비스 선택</Label>
+              <ChipGrid>
+                {formConfig.subGroups.filter((g) => g.label !== "기타").map((group) => (
+                  <Chip
+                    key={group.label}
+                    $selected={selectedService === group.label}
+                    onClick={() => { setSelectedService(selectedService === group.label ? "" : group.label); }}
+                  >
+                    {group.label}
+                  </Chip>
+                ))}
+              </ChipGrid>
+
+              {/* 선택한 서비스의 종목 + 기타(내용입력) */}
+              {selectedService && (() => {
+                const group = formConfig.subGroups.find((g) => g.label === selectedService);
+                if (!group) return null;
+                const etcKey = `${selectedService}:기타`;
+                const etcOn = selectedSub.includes(etcKey);
+                return (
+                  <div style={{ marginTop: 14 }}>
+                    <GroupLabel>{selectedService} 종목 선택</GroupLabel>
+                    <ChipGrid>
+                      {group.items.filter((it) => !/^(기타|입력|직접입력|기타\[ ?입력 ?\])$/.test(it)).map((item) => {
+                        const uniqueKey = `${selectedService}:${item}`;
+                        return (
+                          <Chip key={uniqueKey} $selected={selectedSub.includes(uniqueKey)} onClick={() => handleSubToggle(uniqueKey)}>
+                            {item}
+                          </Chip>
+                        );
+                      })}
+                      <Chip $selected={etcOn} onClick={() => handleSubToggle(etcKey)}>기타</Chip>
+                    </ChipGrid>
+                    {etcOn && (
+                      <Input
+                        style={{ marginTop: 8 }}
+                        placeholder="기타 내용을 입력하세요"
+                        value={customInput}
+                        onChange={(e) => setCustomInput(e.target.value)}
+                      />
+                    )}
+                  </div>
+                );
+              })()}
             </Section>
           )}
 
