@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
 import { getOrdersByUser, getOrdersByMatchedPro, formatOrderTime, updateOrderStatus, getOrderById } from "../../service/OrderService";
-import { subscribeChatRooms } from "../../service/ChatService";
+import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -208,14 +208,66 @@ export const MyOrdersContent = () => {
         cancelRequestReason: reasonText,
         cancelRequestedAt: ts(),
         cancelRequestedBy: uid,
+        cancelRequestHandled: null, // 재요청 시 접수자 배너 다시 노출
       });
-      setAllOrders((prev) => prev.map((o) => o.id === cancelReqOpen.orderId ? { ...o, cancelRequestReason: reasonText } : o));
+      setAllOrders((prev) => prev.map((o) => o.id === cancelReqOpen.orderId ? { ...o, cancelRequestReason: reasonText, cancelRequestHandled: null } : o));
       setCancelReqOpen(null);
       setCancelReqReason("");
       setCancelReqDetail("");
       alert("취소요청을 보냈습니다");
     } catch (e) {
       alert("취소요청 실패: " + (e.message || e));
+    }
+  };
+
+  // 수락자 취소요청에 대한 접수자 알림 + 채팅 시스템메시지 (A안 승인형)
+  const notifyAndChat = async (order, { title, body, type, chatText, chatType }) => {
+    try {
+      const { collection: col, addDoc: add, serverTimestamp: ts } = await import("firebase/firestore");
+      const { db } = await import("../../api/config");
+      if (order.matchedProUid) {
+        await add(col(db, "notifications"), {
+          targetUids: [order.matchedProUid], title, body, type,
+          data: { orderId: order.id }, read: false, sent: false, createdAt: ts(),
+        });
+      }
+      const rooms = chatMap[order.id] || [];
+      for (const r of rooms) {
+        try { await sendSystemMessage(r.roomId, { text: chatText, type: chatType || "system" }); } catch (_) {}
+      }
+    } catch (_) {}
+  };
+
+  const handleApproveCancel = async (e, order) => {
+    e.stopPropagation();
+    if (!window.confirm("취소요청을 승인하시겠습니까?\n오더가 취소 처리되며 되돌릴 수 없습니다.")) return;
+    try {
+      await updateOrderStatus(order.id, "취소", {
+        cancelReason: order.cancelRequestReason || "수락자 취소요청",
+        cancelRequestHandled: "approved",
+      });
+      await notifyAndChat(order, {
+        title: "취소요청 승인", body: "접수자가 취소요청을 승인하여 오더가 취소되었습니다.",
+        type: "cancel_approved", chatText: "취소요청이 승인되어 오더가 취소되었습니다.", chatType: "cancelled",
+      });
+      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, orderStatus: "취소", cancelRequestHandled: "approved" } : o));
+    } catch (err) {
+      alert("처리 실패: " + (err.message || err));
+    }
+  };
+
+  const handleRejectCancel = async (e, order) => {
+    e.stopPropagation();
+    if (!window.confirm("취소요청을 반려하시겠습니까?\n오더는 배정 상태로 유지됩니다.")) return;
+    try {
+      await updateOrderStatus(order.id, "배정", { cancelRequestHandled: "rejected" });
+      await notifyAndChat(order, {
+        title: "취소요청 반려", body: "접수자가 취소요청을 반려했습니다. 채팅으로 협의해주세요.",
+        type: "cancel_rejected", chatText: "취소요청이 반려되었습니다. 채팅으로 협의해주세요.", chatType: "system",
+      });
+      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, cancelRequestHandled: "rejected" } : o));
+    } catch (err) {
+      alert("처리 실패: " + (err.message || err));
     }
   };
 
@@ -309,6 +361,20 @@ export const MyOrdersContent = () => {
                   </BottomLeft>
                   <PriceText>{formatPriceLine(order)}</PriceText>
                 </CardBottom>
+
+                {/* 수락자 취소요청 알림 배너 (접수자에게만, 미처리 + 배정 상태) */}
+                {order.createdBy === uid && order.cancelRequestReason && order.cancelRequestHandled !== "approved" && order.cancelRequestHandled !== "rejected" && displayStatus === "배정" && (
+                  <CancelReqBanner onClick={(e) => e.stopPropagation()}>
+                    <CancelReqText>
+                      🔔 <b>{chats[0]?.otherName || "수락자"}</b>님이 취소를 요청했습니다
+                      <CancelReqReason>사유: {order.cancelRequestReason}</CancelReqReason>
+                    </CancelReqText>
+                    <CancelReqBtns>
+                      <ActionBtn $variant="danger" onClick={(e) => handleApproveCancel(e, order)}>취소 승인</ActionBtn>
+                      <ActionBtn $variant="primary" onClick={(e) => handleRejectCancel(e, order)}>반려</ActionBtn>
+                    </CancelReqBtns>
+                  </CancelReqBanner>
+                )}
 
                 {/* 프로별 채팅 미리보기 목록 */}
                 {chats.length > 0 && (
@@ -748,6 +814,34 @@ const ActionRow = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+`;
+
+const CancelReqBanner = styled.div`
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 10px;
+`;
+
+const CancelReqText = styled.div`
+  font-size: 13px;
+  color: #92400E;
+  line-height: 1.5;
+  b { color: #B45309; font-weight: 700; }
+`;
+
+const CancelReqReason = styled.div`
+  font-size: 12px;
+  color: #B45309;
+  margin-top: 4px;
+`;
+
+const CancelReqBtns = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
 `;
 
 const VARIANT_COLORS = {
