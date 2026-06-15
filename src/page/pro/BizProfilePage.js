@@ -16,6 +16,7 @@ import { db } from "../../api/config";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { COLLECTIONS } from "../../config/homeproConfig";
 import { getProsByCategory } from "../../service/ProService";
+import { upsertUserProfile } from "../../service/UserProfileService";
 import { createChatRoom } from "../../service/ChatService";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { GradeBadge, GradeProgressBar } from "../../utility/gradeUtils";
@@ -35,15 +36,43 @@ const BizProfilePage = () => {
   const [loadingMyPros, setLoadingMyPros] = useState(true);
   const [myProfile, setMyProfile] = useState(null);
   const [activityStats, setActivityStats] = useState({ quoteSent: 0, hireCount: 0 });
+  // 정산 계좌 (소개비 입금받을 계좌)
+  const [account, setAccount] = useState({ bank: "", number: "", holder: "" });
+  const [savingAccount, setSavingAccount] = useState(false);
 
   // Firestore에서 프로필 조회 (본인 또는 다른 프로)
   const targetUid = viewUid || myUid;
   useEffect(() => {
     if (!targetUid) return;
     getDoc(doc(db, "users", targetUid)).then((snap) => {
-      if (snap.exists()) setMyProfile({ uid: snap.id, ...snap.data() });
+      if (snap.exists()) {
+        const data = { uid: snap.id, ...snap.data() };
+        setMyProfile(data);
+        if (data.account) {
+          setAccount({ bank: data.account.bank || "", number: data.account.number || "", holder: data.account.holder || "" });
+        }
+      }
     }).catch(() => {});
   }, [targetUid]);
+
+  const handleSaveAccount = async () => {
+    if (!myUid) return;
+    if (!account.bank.trim() || !account.number.trim() || !account.holder.trim()) {
+      alert("은행 · 계좌번호 · 예금주를 모두 입력해주세요");
+      return;
+    }
+    setSavingAccount(true);
+    try {
+      const acc = { bank: account.bank.trim(), number: account.number.trim(), holder: account.holder.trim() };
+      await upsertUserProfile(myUid, { account: acc });
+      setMyProfile((p) => ({ ...(p || {}), account: acc }));
+      alert("정산 계좌가 저장되었습니다");
+    } catch (e) {
+      alert("저장 실패: " + (e.message || e));
+    } finally {
+      setSavingAccount(false);
+    }
+  };
 
   // 활동 통계 로드
   useEffect(() => {
@@ -218,6 +247,29 @@ const BizProfilePage = () => {
                 </ActivityStat>
               </ActivityStatRow>
             </ActivityCard>
+
+            {/* 정산 계좌 (본인만) */}
+            {!isViewingOther && (
+              <AccountCard>
+                <AccountTitle>정산 계좌</AccountTitle>
+                <AccountSub>소개비·정산금을 입금받을 계좌입니다</AccountSub>
+                <AccountField>
+                  <AccountLabel>은행</AccountLabel>
+                  <AccountInput value={account.bank} onChange={(e) => setAccount((a) => ({ ...a, bank: e.target.value }))} placeholder="예: 국민은행" />
+                </AccountField>
+                <AccountField>
+                  <AccountLabel>계좌번호</AccountLabel>
+                  <AccountInput value={account.number} inputMode="numeric" onChange={(e) => setAccount((a) => ({ ...a, number: e.target.value.replace(/[^0-9-]/g, "") }))} placeholder="'-' 포함 또는 숫자만" />
+                </AccountField>
+                <AccountField>
+                  <AccountLabel>예금주</AccountLabel>
+                  <AccountInput value={account.holder} onChange={(e) => setAccount((a) => ({ ...a, holder: e.target.value }))} placeholder="예금주명" />
+                </AccountField>
+                <AccountSaveBtn onClick={handleSaveAccount} disabled={savingAccount}>
+                  {savingAccount ? "저장 중..." : "계좌 저장"}
+                </AccountSaveBtn>
+              </AccountCard>
+            )}
 
             {/* 리뷰 목록 */}
             {showReviews && reviews.length > 0 && (
@@ -703,6 +755,72 @@ const ActivityDivider = styled.div`
   width: 1px;
   height: 28px;
   background: ${THEME.border};
+`;
+
+/* ── 정산 계좌 카드 ── */
+
+const AccountCard = styled.div`
+  margin: 12px 12px 0;
+  background: ${THEME.surface};
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: ${THEME.cardShadow};
+`;
+
+const AccountTitle = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const AccountSub = styled.div`
+  font-size: 12px;
+  color: ${THEME.muted};
+  margin-top: 2px;
+  margin-bottom: 14px;
+`;
+
+const AccountField = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+`;
+
+const AccountLabel = styled.div`
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+`;
+
+const AccountInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  font-size: 14px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.background};
+  color: ${THEME.text};
+  font-family: inherit;
+  &:focus { outline: none; border-color: ${THEME.primary}; background: ${THEME.surface}; }
+`;
+
+const AccountSaveBtn = styled.button`
+  width: 100%;
+  margin-top: 6px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: ${({ disabled }) => disabled ? THEME.muted : THEME.primary};
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
+  &:active { opacity: 0.85; }
 `;
 
 /* ── 고용·리뷰 카드 ── */
