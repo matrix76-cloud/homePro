@@ -93,8 +93,12 @@ const OrderDetailPage = () => {
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
   const isMatchedPro = order?.matchedProUid === myUid;
-  // 가격 미정(견적요청/현장견적) → 견적 작성으로만 참여 (수락/지원 버튼 숨김)
-  const isQuoteTarget = ["onsite", "estimate", "quote"].includes(order?.b2bPriceType);
+  // 가격 미정(견적요청) → 견적 작성으로만 참여 (수락/지원 버튼 숨김)
+  // ⚠️ 케이스1: 현장견적(onsite)은 "수락 단계에서 견적 입력하는 개념이 아님"(명세 D8).
+  //    매칭방식(빠른/비교)으로 먼저 수락·배정되고, 견적가는 배정 후 통보 → onsite 제외.
+  const isQuoteTarget = ["estimate", "quote"].includes(order?.b2bPriceType);
+  // 현장견적 단가유형 여부 (배정 후 견적가 통보 흐름)
+  const isOnsite = order?.b2bPriceType === "onsite";
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
 
@@ -614,12 +618,14 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 견적제출 안내 (홈프로 시점) ── 견적작성 대상은 하단 CTA로 처리, 여기선 고정가 안내만 */}
+        {/* ── 견적제출 안내 (홈프로 시점) ── 견적작성 대상은 하단 CTA로 처리, 여기선 고정가/현장견적 안내만 */}
         {!isOwner && order.b2bPriceType && !isQuoteTarget && (
           <DetailSection>
-            <SectionTitle>견적제출</SectionTitle>
+            <SectionTitle>{isOnsite ? "현장견적 안내" : "견적제출"}</SectionTitle>
             <DetailText style={{ color: THEME.muted }}>
-              {PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다
+              {isOnsite
+                ? "현장견적은 수락 단계에서 금액을 입력하지 않습니다. 먼저 수락하여 배정된 뒤, 현장 도착·실측 후 견적가를 접수자에게 통보합니다."
+                : `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`}
             </DetailText>
           </DetailSection>
         )}

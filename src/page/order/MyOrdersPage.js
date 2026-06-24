@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
-import { getOrdersByUser, getOrdersByMatchedPro, formatOrderTime, updateOrderStatus, getOrderById } from "../../service/OrderService";
+import { getOrdersByUser, getOrdersByMatchedPro, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice } from "../../service/OrderService";
 import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -121,6 +121,9 @@ export const MyOrdersContent = () => {
   const [cancelReqOpen, setCancelReqOpen] = useState(null); // { orderId } | null
   const [cancelReqReason, setCancelReqReason] = useState("");
   const [cancelReqDetail, setCancelReqDetail] = useState("");
+  const [priceNotifyOpen, setPriceNotifyOpen] = useState(null); // { order } | null — 현장견적가 통보
+  const [notifyPrice, setNotifyPrice] = useState("");
+  const [notifyMsg, setNotifyMsg] = useState("");
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
@@ -271,6 +274,34 @@ export const MyOrdersContent = () => {
     }
   };
 
+  // 현장견적가 통보 (배정된 수락자 → 접수자). 상태는 '배정' 유지, 정보만 전달.
+  const submitPriceNotify = async () => {
+    const order = priceNotifyOpen?.order;
+    if (!order) return;
+    const priceNum = Number(notifyPrice) || 0;
+    if (priceNum <= 0) { alert("견적가를 입력해주세요"); return; }
+    try {
+      await notifyOnsitePrice(order.id, priceNum, notifyMsg.trim());
+      await notifyAndChat(
+        { ...order, matchedProUid: order.createdBy }, // 통보 대상은 접수자
+        {
+          title: "현장견적가 도착",
+          body: `현장견적가 ${priceNum.toLocaleString()}원이 통보되었습니다.`,
+          type: "onsite_quote",
+          chatText: `현장견적가가 수신되었습니다.\n금액: ${priceNum.toLocaleString()}원${notifyMsg.trim() ? `\n${notifyMsg.trim()}` : ""}`,
+          chatType: "onsite_quote",
+        }
+      );
+      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, onsiteQuotedPrice: priceNum, onsiteQuoteMessage: notifyMsg.trim() } : o));
+      setPriceNotifyOpen(null);
+      setNotifyPrice("");
+      setNotifyMsg("");
+      alert("견적가를 통보했습니다");
+    } catch (err) {
+      alert("통보 실패: " + (err.message || err));
+    }
+  };
+
   const handleStatusChange = async (e, orderId, newStatus) => {
     e.stopPropagation();
     const label = newStatus === "취소" ? "취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다." : `상태를 "${newStatus}"(으)로 변경하시겠습니까?`;
@@ -376,6 +407,14 @@ export const MyOrdersContent = () => {
                   </CancelReqBanner>
                 )}
 
+                {/* 현장견적가 통보 내역 (배정 상태 + 통보됨) */}
+                {order.b2bPriceType === "onsite" && order.onsiteQuotedPrice > 0 && displayStatus === "배정" && (
+                  <OnsitePriceBox onClick={(e) => e.stopPropagation()}>
+                    💰 통보된 현장견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
+                    {order.onsiteQuoteMessage ? <div style={{ marginTop: 4, color: THEME.muted }}>{order.onsiteQuoteMessage}</div> : null}
+                  </OnsitePriceBox>
+                )}
+
                 {/* 프로별 채팅 미리보기 목록 */}
                 {chats.length > 0 && (
                   <ChatListWrap>
@@ -413,6 +452,11 @@ export const MyOrdersContent = () => {
                     {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
                     {order.matchedProUid === uid && (
                       <>
+                        {order.b2bPriceType === "onsite" && (
+                          <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(order.onsiteQuotedPrice ? String(order.onsiteQuotedPrice) : ""); setNotifyMsg(order.onsiteQuoteMessage || ""); }}>
+                            {order.onsiteQuotedPrice ? "견적가 재통보" : "견적가 통보"}
+                          </ActionBtn>
+                        )}
                         <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>
                         <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
                       </>
@@ -471,6 +515,37 @@ export const MyOrdersContent = () => {
                 />
               )}
               <ConfirmBtn onClick={submitCancelRequest} disabled={!cancelReqReason}>요청 보내기</ConfirmBtn>
+            </ModalSheet>
+          </ModalOverlay>
+        )}
+
+        {/* 현장견적가 통보 모달 (배정된 수락자 전용) */}
+        {priceNotifyOpen && (
+          <ModalOverlay onClick={() => setPriceNotifyOpen(null)}>
+            <ModalSheet onClick={(e) => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>현장견적가 통보</ModalTitle>
+                <ModalClose onClick={() => setPriceNotifyOpen(null)}>
+                  <IoCloseOutline size={22} />
+                </ModalClose>
+              </ModalHeader>
+              <NotifyHint>현장 도착·실측 후 산정한 견적가를 접수자에게 통보합니다.</NotifyHint>
+              <PriceInputRow>
+                <PriceInput
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={notifyPrice ? Number(notifyPrice).toLocaleString() : ""}
+                  onChange={(e) => setNotifyPrice(e.target.value.replace(/[^0-9]/g, ""))}
+                />
+                <PriceUnit>원</PriceUnit>
+              </PriceInputRow>
+              <DetailInput
+                placeholder="견적 내역·조건 등을 함께 전달할 수 있어요 (선택)"
+                value={notifyMsg}
+                onChange={(e) => setNotifyMsg(e.target.value.slice(0, 200))}
+                rows={3}
+              />
+              <ConfirmBtn onClick={submitPriceNotify} disabled={!notifyPrice}>견적가 통보하기</ConfirmBtn>
             </ModalSheet>
           </ModalOverlay>
         )}
@@ -1004,6 +1079,51 @@ const DetailInput = styled.textarea`
   resize: none;
   box-sizing: border-box;
   font-family: inherit;
+`;
+
+const NotifyHint = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  line-height: 1.5;
+  margin-bottom: 12px;
+`;
+
+const PriceInputRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const PriceInput = styled.input`
+  flex: 1;
+  padding: 12px 14px;
+  font-size: 18px;
+  font-weight: 700;
+  border: 1.5px solid ${THEME.border};
+  border-radius: 10px;
+  box-sizing: border-box;
+  font-family: inherit;
+  color: ${THEME.text};
+  outline: none;
+  &:focus { border-color: ${THEME.primary}; }
+  &::placeholder { color: ${THEME.muted}; font-weight: 400; }
+`;
+
+const PriceUnit = styled.span`
+  font-size: 16px;
+  color: ${THEME.text};
+  flex-shrink: 0;
+`;
+
+const OnsitePriceBox = styled.div`
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #F3F0FF;
+  border: 1px solid #E0D7FF;
+  border-radius: 10px;
+  font-size: 13px;
+  color: ${THEME.text};
+  b { color: ${THEME.primary}; font-weight: 700; }
 `;
 
 const ConfirmBtn = styled.button`

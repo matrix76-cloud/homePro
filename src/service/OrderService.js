@@ -283,6 +283,16 @@ export const resubmitOrder = async (orderId) => {
   });
 };
 
+/** 현장견적가 통보 (배정된 수락자 → 접수자에게 견적가 전달, 상태는 '배정' 유지)
+ *  케이스1: 현장견적은 배정 후 현장 도착·실측·사진으로 견적가를 접수자에게 통보(명세 D9/E11) */
+export const notifyOnsitePrice = async (orderId, price, message = "") => {
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    onsiteQuotedPrice: Number(price) || 0,
+    onsiteQuoteMessage: message || "",
+    onsiteQuotedAt: serverTimestamp(),
+  });
+};
+
 /** 지정배정 */
 export const directAssign = async (orderId, targetPhone) => {
   // phones 컬렉션에서 전화번호로 홈프로 UID 검색
