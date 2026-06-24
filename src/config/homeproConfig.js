@@ -97,15 +97,16 @@ export const MATCH_TYPES = {
     DIRECT: "direct",            // 지정배정
 };
 
-// ─── 오더 상태 ───
+// ─── 오더 상태 (표준 저장값) ───
+// 저장은 이 6개로만. 표시 단계 normalizeStatus가 레거시값(요청/진행/결제/리뷰/업체선택대기)을 흡수.
 export const ORDER_STATUS = {
     REGISTERED: "접수",           // 홈프로 수락 대기, 누구나 지원 가능
-    ASSIGNED: "배정",             // 홈프로 매칭 완료
     WAITING: "대기",              // 오더 수정/재접수 전 보류 (메인에 안 올라감)
-    SELECTING: "업체선택대기",     // 다중비교호출 진행 중
+    SELECTING: "선정대기",         // 다중비교호출 진행 중 (3명 모집 후 접수자 선정 대기)
+    ASSIGNED: "배정",             // 홈프로 매칭 완료
     COMPLETED: "완료",            // 홈프로가 작업완료 클릭
     CANCELLED: "취소",            // 접수자 취소 또는 시간초과 자동취소
-    REJECTED: "거부",             // 거부 등록
+    REJECTED: "거부",             // 거부 등록 (블랙리스트 — 표시상 취소 취급)
 };
 
 // ─── 취소 사유 ───

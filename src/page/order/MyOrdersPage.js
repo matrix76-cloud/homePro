@@ -74,8 +74,9 @@ const STATUS_STYLE = {
 const normalizeStatus = (s) => {
   if (s === "요청" || s === "접수") return "접수";
   if (s === "대기") return "대기";
-  if (s === "업체선택대기" || s === "업체선택") return "선정대기";
+  if (s === "선정대기" || s === "업체선택대기" || s === "업체선택") return "선정대기";
   if (s === "진행" || s === "결제") return "배정";
+  if (s === "리뷰") return "완료"; // 리뷰는 완료의 하위
   if (s === "거부") return "취소"; // 거부는 차단관리로 이관, 카드에선 취소 취급
   return s; // 배정, 완료, 취소 등은 그대로
 };

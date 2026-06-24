@@ -547,7 +547,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     if (status === "요청" || status === "접수") return "접수";
     if (status === "대기") return "대기";
     if (status === "취소" || status === "거부") return "취소";
-    if (status === "배정" || status === "완료" || status === "마감" || status === "업체선택대기") return "마감";
+    // 배정 이후(작업/완료) + 선정대기(3명 마감)는 메인리스트에서 '마감' 묶음. 레거시값(진행/결제/리뷰/업체선택대기)도 흡수.
+    if (["배정", "완료", "마감", "선정대기", "업체선택대기", "진행", "결제", "리뷰"].includes(status)) return "마감";
     return "접수";
   };
 

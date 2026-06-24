@@ -662,7 +662,7 @@ export const OrderCreateContent = () => {
         referralPayMethod: referralFeeType !== "none" ? (referralPayMethod || null) : null,
         matchType: matchType || null,
         directPhone: matchType === "direct" ? directPhone : null,
-        orderStatus: asWaiting ? "대기" : "요청",
+        orderStatus: asWaiting ? "대기" : "접수",
       });
       showToast(asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!");
       // 접수 → 자동으로 나의오더현황으로 이동

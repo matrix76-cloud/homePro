@@ -18,7 +18,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../api/config";
-import { COLLECTIONS } from "../config/homeproConfig";
+import { COLLECTIONS, ORDER_STATUS } from "../config/homeproConfig";
 
 const ordersRef = collection(db, COLLECTIONS.ORDERS);
 
@@ -26,7 +26,7 @@ const ordersRef = collection(db, COLLECTIONS.ORDERS);
 export async function createOrder(data) {
   const docRef = await addDoc(ordersRef, {
     ...data,
-    orderStatus: data.orderStatus || "요청",
+    orderStatus: data.orderStatus || ORDER_STATUS.REGISTERED,
     applicantCount: 0,
     createdAt: serverTimestamp(),
   });
@@ -157,7 +157,7 @@ export async function acceptQuote(orderId, quoteId, proUid) {
     status: "accepted",
   });
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-    orderStatus: "진행",
+    orderStatus: ORDER_STATUS.ASSIGNED,
     matchedProUid: proUid,
   });
 }
@@ -202,7 +202,7 @@ export const acceptOrder = async (orderId, proUid) => {
   if (data.matchedProUid) throw new Error("배정된 오더입니다");
   await updateDoc(orderRef, {
     matchedProUid: proUid,
-    orderStatus: "배정",
+    orderStatus: ORDER_STATUS.ASSIGNED,
     assignedAt: serverTimestamp(),
   });
 };
@@ -226,7 +226,7 @@ export const applyToOrder = async (orderId, proUid, proData = {}) => {
   const allApplicants = await getDocs(applicantsRef);
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
   const updates = { applicantCount: allApplicants.size };
-  if (allApplicants.size >= 3) updates.orderStatus = "업체선택대기";
+  if (allApplicants.size >= 3) updates.orderStatus = ORDER_STATUS.SELECTING;
   await updateDoc(orderRef, updates);
 };
 
@@ -243,7 +243,7 @@ export const selectPro = async (orderId, selectedProUid) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
   await updateDoc(orderRef, {
     matchedProUid: selectedProUid,
-    orderStatus: "배정",
+    orderStatus: ORDER_STATUS.ASSIGNED,
     assignedAt: serverTimestamp(),
   });
   // 나머지 지원자 rejected 처리
@@ -262,7 +262,7 @@ export const selectPro = async (orderId, selectedProUid) => {
 export const setOrderWaiting = async (orderId) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
   await updateDoc(orderRef, {
-    orderStatus: "대기",
+    orderStatus: ORDER_STATUS.WAITING,
     matchedProUid: null,
   });
   // applicants 서브컬렉션 전체 삭제 (재접수 시 새로 모집)
@@ -277,7 +277,7 @@ export const setOrderWaiting = async (orderId) => {
 export const resubmitOrder = async (orderId) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
   await updateDoc(orderRef, {
-    orderStatus: "접수",
+    orderStatus: ORDER_STATUS.REGISTERED,
     matchedProUid: null,
     resubmittedAt: serverTimestamp(),
   });
@@ -303,7 +303,7 @@ export const directAssign = async (orderId, targetPhone) => {
   const targetUid = snap.docs[0].data().uid;
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
   await updateDoc(orderRef, {
-    orderStatus: "접수",
+    orderStatus: ORDER_STATUS.REGISTERED,
     directAssignTarget: { uid: targetUid, phone: targetPhone },
   });
 };
@@ -314,8 +314,10 @@ export async function submitOrderReview(orderId, reviewData) {
     ...reviewData,
     createdAt: serverTimestamp(),
   });
+  // 리뷰는 별도 상태가 아니라 '완료'의 하위 — reviews 서브컬렉션 존재로 판단. orderStatus는 '완료' 유지.
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-    orderStatus: "리뷰",
+    orderStatus: ORDER_STATUS.COMPLETED,
+    reviewed: true,
     updatedAt: serverTimestamp(),
   });
 }

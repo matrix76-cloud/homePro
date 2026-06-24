@@ -7,6 +7,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../api/config";
 import { compressDetailImage } from "../utility/imageUtils";
+import { ORDER_STATUS } from "../config/homeproConfig";
 
 const roomsRef = collection(db, "chatRooms");
 
@@ -166,10 +167,10 @@ export async function updateQuoteStatus(roomId, quoteId, status, orderId) {
     }
   }
 
-  // 오더 상태 업데이트 (수락 시 → 매칭)
+  // 오더 상태 업데이트 (견적 수락 = 배정)
   if (status === "accepted" && orderId) {
     try {
-      await updateDoc(doc(db, "homepro_orders", orderId), { orderStatus: "결제" });
+      await updateDoc(doc(db, "homepro_orders", orderId), { orderStatus: ORDER_STATUS.ASSIGNED });
     } catch (e) {
       console.warn("오더 상태 업데이트 실패:", e.message);
     }
@@ -434,9 +435,10 @@ export async function processPayment(roomId, orderId, amount) {
     paidAmount: amount,
     paidAt: serverTimestamp(),
   });
+  // 결제는 orderStatus가 아니라 paymentStatus로 분리 (작업 전이므로 '배정' 유지)
   if (orderId) {
     const { COLLECTIONS } = await import("../config/homeproConfig");
-    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { orderStatus: "결제" });
+    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { paymentStatus: "paid", paidAt: serverTimestamp() });
   }
   await sendSystemMessage(roomId, { text: `결제가 완료되었습니다.\n금액: ${amount.toLocaleString()}원`, type: "payment" });
 }
@@ -449,7 +451,7 @@ export async function completeWork(roomId, orderId) {
   });
   if (orderId) {
     const { COLLECTIONS } = await import("../config/homeproConfig");
-    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { orderStatus: "완료" });
+    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { orderStatus: ORDER_STATUS.COMPLETED });
   }
   await sendSystemMessage(roomId, { text: "작업이 완료되었습니다.\n리뷰를 남겨주세요!", type: "work_complete" });
 }
@@ -463,10 +465,11 @@ export async function submitReview(roomId, reviewData) {
   });
   await updateDoc(doc(db, "chatRooms", roomId), { reviewId: reviewRef.id });
   // 오더 상태 → 리뷰
+  // 리뷰는 '완료'의 하위 — orderStatus는 '완료' 유지, reviewed 플래그로 구분
   if (reviewData.orderId) {
     try {
       const { COLLECTIONS } = await import("../config/homeproConfig");
-      await updateDoc(doc(db, COLLECTIONS.ORDERS, reviewData.orderId), { orderStatus: "리뷰" });
+      await updateDoc(doc(db, COLLECTIONS.ORDERS, reviewData.orderId), { orderStatus: ORDER_STATUS.COMPLETED, reviewed: true });
     } catch (e) {}
   }
   // 프로 평점 업데이트
@@ -486,7 +489,7 @@ export async function cancelOrder(roomId, orderId) {
   });
   if (orderId) {
     const { COLLECTIONS } = await import("../config/homeproConfig");
-    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { orderStatus: "취소" });
+    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), { orderStatus: ORDER_STATUS.CANCELLED });
   }
   await sendSystemMessage(roomId, { text: "요청이 취소되었습니다.", type: "cancelled" });
 }

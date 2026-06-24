@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { THEME, CATEGORIES } from "../../config/homeproConfig";
+import { THEME, CATEGORIES, ORDER_STATUS } from "../../config/homeproConfig";
 import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
@@ -57,7 +57,7 @@ const STATUS_BADGE = {
 
 const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
 const MATCH_TYPE_LABEL = { priority: "우선배정", compare: "다중비교", direct: "지정배정" };
-const HP_ASSIGNED_STATUSES = new Set(["배정", "업체선택대기", "완료", "마감"]);
+const HP_ASSIGNED_STATUSES = new Set(["배정", "선정대기", "업체선택대기", "완료", "마감"]);
 
 const OrderDetailPage = () => {
   const { state } = useLocation();
@@ -197,7 +197,7 @@ const OrderDetailPage = () => {
 
   const handleOwnerReregister = async () => {
     try {
-      await updateOrderStatus(order.id, "요청");
+      await updateOrderStatus(order.id, ORDER_STATUS.REGISTERED);
       showToast("재접수되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
@@ -209,12 +209,8 @@ const OrderDetailPage = () => {
   const handleOwnerCancel = async () => {
     if (!cancelReason) { showToast("취소 사유를 선택해주세요"); return; }
     try {
-      await updateOrderStatus(order.id, "취소");
-      // cancelReason도 저장
-      try {
-        const { doc: docRef, updateDoc: ud } = await import("firebase/firestore");
-        await ud(docRef(db, "orders", order.id), { cancelReason });
-      } catch (e) {}
+      // 상태 + 취소사유를 한 번에 (기존엔 잘못된 'orders' 컬렉션에 써서 누락되던 버그 수정)
+      await updateOrderStatus(order.id, ORDER_STATUS.CANCELLED, { cancelReason });
       setShowCancelModal(false);
       showToast("오더가 취소되었습니다");
       navigate(-1);
