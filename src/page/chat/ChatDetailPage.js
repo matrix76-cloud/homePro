@@ -423,9 +423,9 @@ const ChatDetailPage = () => {
 
   // 오더 상태 관련
   const normalizeOrderStatus = (s) => {
-    if (s === "요청" || s === "접수") return "등록";
+    if (s === "요청" || s === "접수") return "접수";
     if (s === "진행" || s === "결제") return "배정";
-    if (s === "업체선택대기") return "업체선택대기";
+    if (s === "업체선택대기" || s === "업체선택" || s === "선정대기") return "선정대기";
     if (s === "리뷰" || s === "정산") return "완료";
     return s;
   };
@@ -700,60 +700,21 @@ const ChatDetailPage = () => {
         </HeaderRight>
       </Header>
 
-      {/* 견적 상세 보기 버튼 */}
+      {/* 오더 상세 + 상태 안내 바 — 종목 클릭 시 오더 상세로 이동 (명세 J167~174) */}
       {orderData && (
         <OrderInfoBar onClick={() => navigate(`/order/detail/${orderData.id}`, { state: { order: orderData, category: CATEGORIES.find(c => c.id === orderData.categoryId) } })}>
           {orderDisplayStatus && <OrderStatusBadge $status={orderDisplayStatus}>{orderDisplayStatus}</OrderStatusBadge>}
-          <OrderInfoText>{orderData.title || "견적 상세 보기"}</OrderInfoText>
+          <OrderInfoText>{orderData.title || "오더 상세 보기"}</OrderInfoText>
           <OrderInfoArrow>상세보기 ›</OrderInfoArrow>
         </OrderInfoBar>
       )}
 
-      {/* 상태 변경 버튼 (모든 상태 표시, 가능한 것만 활성화) */}
-      {orderData && (() => {
-        const s = orderDisplayStatus;
-        const creator = isOrderCreator;
-        const pro = isMatchedPro || !isOrderCreator;
-        const canDo = {
-          "등록": false,
-          "배정": s === "등록" && creator,
-          "완료": s === "배정" && pro,
-          "대기": (s === "등록" || s === "배정") && creator,
-          "취소": (s === "등록" || s === "배정") && creator,
-        };
-        const STATUS_COLORS = {
-          "등록": "#3B82F6", "배정": "#7C5CFC", "완료": "#10B981", "대기": "#F97316", "취소": "#EF4444",
-        };
-        const STATUS_LABELS = {
-          "배정": "배정하기", "완료": "작업완료", "대기": "대기전환", "취소": "취소하기",
-        };
-        const STATUS_CONFIRM = {
-          "배정": "이 프로에게 배정하시겠습니까?",
-          "완료": "작업완료 처리하시겠습니까?",
-          "대기": "대기 상태로 전환하시겠습니까?\n배정된 홈프로의 매칭이 취소됩니다.",
-          "취소": "취소하시겠습니까?",
-        };
-        return (
-          <StatusStepBar>
-            {["등록", "배정", "완료", "대기", "취소"].map((st) => (
-              <StatusStepBtn
-                key={st}
-                $color={STATUS_COLORS[st]}
-                $active={s === st}
-                $enabled={canDo[st]}
-                onClick={() => {
-                  if (!canDo[st]) return;
-                  if (st === "취소") { setShowCancelModal(true); return; }
-                  if (!window.confirm(STATUS_CONFIRM[st])) return;
-                  handleOrderStatusChange(st);
-                }}
-              >
-                {s === st ? `● ${st}` : STATUS_LABELS[st] || st}
-              </StatusStepBtn>
-            ))}
-          </StatusStepBar>
-        );
-      })()}
+      {/* 상태 변경은 채팅이 아니라 나의오더현황/오더상세에서만 (명세 J190) — 채팅은 소통 전용 */}
+      {orderData && (
+        <StatusNoticeBar onClick={() => navigate(`/order/detail/${orderData.id}`, { state: { order: orderData, category: CATEGORIES.find(c => c.id === orderData.categoryId) } })}>
+          ℹ️ 수락·작업완료·취소 등 <b>상태 변경</b>은 나의오더현황(오더 상세)에서 처리해요 ›
+        </StatusNoticeBar>
+      )}
 
       {showSearch && (
         <SearchBar>
@@ -988,10 +949,9 @@ const ChatDetailPage = () => {
                       </ProProfileLink>
                     )}
                     {isOrderOwner && quoteStatus === "pending" && (
-                      <QuoteCardActions>
-                        <QuoteRejectBtn onClick={handleRejectQuote}>거절</QuoteRejectBtn>
-                        <QuoteAcceptBtn onClick={handleAcceptQuote}>수락</QuoteAcceptBtn>
-                      </QuoteCardActions>
+                      <QuoteNotice onClick={() => orderData && navigate(`/order/detail/${orderData.id}`, { state: { order: orderData, category: CATEGORIES.find(c => c.id === orderData.categoryId) } })}>
+                        견적 수락은 오더 상세 · 나의오더현황에서 처리해요 ›
+                      </QuoteNotice>
                     )}
                     {quoteStatus === "accepted" && <QuoteStatusBadge $type="accepted">수락됨</QuoteStatusBadge>}
                     {quoteStatus === "rejected" && <QuoteStatusBadge $type="rejected">거절됨</QuoteStatusBadge>}
@@ -1374,6 +1334,33 @@ const OrderInfoArrow = styled.div`
   flex-shrink: 0;
 `;
 
+const StatusNoticeBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 12px;
+  color: ${THEME.muted};
+  background: ${THEME.background};
+  border-bottom: 1px solid ${THEME.border};
+  cursor: pointer;
+  b { color: ${THEME.text}; font-weight: 600; }
+  &:active { opacity: 0.7; }
+`;
+
+const QuoteNotice = styled.div`
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: ${THEME.primary};
+  background: ${THEME.purpleLight || "#F3F0FF"};
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
+`;
+
 const StatusStepBar = styled.div`
   display: flex;
   gap: 6px;
@@ -1401,8 +1388,10 @@ const StatusStepBtn = styled.button`
 `;
 
 const ORDER_STATUS_COLORS = {
+  "접수": "#3B82F6",
   "등록": "#3B82F6",
   "배정": "#7C5CFC",
+  "선정대기": "#F59E0B",
   "업체선택대기": "#F59E0B",
   "완료": "#10B981",
   "대기": "#F97316",
