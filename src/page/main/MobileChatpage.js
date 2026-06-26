@@ -157,7 +157,6 @@ const MobileChatpage = () => {
           <EmptyState>
             <IoChatbubbleEllipsesOutline size={40} color={THEME.muted} />
             <EmptyText>{activeTab === "open" ? "개설된 오픈채팅방이 없습니다" : "채팅방이 없습니다"}</EmptyText>
-            {activeTab === "open" && <EmptyText>아래 + 버튼으로 첫 방을 만들어보세요</EmptyText>}
           </EmptyState>
         ) : activeTab === "open" ? (
           visibleRooms.map((room) => {
@@ -230,9 +229,7 @@ const MobileChatpage = () => {
         )}
       </RoomList>
 
-      {activeTab === "open" && (
-        <OpenFab onClick={() => navigate("/chat/open/create")}>+ 채팅방 개설</OpenFab>
-      )}
+      {/* 명세: 오픈채팅 신규 생성 기능 없음 — 구독회원은 운영 개설방에 참여만 가능 */}
     </MainListLayout>
   );
 };
