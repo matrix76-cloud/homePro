@@ -93,12 +93,10 @@ const OrderDetailPage = () => {
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
   const isMatchedPro = order?.matchedProUid === myUid;
-  // 가격 미정(견적요청) → 견적 작성으로만 참여 (수락/지원 버튼 숨김)
-  // ⚠️ 케이스1: 현장견적(onsite)은 "수락 단계에서 견적 입력하는 개념이 아님"(명세 D8).
-  //    매칭방식(빠른/비교)으로 먼저 수락·배정되고, 견적가는 배정 후 통보 → onsite 제외.
-  const isQuoteTarget = ["estimate", "quote"].includes(order?.b2bPriceType);
-  // 현장견적 단가유형 여부 (배정 후 견적가 통보 흐름)
-  const isOnsite = order?.b2bPriceType === "onsite";
+  // 금액 미정 단가유형(현장견적/견적요청) — 수락 단계에서 금액 입력 X.
+  // 명세 D8/E11: 매칭방식(빠른/비교)으로 먼저 수락·배정되고, 견적가는 배정 후 통보.
+  // (현장견적·견적요청 모두 동일 흐름으로 통합 — 견적 먼저 보내기 패러다임 폐지)
+  const isUnpriced = ["onsite", "estimate", "quote"].includes(order?.b2bPriceType);
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
 
@@ -614,13 +612,13 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 견적제출 안내 (홈프로 시점) ── 견적작성 대상은 하단 CTA로 처리, 여기선 고정가/현장견적 안내만 */}
-        {!isOwner && order.b2bPriceType && !isQuoteTarget && (
+        {/* ── 단가 안내 (홈프로 시점) ── 금액미정은 수락→배정 후 통보, 고정가는 입력 불필요 */}
+        {!isOwner && order.b2bPriceType && (
           <DetailSection>
-            <SectionTitle>{isOnsite ? "현장견적 안내" : "견적제출"}</SectionTitle>
+            <SectionTitle>{isUnpriced ? "견적가 안내" : "단가 안내"}</SectionTitle>
             <DetailText style={{ color: THEME.muted }}>
-              {isOnsite
-                ? "현장견적은 수락 단계에서 금액을 입력하지 않습니다. 먼저 수락하여 배정된 뒤, 현장 도착·실측 후 견적가를 접수자에게 통보합니다."
+              {isUnpriced
+                ? "이 오더는 수락 단계에서 금액을 입력하지 않습니다. 먼저 수락하여 배정된 뒤, 현장 확인 후 견적가를 접수자에게 통보합니다."
                 : `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`}
             </DetailText>
           </DetailSection>
@@ -675,14 +673,6 @@ const OrderDetailPage = () => {
             )}
             <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
           </ActionRow>
-        ) : isQuoteTarget ? (
-          /* 견적요청/현장견적 — 가격 미정이라 수락/지원 없이 견적 작성으로만 참여 */
-          <ActionRow>
-            <SmallBtn onClick={handleCall}>
-              <IoCallOutline size={20} color="#555" />
-            </SmallBtn>
-            <MainCTA onClick={handleQuote}>견적 작성하기</MainCTA>
-          </ActionRow>
         ) : matchType === "priority" ? (
           /* 우선배정호출 */
           <ActionRow>
@@ -706,12 +696,12 @@ const OrderDetailPage = () => {
             <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
           </ActionRow>
         ) : (
-          /* fallback — 기존 견적 보내기 */
+          /* fallback — 매칭방식 미지정 시에도 수락 흐름 (견적 먼저 보내기 폐지) */
           <ActionRow>
             <SmallBtn onClick={handleCall}>
               <IoCallOutline size={20} color="#555" />
             </SmallBtn>
-            <MainCTA onClick={handleQuote}>견적 보내기</MainCTA>
+            <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
           </ActionRow>
         )}
       </FixedBottom>

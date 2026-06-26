@@ -83,6 +83,8 @@ const normalizeStatus = (s) => {
 
 /* ─── 단가유형/요청방식 표시 (메인화면 사양과 동일 포맷) ─── */
 const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
+/* 금액 미정 단가유형 — 수락→배정 후 견적가 통보 (현장견적/견적요청 통합) */
+const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선택", direct: "지정배정" };
 
 const formatPriceLine = (order) => {
@@ -286,10 +288,10 @@ export const MyOrdersContent = () => {
       await notifyAndChat(
         { ...order, matchedProUid: order.createdBy }, // 통보 대상은 접수자
         {
-          title: "현장견적가 도착",
-          body: `현장견적가 ${priceNum.toLocaleString()}원이 통보되었습니다.`,
+          title: "견적가 도착",
+          body: `견적가 ${priceNum.toLocaleString()}원이 통보되었습니다.`,
           type: "onsite_quote",
-          chatText: `현장견적가가 수신되었습니다.\n금액: ${priceNum.toLocaleString()}원${notifyMsg.trim() ? `\n${notifyMsg.trim()}` : ""}`,
+          chatText: `견적가가 수신되었습니다.\n금액: ${priceNum.toLocaleString()}원${notifyMsg.trim() ? `\n${notifyMsg.trim()}` : ""}`,
           chatType: "onsite_quote",
         }
       );
@@ -408,10 +410,10 @@ export const MyOrdersContent = () => {
                   </CancelReqBanner>
                 )}
 
-                {/* 현장견적가 통보 내역 (배정 상태 + 통보됨) */}
-                {order.b2bPriceType === "onsite" && order.onsiteQuotedPrice > 0 && displayStatus === "배정" && (
+                {/* 견적가 통보 내역 (배정 상태 + 통보됨) */}
+                {UNPRICED_TYPES.includes(order.b2bPriceType) && order.onsiteQuotedPrice > 0 && displayStatus === "배정" && (
                   <OnsitePriceBox onClick={(e) => e.stopPropagation()}>
-                    💰 통보된 현장견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
+                    💰 통보된 견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
                     {order.onsiteQuoteMessage ? <div style={{ marginTop: 4, color: THEME.muted }}>{order.onsiteQuoteMessage}</div> : null}
                   </OnsitePriceBox>
                 )}
@@ -453,7 +455,7 @@ export const MyOrdersContent = () => {
                     {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
                     {order.matchedProUid === uid && (
                       <>
-                        {order.b2bPriceType === "onsite" && (
+                        {UNPRICED_TYPES.includes(order.b2bPriceType) && (
                           <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(order.onsiteQuotedPrice ? String(order.onsiteQuotedPrice) : ""); setNotifyMsg(order.onsiteQuoteMessage || ""); }}>
                             {order.onsiteQuotedPrice ? "견적가 재통보" : "견적가 통보"}
                           </ActionBtn>
@@ -525,12 +527,12 @@ export const MyOrdersContent = () => {
           <ModalOverlay onClick={() => setPriceNotifyOpen(null)}>
             <ModalSheet onClick={(e) => e.stopPropagation()}>
               <ModalHeader>
-                <ModalTitle>현장견적가 통보</ModalTitle>
+                <ModalTitle>견적가 통보</ModalTitle>
                 <ModalClose onClick={() => setPriceNotifyOpen(null)}>
                   <IoCloseOutline size={22} />
                 </ModalClose>
               </ModalHeader>
-              <NotifyHint>현장 도착·실측 후 산정한 견적가를 접수자에게 통보합니다.</NotifyHint>
+              <NotifyHint>현장 확인 후 산정한 견적가를 접수자에게 통보합니다.</NotifyHint>
               <PriceInputRow>
                 <PriceInput
                   inputMode="numeric"
