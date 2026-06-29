@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
-import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice } from "../../service/OrderService";
+import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice, addOrderLog } from "../../service/OrderService";
 import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -114,6 +114,7 @@ export const MyOrdersContent = () => {
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const uid = user?.uid || userData?.uid || user?.USERS_ID;
+  const myName = userData?.nickname || userData?.name || "사용자";
   const [activeTab, setActiveTab] = useState("전체");
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -212,6 +213,7 @@ export const MyOrdersContent = () => {
       const order = allOrders.find((o) => o.id === cancelReqOpen.orderId);
       // 자유취소(의뢰인 확정 A-2): 접수자 승인 게이트 없이 홈프로가 즉시 취소 처리
       await updateOrderStatus(cancelReqOpen.orderId, "취소", { cancelReason: reasonText, cancelledBy: uid, cancelledByRole: "홈프로" });
+      await addOrderLog(cancelReqOpen.orderId, { type: "cancel", message: `홈프로가 취소 (사유: ${reasonText})`, byUid: uid, byName: myName, byRole: "홈프로" });
       if (order) {
         await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
           title: "오더 취소",
@@ -282,6 +284,7 @@ export const MyOrdersContent = () => {
         });
         setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, onsiteQuotedPrice: priceNum, onsiteQuoteMessage: notifyMsg.trim() } : o));
       }
+      await addOrderLog(order.id, { type: "quote", message: `견적가 통보 ${priceNum.toLocaleString()}원`, byUid: uid, byName: myName, byRole: "홈프로" });
       setPriceNotifyOpen(null);
       setNotifyPrice("");
       setNotifyMsg("");
@@ -297,6 +300,9 @@ export const MyOrdersContent = () => {
     if (!window.confirm(label)) return;
     try {
       await updateOrderStatus(orderId, newStatus);
+      const o = allOrders.find((x) => x.id === orderId);
+      const role = o && o.createdBy === uid ? "접수자" : "홈프로";
+      await addOrderLog(orderId, { type: "status", message: `상태 변경 → ${newStatus}`, byUid: uid, byName: myName, byRole: role });
       setAllOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
     } catch (e) {
       alert("상태 변경에 실패했습니다.");

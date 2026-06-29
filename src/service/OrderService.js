@@ -31,6 +31,15 @@ export async function createOrder(data) {
     createdAt: serverTimestamp(),
   });
 
+  // 활동 이력 시작점
+  await addOrderLog(docRef.id, {
+    type: "create",
+    message: "오더 접수",
+    byUid: data.createdBy || "",
+    byName: data.writer || data.customerName || data.nickname || "접수자",
+    byRole: "접수자",
+  });
+
   // 포인트 지급: 오더 작성 보상
   if (data.createdBy) {
     try {
@@ -43,6 +52,31 @@ export async function createOrder(data) {
   }
 
   return docRef.id;
+}
+
+/** 오더 활동 로그 기록 (취소/상태변경/견적통보/수락/지원/선정 등) */
+export async function addOrderLog(orderId, { type, message, byUid = "", byName = "", byRole = "" }) {
+  try {
+    await addDoc(collection(db, COLLECTIONS.ORDERS, orderId, "logs"), {
+      type: type || "event",
+      message: message || "",
+      byUid, byName, byRole,
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn("오더 로그 기록 실패:", e.message);
+  }
+}
+
+/** 오더 활동 로그 조회 (최신순) */
+export async function getOrderLogs(orderId) {
+  try {
+    const q = query(collection(db, COLLECTIONS.ORDERS, orderId, "logs"), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    return [];
+  }
 }
 
 /** 단건 조회 */

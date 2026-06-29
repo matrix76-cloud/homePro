@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { THEME, CATEGORIES, ORDER_STATUS } from "../../config/homeproConfig";
-import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus } from "../../service/OrderService";
+import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus, addOrderLog, getOrderLogs } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
 import { getUserProfileByUid } from "../../service/UserProfileService";
@@ -69,6 +69,7 @@ const OrderDetailPage = () => {
   const order = state?.order || fetchedOrder;
   const category = state?.category || (order ? CATEGORIES.find((c) => c.id === order.categoryId) : null);
   const myUid = userData?.uid || user?.USERS_ID;
+  const myName = userData?.nickname || userData?.name || "사용자";
 
   // state 없으면 Firestore에서 직접 조회
   useEffect(() => {
@@ -80,6 +81,7 @@ const OrderDetailPage = () => {
 
   const [photoIdx, setPhotoIdx] = useState(0);
   const [toast, setToast] = useState("");
+  const [orderLogs, setOrderLogs] = useState([]);
   const [proDocs, setProDocs] = useState(null);
   const [showQuoteSheet, setShowQuoteSheet] = useState(false);
   const [quotePrice, setQuotePrice] = useState("");
@@ -122,6 +124,13 @@ const OrderDetailPage = () => {
 
   useEffect(() => { loadQuotes(); }, [loadQuotes]);
 
+  // 오더 활동 이력 로드
+  const loadLogs = useCallback(() => {
+    if (!order?.id) return;
+    getOrderLogs(order.id).then(setOrderLogs).catch(() => {});
+  }, [order?.id]);
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
   // 거부 체크
   useEffect(() => {
     if (!myUid || !order?.createdBy || !isBlockedEither) return;
@@ -147,6 +156,7 @@ const OrderDetailPage = () => {
     try {
       if (!acceptOrder) throw new Error("acceptOrder 함수 없음");
       await acceptOrder(order.id, myUid);
+      await addOrderLog(order.id, { type: "accept", message: "홈프로가 수락 → 배정", byUid: myUid, byName: myName, byRole: "홈프로" });
       goMyOrders(); // 수락 → 자동으로 나의오더현황 이동
     } catch (e) {
       if (e.message?.includes("배정")) showToast("배정된 오더입니다");
@@ -162,6 +172,7 @@ const OrderDetailPage = () => {
       const proName = userData?.nickname || userData?.name || "전문가";
       const proProfile = userData?.profileImage || userData?.photoURL || "";
       await applyToOrder(order.id, myUid, { proName, proProfile });
+      await addOrderLog(order.id, { type: "apply", message: "홈프로 지원", byUid: myUid, byName: myName, byRole: "홈프로" });
       goMyOrders(); // 지원 → 자동으로 나의오더현황 이동
     } catch (e) {
       if (e.message?.includes("이미")) showToast("이미 지원한 오더입니다");
@@ -185,6 +196,7 @@ const OrderDetailPage = () => {
     try {
       if (!setOrderWaiting) throw new Error("setOrderWaiting 함수 없음");
       await setOrderWaiting(order.id);
+      await addOrderLog(order.id, { type: "status", message: "대기 전환", byUid: myUid, byName: myName, byRole: "접수자" });
       showToast("대기 상태로 변경되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
@@ -196,6 +208,7 @@ const OrderDetailPage = () => {
   const handleOwnerReregister = async () => {
     try {
       await updateOrderStatus(order.id, ORDER_STATUS.REGISTERED);
+      await addOrderLog(order.id, { type: "status", message: "재접수", byUid: myUid, byName: myName, byRole: "접수자" });
       showToast("재접수되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
@@ -209,6 +222,7 @@ const OrderDetailPage = () => {
     try {
       // 상태 + 취소사유를 한 번에 (기존엔 잘못된 'orders' 컬렉션에 써서 누락되던 버그 수정)
       await updateOrderStatus(order.id, ORDER_STATUS.CANCELLED, { cancelReason });
+      await addOrderLog(order.id, { type: "cancel", message: `접수자가 취소 (사유: ${cancelReason})`, byUid: myUid, byName: myName, byRole: "접수자" });
       setShowCancelModal(false);
       showToast("오더가 취소되었습니다");
       navigate(-1);
@@ -251,6 +265,7 @@ const OrderDetailPage = () => {
           });
         }
       } catch (e) {}
+      await addOrderLog(order.id, { type: "select", message: "홈프로 선정 → 배정", byUid: myUid, byName: myName, byRole: "접수자" });
       showToast("홈프로가 선정되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
@@ -576,6 +591,24 @@ const OrderDetailPage = () => {
           <SectionTitle>요청 상세 내용</SectionTitle>
           <DetailText>{order.description || "-"}</DetailText>
         </DetailSection>
+
+        {/* ── 활동 이력 ── 취소/상태변경/견적통보/수락/지원/선정 타임라인 */}
+        {(isOwner || isMatchedPro || (order.applicantUids || []).includes(myUid)) && orderLogs.length > 0 && (
+          <DetailSection>
+            <SectionTitle>활동 이력</SectionTitle>
+            {orderLogs.map((log) => (
+              <LogRow key={log.id}>
+                <LogDot $type={log.type} />
+                <LogBody>
+                  <LogMsg>{log.message}</LogMsg>
+                  <LogMeta>
+                    {log.byName ? `${log.byName}` : ""}{log.byRole ? ` · ${log.byRole}` : ""}{" · "}{formatOrderTime(log.createdAt)}
+                  </LogMeta>
+                </LogBody>
+              </LogRow>
+            ))}
+          </DetailSection>
+        )}
 
         {/* ── 접수자 프로필 (홈프로 시점) ── */}
         {!isOwner && (order.writer || order.writerPhoto) && (
@@ -999,6 +1032,38 @@ const DetailText = styled.div`
   color: ${THEME.textSecondary};
   line-height: 1.7;
   white-space: pre-line;
+`;
+
+/* ── 활동 이력 ── */
+const LOG_DOT_COLORS = { cancel: "#EF4444", quote: "#7C5CFC", select: "#7C5CFC", accept: "#10B981", apply: "#3B82F6", status: "#F59E0B" };
+const LogRow = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+const LogDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+  background: ${({ $type }) => LOG_DOT_COLORS[$type] || THEME.muted};
+`;
+const LogBody = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+const LogMsg = styled.div`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${THEME.text};
+`;
+const LogMeta = styled.div`
+  font-size: 11px;
+  color: ${THEME.muted};
+  margin-top: 2px;
 `;
 
 const ConditionRow = styled.div`
