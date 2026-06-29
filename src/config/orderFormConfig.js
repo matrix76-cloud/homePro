@@ -1462,8 +1462,8 @@ export const COMMON_B2B_FIELDS = {
   matchType: {
     label: "홈프로 선택",
     options: [
-      { value: "priority", label: "우선배정호출" },
-      { value: "compare", label: "다중비교호출" },
+      { value: "priority", label: "빠른배정" },
+      { value: "compare", label: "비교선정" },
       { value: "direct", label: "지정배정" },
     ],
   },

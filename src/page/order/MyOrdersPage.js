@@ -54,7 +54,7 @@ const STATUS_DESC = {
   "전체": "내가 등록한 일감과 받은 일감을\n한눈에 볼 수 있어요.",
   "접수": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.",
   "대기": "수정을 위해 일시 보류된 오더입니다.\n재접수하면 다시 노출돼요.",
-  "선정대기": "다중비교호출로 지원자가 모집된 오더입니다.\n지원자 중 1명을 선정해 주세요.",
+  "선정대기": "비교선정으로 홈프로가 모집된 오더입니다.\n홈프로 중 1명을 선정해 주세요.",
   "배정": "홈프로가 수락하여 진행 중인 오더입니다.\n일감을 준 프로는 취소, 받은 프로는 작업완료\n변경이 가능해요.",
   "완료": "작업이 완료된 오더입니다.",
   "취소": "취소된 오더입니다.\n취소 후에는 되돌릴 수 없어요.",
@@ -85,7 +85,7 @@ const normalizeStatus = (s) => {
 const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
 /* 금액 미정 단가유형 — 수락→배정 후 견적가 통보 (현장견적/견적요청 통합) */
 const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
-const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선택", direct: "지정배정" };
+const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 
 const formatPriceLine = (order) => {
   const amt = Number(order.b2bPriceAmount) || 0;
@@ -208,21 +208,25 @@ export const MyOrdersContent = () => {
     if (!cancelReqReason) { alert("사유를 선택해주세요"); return; }
     try {
       const reasonText = cancelReqReason === "상세사유 입력" ? (cancelReqDetail.trim() || "상세사유") : cancelReqReason;
-      const { doc: dref, updateDoc: ud, serverTimestamp: ts } = await import("firebase/firestore");
-      const { db } = await import("../../api/config");
-      await ud(dref(db, COLLECTIONS.ORDERS, cancelReqOpen.orderId), {
-        cancelRequestReason: reasonText,
-        cancelRequestedAt: ts(),
-        cancelRequestedBy: uid,
-        cancelRequestHandled: null, // 재요청 시 접수자 배너 다시 노출
-      });
-      setAllOrders((prev) => prev.map((o) => o.id === cancelReqOpen.orderId ? { ...o, cancelRequestReason: reasonText, cancelRequestHandled: null } : o));
+      const order = allOrders.find((o) => o.id === cancelReqOpen.orderId);
+      // 자유취소(의뢰인 확정 A-2): 접수자 승인 게이트 없이 홈프로가 즉시 취소 처리
+      await updateOrderStatus(cancelReqOpen.orderId, "취소", { cancelReason: reasonText, cancelledBy: uid, cancelledByRole: "홈프로" });
+      if (order) {
+        await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
+          title: "오더 취소",
+          body: `홈프로가 오더를 취소했습니다. 사유: ${reasonText}`,
+          type: "order_cancelled",
+          chatText: `홈프로가 오더를 취소했습니다.\n사유: ${reasonText}`,
+          chatType: "cancelled",
+        });
+      }
+      setAllOrders((prev) => prev.map((o) => o.id === cancelReqOpen.orderId ? { ...o, orderStatus: "취소", cancelReason: reasonText } : o));
       setCancelReqOpen(null);
       setCancelReqReason("");
       setCancelReqDetail("");
-      alert("취소요청을 보냈습니다");
+      alert("오더를 취소했습니다");
     } catch (e) {
-      alert("취소요청 실패: " + (e.message || e));
+      alert("취소 실패: " + (e.message || e));
     }
   };
 
@@ -244,38 +248,7 @@ export const MyOrdersContent = () => {
     } catch (_) {}
   };
 
-  const handleApproveCancel = async (e, order) => {
-    e.stopPropagation();
-    if (!window.confirm("취소요청을 승인하시겠습니까?\n오더가 취소 처리되며 되돌릴 수 없습니다.")) return;
-    try {
-      await updateOrderStatus(order.id, "취소", {
-        cancelReason: order.cancelRequestReason || "수락자 취소요청",
-        cancelRequestHandled: "approved",
-      });
-      await notifyAndChat(order, {
-        title: "취소요청 승인", body: "접수자가 취소요청을 승인하여 오더가 취소되었습니다.",
-        type: "cancel_approved", chatText: "취소요청이 승인되어 오더가 취소되었습니다.", chatType: "cancelled",
-      });
-      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, orderStatus: "취소", cancelRequestHandled: "approved" } : o));
-    } catch (err) {
-      alert("처리 실패: " + (err.message || err));
-    }
-  };
-
-  const handleRejectCancel = async (e, order) => {
-    e.stopPropagation();
-    if (!window.confirm("취소요청을 반려하시겠습니까?\n오더는 배정 상태로 유지됩니다.")) return;
-    try {
-      await updateOrderStatus(order.id, "배정", { cancelRequestHandled: "rejected" });
-      await notifyAndChat(order, {
-        title: "취소요청 반려", body: "접수자가 취소요청을 반려했습니다. 채팅으로 협의해주세요.",
-        type: "cancel_rejected", chatText: "취소요청이 반려되었습니다. 채팅으로 협의해주세요.", chatType: "system",
-      });
-      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, cancelRequestHandled: "rejected" } : o));
-    } catch (err) {
-      alert("처리 실패: " + (err.message || err));
-    }
-  };
+  // (자유취소 전환: 접수자 승인/반려 게이트 제거 — handleApproveCancel/handleRejectCancel 삭제)
 
   // 현장견적가 통보 (배정된 수락자 → 접수자). 상태는 '배정' 유지, 정보만 전달.
   const submitPriceNotify = async () => {
@@ -396,20 +369,6 @@ export const MyOrdersContent = () => {
                   <PriceText>{formatPriceLine(order)}</PriceText>
                 </CardBottom>
 
-                {/* 수락자 취소요청 알림 배너 (접수자에게만, 미처리 + 배정 상태) */}
-                {order.createdBy === uid && order.cancelRequestReason && order.cancelRequestHandled !== "approved" && order.cancelRequestHandled !== "rejected" && displayStatus === "배정" && (
-                  <CancelReqBanner onClick={(e) => e.stopPropagation()}>
-                    <CancelReqText>
-                      🔔 <b>{chats[0]?.otherName || "수락자"}</b>님이 취소를 요청했습니다
-                      <CancelReqReason>사유: {order.cancelRequestReason}</CancelReqReason>
-                    </CancelReqText>
-                    <CancelReqBtns>
-                      <ActionBtn $variant="danger" onClick={(e) => handleApproveCancel(e, order)}>취소 승인</ActionBtn>
-                      <ActionBtn $variant="primary" onClick={(e) => handleRejectCancel(e, order)}>반려</ActionBtn>
-                    </CancelReqBtns>
-                  </CancelReqBanner>
-                )}
-
                 {/* 견적가 통보 내역 (배정 상태 + 통보됨) */}
                 {UNPRICED_TYPES.includes(order.b2bPriceType) && order.onsiteQuotedPrice > 0 && displayStatus === "배정" && (
                   <OnsitePriceBox onClick={(e) => e.stopPropagation()}>
@@ -455,13 +414,14 @@ export const MyOrdersContent = () => {
                     {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
                     {order.matchedProUid === uid && (
                       <>
-                        {UNPRICED_TYPES.includes(order.b2bPriceType) && (
-                          <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(order.onsiteQuotedPrice ? String(order.onsiteQuotedPrice) : ""); setNotifyMsg(order.onsiteQuoteMessage || ""); }}>
-                            {order.onsiteQuotedPrice ? "견적가 재통보" : "견적가 통보"}
+                        {/* 견적가는 1회만 통보 (의뢰인 확정: 수정·재통보 불가) — 미통보 시에만 버튼 노출 */}
+                        {UNPRICED_TYPES.includes(order.b2bPriceType) && !order.onsiteQuotedPrice && (
+                          <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(""); setNotifyMsg(""); }}>
+                            견적가 통보
                           </ActionBtn>
                         )}
                         <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>
-                        <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
+                        <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소</ActionBtn>
                       </>
                     )}
                   </ActionRow>
@@ -496,7 +456,7 @@ export const MyOrdersContent = () => {
           <ModalOverlay onClick={() => setCancelReqOpen(null)}>
             <ModalSheet onClick={(e) => e.stopPropagation()}>
               <ModalHeader>
-                <ModalTitle>취소요청 사유</ModalTitle>
+                <ModalTitle>취소 사유</ModalTitle>
                 <ModalClose onClick={() => setCancelReqOpen(null)}>
                   <IoCloseOutline size={22} />
                 </ModalClose>
@@ -517,7 +477,7 @@ export const MyOrdersContent = () => {
                   rows={3}
                 />
               )}
-              <ConfirmBtn onClick={submitCancelRequest} disabled={!cancelReqReason}>요청 보내기</ConfirmBtn>
+              <ConfirmBtn onClick={submitCancelRequest} disabled={!cancelReqReason}>취소하기</ConfirmBtn>
             </ModalSheet>
           </ModalOverlay>
         )}
@@ -532,7 +492,7 @@ export const MyOrdersContent = () => {
                   <IoCloseOutline size={22} />
                 </ModalClose>
               </ModalHeader>
-              <NotifyHint>현장 확인 후 산정한 견적가를 접수자에게 통보합니다.</NotifyHint>
+              <NotifyHint>현장 확인 후 산정한 견적가를 접수자에게 통보합니다.{"\n"}한 번 통보하면 수정할 수 없으니 신중히 입력해 주세요.</NotifyHint>
               <PriceInputRow>
                 <PriceInput
                   inputMode="numeric"
@@ -1089,6 +1049,7 @@ const NotifyHint = styled.div`
   color: ${THEME.muted};
   line-height: 1.5;
   margin-bottom: 12px;
+  white-space: pre-line;
 `;
 
 const PriceInputRow = styled.div`

@@ -56,7 +56,7 @@ const STATUS_BADGE = {
 };
 
 const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
-const MATCH_TYPE_LABEL = { priority: "우선배정", compare: "다중비교", direct: "지정배정" };
+const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 const HP_ASSIGNED_STATUSES = new Set(["배정", "선정대기", "업체선택대기", "완료", "마감"]);
 
 const OrderDetailPage = () => {
