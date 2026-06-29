@@ -222,12 +222,36 @@ export const applyToOrder = async (orderId, proUid, proData = {}) => {
     appliedAt: serverTimestamp(),
     rejected: false,
   });
-  // 지원자 수 카운트 비정규화 + 3명 이상이면 자동 마감
+  // 지원자 수 카운트 비정규화 + 지원자 uid 배열 저장(나의오더현황 노출용) + 3명 이상이면 자동 마감
   const allApplicants = await getDocs(applicantsRef);
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-  const updates = { applicantCount: allApplicants.size };
+  const updates = { applicantCount: allApplicants.size, applicantUids: arrayUnion(proUid) };
   if (allApplicants.size >= 3) updates.orderStatus = ORDER_STATUS.SELECTING;
   await updateDoc(orderRef, updates);
+};
+
+/** 내가 지원한 오더 조회 (비교선정 — 선정 전에도 나의오더현황에 노출) */
+export async function getOrdersByApplicant(uid) {
+  const q = query(ordersRef, where("applicantUids", "array-contains", uid));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** 비교선정 지원자가 견적가 통보 (applicant 문서 + 오더 맵에 저장 — 접수자 선정화면/카드에 표시) */
+export const notifyApplicantPrice = async (orderId, proUid, price, message = "") => {
+  const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
+  const q = query(applicantsRef, where("proUid", "==", proUid));
+  const snap = await getDocs(q);
+  if (snap.empty) throw new Error("지원 내역을 찾을 수 없습니다");
+  await updateDoc(snap.docs[0].ref, {
+    quotedPrice: Number(price) || 0,
+    quoteMessage: message || "",
+    quotedAt: serverTimestamp(),
+  });
+  // 오더 문서에도 맵으로 비정규화 (카드에서 내 통보 여부 확인 / 접수자 일괄 표시)
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    [`applicantQuotes.${proUid}`]: Number(price) || 0,
+  });
 };
 
 /** 지원자 목록 조회 */

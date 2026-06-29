@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
-import { getOrdersByUser, getOrdersByMatchedPro, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice } from "../../service/OrderService";
+import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice } from "../../service/OrderService";
 import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -133,13 +133,14 @@ export const MyOrdersContent = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [given, received] = await Promise.all([
+        const [given, received, applied] = await Promise.all([
           getOrdersByUser(uid),
           getOrdersByMatchedPro(uid),
+          getOrdersByApplicant(uid), // 비교선정 지원오더 (선정 전에도 노출)
         ]);
         if (!cancelled) {
-          // 준 일감 + 받은 일감 합치고 중복 제거 후 최신순 정렬
-          const merged = [...given, ...received];
+          // 준 일감 + 받은 일감 + 지원한 일감 합치고 중복 제거 후 최신순 정렬
+          const merged = [...given, ...received, ...applied];
           const unique = merged.filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i);
           unique.sort((a, b) => {
             const ta = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
@@ -250,25 +251,37 @@ export const MyOrdersContent = () => {
 
   // (자유취소 전환: 접수자 승인/반려 게이트 제거 — handleApproveCancel/handleRejectCancel 삭제)
 
-  // 현장견적가 통보 (배정된 수락자 → 접수자). 상태는 '배정' 유지, 정보만 전달.
+  // 견적가 통보 (홈프로 → 접수자). 상태는 유지, 정보만 전달.
+  //  - 빠른배정: 배정된 1명이 통보 (onsiteQuotedPrice)
+  //  - 비교선정: 지원자가 통보 (applicant 문서 + applicantQuotes 맵)
   const submitPriceNotify = async () => {
     const order = priceNotifyOpen?.order;
     if (!order) return;
     const priceNum = Number(notifyPrice) || 0;
     if (priceNum <= 0) { alert("견적가를 입력해주세요"); return; }
+    const isApplicant = !!priceNotifyOpen?.isApplicant;
     try {
-      await notifyOnsitePrice(order.id, priceNum, notifyMsg.trim());
-      await notifyAndChat(
-        { ...order, matchedProUid: order.createdBy }, // 통보 대상은 접수자
-        {
+      if (isApplicant) {
+        await notifyApplicantPrice(order.id, uid, priceNum, notifyMsg.trim());
+        await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
+          title: "견적가 도착",
+          body: `지원 홈프로가 견적가 ${priceNum.toLocaleString()}원을 통보했습니다.`,
+          type: "applicant_quote",
+          chatText: `견적가가 통보되었습니다.\n금액: ${priceNum.toLocaleString()}원`,
+          chatType: "onsite_quote",
+        });
+        setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, applicantQuotes: { ...(o.applicantQuotes || {}), [uid]: priceNum } } : o));
+      } else {
+        await notifyOnsitePrice(order.id, priceNum, notifyMsg.trim());
+        await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
           title: "견적가 도착",
           body: `견적가 ${priceNum.toLocaleString()}원이 통보되었습니다.`,
           type: "onsite_quote",
           chatText: `견적가가 수신되었습니다.\n금액: ${priceNum.toLocaleString()}원${notifyMsg.trim() ? `\n${notifyMsg.trim()}` : ""}`,
           chatType: "onsite_quote",
-        }
-      );
-      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, onsiteQuotedPrice: priceNum, onsiteQuoteMessage: notifyMsg.trim() } : o));
+        });
+        setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, onsiteQuotedPrice: priceNum, onsiteQuoteMessage: notifyMsg.trim() } : o));
+      }
       setPriceNotifyOpen(null);
       setNotifyPrice("");
       setNotifyMsg("");
@@ -442,6 +455,18 @@ export const MyOrdersContent = () => {
                   <ActionRow>
                     <ActionBtn $variant="primary" onClick={(e) => handleStatusChange(e, order.id, "접수")}>재접수</ActionBtn>
                     <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); navigate("/order/create", { state: { order } }); }}>수정</ActionBtn>
+                  </ActionRow>
+                )}
+                {/* 비교선정 지원자(선정 전) — 현장 확인 후 견적가 통보 (1회) */}
+                {order.createdBy !== uid && order.matchType === "compare" && UNPRICED_TYPES.includes(order.b2bPriceType)
+                  && (order.applicantUids || []).includes(uid) && order.matchedProUid !== uid
+                  && (displayStatus === "접수" || displayStatus === "선정대기") && (
+                  <ActionRow>
+                    {!order.applicantQuotes?.[uid] ? (
+                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order, isApplicant: true }); setNotifyPrice(""); setNotifyMsg(""); }}>견적가 통보</ActionBtn>
+                    ) : (
+                      <PriceNoticeInline>내 견적가 {Number(order.applicantQuotes[uid]).toLocaleString()}원 통보됨</PriceNoticeInline>
+                    )}
                   </ActionRow>
                 )}
               </OrderCard>
@@ -1077,6 +1102,13 @@ const PriceUnit = styled.span`
   font-size: 16px;
   color: ${THEME.text};
   flex-shrink: 0;
+`;
+
+const PriceNoticeInline = styled.div`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${THEME.primary};
+  padding: 6px 4px;
 `;
 
 const OnsitePriceBox = styled.div`

@@ -222,7 +222,7 @@ const OrderDetailPage = () => {
     try {
       if (!selectPro) throw new Error("selectPro 함수 없음");
       await selectPro(order.id, proUid); // 자동 배정(orderStatus="배정") + 나머지 지원자 rejected
-      // 선정된 수락자에게 푸시
+      // 선정된 홈프로에게 푸시
       try {
         await addDoc(collection(db, "notifications"), {
           targetUids: [proUid],
@@ -234,6 +234,22 @@ const OrderDetailPage = () => {
           sent: false,
           createdAt: serverTimestamp(),
         });
+      } catch (e) {}
+      // 선정되지 않은 나머지 홈프로에게 마감 알림 (B-2)
+      try {
+        const others = applicants.filter((a) => a.proUid !== proUid).map((a) => a.proUid);
+        if (others.length) {
+          await addDoc(collection(db, "notifications"), {
+            targetUids: others,
+            title: "선정 마감",
+            body: "아쉽지만 다른 홈프로가 선정되어 마감되었습니다.",
+            type: "select_closed",
+            data: { orderId: order.id },
+            read: false,
+            sent: false,
+            createdAt: serverTimestamp(),
+          });
+        }
       } catch (e) {}
       showToast("홈프로가 선정되었습니다");
       const updated = await getOrder(order.id);
@@ -624,10 +640,10 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 다중비교 지원자 목록 (접수자 전용) ── */}
+        {/* ── 비교선정 지원 홈프로 목록 (접수자 전용) — 견적가 비교 후 선정 ── */}
         {isOwner && matchType === "compare" && applicants.length > 0 && (
           <DetailSection>
-            <SectionTitle>지원자 목록</SectionTitle>
+            <SectionTitle>지원 홈프로 ({applicants.length}) · 견적가 비교 후 선정</SectionTitle>
             {applicants.map((app) => (
               <ApplicantCard key={app.proUid}>
                 <ApplicantTop>
@@ -639,8 +655,11 @@ const OrderDetailPage = () => {
                     </QuoteAvatarPlaceholder>
                   )}
                   <ApplicantInfo>
-                    <ApplicantName>{app.proName || "전문가"}</ApplicantName>
-                    {app.intro && <ApplicantIntro>{app.intro}</ApplicantIntro>}
+                    <ApplicantName>{app.proName || "홈프로"}</ApplicantName>
+                    <ConditionValue style={{ textAlign: "left", color: app.quotedPrice > 0 ? THEME.primary : THEME.muted, fontWeight: 600 }}>
+                      {app.quotedPrice > 0 ? `견적가 ${Number(app.quotedPrice).toLocaleString()}원` : "견적가 미통보"}
+                    </ConditionValue>
+                    {app.quoteMessage && <ApplicantIntro>{app.quoteMessage}</ApplicantIntro>}
                   </ApplicantInfo>
                   <SelectProBtn onClick={() => handleSelectPro(app.proUid)}>선정</SelectProBtn>
                 </ApplicantTop>
