@@ -29,3 +29,7 @@ a {
   text-decoration: none;
   color: inherit;
 }
+
+/* dev 리뷰 허브(/review)용 — 스크롤바 숨김 */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

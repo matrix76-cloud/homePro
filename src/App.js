@@ -88,6 +88,10 @@ import AdminSettingsPage from "./page/admin/AdminSettingsPage";
 import AdminSettlementPage from "./page/admin/AdminSettlementPage";
 import AdminProApprovalPage from "./page/admin/AdminProApprovalPage";
 
+/* Dev 전용 — 리뷰 허브 (프로덕션 빌드에서 라우트 게이트로 제외, lazy로 청크 분리) */
+const AuthReview = React.lazy(() => import("./dev/AuthReview"));
+const ReviewTable = React.lazy(() => import("./dev/ReviewTable"));
+
 /* ===================== motion wrappers ===================== */
 
 const pageFade = {
@@ -212,6 +216,7 @@ const AnimatedRoutes = () => {
 
   const isFullWidth =
     location.pathname.startsWith("/admin") ||
+    location.pathname.startsWith("/review") ||
     location.pathname === "/intro";
   const Wrapper = isFullWidth ? FullContainer : Container;
 
@@ -230,6 +235,11 @@ const AnimatedRoutes = () => {
           <Route path="/legal/privacy" element={wrap(<PrivacyPage />)} />
           <Route path="/legal/location" element={wrap(<LocationTermsPage />)} />
           <Route path="/seed-login" element={<SeedLoginPage />} />
+
+          {/* 리뷰 허브 (/review, /review-table) — 배포 공유용(Firestore). 어디서든 접속해 리뷰 */}
+          <Route path="/review" element={<React.Suspense fallback={null}><AuthReview /></React.Suspense>} />
+          <Route path="/review/:id" element={<React.Suspense fallback={null}><AuthReview /></React.Suspense>} />
+          <Route path="/review-table" element={<React.Suspense fallback={null}><ReviewTable /></React.Suspense>} />
 
           {/* Auth Required - 로그인 필요 */}
           <Route element={<RequireAuth />}>
