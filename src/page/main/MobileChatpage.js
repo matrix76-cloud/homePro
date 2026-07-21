@@ -9,6 +9,7 @@ import { subscribeChatRooms, subscribeOpenRooms, joinOpenRoom } from "../../serv
 import { getOrderById } from "../../service/OrderService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
+import Tabs from "../../common/Tabs";
 
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
@@ -123,14 +124,14 @@ const MobileChatpage = () => {
 
   return (
     <MainListLayout NAME="채팅" footerType="CHAT" hideBack>
-      <TabRow>
-        <Tab $active={activeTab === "general"} onClick={() => setActiveTab("general")}>
-          일반{normalRooms.length > 0 ? ` (${normalRooms.length})` : ""}
-        </Tab>
-        <Tab $active={activeTab === "open"} onClick={() => setActiveTab("open")}>
-          오픈채팅{openRooms.length > 0 ? ` (${openRooms.length})` : ""}
-        </Tab>
-      </TabRow>
+      <Tabs
+        tabs={[
+          { key: "general", label: `일반${normalRooms.length > 0 ? ` (${normalRooms.length})` : ""}` },
+          { key: "open", label: `오픈채팅${openRooms.length > 0 ? ` (${openRooms.length})` : ""}` },
+        ]}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
       {activeTab === "open" ? (
         <CatTabRow>
           {OPEN_CATEGORIES.map((c) => (
@@ -238,23 +239,6 @@ export default MobileChatpage;
 
 /* ─── Styled Components ─── */
 
-const TabRow = styled.div`
-  display: flex;
-  border-bottom: 1px solid ${THEME.border};
-`;
-
-const Tab = styled.button`
-  flex: 1;
-  padding: 12px 0;
-  border: none;
-  border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
-  background: none;
-  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  &:active { opacity: 0.7; }
-`;
 
 const RoomList = styled.div`
   padding: 0 12px;
@@ -344,7 +328,8 @@ const RoomNameRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 `;
 
 const RoomName = styled.p`
@@ -352,6 +337,11 @@ const RoomName = styled.p`
   font-weight: 700;
   color: ${THEME.text};
   margin: 0;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 const CatTag = styled.span`
@@ -361,6 +351,8 @@ const CatTag = styled.span`
   background: ${THEME.purpleLight};
   padding: 2px 8px;
   border-radius: 20px;
+  flex-shrink: 0;
+  white-space: nowrap;
 `;
 
 const OrderCatTag = styled.span`
@@ -382,6 +374,8 @@ const JoinedTag = styled.span`
   background: #ecfdf5;
   padding: 2px 8px;
   border-radius: 20px;
+  flex-shrink: 0;
+  white-space: nowrap;
 `;
 
 const MemberCount = styled.span`

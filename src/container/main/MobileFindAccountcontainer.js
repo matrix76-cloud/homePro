@@ -7,6 +7,7 @@ import { getUserProfileByUid } from "../../service/UserProfileService";
 import { sendPasswordResetEmailByAddress } from "../../service/AuthService";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import Tabs from "../../common/Tabs";
 
 const SMS_CF_URL = "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend";
 const SMS_LABEL = "홈프로";
@@ -319,14 +320,14 @@ export default function MobileFindAccountcontainer() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke={THEME.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </BackBtn>
 
-            <TabRow>
-                <Tab $active={activeTab === TAB_FIND_ID} onClick={() => handleTabChange(TAB_FIND_ID)}>
-                    아이디 찾기
-                </Tab>
-                <Tab $active={activeTab === TAB_RESET_PW} onClick={() => handleTabChange(TAB_RESET_PW)}>
-                    비밀번호 찾기
-                </Tab>
-            </TabRow>
+            <Tabs
+                tabs={[
+                    { key: TAB_FIND_ID, label: "아이디 찾기" },
+                    { key: TAB_RESET_PW, label: "비밀번호 찾기" },
+                ]}
+                active={activeTab}
+                onChange={handleTabChange}
+            />
 
             <PageTitle>
                 {activeTab === TAB_FIND_ID ? "가입된 아이디를 찾습니다" : "비밀번호를 재설정합니다"}
@@ -491,26 +492,6 @@ const BackBtn = styled.button`
   &:active { opacity: 0.6; }
 `;
 
-const TabRow = styled.div`
-  display: flex;
-  gap: 0;
-  margin-top: 12px;
-  border-bottom: 1px solid ${THEME.border};
-`;
-
-const Tab = styled.button`
-  flex: 1;
-  padding: 14px 0;
-  border: none;
-  background: none;
-  font-size: 15px;
-  font-weight: 400;
-  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
-  border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
-  cursor: pointer;
-  font-family: inherit;
-  &:active { opacity: 0.7; }
-`;
 
 const PageTitle = styled.div`
   font-size: 20px;

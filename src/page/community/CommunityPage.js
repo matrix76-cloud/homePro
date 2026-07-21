@@ -6,6 +6,7 @@ import { IoHeartOutline, IoChatbubbleOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { getPosts } from "../../service/CommunityService";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
+import Tabs from "../../common/Tabs";
 
 const TABS = ["자유게시판", "이벤트/공지"];
 
@@ -78,13 +79,7 @@ const CommunityPage = () => {
   return (
     <MainListLayout NAME="커뮤니티" hideFooter>
       <PageWrap>
-        <TabRow>
-          {TABS.map((tab) => (
-            <Tab key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
-              {tab}
-            </Tab>
-          ))}
-        </TabRow>
+        <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 
         {loading ? (
           <EmptyWrap><EmptyText>불러오는 중...</EmptyText></EmptyWrap>
@@ -134,26 +129,6 @@ const PageWrap = styled.div`
   min-height: 100%;
   background: ${THEME.background};
   position: relative;
-`;
-
-const TabRow = styled.div`
-  display: flex;
-  border-bottom: 2px solid ${THEME.border};
-  padding: 0 12px;
-  background: ${THEME.surface};
-`;
-
-const Tab = styled.div`
-  flex: 1;
-  text-align: center;
-  padding: 14px 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
-  border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
-  margin-bottom: -2px;
-  cursor: pointer;
-  &:active { opacity: 0.7; }
 `;
 
 const ListWrap = styled.div`

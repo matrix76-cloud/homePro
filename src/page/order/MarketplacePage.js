@@ -95,18 +95,18 @@ const Wrap = styled.div`
 `;
 
 const GateNotice = styled.div`
-  margin: 8px 12px;
+  margin: 8px 12px 0;
   padding: 10px 14px;
-  background: #FEF3C7;
-  border-radius: 8px;
+  background: #F5F6F8;
+  border-radius: 10px;
   font-size: 12px;
-  color: #92400E;
+  color: ${THEME.muted};
 `;
 
 const FilterRow = styled.div`
   display: flex;
   gap: 6px;
-  padding: 10px 12px;
+  padding: 12px 12px 8px;
   overflow-x: auto;
   &::-webkit-scrollbar { display: none; }
   scrollbar-width: none;
@@ -114,19 +114,20 @@ const FilterRow = styled.div`
 
 const FilterChip = styled.button`
   flex-shrink: 0;
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 7px 14px;
+  font-size: 13px;
   font-weight: 600;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  border-radius: 16px;
+  border-radius: 18px;
   background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
   color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
 `;
 
 const List = styled.div`
-  padding: 0 12px;
+  padding: 4px 12px 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -147,33 +148,34 @@ const ImageGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 14px;
 `;
 
 const GridImg = styled.img`
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #F3F4F6;
   display: block;
 `;
 
 const CardBody = styled.div`
-  padding: 14px;
+  padding: 16px;
 `;
 
 const CardTop = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 `;
 
 const TypeLabel = styled.span`
   font-size: 12px;
-  font-weight: 700;
-  color: ${THEME.primary};
+  font-weight: 600;
+  color: ${THEME.muted};
+  letter-spacing: -0.2px;
 `;
 
 const CardDate = styled.span`
@@ -185,33 +187,40 @@ const CardTitle = styled.div`
   font-size: 15px;
   font-weight: 700;
   color: ${THEME.text};
-  margin-bottom: 4px;
+  line-height: 1.4;
+  margin-bottom: 6px;
 `;
 
 const CardPrice = styled.div`
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 800;
-  color: ${THEME.text};
-  margin-bottom: 8px;
+  color: ${THEME.primary};
+  letter-spacing: -0.3px;
+  margin-bottom: 10px;
 `;
 
 const CardMeta = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 `;
 
 const MetaItem = styled.span`
   font-size: 12px;
   color: ${THEME.muted};
+  &:not(:last-child)::after {
+    content: "·";
+    margin-left: 6px;
+    color: ${THEME.border};
+  }
 `;
 
 const CardDesc = styled.div`
-  font-size: 12px;
+  font-size: 13px;
   color: ${THEME.muted};
-  line-height: 1.5;
+  line-height: 1.55;
 `;
 
 const Empty = styled.div`

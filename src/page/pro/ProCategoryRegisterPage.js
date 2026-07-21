@@ -621,24 +621,29 @@ const CatGridIcon = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 54px;
+    height: 54px;
     margin-bottom: 8px;
+    border-radius: 50%;
+    background: ${({ $disabled, $selected }) =>
+        $disabled ? "#F2F4F6" : $selected ? "#EAF2FD" : "#F4F6F8"};
     color: ${({ $disabled, $selected }) =>
-        $disabled ? THEME.muted : $selected ? THEME.primary : THEME.textSecondary};
-    transition: color 0.15s;
+        $disabled ? THEME.muted : $selected ? THEME.primary : "#5A6673"};
+    transition: background 0.15s, color 0.15s;
     svg {
-        width: 48px;
-        height: 48px;
-        stroke-width: 1.6;
+        width: 30px;
+        height: 30px;
+        stroke-width: 1.4;
     }
 `;
 
 const CatFallbackChar = styled.div`
-    width: 48px;
-    height: 48px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 700;
 `;
 

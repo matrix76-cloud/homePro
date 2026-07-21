@@ -506,22 +506,71 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
       created.posts += 1;
     }
 
-    /* ── 9. 기술전수교육 3개 ── */
+    /* ── 9. 기술전수교육 6개 ── */
+    // 상세/목록 화면(TrainingDetailPage·TrainingPage)이 쓰는 필드를 모두 채운다.
+    // startDate/endDate/period 는 문자열(상세는 formatPeriod, 목록은 item.period 표시).
     const TRAININGS = [
-      { title: "특수청소 노하우 전수",  field: "특수청소", description: "화재·곰팡이·고독사 현장 정리 노하우",      instructor: "용감한강아지", methods: ["현장교육","실습교육"], priceType: "유료", price: 500000, region: { sido: "서울", gu: "마포구" }, location: "서울 마포구",   contact: "010-9002-3001", createdBy: "seed_B1" },
-      { title: "도배 입문 과정",        field: "도배",     description: "도배 기초부터 실전까지",                  instructor: "든든한기술자", methods: ["이론교육","실습교육"], priceType: "무료", price: 0,      region: { sido: "서울", gu: "강서구" }, location: "서울 강서구",   contact: "010-9002-0001", createdBy: "seed_B2" },
-      { title: "타일 시공 마스터 클래스", field: "타일",     description: "타일 시공 고급 기법",                    instructor: "노련한장인",   methods: ["현장교육"],            priceType: "협의", price: 0,      region: { sido: "광주", gu: "광산구" }, location: "광주 광산구",   contact: "010-9002-0002", createdBy: "seed_B3" },
+      {
+        id: "T1", title: "특수청소 노하우 전수", field: "특수청소",
+        description: "화재·곰팡이·고독사 현장 정리 실무 노하우를 3일 과정으로 전수합니다.\n방역·탈취·폐기물 처리 절차와 현장 견적 산정법까지 실전 위주로 진행합니다.\n초보자도 따라올 수 있게 장비 사용법부터 차근차근 알려드립니다.",
+        instructor: "용감한강아지", methods: ["현장교육", "실습교육"],
+        priceType: "유료", price: 500000, region: { sido: "서울", gu: "마포구" }, location: "서울 마포구",
+        contact: "010-9002-3001", createdBy: "seed_B1",
+        startDate: "2026.08.05", endDate: "2026.08.07", period: "2026.08.05 ~ 2026.08.07",
+        startTime: "오전 9시", capacity: 8, status: "모집중", days: 1,
+      },
+      {
+        id: "T2", title: "도배 입문 과정", field: "도배",
+        description: "도배 기초부터 실전까지 배우는 입문 과정입니다.\n초배·정배·마감 순서와 벽지 재단, 풀칠 요령을 실습으로 익힙니다.\n무료 과정이며 실습 자재는 현장에서 제공합니다.",
+        instructor: "든든한기술자", methods: ["이론교육", "실습교육"],
+        priceType: "무료", price: 0, region: { sido: "서울", gu: "강서구" }, location: "서울 강서구",
+        contact: "010-9002-0001", createdBy: "seed_B2",
+        startDate: "2026.08.12", endDate: "2026.08.13", period: "2026.08.12 ~ 2026.08.13",
+        startTime: "오후 1시", capacity: 12, status: "모집중", days: 2,
+      },
+      {
+        id: "T3", title: "타일 시공 마스터 클래스", field: "타일",
+        description: "타일 시공 고급 기법을 다루는 마스터 클래스입니다.\n대형 타일 시공, 줄눈 마감, 방수 처리까지 현장에서 직접 시연합니다.\n비용은 참가 인원에 따라 협의합니다.",
+        instructor: "노련한장인", methods: ["현장교육"],
+        priceType: "협의", price: 0, region: { sido: "광주", gu: "광산구" }, location: "광주 광산구",
+        contact: "010-9002-0002", createdBy: "seed_B3",
+        startDate: "2026.08.20", endDate: "2026.08.21", period: "2026.08.20 ~ 2026.08.21",
+        startTime: "오전 10시", capacity: 6, status: "모집중", days: 3,
+      },
+      {
+        id: "T4", title: "누수탐지 장비 실무 교육", field: "누수탐지",
+        description: "청음식·가스식 누수탐지 장비 운용법을 현장 실습으로 배웁니다.\n배관 도면 판독과 누수 지점 특정, 고객 응대 요령까지 다룹니다.\n장비 대여가 가능하니 빈손으로 오셔도 됩니다.",
+        instructor: "성실한청소부", methods: ["현장교육", "실습교육"],
+        priceType: "유료", price: 300000, region: { sido: "부산", gu: "해운대구" }, location: "부산 해운대구",
+        contact: "010-9002-0003", createdBy: "seed_B4",
+        startDate: "2026.08.26", endDate: "2026.08.26", period: "2026.08.26 (당일)",
+        startTime: "오전 9시 30분", capacity: 10, status: "모집중", days: 5,
+      },
+      {
+        id: "T5", title: "에어컨 분해청소 창업 과정", field: "가전분해청소",
+        description: "벽걸이·스탠드·시스템 에어컨 분해청소 전 과정을 다루는 창업 대비 과정입니다.\n분해·세척·조립 순서와 살균 마감, 단가 책정까지 실전 중심으로 진행합니다.\n수료 후 바로 현장에 투입될 수 있도록 반복 실습합니다.",
+        instructor: "부지런한사장", methods: ["이론교육", "실습교육"],
+        priceType: "유료", price: 400000, region: { sido: "대전", gu: "서구" }, location: "대전 서구",
+        contact: "010-9002-0004", createdBy: "seed_B5",
+        startDate: "2026.09.02", endDate: "2026.09.04", period: "2026.09.02 ~ 2026.09.04",
+        startTime: "오전 10시", capacity: 8, status: "모집중", days: 8,
+      },
+      {
+        id: "T6", title: "줄눈 시공 원데이 클래스", field: "부분 인테리어",
+        description: "지난달 진행되어 마감된 줄눈 시공 원데이 클래스입니다.\n기존 줄눈 제거, 백시멘트·에폭시 시공, 발수 마감을 하루 만에 배웠습니다.\n다음 기수는 별도 공지 예정입니다.",
+        instructor: "똑똑한대표", methods: ["실습교육"],
+        priceType: "유료", price: 150000, region: { sido: "인천", gu: "부평구" }, location: "인천 부평구",
+        contact: "010-9002-0005", createdBy: "seed_B7",
+        startDate: "2026.06.28", endDate: "2026.06.28", period: "2026.06.28 (당일)",
+        startTime: "오후 2시", capacity: 15, status: "마감", days: 25,
+      },
     ];
     for (const t of TRAININGS) {
-      await db.collection("homepro_trainings").add({
-        ...t,
-        startDate: null,
-        endDate: null,
-        startTime: "협의",
-        capacity: null,
-        status: "모집중",
+      const { id, days, ...rest } = t;
+      await db.collection("homepro_trainings").doc(id).set({
+        ...rest,
         _isSeed: true,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: ts(daysAgo(days)),
       });
       created.posts += 1;
     }

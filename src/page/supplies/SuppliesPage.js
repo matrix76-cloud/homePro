@@ -47,31 +47,39 @@ const SuppliesPage = () => {
         ) : (
           supplies.map((item) => (
             <Card key={item.id} onClick={() => navigate(`/supplies/${item.id}`)}>
-              <CardHeader>
-                <ShopName>{item.name}</ShopName>
-              </CardHeader>
-              {item.description && (
-                <Description>{item.description}</Description>
-              )}
-              <InfoRow>
-                <InfoItem>
-                  <IoCallOutline size={14} color={THEME.muted} />
-                  <InfoText>{item.phone || "연락처 없음"}</InfoText>
-                </InfoItem>
-                <InfoItem>
-                  <IoTimeOutline size={14} color={THEME.muted} />
-                  <InfoText>{item.hours || "시간 미등록"}</InfoText>
-                </InfoItem>
-              </InfoRow>
-              <BottomRow>
-                <Location>{item.location || "지역 미등록"}</Location>
+              <HeaderZone>
+                <Avatar>
+                  <IoStorefrontOutline size={20} color={THEME.textSecondary} />
+                </Avatar>
+                <HeaderText>
+                  <ShopName>{item.name}</ShopName>
+                  <LocationMeta>
+                    <IoLocationOutline size={13} color={THEME.muted} />
+                    {item.location || "지역 미등록"}
+                  </LocationMeta>
+                </HeaderText>
                 {item.deliveryAvailable && (
-                  <DeliveryBadge>
+                  <DeliveryTag>
                     <IoCarOutline size={13} />
                     배송가능
-                  </DeliveryBadge>
+                  </DeliveryTag>
                 )}
-              </BottomRow>
+              </HeaderZone>
+              <Body>
+                {item.description && (
+                  <Description>{item.description}</Description>
+                )}
+                <InfoRow>
+                  <InfoItem>
+                    <IoCallOutline size={14} color={THEME.muted} />
+                    <InfoText>{item.phone || "연락처 없음"}</InfoText>
+                  </InfoItem>
+                  <InfoItem>
+                    <IoTimeOutline size={14} color={THEME.muted} />
+                    <InfoText>{item.hours || "시간 미등록"}</InfoText>
+                  </InfoItem>
+                </InfoRow>
+              </Body>
             </Card>
           ))
         )}
@@ -96,71 +104,107 @@ const Content = styled.div`
 const Card = styled.div`
   background: ${THEME.surface};
   border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
+    0 6px 20px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: transform 0.15s;
-  &:active { transform: scale(0.98); }
+  transition: transform 0.15s, box-shadow 0.15s;
+  &:active {
+    transform: scale(0.985);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
 `;
 
-const CardHeader = styled.div`
+/* 상단 옅은 헤더 존 — 명도차로 위계 부여 */
+const HeaderZone = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 12px;
+  padding: 16px 18px;
+  background: #fafbfc;
+  border-bottom: 1px solid ${THEME.border};
+`;
+
+const Avatar = styled.div`
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f2f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const HeaderText = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 `;
 
 const ShopName = styled.div`
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const LocationMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12.5px;
+  color: ${THEME.muted};
+`;
+
+/* 배송가능 — 뱃지(연배경+진글씨) 대신 단색 배경 + 흰 글씨 태그 */
+const DeliveryTag = styled.span`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fff;
+  background: ${THEME.primary};
+  padding: 4px 9px;
+  border-radius: 6px;
+`;
+
+const Body = styled.div`
+  padding: 16px 18px 18px;
 `;
 
 const Description = styled.div`
   font-size: 14px;
   color: ${THEME.textSecondary};
-  margin-bottom: 12px;
-  line-height: 1.5;
+  margin-bottom: 14px;
+  line-height: 1.55;
 `;
 
 const InfoRow = styled.div`
   display: flex;
-  gap: 16px;
-  margin-bottom: 10px;
+  gap: 18px;
 `;
 
 const InfoItem = styled.div`
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
 `;
 
 const InfoText = styled.span`
   font-size: 13px;
   color: ${THEME.muted};
-`;
-
-const BottomRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-const Location = styled.span`
-  font-size: 13px;
-  color: ${THEME.muted};
-`;
-
-const DeliveryBadge = styled.span`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: ${THEME.success};
-  background: #ecfdf5;
-  padding: 4px 10px;
-  border-radius: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 const EmptyState = styled.div`

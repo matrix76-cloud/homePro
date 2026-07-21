@@ -148,22 +148,31 @@ const MarketplaceCreatePage = () => {
   return (
     <SimpleBackLayout NAME="도급·양도·매매 등록" hideFooter>
       <PageWrap>
-        {/* 면책 + 필수 안내 + 금지 항목 */}
-        <DisclaimerBox>
-          <strong>플랫폼 안내</strong>
-          본 서비스는 거래 정보를 등록하고 거래 상대방을 연결하는 중개 정보 서비스입니다.
-          홈프로는 거래 당사자가 아니며, 계약체결 및 거래 책임은 당사자 간에 있습니다.
-        </DisclaimerBox>
+        {/* 플랫폼 안내 + 필수 안내 + 금지 항목 */}
+        <GuideBox>
+          <GuideBlock>
+            <GuideHead>플랫폼 안내</GuideHead>
+            <GuideText>
+              본 서비스는 거래 정보를 등록하고 거래 상대방을 연결하는 중개 정보 서비스입니다.
+              홈프로는 거래 당사자가 아니며, 계약체결 및 거래 책임은 당사자 간에 있습니다.
+            </GuideText>
+          </GuideBlock>
 
-        <NoticeBox $type="warn">
-          <NoticeTitle>등록 전 필수 안내</NoticeTitle>
-          {MUST_NOTICES.map((n) => <NoticeItem key={n}>· {n}</NoticeItem>)}
-        </NoticeBox>
+          <GuideDivider />
 
-        <NoticeBox $type="danger">
-          <NoticeTitle>금지 등록 항목 (위반 시 게시글 삭제·계정 정지·법적 조치)</NoticeTitle>
-          {FORBIDDEN_ITEMS.map((n) => <NoticeItem key={n}>· {n}</NoticeItem>)}
-        </NoticeBox>
+          <GuideBlock>
+            <GuideHead>등록 전 필수 안내</GuideHead>
+            {MUST_NOTICES.map((n) => <GuideItem key={n}>· {n}</GuideItem>)}
+          </GuideBlock>
+
+          <GuideDivider />
+
+          <GuideBlock>
+            <GuideHead $warn>금지 등록 항목</GuideHead>
+            <GuideSub>위반 시 게시글 삭제·계정 정지·법적 조치</GuideSub>
+            {FORBIDDEN_ITEMS.map((n) => <GuideItem key={n} $warn>· {n}</GuideItem>)}
+          </GuideBlock>
+        </GuideBox>
 
         {/* 거래유형 */}
         <Section>
@@ -267,39 +276,45 @@ const PageWrap = styled.div`
   min-height: 100%;
 `;
 
-const DisclaimerBox = styled.div`
+const GuideBox = styled.div`
   margin: 8px 12px;
-  padding: 12px 14px;
-  background: #FEF3C7;
-  border-radius: 10px;
-  font-size: 12px;
-  color: #92400E;
-  line-height: 1.5;
-  strong {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 13px;
-    color: #78350F;
-  }
+  padding: 16px;
+  background: #F5F6F8;
+  border-radius: 12px;
 `;
 
-const NoticeBox = styled.div`
-  margin: 6px 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  background: ${({ $type }) => ($type === "danger" ? "#FEE2E2" : "#DBEAFE")};
-  color: ${({ $type }) => ($type === "danger" ? "#991B1B" : "#1E3A8A")};
+const GuideBlock = styled.div``;
+
+const GuideDivider = styled.div`
+  height: 1px;
+  background: #E9EAEE;
+  margin: 12px 0;
 `;
 
-const NoticeTitle = styled.div`
+const GuideHead = styled.div`
   font-weight: 700;
   font-size: 13px;
+  color: ${({ $warn }) => ($warn ? "#C0392B" : THEME.text)};
   margin-bottom: 6px;
 `;
 
-const NoticeItem = styled.div``;
+const GuideSub = styled.div`
+  font-size: 11px;
+  color: ${THEME.muted};
+  margin-bottom: 6px;
+`;
+
+const GuideText = styled.div`
+  font-size: 12px;
+  color: ${THEME.muted};
+  line-height: 1.6;
+`;
+
+const GuideItem = styled.div`
+  font-size: 12px;
+  line-height: 1.7;
+  color: ${({ $warn }) => ($warn ? "#C0392B" : THEME.muted)};
+`;
 
 const Section = styled.div`
   background: #fff;

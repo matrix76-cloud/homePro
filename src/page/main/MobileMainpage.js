@@ -175,8 +175,8 @@ const formatOrderDate = (createdAt) => {
 };
 
 /* ================================================================
-   가로 스크롤 힌트 래퍼 — 표가 옆으로 밀린다는 걸 알려주는 세련된 신호
-   (우측 페이드 그라데이션 + 은은히 움직이는 우측 화살표. 끝까지 밀면 사라짐)
+   가로 스크롤 힌트 래퍼 — 표가 옆으로 더 있다는 걸 알려주는 담백한 신호
+   (우측 고정 페이드 + 작은 정적 chevron. 애니메이션·클릭 없음. 끝까지 밀면 사라짐)
    ================================================================ */
 const ScrollHintTable = ({ children }) => {
   const ref = useRef(null);
@@ -199,7 +199,7 @@ const ScrollHintTable = ({ children }) => {
       <TableWrap ref={ref} onScroll={check}>{children}</TableWrap>
       <ScrollFade $show={showHint} />
       <ScrollHintArrow $show={showHint}>
-        <IoChevronForward size={15} />
+        <IoChevronForward size={16} />
       </ScrollHintArrow>
     </TableScrollOuter>
   );
@@ -2227,30 +2227,18 @@ const ScrollFade = styled.div`
   transition: opacity 0.25s ease;
 `;
 
-const scrollNudge = keyframes`
-  0%, 100% { transform: translateX(-1px); }
-  50% { transform: translateX(2px); }
-`;
-
-/* 우측 화살표 인디케이터 — 은은히 좌우로 움직여 슬라이드 가능함을 암시 */
+/* 우측 chevron — 표가 더 있다는 정적 인디케이터 (애니메이션·클릭 없음) */
 const ScrollHintArrow = styled.div`
   position: absolute;
   top: 50%;
-  right: 8px;
+  right: 6px;
   transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: ${THEME.primary};
-  color: #fff;
   display: flex;
   align-items: center;
-  justify-content: center;
+  color: ${THEME.muted};
   pointer-events: none;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-  opacity: ${({ $show }) => ($show ? 0.95 : 0)};
+  opacity: ${({ $show }) => ($show ? 1 : 0)};
   transition: opacity 0.25s ease;
-  svg { animation: ${scrollNudge} 1.3s ease-in-out infinite; }
 `;
 
 const TableHeader = styled.div`
