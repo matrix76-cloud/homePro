@@ -92,6 +92,18 @@ const CommunityPage = () => {
                 <PostBadge>{activeTab === "이벤트/공지" ? "이벤트/공지" : "자유"}</PostBadge>
                 <PostTitle>{post.title}</PostTitle>
                 <PostContent>{post.content}</PostContent>
+                {post.images && post.images.length > 0 && (
+                  <ThumbRow>
+                    {post.images.slice(0, 3).map((url, i) => (
+                      <Thumb key={i}>
+                        <ThumbImg src={url} alt="" />
+                        {i === 2 && post.images.length > 3 && (
+                          <ThumbMore>+{post.images.length - 3}</ThumbMore>
+                        )}
+                      </Thumb>
+                    ))}
+                  </ThumbRow>
+                )}
                 <PostFooter>
                   <PostDate>{formatDate(post.createdAt)}</PostDate>
                   {type === "free" && (
@@ -175,6 +187,41 @@ const PostContent = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+`;
+
+const ThumbRow = styled.div`
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+`;
+
+const Thumb = styled.div`
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: ${THEME.background};
+`;
+
+const ThumbImg = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+`;
+
+const ThumbMore = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
 `;
 
 const PostFooter = styled.div`

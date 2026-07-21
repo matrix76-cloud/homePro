@@ -126,21 +126,21 @@ const ProListPage = () => {
   return (
     <MainListLayout NAME="전문가 리스트" hideFooter>
       <PageWrap>
-        {/* 그룹 필터 */}
-        <FilterRow>
-          <FilterChip $active={selectedGroup === "all"} onClick={() => { setSelectedGroup("all"); setSelectedCat("all"); }}>
+        {/* 그룹 필터 탭 (밑줄 인디케이터 + 가로 스크롤) */}
+        <TabScroll>
+          <TabItem $active={selectedGroup === "all"} onClick={() => { setSelectedGroup("all"); setSelectedCat("all"); }}>
             전체
-          </FilterChip>
+          </TabItem>
           {CATEGORY_GROUPS.map((g) => (
-            <FilterChip
+            <TabItem
               key={g.id}
               $active={selectedGroup === g.id}
               onClick={() => { setSelectedGroup(g.id); setSelectedCat("all"); }}
             >
               {g.label}
-            </FilterChip>
+            </TabItem>
           ))}
-        </FilterRow>
+        </TabScroll>
 
 
         {/* 결과 수 + 필터 */}
@@ -261,32 +261,32 @@ const PageWrap = styled.div`
   padding-bottom: 20px;
 `;
 
-const FilterRow = styled.div`
+const TabScroll = styled.div`
   display: flex;
-  gap: 8px;
-  padding: 14px 12px 2px;
+  gap: 2px;
+  padding: 0 8px;
+  background: ${THEME.surface};
+  border-bottom: 1px solid ${THEME.border};
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   &::-webkit-scrollbar { display: none; }
 `;
 
-const FilterChip = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
-  background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
-  color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
-  font-size: 13px;
-  font-weight: ${({ $active }) => $active ? 600 : 500};
+const TabItem = styled.button`
+  flex-shrink: 0;
+  padding: 14px 12px;
+  background: none;
+  border: none;
   font-family: inherit;
+  font-size: 15px;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  color: ${({ $active }) => ($active ? THEME.text : THEME.muted)};
+  border-bottom: 3px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
+  margin-bottom: -1px;
   white-space: nowrap;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.12s, border-color 0.12s;
-  &:active { opacity: 0.8; }
+  transition: color 0.15s;
+  &:active { opacity: 0.7; }
 `;
 
 const SubFilterRow = styled.div`

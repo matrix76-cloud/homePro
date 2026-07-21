@@ -10,6 +10,63 @@ import { useAuth } from "../../context/AuthContext";
 
 const TRADE_TYPES_FILTER = ["전체", "시공도급", "작업도급", "사업권양도", "물품매매", "장비매매", "업체인수양도", "설치도급", "공사도급"];
 
+// 이미지 개수별 레이아웃 분기 (1 / 2 / 3 / 4+)
+const CardImages = ({ images }) => {
+  const count = images.length;
+  if (count === 0) return null;
+
+  // 1장: 넓은 단일 이미지 (4:3)
+  if (count === 1) {
+    return (
+      <Gallery>
+        <SingleImg src={images[0]} alt="" loading="lazy" />
+      </Gallery>
+    );
+  }
+
+  // 2장: 좌우 2분할
+  if (count === 2) {
+    return (
+      <Gallery>
+        <DuoGrid>
+          {images.map((src, i) => (
+            <Cell key={i}><CellImg src={src} alt="" loading="lazy" /></Cell>
+          ))}
+        </DuoGrid>
+      </Gallery>
+    );
+  }
+
+  // 3장: 큰 1장(좌) + 작은 2장(우 상하)
+  if (count === 3) {
+    return (
+      <Gallery>
+        <TrioGrid>
+          <Cell $span><CellImg src={images[0]} alt="" loading="lazy" /></Cell>
+          <Cell><CellImg src={images[1]} alt="" loading="lazy" /></Cell>
+          <Cell><CellImg src={images[2]} alt="" loading="lazy" /></Cell>
+        </TrioGrid>
+      </Gallery>
+    );
+  }
+
+  // 4장 이상: 2x2 그리드 + 마지막 칸 "+N" 오버레이
+  const shown = images.slice(0, 4);
+  const remain = count - 4;
+  return (
+    <Gallery>
+      <QuadGrid>
+        {shown.map((src, i) => (
+          <Cell key={i}>
+            <CellImg src={src} alt="" loading="lazy" />
+            {i === 3 && remain > 0 && <MoreOverlay>+{remain}</MoreOverlay>}
+          </Cell>
+        ))}
+      </QuadGrid>
+    </Gallery>
+  );
+};
+
 const MarketplacePage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
@@ -51,7 +108,7 @@ const MarketplacePage = () => {
         ) : (
           <List>
             {filtered.map((it) => {
-              const hasImage = Array.isArray(it.images) && it.images.length > 0;
+              const images = Array.isArray(it.images) ? it.images.filter(Boolean) : [];
               return (
                 <Card key={it.id} onClick={() => navigate(`/marketplace/${it.id}`)}>
                   <CardBody>
@@ -66,13 +123,7 @@ const MarketplacePage = () => {
                       {it.contractType && <MetaItem>{it.contractType}</MetaItem>}
                     </CardMeta>
                     <CardDesc>{it.description?.slice(0, 60)}{it.description?.length > 60 ? "..." : ""}</CardDesc>
-                    {hasImage && (
-                      <ImageGrid>
-                        {it.images.slice(0, 4).map((src, i) => (
-                          <GridImg key={i} src={src} alt="" loading="lazy" />
-                        ))}
-                      </ImageGrid>
-                    )}
+                    <CardImages images={images} />
                   </CardBody>
                 </Card>
               );
@@ -144,20 +195,71 @@ const Card = styled.div`
   }
 `;
 
-const ImageGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+const Gallery = styled.div`
   margin-top: 14px;
+  border-radius: 12px;
+  overflow: hidden;
 `;
 
-const GridImg = styled.img`
+// 1장 — 넓은 단일 이미지 (4:3)
+const SingleImg = styled.img`
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: 10px;
   background: #F3F4F6;
   display: block;
+`;
+
+// 2장 — 좌우 2분할
+const DuoGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+`;
+
+// 3장 — 큰 1장 + 작은 2장 (좌: 세로 2칸 span)
+const TrioGrid = styled.div`
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  aspect-ratio: 4 / 3;
+`;
+
+// 4장+ — 2x2 그리드
+const QuadGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+`;
+
+const Cell = styled.div`
+  position: relative;
+  overflow: hidden;
+  background: #F3F4F6;
+  ${({ $span }) => $span && "grid-row: 1 / span 2;"}
+`;
+
+const CellImg = styled.img`
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+`;
+
+const MoreOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 `;
 
 const CardBody = styled.div`

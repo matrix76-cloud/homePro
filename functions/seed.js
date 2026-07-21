@@ -847,15 +847,28 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
     const COMMUNITY_POSTS = [
       // 자유게시판 (type: free)
       { type: "free", uid: "seed_B1", name: "용감한강아지", title: "특수청소 현장 팁 공유합니다",
-        content: "화재 현장 그을음 제거는 알칼리 세정제부터 시작하는 게 정석이에요. 다들 어떻게 하시나요?", like: 12, comment: 4, days: 1 },
+        content: "화재 현장 그을음 제거는 알칼리 세정제부터 시작하는 게 정석이에요. 다들 어떻게 하시나요?", like: 12, comment: 4, days: 1,
+        images: [
+          "https://picsum.photos/seed/community1a/600/600",
+          "https://picsum.photos/seed/community1b/600/600",
+        ] },
       { type: "free", uid: "seed_B3", name: "노련한장인", title: "타일 줄눈 백시멘트 추천 부탁",
         content: "요즘 쓰는 백시멘트 브랜드 중에 변색 적은 거 추천 좀 해주세요.", like: 8, comment: 6, days: 2 },
       { type: "free", uid: "seed_A1", name: "성실한청소부", title: "누수탐지 비용 보통 얼마 정도 하나요?",
-        content: "아파트 화장실 누수 같은데 탐지 비용 감이 안 잡히네요. 경험담 공유 부탁드립니다.", like: 5, comment: 9, days: 2 },
+        content: "아파트 화장실 누수 같은데 탐지 비용 감이 안 잡히네요. 경험담 공유 부탁드립니다.", like: 5, comment: 9, days: 2,
+        images: [
+          "https://picsum.photos/seed/community3a/600/600",
+        ] },
       { type: "free", uid: "seed_B2", name: "든든한기술자", title: "이사청소 성수기 인력 구하기 힘드네요",
         content: "3~4월 이사철엔 진짜 팀 꾸리기가 어렵습니다. 다들 어떻게 인력 관리하세요?", like: 15, comment: 7, days: 3 },
       { type: "free", uid: "seed_B4", name: "정직한작업자", title: "가전분해청소 후기 (에어컨)",
-        content: "벽걸이 에어컨 분해청소 마치고 나면 냄새 확 줄어드는 게 보람이네요.", like: 20, comment: 3, days: 4 },
+        content: "벽걸이 에어컨 분해청소 마치고 나면 냄새 확 줄어드는 게 보람이네요.", like: 20, comment: 3, days: 4,
+        images: [
+          "https://picsum.photos/seed/community4a/600/600",
+          "https://picsum.photos/seed/community4b/600/600",
+          "https://picsum.photos/seed/community4c/600/600",
+          "https://picsum.photos/seed/community4d/600/600",
+        ] },
       { type: "free", uid: "seed_B7", name: "성실프로C", title: "도배 초배지 꼭 발라야 할까요?",
         content: "합지 시공할 때 초배 생략하는 경우도 있던데 하자 안 나는지 궁금합니다.", like: 6, comment: 5, days: 5 },
       { type: "free", uid: "seed_A3", name: "똑똑한대표", title: "부분 인테리어 견적 여러 곳 비교해보니",
@@ -874,7 +887,7 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
       await db.collection("community_posts").add({
         title: c.title,
         content: c.content,
-        images: [],
+        images: c.images || [],
         type: c.type,
         authorUid: c.uid,
         authorName: c.name,

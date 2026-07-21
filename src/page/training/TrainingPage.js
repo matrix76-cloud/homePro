@@ -134,20 +134,17 @@ const CardTop = styled.div`
 
 const CategoryBadge = styled.span`
     font-size: 12px;
-    font-weight: 600;
-    color: ${THEME.primary};
-    background: ${THEME.purpleLight};
-    padding: 4px 10px;
+    font-weight: 400;
+    color: #fff;
+    background: ${THEME.primary};
+    padding: 3px 9px;
     border-radius: 20px;
 `;
 
 const StatusBadge = styled.span`
     font-size: 12px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 20px;
-    background: ${(p) => (p.$status === "마감" ? "#FEE2E2" : "#ECFDF5")};
-    color: ${(p) => (p.$status === "마감" ? THEME.danger : THEME.success)};
+    font-weight: 700;
+    color: ${(p) => (p.$status === "마감" ? THEME.muted : THEME.primary)};
 `;
 
 const CardTitle = styled.h3`
