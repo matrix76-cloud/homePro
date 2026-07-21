@@ -54,16 +54,6 @@ const MarketplacePage = () => {
               const hasImage = Array.isArray(it.images) && it.images.length > 0;
               return (
                 <Card key={it.id} onClick={() => navigate(`/marketplace/${it.id}`)}>
-                  <Thumb>
-                    {hasImage ? (
-                      <ThumbImg src={it.images[0]} alt={it.title} loading="lazy" />
-                    ) : (
-                      <ThumbPlaceholder>이미지 없음</ThumbPlaceholder>
-                    )}
-                    {hasImage && it.images.length > 1 && (
-                      <ThumbCount>{it.images.length}</ThumbCount>
-                    )}
-                  </Thumb>
                   <CardBody>
                     <CardTop>
                       <TypeLabel>{it.tradeType}</TypeLabel>
@@ -76,6 +66,13 @@ const MarketplacePage = () => {
                       {it.contractType && <MetaItem>{it.contractType}</MetaItem>}
                     </CardMeta>
                     <CardDesc>{it.description?.slice(0, 60)}{it.description?.length > 60 ? "..." : ""}</CardDesc>
+                    {hasImage && (
+                      <ImageGrid>
+                        {it.images.slice(0, 4).map((src, i) => (
+                          <GridImg key={i} src={src} alt="" loading="lazy" />
+                        ))}
+                      </ImageGrid>
+                    )}
                   </CardBody>
                 </Card>
               );
@@ -146,46 +143,20 @@ const Card = styled.div`
   }
 `;
 
-const Thumb = styled.div`
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  background: #F3F4F6;
-  overflow: hidden;
+const ImageGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 12px;
 `;
 
-const ThumbImg = styled.img`
+const GridImg = styled.img`
   width: 100%;
-  height: 100%;
+  aspect-ratio: 1;
   object-fit: cover;
+  border-radius: 8px;
+  background: #F3F4F6;
   display: block;
-`;
-
-const ThumbPlaceholder = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  color: #C4C6CC;
-`;
-
-const ThumbCount = styled.span`
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(0,0,0,0.55);
-  border-radius: 11px;
 `;
 
 const CardBody = styled.div`
