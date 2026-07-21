@@ -253,7 +253,7 @@ const Input = styled.input`
 
   &:focus {
     border-color: ${THEME.primaryLight};
-    box-shadow: 0 0 0 4px rgba(124, 92, 252, 0.10);
+    box-shadow: 0 0 0 4px rgba(37, 113, 227, 0.10);
   }
 `;
 

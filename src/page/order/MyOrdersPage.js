@@ -65,7 +65,7 @@ const STATUS_STYLE = {
   "접수":     { bg: "#3B82F6", color: "#fff" },
   "대기":     { bg: "#F97316", color: "#fff" },
   "선정대기": { bg: "#F59E0B", color: "#fff" },
-  "배정":     { bg: "#7C5CFC", color: "#fff" },
+  "배정":     { bg: "#2571e3", color: "#fff" },
   "완료":     { bg: "#10B981", color: "#fff" },
   "취소":     { bg: "#9CA3AF", color: "#fff" },
 };
@@ -917,7 +917,7 @@ const VARIANT_COLORS = {
   danger: "#EF4444",
   success: "#10B981",
   warning: "#F59E0B",
-  primary: "#7C5CFC",
+  primary: "#2571e3",
 };
 
 const ActionBtn = styled.button`

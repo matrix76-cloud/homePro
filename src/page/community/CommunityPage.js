@@ -176,8 +176,8 @@ const PostBadge = styled.div`
   display: inline-block;
   padding: 3px 8px;
   border-radius: 20px;
-  background: ${THEME.purpleLight};
-  color: ${THEME.purple};
+  background: ${THEME.primary};
+  color: #fff;
   font-size: 11px;
   font-weight: 400;
   margin-bottom: 10px;
@@ -262,7 +262,7 @@ const WriteBtn = styled.button`
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
-  box-shadow: 0 4px 12px rgba(124, 92, 252, 0.4);
+  box-shadow: 0 4px 12px rgba(37, 113, 227, 0.4);
   cursor: pointer;
   z-index: 100;
   &:active { opacity: 0.85; }

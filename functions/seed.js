@@ -58,6 +58,9 @@ const COLLECTIONS_TO_WIPE = [
   "phones",
   "homepro_subscriptions",
   "homepro_blacklist",
+  "homepro_pros",
+  "community_posts",
+  "homepro_contracts",
 ];
 
 const ORDER_SUBCOLLECTIONS = ["applicants", "quotes", "reviews", "messages"];
@@ -713,6 +716,185 @@ exports.seedTestData = onRequest({ region: REGION, cors: true, timeoutSeconds: 5
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     created.notifications = 2;
+
+    /* ── 19. 홈프로 업무분야 등록 (homepro_pros) ──
+       - 화면: CategoryProListPage(카테고리별 프로 목록), ProCategoryDetailPage(분야 상세),
+               ProCategoryListPage(업무분야 관리 — proCategoriesAtom = getProCategoryIds() 로 이 컬렉션 조회)
+       - 문서ID = `${uid}_${categoryId}` (ProService.registerProCategory 규칙과 동일)
+       - status "approved" 여야 목록/상세에 노출됨
+    */
+    const PRO_DOCS = [
+      { uid: "seed_B1", cat: CAT.special_cleaning, exp: 10, intro: "특수청소 10년, 화재·고독사 현장 복구 전문",
+        subs: ["화재복구", "곰팡이제거", "고독사현장"],
+        detail: { certifications: "특수청소업 등록", equipment: ["방역장비", "오존발생기", "고압세척기"] } },
+      { uid: "seed_B1", cat: CAT.leak_detection, exp: 10, intro: "누수탐지 정확하게, 비파괴 탐지 전문",
+        subs: ["아파트누수", "옥상누수"],
+        detail: { equipment: ["열화상카메라", "음향탐지기", "배관카메라"], certifications: "누수탐지 자격 보유" } },
+      { uid: "seed_B2", cat: CAT.move_cleaning, exp: 7, intro: "이사·입주청소 꼼꼼하게 마무리합니다",
+        subs: ["입주청소", "이사청소"],
+        detail: { equipment: ["스팀청소기", "고압세척기", "바닥광택기"], crewSize: 3 } },
+      { uid: "seed_B2", cat: CAT.partial_interior, exp: 7, intro: "도배·장판 부분 시공 전문",
+        subs: ["도배", "장판"],
+        detail: { scope: ["도배", "장판/마루"], materials: ["실크벽지", "합지벽지", "장판"] } },
+      { uid: "seed_B3", cat: CAT.leak_detection, exp: 20, intro: "20년 경력 누수·방수 장인",
+        subs: ["누수탐지", "방수시공"],
+        detail: { equipment: ["열화상카메라", "가압테스트기"], certifications: "방수기능사" } },
+      { uid: "seed_B3", cat: CAT.partial_interior, exp: 20, intro: "타일·욕실 시공 전문, 하자 없는 마감",
+        subs: ["타일", "욕실"],
+        detail: { scope: ["타일", "욕실"], materials: ["장판", "마루"] } },
+      { uid: "seed_B4", cat: CAT.appliance_cleaning, exp: 5, intro: "가전분해청소 전문 — 에어컨·세탁기·냉장고",
+        subs: ["에어컨", "세탁기", "냉장고"],
+        detail: { equipment: ["분해공구 세트", "스팀청소기", "전용 세정제"], certifications: "가전청소 교육 수료" } },
+      { uid: "seed_B5", cat: CAT.leak_detection, exp: 3, intro: "성실한 누수탐지, 당일 출장 가능",
+        subs: ["누수탐지"],
+        detail: { equipment: ["음향탐지기", "배관카메라"] } },
+      { uid: "seed_B6", cat: CAT.leak_detection, exp: 4, intro: "친절한 누수 상담·탐지",
+        subs: ["누수탐지"],
+        detail: { equipment: ["열화상카메라"] } },
+      { uid: "seed_B7", cat: CAT.partial_interior, exp: 6, intro: "부분 인테리어 시공 — 도배·타일",
+        subs: ["도배", "타일"],
+        detail: { scope: ["도배", "타일"], materials: ["실크벽지", "합지벽지"] } },
+      { uid: "seed_B8", cat: CAT.partial_interior, exp: 5, intro: "합리적 가격의 부분 시공",
+        subs: ["장판", "창호"],
+        detail: { scope: ["장판/마루", "창호"], materials: ["장판", "마루"] } },
+      { uid: "seed_B9", cat: CAT.partial_interior, exp: 4, intro: "깔끔한 마감, 부분 인테리어",
+        subs: ["도배", "주방"],
+        detail: { scope: ["도배", "주방"], materials: ["친환경벽지"] } },
+    ];
+    // uid → region 매핑 (ACCOUNTS 에서)
+    const uidRegion = {};
+    ACCOUNTS.forEach((a) => { uidRegion[a.uid] = a.region; });
+    for (const p of PRO_DOCS) {
+      const docId = `${p.uid}_${p.cat}`;
+      const region = uidRegion[p.uid] || null;
+      await db.collection("homepro_pros").doc(docId).set({
+        uid: p.uid,
+        categoryId: p.cat,
+        licenseUrl: `https://picsum.photos/seed/${docId}_lic/600/800`,
+        photoUrls: [
+          `https://picsum.photos/seed/${docId}_1/800/600`,
+          `https://picsum.photos/seed/${docId}_2/800/600`,
+          `https://picsum.photos/seed/${docId}_3/800/600`,
+        ],
+        detail: {
+          intro: p.intro,
+          experience: p.exp,
+          subcategories: p.subs,
+          ...p.detail,
+        },
+        region: region ? { sido: region.sido, gu: region.gu || "전체" } : null,
+        status: "approved",
+        appliedAt: ts(daysAgo(30)),
+        approvedAt: ts(daysAgo(28)),
+        _isSeed: true,
+      });
+    }
+    created.proDocs = PRO_DOCS.length;
+
+    /* ── 20. 커뮤니티 게시글 (community_posts) ──
+       - 화면: CommunityPage — getPosts(type) → community_posts where type==(free|notice) orderBy createdAt desc
+       - 자유게시판(type "free")이 비어있던 문제 해결. 공지(type "notice")도 몇 건 적재.
+    */
+    const COMMUNITY_POSTS = [
+      // 자유게시판 (type: free)
+      { type: "free", uid: "seed_B1", name: "용감한강아지", title: "특수청소 현장 팁 공유합니다",
+        content: "화재 현장 그을음 제거는 알칼리 세정제부터 시작하는 게 정석이에요. 다들 어떻게 하시나요?", like: 12, comment: 4, days: 1 },
+      { type: "free", uid: "seed_B3", name: "노련한장인", title: "타일 줄눈 백시멘트 추천 부탁",
+        content: "요즘 쓰는 백시멘트 브랜드 중에 변색 적은 거 추천 좀 해주세요.", like: 8, comment: 6, days: 2 },
+      { type: "free", uid: "seed_A1", name: "성실한청소부", title: "누수탐지 비용 보통 얼마 정도 하나요?",
+        content: "아파트 화장실 누수 같은데 탐지 비용 감이 안 잡히네요. 경험담 공유 부탁드립니다.", like: 5, comment: 9, days: 2 },
+      { type: "free", uid: "seed_B2", name: "든든한기술자", title: "이사청소 성수기 인력 구하기 힘드네요",
+        content: "3~4월 이사철엔 진짜 팀 꾸리기가 어렵습니다. 다들 어떻게 인력 관리하세요?", like: 15, comment: 7, days: 3 },
+      { type: "free", uid: "seed_B4", name: "정직한작업자", title: "가전분해청소 후기 (에어컨)",
+        content: "벽걸이 에어컨 분해청소 마치고 나면 냄새 확 줄어드는 게 보람이네요.", like: 20, comment: 3, days: 4 },
+      { type: "free", uid: "seed_B7", name: "성실프로C", title: "도배 초배지 꼭 발라야 할까요?",
+        content: "합지 시공할 때 초배 생략하는 경우도 있던데 하자 안 나는지 궁금합니다.", like: 6, comment: 5, days: 5 },
+      { type: "free", uid: "seed_A3", name: "똑똑한대표", title: "부분 인테리어 견적 여러 곳 비교해보니",
+        content: "같은 도배인데도 업체마다 견적 차이가 크더라구요. 비교 견적 꼭 받아보세요.", like: 9, comment: 2, days: 6 },
+      { type: "free", uid: "seed_B5", name: "성실프로A", title: "신입 프로 인사드립니다",
+        content: "누수탐지로 홈프로 시작했습니다. 선배님들 많이 도와주세요!", like: 18, comment: 11, days: 7 },
+      // 이벤트/공지 (type: notice)
+      { type: "notice", uid: "seed_B1", name: "홈프로 운영팀", title: "홈프로 정식 오픈 안내",
+        content: "홈프로 B2B 매칭 서비스가 정식 오픈했습니다. 많은 이용 바랍니다.", like: 0, comment: 0, days: 3 },
+      { type: "notice", uid: "seed_B1", name: "홈프로 운영팀", title: "추천인 보상 프로그램 개편",
+        content: "월 구독료의 3%를 추천인에게 캐시로 지급합니다.", like: 0, comment: 0, days: 5 },
+      { type: "notice", uid: "seed_B1", name: "홈프로 운영팀", title: "프로 등급제 안내",
+        content: "누적 포인트에 따라 루키~마스터 6단계 등급이 부여됩니다.", like: 0, comment: 0, days: 8 },
+    ];
+    for (const c of COMMUNITY_POSTS) {
+      await db.collection("community_posts").add({
+        title: c.title,
+        content: c.content,
+        images: [],
+        type: c.type,
+        authorUid: c.uid,
+        authorName: c.name,
+        likeCount: c.like,
+        commentCount: c.comment,
+        _isSeed: true,
+        createdAt: ts(daysAgo(c.days)),
+      });
+    }
+    created.communityPosts = COMMUNITY_POSTS.length;
+
+    /* ── 21. 계약 (homepro_contracts) ──
+       - 화면: MobileContractpage — homepro_contracts 를 clientUid/proUid 로 조회해 병합·최신순
+       - 오더/견적이 수락되면 생기는 "계약" 개념. status(진행중|완료) 탭으로 필터.
+       - 의뢰인(seed_A*) ↔ 홈프로(seed_B*) 조합. clientName/proName 은 시드 닉네임 사용.
+    */
+    const CONTRACTS = [
+      { orderId: "O1", categoryId: CAT.special_cleaning, categoryName: "특수청소",
+        title: "역삼동 화재현장 특수청소", clientUid: "seed_A1", clientName: "성실한청소부",
+        proUid: "seed_B1", proName: "용감한강아지", amount: 320000,
+        status: "진행중", location: "서울특별시 강남구 역삼동", days: 2 },
+      { orderId: "O5", categoryId: CAT.leak_detection, categoryName: "누수탐지",
+        title: "해운대 아파트 욕실 누수탐지", clientUid: "seed_A2", clientName: "부지런한사장",
+        proUid: "seed_B3", proName: "노련한장인", amount: 180000,
+        status: "진행중", location: "부산광역시 해운대구 우동", days: 3 },
+      { orderId: "O8", categoryId: CAT.partial_interior, categoryName: "부분 인테리어",
+        title: "서구 오피스텔 도배·장판 시공", clientUid: "seed_A3", clientName: "똑똑한대표",
+        proUid: "seed_B2", proName: "든든한기술자", amount: 950000,
+        status: "진행중", location: "대전광역시 서구 둔산동", days: 5 },
+      { orderId: "O11", categoryId: CAT.appliance_cleaning, categoryName: "가전분해청소",
+        title: "논산 단독주택 에어컨·세탁기 청소", clientUid: "seed_A4", clientName: "친절한매니저",
+        proUid: "seed_B4", proName: "정직한작업자", amount: 140000,
+        status: "진행중", location: "충청남도 논산시 취암동", days: 1 },
+      { orderId: "O14", categoryId: CAT.leak_detection, categoryName: "누수탐지",
+        title: "강남 상가 옥상 누수 방수시공", clientUid: "seed_A1", clientName: "성실한청소부",
+        proUid: "seed_B1", proName: "용감한강아지", amount: 460000,
+        status: "완료", location: "서울특별시 강남구 삼성동", days: 12 },
+      { orderId: "O15", categoryId: CAT.partial_interior, categoryName: "부분 인테리어",
+        title: "청주 원룸 타일·욕실 부분시공", clientUid: "seed_A5", clientName: "빠른오너",
+        proUid: "seed_B3", proName: "노련한장인", amount: 720000,
+        status: "완료", location: "충청북도 청주시 상당구", days: 18 },
+      { orderId: "O16", categoryId: CAT.move_cleaning, categoryName: "이사청소",
+        title: "대전 아파트 입주청소", clientUid: "seed_A3", clientName: "똑똑한대표",
+        proUid: "seed_B2", proName: "든든한기술자", amount: 280000,
+        status: "완료", location: "대전광역시 서구 만년동", days: 22 },
+      { orderId: "O18", categoryId: CAT.special_cleaning, categoryName: "특수청소",
+        title: "해운대 상가 방역·특수청소", clientUid: "seed_A2", clientName: "부지런한사장",
+        proUid: "seed_B1", proName: "용감한강아지", amount: 540000,
+        status: "완료", location: "부산광역시 해운대구 중동", days: 30 },
+    ];
+    for (const c of CONTRACTS) {
+      await db.collection("homepro_contracts").add({
+        orderId: c.orderId,
+        categoryId: c.categoryId,
+        categoryName: c.categoryName,
+        title: c.title,
+        clientUid: c.clientUid,
+        clientName: c.clientName,
+        proUid: c.proUid,
+        proName: c.proName,
+        amount: c.amount,
+        priceText: `${c.amount.toLocaleString()}원`,
+        status: c.status,
+        location: c.location,
+        _isSeed: true,
+        createdAt: ts(daysAgo(c.days)),
+      });
+    }
+    created.contracts = CONTRACTS.length;
 
     return res.json({ ok: true, created, accounts: ACCOUNTS.map(a => ({ id: a.id, uid: a.uid, phone: a.phone, password })) });
   } catch (e) {

@@ -13,7 +13,7 @@ export function getResponseBadge(avgResponseTime) {
     return { label: "30분 내 응답", color: "#3B82F6" };
   }
   if (avgResponseTime <= 3600) {
-    return { label: "1시간 내 응답", color: "#7C5CFC" };
+    return { label: "1시간 내 응답", color: "#2571e3" };
   }
 
   return null;

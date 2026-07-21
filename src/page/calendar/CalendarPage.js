@@ -325,7 +325,7 @@ const Fab = styled.button`
   width: 52px; height: 52px; border-radius: 50%;
   border: none; background: ${THEME.purple}; color: #fff;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; box-shadow: 0 4px 12px rgba(124, 92, 252, 0.4);
+  cursor: pointer; box-shadow: 0 4px 12px rgba(37, 113, 227, 0.4);
   &:active { transform: scale(0.95); }
   transition: transform 0.1s;
 `;

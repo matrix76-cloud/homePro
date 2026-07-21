@@ -2,8 +2,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getPrimaryUidByPhone, getUserProfileByUid } from "../../service/UserProfileService";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { getUserProfileByUid } from "../../service/UserProfileService";
 import { sendPasswordResetEmailByAddress } from "../../service/AuthService";
+import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 
 const SMS_CF_URL = "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend";
@@ -53,6 +55,52 @@ const providerLabel = (profile) => {
     return "이메일 가입";
 };
 
+// 계정 표시용 아이디 (이메일 없으면 닉네임/이름으로 폴백 — 시드 계정 대응)
+const displayId = (profile) => {
+    if (!profile) return "";
+    if (profile.email) return maskId(profile.email);
+    return profile.nickname || profile.name || "-";
+};
+
+// 전화번호(E.164)로 계정 UID 조회
+// - phones 인덱스: primaryUid 우선, 없으면 uid 필드 (시드 계정 호환)
+// - 실패 시 users 컬렉션의 phoneE164 필드로 직접 조회
+async function findUidByPhoneE164(phoneE164) {
+    const p = String(phoneE164 || "").trim();
+    if (!p) return null;
+
+    try {
+        const snap = await getDoc(doc(db, "phones", p));
+        if (snap.exists()) {
+            const d = snap.data() || {};
+            if (d.primaryUid) return d.primaryUid;
+            if (d.uid) return d.uid;
+        }
+    } catch (e) {}
+
+    try {
+        const qs = await getDocs(query(collection(db, "users"), where("phoneE164", "==", p)));
+        if (!qs.empty) return qs.docs[0].id;
+    } catch (e) {}
+
+    return null;
+}
+
+// 입력한 아이디가 계정과 일치하는지 (이메일/이메일 로컬/로그인아이디/닉네임/이름)
+function idMatchesProfile(typedId, profile) {
+    const t = String(typedId || "").trim().toLowerCase();
+    if (!t || !profile) return false;
+    const cand = [];
+    if (profile.email) {
+        cand.push(String(profile.email).toLowerCase());
+        cand.push(String(profile.email).split("@")[0].toLowerCase());
+    }
+    if (profile.loginId) cand.push(String(profile.loginId).toLowerCase());
+    if (profile.nickname) cand.push(String(profile.nickname).toLowerCase());
+    if (profile.name) cand.push(String(profile.name).toLowerCase());
+    return cand.includes(t);
+}
+
 const TAB_FIND_ID = "find_id";
 const TAB_RESET_PW = "reset_pw";
 
@@ -64,6 +112,7 @@ export default function MobileFindAccountcontainer() {
 
     const [busy, setBusy] = useState(false);
 
+    const [loginId, setLoginId] = useState("");
     const [phone, setPhone] = useState("");
     const [codeInput, setCodeInput] = useState("");
     const [devCode, setDevCode] = useState("");
@@ -82,6 +131,7 @@ export default function MobileFindAccountcontainer() {
     const isDev = useMemo(() => inTestRange(digits), [digits]);
 
     const resetAll = () => {
+        setLoginId("");
         setPhone("");
         setCodeInput("");
         setDevCode("");
@@ -127,8 +177,9 @@ export default function MobileFindAccountcontainer() {
 
     const canSendOtp = useMemo(() => {
         const d = onlyDigits(phone);
-        return (d.length === 10 || d.length === 11) && !otpBusy && !busy && secondsLeft <= 0;
-    }, [phone, otpBusy, busy, secondsLeft]);
+        const idOk = activeTab !== TAB_RESET_PW || loginId.trim().length > 0;
+        return (d.length === 10 || d.length === 11) && idOk && !otpBusy && !busy && secondsLeft <= 0;
+    }, [phone, loginId, activeTab, otpBusy, busy, secondsLeft]);
 
     const canVerifyOtp = useMemo(() => {
         return codeSent && !phoneVerified && codeInput.trim().length === 6 && !otpBusy && !busy;
@@ -206,39 +257,50 @@ export default function MobileFindAccountcontainer() {
 
             setBusy(true);
             const phoneE164 = sentToE164 || toE164KR(phone);
-            const primaryUid = await getPrimaryUidByPhone(phoneE164);
+            const uid = await findUidByPhoneE164(phoneE164);
 
-            if (!primaryUid) {
+            if (!uid) {
                 setResultError("이 전화번호로 가입된 계정이 없습니다.");
                 setBusy(false);
                 return;
             }
 
-            const profile = await getUserProfileByUid(primaryUid);
+            const profile = await getUserProfileByUid(uid);
             if (!profile) {
                 setResultError("계정 정보를 찾을 수 없습니다.");
                 setBusy(false);
                 return;
             }
 
-            setResultProfile(profile);
-
             if (activeTab === TAB_FIND_ID) {
+                setResultProfile(profile);
                 setResultMessage("");
             } else {
+                // 비밀번호 찾기 — 아이디 + 전화번호가 함께 일치해야 함
+                if (!idMatchesProfile(loginId, profile)) {
+                    setResultError("입력한 아이디와 전화번호가 일치하는 계정이 없습니다.");
+                    setBusy(false);
+                    return;
+                }
+
+                setResultProfile(profile);
+
                 const prov = String(profile.provider || "").toLowerCase();
-                const isEmailAccount = !prov || prov === "email" || prov === "link";
+                const isSocial = prov === "google" || prov === "kakao" || prov === "apple"
+                    || prov.includes("google") || prov.includes("kakao") || prov.includes("apple");
                 const email = profile.email;
 
-                if (isEmailAccount && email) {
+                if (email && !isSocial) {
                     const res = await sendPasswordResetEmailByAddress(email);
                     if (res.success) {
                         setResultMessage("비밀번호 재설정 링크를 이메일로 보냈습니다.");
                     } else {
                         setResultError(res.error_message || "재설정 이메일 발송에 실패했습니다.");
                     }
-                } else {
+                } else if (isSocial) {
                     setResultMessage(`이 계정은 ${providerLabel(profile)}으로 가입되었습니다.\n해당 소셜 로그인을 이용해주세요.`);
+                } else {
+                    setResultMessage("계정을 확인했습니다.\n등록된 이메일이 없어 재설정 메일을 보낼 수 없습니다. 관리자에게 문의해주세요.");
                 }
             }
         } catch (e) {
@@ -274,6 +336,25 @@ export default function MobileFindAccountcontainer() {
             <Card>
                 {!showResult ? (
                     <>
+                        {activeTab === TAB_RESET_PW ? (
+                            <Field style={{ marginBottom: 18 }}>
+                                <LabelRow>
+                                    <Label htmlFor="loginId">아이디</Label>
+                                    <RequiredMark>*</RequiredMark>
+                                </LabelRow>
+                                <Input
+                                    id="loginId"
+                                    type="text"
+                                    autoComplete="username"
+                                    placeholder="가입한 아이디"
+                                    value={loginId}
+                                    onChange={(e) => setLoginId(e.target.value)}
+                                    disabled={busy || otpBusy || phoneVerified}
+                                />
+                                <HelperText>아이디와 전화번호가 함께 일치해야 재설정할 수 있습니다.</HelperText>
+                            </Field>
+                        ) : null}
+
                         <Field>
                             <LabelRow>
                                 <Label htmlFor="phone">전화번호</Label>
@@ -356,7 +437,7 @@ export default function MobileFindAccountcontainer() {
                                         <ResultTitle>가입된 계정을 찾았습니다</ResultTitle>
                                         <ResultCard>
                                             <ResultLabel>아이디</ResultLabel>
-                                            <ResultValue>{maskId(resultProfile.email)}</ResultValue>
+                                            <ResultValue>{displayId(resultProfile)}</ResultValue>
                                             <ResultSub>{providerLabel(resultProfile)}</ResultSub>
                                         </ResultCard>
                                     </>

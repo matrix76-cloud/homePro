@@ -46,12 +46,12 @@ export const STORAGE_PATH_PREFIX = "homepro";
 
 // ─── 테마 색상 (숨고 스타일 기반) ───
 export const THEME = {
-    primary: "#7C5CFC",        // 홈프로 퍼플
-    primaryLight: "#A78BFA",   // 밝은 버전
-    primaryDark: "#5B3FD6",    // 어두운 버전
+    primary: "#2571e3",        // 홈프로 퍼플
+    primaryLight: "#6ba3f0",   // 밝은 버전
+    primaryDark: "#1b54b8",    // 어두운 버전
     accent: "#F59E0B",         // 포인트 (골드/오렌지)
-    purple: "#7C5CFC",        // 보라 CTA
-    purpleLight: "#EDE9FE",   // 보라 배경
+    purple: "#2571e3",        // 보라 CTA
+    purpleLight: "#e7f0fd",   // 보라 배경
     danger: "#EF4444",         // 위험/삭제
     success: "#10B981",        // 성공/완료
     text: "#191F28",           // 진한 텍스트

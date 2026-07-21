@@ -50,24 +50,36 @@ const MarketplacePage = () => {
           <Empty>등록된 게시글이 없습니다</Empty>
         ) : (
           <List>
-            {filtered.map((it) => (
-              <Card key={it.id} onClick={() => navigate(`/marketplace/${it.id}`)}>
-                <CardTop>
-                  <TypeBadge>{it.tradeType}</TypeBadge>
-                  <CardDate>{it.createdAt?.toDate ? new Date(it.createdAt.toDate()).toLocaleDateString() : ""}</CardDate>
-                </CardTop>
-                <CardTitle>{it.title}</CardTitle>
-                <CardMeta>
-                  <MetaItem>{it.region || "지역미정"}</MetaItem>
-                  {it.contractType && <MetaItem>{it.contractType}</MetaItem>}
-                  {Array.isArray(it.images) && it.images.length > 0 && (
-                    <MetaItem>사진 {it.images.length}</MetaItem>
-                  )}
-                  {it.amount > 0 && <MetaAmount>{Number(it.amount).toLocaleString()}원</MetaAmount>}
-                </CardMeta>
-                <CardDesc>{it.description?.slice(0, 80)}{it.description?.length > 80 ? "..." : ""}</CardDesc>
-              </Card>
-            ))}
+            {filtered.map((it) => {
+              const hasImage = Array.isArray(it.images) && it.images.length > 0;
+              return (
+                <Card key={it.id} onClick={() => navigate(`/marketplace/${it.id}`)}>
+                  <Thumb>
+                    {hasImage ? (
+                      <ThumbImg src={it.images[0]} alt={it.title} loading="lazy" />
+                    ) : (
+                      <ThumbPlaceholder>이미지 없음</ThumbPlaceholder>
+                    )}
+                    {hasImage && it.images.length > 1 && (
+                      <ThumbCount>{it.images.length}</ThumbCount>
+                    )}
+                  </Thumb>
+                  <CardBody>
+                    <CardTop>
+                      <TypeLabel>{it.tradeType}</TypeLabel>
+                      <CardDate>{it.createdAt?.toDate ? new Date(it.createdAt.toDate()).toLocaleDateString() : ""}</CardDate>
+                    </CardTop>
+                    <CardTitle>{it.title}</CardTitle>
+                    {it.amount > 0 && <CardPrice>{Number(it.amount).toLocaleString()}원</CardPrice>}
+                    <CardMeta>
+                      <MetaItem>{it.region || "지역미정"}</MetaItem>
+                      {it.contractType && <MetaItem>{it.contractType}</MetaItem>}
+                    </CardMeta>
+                    <CardDesc>{it.description?.slice(0, 60)}{it.description?.length > 60 ? "..." : ""}</CardDesc>
+                  </CardBody>
+                </Card>
+              );
+            })}
           </List>
         )}
 
@@ -125,8 +137,8 @@ const List = styled.div`
 
 const Card = styled.div`
   background: #fff;
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 16px;
+  overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   cursor: pointer;
   &:active {
@@ -134,20 +146,63 @@ const Card = styled.div`
   }
 `;
 
+const Thumb = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #F3F4F6;
+  overflow: hidden;
+`;
+
+const ThumbImg = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+`;
+
+const ThumbPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #C4C6CC;
+`;
+
+const ThumbCount = styled.span`
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,0.55);
+  border-radius: 11px;
+`;
+
+const CardBody = styled.div`
+  padding: 14px;
+`;
+
 const CardTop = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 `;
 
-const TypeBadge = styled.span`
-  font-size: 11px;
+const TypeLabel = styled.span`
+  font-size: 12px;
   font-weight: 700;
-  color: #fff;
-  background: ${THEME.primary};
-  padding: 3px 10px;
-  border-radius: 12px;
+  color: ${THEME.primary};
 `;
 
 const CardDate = styled.span`
@@ -159,30 +214,27 @@ const CardTitle = styled.div`
   font-size: 15px;
   font-weight: 700;
   color: ${THEME.text};
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+`;
+
+const CardPrice = styled.div`
+  font-size: 17px;
+  font-weight: 800;
+  color: ${THEME.text};
+  margin-bottom: 8px;
 `;
 
 const CardMeta = styled.div`
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   margin-bottom: 6px;
   flex-wrap: wrap;
 `;
 
 const MetaItem = styled.span`
-  font-size: 11px;
+  font-size: 12px;
   color: ${THEME.muted};
-  background: #F3F4F6;
-  padding: 2px 8px;
-  border-radius: 8px;
-`;
-
-const MetaAmount = styled.span`
-  font-size: 13px;
-  font-weight: 700;
-  color: ${THEME.primary};
-  margin-left: auto;
 `;
 
 const CardDesc = styled.div`
@@ -209,7 +261,7 @@ const Fab = styled.button`
   background: ${THEME.primary};
   border: none;
   border-radius: 30px;
-  box-shadow: 0 4px 12px rgba(124, 92, 252, 0.4);
+  box-shadow: 0 4px 12px rgba(37, 113, 227, 0.4);
   cursor: pointer;
   z-index: 100;
 `;

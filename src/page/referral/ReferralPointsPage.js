@@ -65,7 +65,7 @@ const ReviewIcon = () => (
 
 const RULE_STYLE = {
   referral_invite:    { icon: InviteIcon, bg: "#ECFDF5", accent: "#10B981" },
-  referral_signup:    { icon: GiftIcon,   bg: "#EDE9FE", accent: "#8B5CF6" },
+  referral_signup:    { icon: GiftIcon,   bg: "#e7f0fd", accent: "#8B5CF6" },
   order_create:       { icon: OrderIcon,  bg: "#EFF6FF", accent: "#3B82F6" },
   order_complete:     { icon: CheckIcon,  bg: "#ECFDF5", accent: "#10B981" },
   community_post:     { icon: PenIcon,    bg: "#FFFBEB", accent: "#F59E0B" },

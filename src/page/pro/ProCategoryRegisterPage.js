@@ -11,9 +11,62 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { regionToDisplayName } from "../../utility/regionUtils";
-import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
+import {
+    TbSparkles, TbSpray, TbShieldCheck, TbWashMachine, TbBed, TbBuildingStore,
+    TbRipple, TbDropletSearch, TbDroplet, TbTools, TbFlame, TbAirConditioning,
+    TbPlugConnected, TbBolt, TbBug, TbBiohazard, TbBulb, TbSofa, TbHomeCog,
+    TbHammer, TbTrash, TbSchool, TbBackhoe, TbClipboardCheck, TbPackage,
+    TbDeviceDesktop, TbCar, TbBuildingSkyscraper, TbTruckDelivery, TbDeviceTv,
+    TbShieldHalfFilled, TbMoonStars, TbHeartHandshake,
+} from "react-icons/tb";
 
 const STEP_LABELS = ["분야 선택", "상세 정보"];
+
+// 카테고리 ID → 디테일 라인 아이콘 (모노톤, currentColor 상속)
+const DETAIL_ICONS = {
+    // 청소
+    move_cleaning: TbSparkles,
+    regular_cleaning: TbSpray,
+    special_cleaning: TbShieldCheck,
+    appliance_cleaning: TbWashMachine,
+    mattress_care: TbBed,
+    business_cleaning: TbBuildingStore,
+    // 배관/설비
+    drain_pipe: TbRipple,
+    leak_detection: TbDropletSearch,
+    leak_construction: TbDroplet,
+    home_repair: TbTools,
+    boiler: TbFlame,
+    // 설치/전기
+    aircon_install: TbAirConditioning,
+    appliance_install: TbPlugConnected,
+    electrical: TbBolt,
+    pest_control: TbBug,
+    mold: TbBiohazard,
+    electrical_work: TbBulb,
+    // 시공
+    partial_interior: TbSofa,
+    full_remodel: TbHomeCog,
+    demolition: TbHammer,
+    waste: TbTrash,
+    training: TbSchool,
+    // 장비/서비스
+    heavy_equipment: TbBackhoe,
+    inspection: TbClipboardCheck,
+    supplies: TbPackage,
+    computer: TbDeviceDesktop,
+    auto: TbCar,
+    // 생활
+    realestate: TbBuildingSkyscraper,
+    moving: TbTruckDelivery,
+    appliance_rental: TbDeviceTv,
+    insurance: TbShieldHalfFilled,
+    fortune: TbMoonStars,
+    // 하위호환 (기존 ID)
+    professional_cleaning: TbSpray,
+    plumbing: TbRipple,
+    worker_call: TbHeartHandshake,
+};
 
 const ProCategoryRegisterPage = () => {
     const navigate = useNavigate();
@@ -218,7 +271,7 @@ const ProCategoryRegisterPage = () => {
                                         {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
                                             const isRegistered = proCategories.includes(cat.id);
                                             const isSelected = selectedCat === cat.id;
-                                            const Icon = CATEGORY_ICONS[cat.id];
+                                            const Icon = DETAIL_ICONS[cat.id];
                                             return (
                                                 <CatGridItem
                                                     key={cat.id}
@@ -227,7 +280,7 @@ const ProCategoryRegisterPage = () => {
                                                     onClick={() => handleSelectCat(cat.id)}
                                                 >
                                                     <CatGridIcon $selected={isSelected} $disabled={isRegistered}>
-                                                        {Icon ? <Icon /> : cat.shortName.charAt(0)}
+                                                        {Icon ? <Icon /> : <CatFallbackChar>{cat.shortName.charAt(0)}</CatFallbackChar>}
                                                         {isRegistered && (
                                                             <CatCheckBadge>
                                                                 <IoCheckmarkCircle size={16} color={THEME.success} />
@@ -565,21 +618,34 @@ const CatGridItem = styled.div`
 
 const CatGridIcon = styled.div`
     position: relative;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: ${THEME.background};
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 6px;
-    svg { width: 36px; height: 36px; }
+    margin-bottom: 8px;
+    color: ${({ $disabled, $selected }) =>
+        $disabled ? THEME.muted : $selected ? THEME.primary : THEME.textSecondary};
+    transition: color 0.15s;
+    svg {
+        width: 48px;
+        height: 48px;
+        stroke-width: 1.6;
+    }
+`;
+
+const CatFallbackChar = styled.div`
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
 `;
 
 const CatCheckBadge = styled.div`
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: -2px;
+    right: -2px;
     background: #fff;
     border-radius: 50%;
     line-height: 0;

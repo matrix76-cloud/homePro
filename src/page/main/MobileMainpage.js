@@ -44,16 +44,16 @@ const matchPointPeriod = (createdAt, period) => {
   }
 };
 
-/* ─── 오더 상태 ─── */
+/* ─── 오더 상태 ─── (숨고풍: 뱃지 배경 없이 텍스트+색으로 담백하게) */
 const STATUS_TABS = ["접수", "대기", "마감", "취소"];
-const STATUS_STYLE = {
-  "접수": { bg: "#F59E0B", color: "#fff" },
-  "대기": { bg: "#9CA3AF", color: "#fff" },
-  "마감": { bg: "#3B82F6", color: "#fff" },
-  "취소": { bg: THEME.danger, color: "#fff" },
-  "요청": { bg: "#F59E0B", color: "#fff" },
-  "진행": { bg: THEME.primary, color: "#fff" },
-  "완료": { bg: THEME.success, color: "#fff" },
+const STATUS_COLOR = {
+  "접수": THEME.primary,        // 새 오더 — 포인트 블루
+  "대기": THEME.textSecondary,  // 진행 대기 — 무채색
+  "마감": THEME.muted,          // 종료 — 연한 무채색
+  "취소": THEME.danger,         // 취소 — 레드
+  "요청": THEME.primary,
+  "진행": THEME.primary,
+  "완료": THEME.success,
 };
 
 /* ─── 필터 옵션 ─── */
@@ -175,6 +175,37 @@ const formatOrderDate = (createdAt) => {
 };
 
 /* ================================================================
+   가로 스크롤 힌트 래퍼 — 표가 옆으로 밀린다는 걸 알려주는 세련된 신호
+   (우측 페이드 그라데이션 + 은은히 움직이는 우측 화살표. 끝까지 밀면 사라짐)
+   ================================================================ */
+const ScrollHintTable = ({ children }) => {
+  const ref = useRef(null);
+  const [showHint, setShowHint] = useState(false);
+  const check = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const overflow = el.scrollWidth - el.clientWidth;
+    setShowHint(overflow > 8 && el.scrollLeft < overflow - 8);
+  }, []);
+  useEffect(() => {
+    check();
+    const el = ref.current;
+    if (!el) return;
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [check, children]);
+  return (
+    <TableScrollOuter>
+      <TableWrap ref={ref} onScroll={check}>{children}</TableWrap>
+      <ScrollFade $show={showHint} />
+      <ScrollHintArrow $show={showHint}>
+        <IoChevronForward size={15} />
+      </ScrollHintArrow>
+    </TableScrollOuter>
+  );
+};
+
+/* ================================================================
    사용자 모드 메인
    ================================================================ */
 const UserMain = ({ navigate, nickname }) => (
@@ -278,7 +309,7 @@ const WorkerRequestList = ({ navigate }) => {
           <EmptySubText>+ 버튼을 눌러 첫 요청을 등록해보세요</EmptySubText>
         </EmptyWrap>
       ) : (
-        <TableWrap>
+        <ScrollHintTable>
           <TableHeader>
             <ThCell $flex={1} style={{textAlign:"center"}}>일자</ThCell>
             <ThCell $flex={1.4} style={{textAlign:"center"}}>카테고리</ThCell>
@@ -300,7 +331,7 @@ const WorkerRequestList = ({ navigate }) => {
               </TableRow>
             );
           })}
-        </TableWrap>
+        </ScrollHintTable>
       )}
       <FloatBtn onClick={() => navigate("/order/worker-request/create")}>+ 인력 요청</FloatBtn>
     </>
@@ -726,7 +757,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               <EmptySubText>새로운 요청이 들어오면 알려드릴게요!</EmptySubText>
             </EmptyWrap>
           ) : (
-            <TableWrap>
+            <ScrollHintTable>
               <TableHeader>
                 <ThCell $flex={0.9} style={{textAlign:"center"}}>날짜</ThCell>
                 <ThCell $flex={0.7} style={{textAlign:"center"}}>상태</ThCell>
@@ -739,7 +770,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
                 const dateLabel = formatOrderDate(order.createdAt);
                 const status = mapStatus(order.orderStatus);
-                const sStyle = STATUS_STYLE[status] || STATUS_STYLE["접수"];
+                const statusColor = STATUS_COLOR[status] || STATUS_COLOR["접수"];
                 const isUrgent = dateLabel === "긴급";
                 const regionLabel = formatRegionLabel(order.location);
                 const priceLabel = formatPriceType(order);
@@ -753,7 +784,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                       <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
-                      <TdStatusBadge style={{background: sStyle.bg, color: sStyle.color}}>{status}</TdStatusBadge>
+                      <TdStatus style={{color: statusColor}}>
+                        <StatusDot style={{background: statusColor}} />
+                        {status}
+                      </TdStatus>
                     </TdCell>
                     <TdCell $flex={1.2} style={{alignItems:"center"}}>
                       <TdCatName>{order.categoryName}</TdCatName>
@@ -770,7 +804,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                   </TableRow>
                 );
               })}
-            </TableWrap>
+            </ScrollHintTable>
           )}
 
         <FloatBtn onClick={() => navigate("/order/create")}>+ 예약접수</FloatBtn>
@@ -807,23 +841,23 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
           <CardTitle>홈프로 가이드</CardTitle>
           <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
           <HScrollRow>
-            <GuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
-              <GuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><GuideSubIcon><IoSendOutline size={18} color="#B45309" /></GuideSubIcon></GuideIconWrap>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/1")}>
+              <GuideIconWrap><IoDocumentTextOutline size={32} color={THEME.primary} /><GuideSubIcon><IoSendOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
               <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
             </GuideCard>
-            <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/2")}>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/2")}>
               <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><GuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
               <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
             </GuideCard>
-            <GuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
-              <GuideIconWrap><IoWalletOutline size={32} color={THEME.primaryDark} /><GuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></GuideSubIcon></GuideIconWrap>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/3")}>
+              <GuideIconWrap><IoWalletOutline size={32} color={THEME.primary} /><GuideSubIcon><IoCashOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
               <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
             </GuideCard>
-            <GuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
-              <GuideIconWrap><IoCameraOutline size={32} color="#059669" /></GuideIconWrap>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/4")}>
+              <GuideIconWrap><IoCameraOutline size={32} color={THEME.primary} /></GuideIconWrap>
               <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
             </GuideCard>
-            <GuideCard $bg="#EDE9FE" onClick={() => navigate("/guide/5")}>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/5")}>
               <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></GuideIconWrap>
               <GuideText>등급 시스템{"\n"}포인트로 올리세요</GuideText>
             </GuideCard>
@@ -2165,12 +2199,58 @@ const OrderActionBtn = styled.button`
 
 /* ─── 테이블 스타일 ─── */
 
-const TableWrap = styled.div`
+/* 가로 스크롤 힌트 컨테이너 (페이드/화살표를 표 위에 얹기 위한 기준) */
+const TableScrollOuter = styled.div`
+  position: relative;
   margin: 0 12px;
+`;
+
+const TableWrap = styled.div`
   background: ${THEME.surface};
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid ${THEME.border};
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+/* 우측 페이드 — 표가 오른쪽으로 더 있다는 신호 */
+const ScrollFade = styled.div`
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 40px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(255,255,255,0), ${THEME.surface} 72%);
+  opacity: ${({ $show }) => ($show ? 1 : 0)};
+  transition: opacity 0.25s ease;
+`;
+
+const scrollNudge = keyframes`
+  0%, 100% { transform: translateX(-1px); }
+  50% { transform: translateX(2px); }
+`;
+
+/* 우측 화살표 인디케이터 — 은은히 좌우로 움직여 슬라이드 가능함을 암시 */
+const ScrollHintArrow = styled.div`
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: ${THEME.primary};
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  opacity: ${({ $show }) => ($show ? 0.95 : 0)};
+  transition: opacity 0.25s ease;
+  svg { animation: ${scrollNudge} 1.3s ease-in-out infinite; }
 `;
 
 const TableHeader = styled.div`
@@ -2319,14 +2399,21 @@ const TdDate = styled.div`
   white-space: nowrap;
 `;
 
-const TdStatusBadge = styled.span`
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 4px;
+/* 상태: 뱃지 배경 없이 작은 점 + 텍스트+색 (숨고풍 담백) */
+const TdStatus = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   font-weight: 600;
-  text-align: center;
   white-space: nowrap;
+`;
+
+const StatusDot = styled.span`
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
 `;
 
 const TdAmount = styled.div`
@@ -2618,7 +2705,7 @@ const CalAddBtn = styled.button`
 
 const AICard = styled.div`
   margin: 12px 12px 0;
-  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark || "#5B3FD6"});
+  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark || "#1b54b8"});
   border-radius: 12px;
   padding: 18px 20px;
   display: flex;

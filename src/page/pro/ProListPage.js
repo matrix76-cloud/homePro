@@ -145,7 +145,7 @@ const ProListPage = () => {
 
         {/* 결과 수 + 필터 */}
         <ResultRow>
-          <ResultCount>{filteredPros.length}명의 전문가</ResultCount>
+          <ResultCount><b>{filteredPros.length}</b>명의 전문가</ResultCount>
           <DistFilterBtn $active={selectedDist !== "all"} onClick={() => setShowDistFilter(true)}>
             <IoFunnelOutline size={14} />
             {selectedDist === "all" ? "거리" : `${selectedDist}km`}
@@ -193,6 +193,8 @@ const ProListPage = () => {
             const avgRating = pro.avgRating || profile.avgRating;
             const reviewCount = pro.reviewCount || profile.reviewCount || 0;
 
+            const hasRating = avgRating != null && Number(avgRating) > 0;
+
             return (
               <ProCard key={pro.id} onClick={() => navigate("/biz-profile", { state: { viewUid: pro.uid } })}>
                 <ProCardTop>
@@ -206,19 +208,35 @@ const ProListPage = () => {
                       <ProName>{name}</ProName>
                       <GradeBadge grade={profile.grade} size="sm" />
                     </ProNameRow>
-                    <ProCat>{getCatName(pro.categoryId)}</ProCat>
-                    {region?.sido && (
-                      <ProRegion>
-                        <IoLocationOutline size={12} />
-                        {region.sido} {region.gu || ""}
-                      </ProRegion>
+                    <ProMeta>
+                      <ProCat>{getCatName(pro.categoryId)}</ProCat>
+                      {region?.sido && (
+                        <>
+                          <MetaDot />
+                          <ProRegion>
+                            <IoLocationOutline size={12} />
+                            {region.sido} {region.gu || ""}
+                          </ProRegion>
+                        </>
+                      )}
+                    </ProMeta>
+                    {hasRating ? (
+                      <ProRating>
+                        <IoStar size={13} color={THEME.text} />
+                        <RatingScore>{Number(avgRating).toFixed(1)}</RatingScore>
+                        <RatingCount>리뷰 {reviewCount}</RatingCount>
+                      </ProRating>
+                    ) : (
+                      <ProRating>
+                        <RatingCount>신규 전문가</RatingCount>
+                      </ProRating>
                     )}
                   </ProInfo>
                   <ProActions>
                     <FavBtn onClick={(e) => toggleFavorite(e, pro.uid)}>
                       {favorites.has(pro.uid)
-                        ? <IoStar size={18} color="#F59E0B" />
-                        : <IoStarOutline size={18} color={THEME.muted} />
+                        ? <IoHeart size={20} color={THEME.primary} />
+                        : <IoHeartOutline size={20} color={THEME.muted} />
                       }
                     </FavBtn>
                   </ProActions>
@@ -246,7 +264,7 @@ const PageWrap = styled.div`
 const FilterRow = styled.div`
   display: flex;
   gap: 8px;
-  padding: 12px 12px 0;
+  padding: 14px 12px 2px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   &::-webkit-scrollbar { display: none; }
@@ -256,17 +274,18 @@ const FilterChip = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 14px;
-  border-radius: 0;
+  padding: 8px 16px;
+  border-radius: 20px;
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: ${({ $active }) => $active ? 600 : 500};
   font-family: inherit;
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
   &:active { opacity: 0.8; }
 `;
 
@@ -297,24 +316,28 @@ const ResultRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 4px;
+  padding: 14px 16px 6px;
 `;
 
 const ResultCount = styled.div`
   font-size: 13px;
-  color: ${THEME.muted};
+  color: ${THEME.textSecondary};
+  b {
+    color: ${THEME.text};
+    font-weight: 700;
+  }
 `;
 
 const DistFilterBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 18px;
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
-  background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.surface};
-  color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 10px;
+  background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
+  color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
+  font-size: 12px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -386,37 +409,40 @@ const EmptyText = styled.div`
 
 const ProCard = styled.div`
   background: ${THEME.surface};
-  margin: 6px 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  margin: 10px 12px;
+  padding: 16px;
+  border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
   cursor: pointer;
+  transition: background 0.12s;
   &:active { background: ${THEME.background}; }
 `;
 
 const ProCardTop = styled.div`
   display: flex;
+  align-items: center;
   gap: 14px;
 `;
 
 const ProPhoto = styled.img`
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  background: ${THEME.background};
 `;
 
 const ProAvatar = styled.div`
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: ${THEME.primary}20;
-  color: ${THEME.primary};
+  background: ${THEME.background};
+  color: ${THEME.textSecondary};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
   flex-shrink: 0;
 `;
@@ -429,35 +455,75 @@ const ProInfo = styled.div`
 const ProNameRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 `;
 
 const ProName = styled.div`
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.text};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const ProMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+`;
+
+const MetaDot = styled.span`
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: ${THEME.border};
+  flex-shrink: 0;
 `;
 
 const ProCat = styled.div`
-  font-size: 11px;
-  color: ${THEME.primary};
+  font-size: 12px;
+  color: ${THEME.textSecondary};
   font-weight: 500;
-  margin-top: 1px;
+  flex-shrink: 0;
 `;
 
 const ProRegion = styled.div`
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 11px;
+  gap: 2px;
+  font-size: 12px;
   color: ${THEME.muted};
-  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const ProRating = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+`;
+
+const RatingScore = styled.span`
+  font-size: 12px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const RatingCount = styled.span`
+  font-size: 12px;
+  color: ${THEME.muted};
 `;
 
 const ProIntro = styled.div`
-  font-size: 12px;
+  font-size: 13px;
   color: ${THEME.textSecondary};
-  margin-top: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid ${THEME.border};
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;

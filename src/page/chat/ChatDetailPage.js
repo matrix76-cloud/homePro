@@ -1390,7 +1390,7 @@ const StatusStepBtn = styled.button`
 const ORDER_STATUS_COLORS = {
   "접수": "#3B82F6",
   "등록": "#3B82F6",
-  "배정": "#7C5CFC",
+  "배정": "#2571e3",
   "선정대기": "#F59E0B",
   "업체선택대기": "#F59E0B",
   "완료": "#10B981",
@@ -1975,7 +1975,7 @@ const SchedBubbleMemo = styled.p`
 /* ─── 여러 일정 묶음 (타임라인) ─── */
 
 const SchedulesBubble = styled.div`
-  background: ${({ $isMine }) => ($isMine ? PRIMARY : "#F5F3FF")};
+  background: ${({ $isMine }) => ($isMine ? PRIMARY : "#f2f7fe")};
   border-radius: 14px;
   padding: 12px 14px;
   max-width: 280px;
@@ -2042,7 +2042,7 @@ const BubbleCalBar = styled.div`
 const SchedsTimelineItem = styled.div`
   padding: 8px 0;
   &:not(:last-child) {
-    border-bottom: 1px solid ${({ $isMine }) => $isMine ? "rgba(255,255,255,0.15)" : "rgba(124, 92, 252, 0.1)"};
+    border-bottom: 1px solid ${({ $isMine }) => $isMine ? "rgba(255,255,255,0.15)" : "rgba(37, 113, 227, 0.1)"};
   }
 `;
 
@@ -2445,7 +2445,7 @@ const QuoteCard = styled.div`
   background: ${THEME.surface};
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(124, 92, 252, 0.12);
+  box-shadow: 0 2px 12px rgba(37, 113, 227, 0.12);
 `;
 
 const QuoteCardTopBar = styled.div`

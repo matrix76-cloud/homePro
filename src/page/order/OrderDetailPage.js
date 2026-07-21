@@ -1035,7 +1035,7 @@ const DetailText = styled.div`
 `;
 
 /* ── 활동 이력 ── */
-const LOG_DOT_COLORS = { cancel: "#EF4444", quote: "#7C5CFC", select: "#7C5CFC", accept: "#10B981", apply: "#3B82F6", status: "#F59E0B" };
+const LOG_DOT_COLORS = { cancel: "#EF4444", quote: "#2571e3", select: "#2571e3", accept: "#10B981", apply: "#3B82F6", status: "#F59E0B" };
 const LogRow = styled.div`
   display: flex;
   gap: 10px;

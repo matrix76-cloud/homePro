@@ -159,9 +159,9 @@ const Chip = styled.button`
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
-  border: 1px solid ${({ $active, theme }) => ($active ? "#7C5CFC" : "#E5E7EB")};
+  border: 1px solid ${({ $active, theme }) => ($active ? "#2571e3" : "#E5E7EB")};
   border-radius: 20px;
-  background: ${({ $active }) => ($active ? "#7C5CFC" : "#fff")};
+  background: ${({ $active }) => ($active ? "#2571e3" : "#fff")};
   color: ${({ $active }) => ($active ? "#fff" : "#6B7280")};
   cursor: pointer;
 `;

@@ -11,7 +11,7 @@ import { SEED_ACCOUNTS, loginAsSeed, logoutReview, ANON, getSavedAcct, saveAcct,
 // 좌=실제 화면(iframe) + 핀 찍기(화면공유로 지도까지 캡처) / 우상=기획 / 우하=기록 스레드(Firestore).
 const ALL = DOMAINS.flatMap((d) => d.screens.map((s) => ({ ...s, domain: d.key })))
 
-const CORAL = '#e2664a'
+const CORAL = '#2571e3'
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -299,7 +299,7 @@ export default function AuthReview() {
           </div>
         )}
         {e.pins && e.pins.length > 0 && (
-          <button onClick={() => { setViewPins(e.pins); setPinMode(false) }} style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#e2664a', background: '#fdf2ee', border: '1px solid #f5d3c6', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+          <button onClick={() => { setViewPins(e.pins); setPinMode(false) }} style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#2571e3', background: '#fdf2ee', border: '1px solid #f5d3c6', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
             화면 핀 {e.pins.length}개 위치 보기
           </button>
         )}
@@ -375,7 +375,7 @@ export default function AuthReview() {
                 onClick={() => nav(`/review/${r.id}`)}
                 style={{
                   fontSize: 13, fontWeight: 700, padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
-                  border: `1px solid ${nUn > 0 ? '#e2664a' : r.id === cur.id ? C.ink : C.line}`,
+                  border: `1px solid ${nUn > 0 ? '#2571e3' : r.id === cur.id ? C.ink : C.line}`,
                   background: r.id === cur.id ? C.ink : '#fff', color: r.id === cur.id ? '#fff' : C.gray,
                 }}
               >
@@ -392,13 +392,13 @@ export default function AuthReview() {
         <div style={{ flex: 'none', width: isLanding ? 1000 : isPC ? 780 : 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {cur.path && !isPC && (
             <div style={{ width: 360, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <button onClick={() => { setPinMode((v) => !v); setViewPins(null) }} style={{ fontSize: 13, fontWeight: 700, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pinMode ? '#e2664a' : C.line}`, background: pinMode ? '#e2664a' : '#fff', color: pinMode ? '#fff' : C.gray }}>
+              <button onClick={() => { setPinMode((v) => !v); setViewPins(null) }} style={{ fontSize: 13, fontWeight: 700, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pinMode ? '#2571e3' : C.line}`, background: pinMode ? '#2571e3' : '#fff', color: pinMode ? '#fff' : C.gray }}>
                 {pinMode ? '핀 찍는 중 · 화면 클릭' : '핀 찍기'}
               </button>
               {draftPins.length > 0 && (
                 <>
                   <span style={{ fontSize: 13, color: C.gray, fontWeight: 600 }}>핀 {draftPins.length}
-                    <button onClick={() => setDraftPins([])} style={{ marginLeft: 5, color: '#e2664a', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>지우기</button>
+                    <button onClick={() => setDraftPins([])} style={{ marginLeft: 5, color: '#2571e3', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>지우기</button>
                   </span>
                   <button onClick={captureWithPins} disabled={!!busy} title="화면공유로 지도까지 캡처 + 핀 박아 첨부" style={{ fontSize: 13, fontWeight: 800, padding: '5px 12px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', border: 'none', background: '#2b3440', color: '#fff' }}>
                     {busy || '핀 박아 캡처'}
@@ -434,12 +434,12 @@ export default function AuthReview() {
             <div style={{ position: 'relative', width: 360, height: '100%', maxHeight: 720, borderRadius: 20, overflow: 'hidden', border: `1px solid ${C.line}`, boxShadow: '0 8px 30px rgba(0,0,0,0.10)', background: '#fff' }}>
               <iframe ref={iframeRef} key={`${cur.id}_${authUid || 'anon'}`} title={cur.name} src={previewSrc(cur.path)} style={{ width: '100%', height: '100%', border: 'none', pointerEvents: pinMode ? 'none' : 'auto' }} />
               {(pinMode || viewPins) && (
-                <div onClick={pinMode ? addPin : undefined} style={{ position: 'absolute', inset: 0, cursor: pinMode ? 'crosshair' : 'default', background: pinMode ? 'rgba(252,91,65,0.04)' : 'transparent' }}>
+                <div onClick={pinMode ? addPin : undefined} style={{ position: 'absolute', inset: 0, cursor: pinMode ? 'crosshair' : 'default', background: pinMode ? 'rgba(37,113,227,0.05)' : 'transparent' }}>
                   {(pinMode ? draftPins : viewPins || []).map((p, i) => (
                     <div key={i} style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -100%)', pointerEvents: 'none' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div style={{ background: '#e2664a', color: '#fff', fontSize: 12, fontWeight: 800, padding: '2px 7px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{p.label || i + 1}</div>
-                        <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '7px solid #e2664a' }} />
+                        <div style={{ background: '#2571e3', color: '#fff', fontSize: 12, fontWeight: 800, padding: '2px 7px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{p.label || i + 1}</div>
+                        <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '7px solid #2571e3' }} />
                       </div>
                     </div>
                   ))}
@@ -540,8 +540,8 @@ export default function AuthReview() {
   )
 }
 
-// 도우미(DouME) 톤 — 슬레이트 그레이(#4b5767 계열) 무채색 팔레트
-const C = { ink: '#2b3440', ink2: '#4b5767', gray: '#6b7684', gray2: '#98a2b0', line: '#e6e9ee', line2: '#d6dbe2', bg: '#f7f8fa', card: '#ffffff' }
+// 도우미(DouME) 톤 — 슬레이트 그레이(#3a4351 계열) 무채색 팔레트
+const C = { ink: '#2b3440', ink2: '#3a4351', gray: '#566070', gray2: '#98a2b0', line: '#e6e9ee', line2: '#d6dbe2', bg: '#f7f8fa', card: '#ffffff' }
 // 미답변 N 뱃지 — 형 질문에 답글 안 달린 화면/도메인 표시(포인트 원 + 흰 숫자)
 const NBADGE = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, marginLeft: 5, padding: '0 4px', borderRadius: 8, background: CORAL, color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: 1, verticalAlign: 'middle' }
 // 작성자별 카드 색 — 형/대표님=지시(선택) · 카스=답변(표시용)

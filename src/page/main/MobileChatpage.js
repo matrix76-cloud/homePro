@@ -132,21 +132,21 @@ const MobileChatpage = () => {
         </Tab>
       </TabRow>
       {activeTab === "open" ? (
-        <OpenCatRow>
+        <CatTabRow>
           {OPEN_CATEGORIES.map((c) => (
-            <OpenCatChip key={c} $active={openCat === c} onClick={() => setOpenCat(c)}>
+            <CatTab key={c} $active={openCat === c} onClick={() => setOpenCat(c)}>
               {c}
-            </OpenCatChip>
+            </CatTab>
           ))}
-        </OpenCatRow>
+        </CatTabRow>
       ) : (
-        <OpenCatRow>
+        <CatTabRow>
           {NORMAL_CATEGORIES.map((c) => (
-            <OpenCatChip key={c} $active={normalCat === c} onClick={() => setNormalCat(c)}>
+            <CatTab key={c} $active={normalCat === c} onClick={() => setNormalCat(c)}>
               {c}
-            </OpenCatChip>
+            </CatTab>
           ))}
-        </OpenCatRow>
+        </CatTabRow>
       )}
       <RoomList>
         {loading ? (
@@ -258,28 +258,32 @@ const Tab = styled.button`
 
 const RoomList = styled.div`
   padding: 0 12px;
+  min-height: 320px;
 `;
 
-const OpenCatRow = styled.div`
+const CatTabRow = styled.div`
   display: flex;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 18px;
+  padding: 0 12px;
+  border-bottom: 1px solid ${THEME.border};
   overflow-x: auto;
   &::-webkit-scrollbar { display: none; }
   scrollbar-width: none;
 `;
 
-const OpenCatChip = styled.button`
+const CatTab = styled.button`
   flex-shrink: 0;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  border-radius: 20px;
-  background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
-  color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
+  padding: 11px 2px;
+  margin-bottom: -1px;
+  border: none;
+  border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
+  background: none;
+  font-size: 13px;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   cursor: pointer;
   white-space: nowrap;
+  &:active { opacity: 0.7; }
 `;
 
 const EmptyState = styled.div`

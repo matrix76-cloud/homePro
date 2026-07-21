@@ -142,7 +142,7 @@ const Header = styled.div`
 const Title = styled.h1`
   font-size: 22px;
   margin: 0 0 4px;
-  color: #5B3FD6;
+  color: #1b54b8;
 `;
 const Sub = styled.div`
   font-size: 13px;
@@ -176,7 +176,7 @@ const UrlBtn = styled.button`
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 700;
-  background: #7C5CFC;
+  background: #2571e3;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -200,7 +200,7 @@ const SectionTitle = styled.h3`
   color: #444;
   margin: 18px 0 10px;
   padding-bottom: 6px;
-  border-bottom: 2px solid #EDE9FE;
+  border-bottom: 2px solid #e7f0fd;
 `;
 const Grid = styled.div`
   display: grid;
@@ -216,8 +216,8 @@ const Card = styled.button`
   cursor: pointer;
   transition: all 0.15s;
   &:hover:not(:disabled) {
-    border-color: #7C5CFC;
-    box-shadow: 0 2px 8px rgba(124, 92, 252, 0.15);
+    border-color: #2571e3;
+    box-shadow: 0 2px 8px rgba(37, 113, 227, 0.15);
   }
   &:disabled {
     opacity: 0.5;
@@ -229,7 +229,7 @@ const Tag = styled.div`
   font-size: 10px;
   font-weight: 700;
   color: #fff;
-  background: ${({ $type }) => ($type === "pro" ? "#7C5CFC" : $type === "pool" ? "#9CA3AF" : "#3B82F6")};
+  background: ${({ $type }) => ($type === "pro" ? "#2571e3" : $type === "pool" ? "#9CA3AF" : "#3B82F6")};
   padding: 2px 8px;
   border-radius: 10px;
   margin-bottom: 6px;
@@ -251,6 +251,6 @@ const SubMeta = styled.div`
 `;
 const Loading = styled.div`
   font-size: 10px;
-  color: #7C5CFC;
+  color: #2571e3;
   margin-top: 4px;
 `;

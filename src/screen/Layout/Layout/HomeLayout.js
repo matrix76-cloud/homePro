@@ -289,7 +289,7 @@ const Spinner = styled.div`
   width: 20px;
   height: 20px;
   border: 2px solid #E5E7EB;
-  border-top-color: #7C5CFC;
+  border-top-color: #2571e3;
   border-radius: 50%;
   animation: ${spinAnim} 0.8s linear infinite;
   flex-shrink: 0;

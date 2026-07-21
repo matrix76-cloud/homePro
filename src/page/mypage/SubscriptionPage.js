@@ -113,7 +113,7 @@ const Wrap = styled.div`
 const HeroBox = styled.div`
   margin: 12px;
   padding: 24px 20px;
-  background: linear-gradient(135deg, #7C5CFC 0%, #A78BFA 100%);
+  background: linear-gradient(135deg, #2571e3 0%, #6ba3f0 100%);
   border-radius: 16px;
   color: #fff;
   text-align: center;
