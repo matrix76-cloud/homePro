@@ -48,13 +48,13 @@ const matchPointPeriod = (createdAt, period) => {
 const STATUS_TABS = ["접수", "대기", "마감", "취소"];
 // 상태별 색상 통일 (대표 지시 7/23) — 접수=보라(형 룰 충돌로 확인 전까지 블루)/배정=노랑/완료=초록/취소=붉은/대기=회색/선정대기=연노랑
 const STATUS_COLOR = {
-  "접수": THEME.primary,        // TODO: 보라 확정 시 교체
+  "접수": "#8B5CF6",            // 보라계열 (대표 지시)
   "대기": "#9CA3AF",            // 회색
   "선정대기": "#E0A800",        // 연노랑(텍스트 가독성 위해 진한 노랑)
   "배정": "#F59E0B",            // 노랑
   "마감": THEME.muted,
   "취소": THEME.danger,         // 붉은
-  "요청": THEME.primary,
+  "요청": "#8B5CF6",
   "진행": "#F59E0B",
   "완료": THEME.success,        // 초록
 };
