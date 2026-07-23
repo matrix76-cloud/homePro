@@ -61,13 +61,15 @@ const STATUS_DESC = {
 };
 
 /* ─── 상태 배지 스타일 ─── */
+// 상태별 색상 통일 (대표 지시 7/23): 접수=보라계열(형 보라금지 룰과 충돌 → 확인 전까지 블루 유지)
+// 배정=노랑 / 완료=현재(초록) / 취소=붉은 / 대기=회색 / 선정대기=연노랑
 const STATUS_STYLE = {
-  "접수":     { bg: "#3B82F6", color: "#fff" },
-  "대기":     { bg: "#F97316", color: "#fff" },
-  "선정대기": { bg: "#F59E0B", color: "#fff" },
-  "배정":     { bg: "#2571e3", color: "#fff" },
-  "완료":     { bg: "#10B981", color: "#fff" },
-  "취소":     { bg: "#9CA3AF", color: "#fff" },
+  "접수":     { bg: "#3B82F6", color: "#fff" },   // TODO: 보라 확정 시 교체
+  "대기":     { bg: "#9CA3AF", color: "#fff" },   // 회색
+  "선정대기": { bg: "#FCD34D", color: "#7A5300" }, // 연노랑
+  "배정":     { bg: "#F59E0B", color: "#fff" },   // 노랑
+  "완료":     { bg: "#10B981", color: "#fff" },   // 초록(유지)
+  "취소":     { bg: "#EF4444", color: "#fff" },   // 붉은
 };
 
 // Firestore 상태값 → 표시 상태 매핑
@@ -236,6 +238,7 @@ export const MyOrdersContent = () => {
 
   const periodFiltered = allOrders.filter((o) => matchPeriod(o.createdAt, activePeriod, dateRange));
   const filtered = showAllTabs ? periodFiltered : periodFiltered.filter((o) => activeTabs.includes(viewStatus(o)));
+  const nowMs = Date.now();
 
   const submitCancelRequest = async () => {
     if (!cancelReqReason) { alert("사유를 선택해주세요"); return; }
@@ -369,10 +372,7 @@ export const MyOrdersContent = () => {
             );
           })}
         </TabRow>
-        <TabDescWrap>
-          {singleTab && <TabDescArrow $idx={STATUS_TABS.indexOf(singleTab)} />}
-          <TabDesc>{singleTab ? STATUS_DESC[singleTab] : "선택한 상태의 오더를 함께 표시합니다. (상태를 여러 개 선택할 수 있어요)"}</TabDesc>
-        </TabDescWrap>
+        {/* 안내메시지 박스 제거 (형 지시 7/23) */}
 
         {/* 달력 뷰 (월 단위) */}
         {viewMode === "calendar" ? (
@@ -433,7 +433,7 @@ export const MyOrdersContent = () => {
                   <ChatListWrap>
                     <ChatListTitle>
                       {order.createdBy === uid
-                        ? `견적 받은 프로 ${chats.length}명`
+                        ? (order.matchedProUid ? "배정된 프로" : `견적 받은 프로 ${chats.length}명`)
                         : "견적 대화"
                       }
                     </ChatListTitle>
@@ -471,7 +471,18 @@ export const MyOrdersContent = () => {
                             견적가 통보
                           </ActionBtn>
                         )}
-                        <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>
+                        {(() => {
+                          const assignedMs = order.assignedAt?.toMillis?.() || (order.assignedAt ? new Date(order.assignedAt).getTime() : 0);
+                          const canComplete = assignedMs > 0 && (nowMs - assignedMs >= 2 * 3600 * 1000);
+                          return (
+                            <ActionBtn
+                              $variant="success"
+                              disabled={!canComplete}
+                              style={!canComplete ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+                              onClick={(e) => { if (!canComplete) { e.stopPropagation(); window.alert("배정 후 2시간이 지나야 작업완료가 가능합니다."); return; } handleStatusChange(e, order.id, "완료"); }}
+                            >작업완료</ActionBtn>
+                          );
+                        })()}
                         <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
                       </>
                     )}

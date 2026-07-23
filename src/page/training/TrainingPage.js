@@ -23,7 +23,7 @@ const formatPrice = (price) => {
     return `${Number(price).toLocaleString()}원`;
 };
 
-const TrainingPage = () => {
+const TrainingPage = ({ embedded } = {}) => {
     const navigate = useNavigate();
     const { userData } = useAuth();
     const { user } = useContext(UserContext);
@@ -49,8 +49,10 @@ const TrainingPage = () => {
 
     const filtered = trainings;
 
+    const Wrapper = embedded ? React.Fragment : MainListLayout;
+    const wrapperProps = embedded ? {} : { NAME: "기술전수교육", footerType: "training", hideBack: true, location: regionName };
     return (
-        <MainListLayout NAME="기술전수교육" footerType="training" hideBack location={regionName}>
+        <Wrapper {...wrapperProps}>
             {/* 리스트 */}
             <ListWrap>
                 {loading ? (
@@ -100,7 +102,7 @@ const TrainingPage = () => {
 
             {/* FAB */}
             <FloatBtn onClick={() => navigate("/training/create")}>+ 교육 등록</FloatBtn>
-        </MainListLayout>
+        </Wrapper>
     );
 };
 

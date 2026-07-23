@@ -928,9 +928,23 @@ export const OrderCreateContent = () => {
                 if (!group) return null;
                 const etcKey = `${selectedService}:기타`;
                 const etcOn = selectedSub.includes(etcKey);
+                const selForService = selectedSub.filter((k) => k.startsWith(`${selectedService}:`));
+                const collapsed = selForService.length > 0;
                 return (
                   <div style={{ marginTop: 14 }}>
                     <GroupLabel>{selectedService} 종목 선택</GroupLabel>
+                    {collapsed ? (
+                      <ChipGrid>
+                        {selForService.map((k) => (
+                          <Chip key={k} $selected onClick={() => handleSubToggle(k)}>
+                            {k.split(":")[1] || k}
+                          </Chip>
+                        ))}
+                        <ServiceChangeLink onClick={() => { setSelectedSub(selectedSub.filter((k) => !k.startsWith(`${selectedService}:`))); setCustomInput(""); }}>
+                          다시 선택
+                        </ServiceChangeLink>
+                      </ChipGrid>
+                    ) : (
                     <ChipGrid>
                       {group.items.filter((it) => !/^(기타|입력|직접입력|기타\[ ?입력 ?\])$/.test(it)).map((item) => {
                         const uniqueKey = `${selectedService}:${item}`;
@@ -942,6 +956,7 @@ export const OrderCreateContent = () => {
                       })}
                       <Chip $selected={etcOn} onClick={() => handleSubToggle(etcKey)}>기타</Chip>
                     </ChipGrid>
+                    )}
                     {etcOn && (
                       <Input
                         style={{ marginTop: 8 }}
@@ -1550,7 +1565,7 @@ const AddressEmbedWrap = styled.div`
 `;
 
 const OrderCreatePage = () => (
-  <SimpleBackLayout NAME="견적서 요청">
+  <SimpleBackLayout NAME="예약접수">
     <OrderCreateContent />
   </SimpleBackLayout>
 );

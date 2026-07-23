@@ -46,14 +46,17 @@ const matchPointPeriod = (createdAt, period) => {
 
 /* ─── 오더 상태 ─── (숨고풍: 뱃지 배경 없이 텍스트+색으로 담백하게) */
 const STATUS_TABS = ["접수", "대기", "마감", "취소"];
+// 상태별 색상 통일 (대표 지시 7/23) — 접수=보라(형 룰 충돌로 확인 전까지 블루)/배정=노랑/완료=초록/취소=붉은/대기=회색/선정대기=연노랑
 const STATUS_COLOR = {
-  "접수": THEME.primary,        // 새 오더 — 포인트 블루
-  "대기": THEME.textSecondary,  // 진행 대기 — 무채색
-  "마감": THEME.muted,          // 종료 — 연한 무채색
-  "취소": THEME.danger,         // 취소 — 레드
+  "접수": THEME.primary,        // TODO: 보라 확정 시 교체
+  "대기": "#9CA3AF",            // 회색
+  "선정대기": "#E0A800",        // 연노랑(텍스트 가독성 위해 진한 노랑)
+  "배정": "#F59E0B",            // 노랑
+  "마감": THEME.muted,
+  "취소": THEME.danger,         // 붉은
   "요청": THEME.primary,
-  "진행": THEME.primary,
-  "완료": THEME.success,
+  "진행": "#F59E0B",
+  "완료": THEME.success,        // 초록
 };
 
 /* ─── 필터 옵션 ─── */
@@ -788,6 +791,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                     </TdCell>
                     <TdCell $flex={1.2} style={{alignItems:"center"}}>
                       <TdCatName>{order.categoryName}</TdCatName>
+                      {(order.subcategory || order.subcategories?.[0]) && (
+                        <TdSubName>{order.subcategory || order.subcategories[0]}</TdSubName>
+                      )}
                     </TdCell>
                     <TdCell $flex={1.0} style={{alignItems:"center"}}>
                       <TdLocation>{regionLabel}</TdLocation>
@@ -2323,6 +2329,16 @@ const TdCatName = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+`;
+
+const TdSubName = styled.div`
+  font-size: 11px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
 `;
 
 const TdBadge = styled.span`

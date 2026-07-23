@@ -67,7 +67,7 @@ const CardImages = ({ images }) => {
   );
 };
 
-const MarketplacePage = () => {
+const MarketplacePage = ({ embedded } = {}) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const [items, setItems] = useState([]);
@@ -88,8 +88,10 @@ const MarketplacePage = () => {
 
   const filtered = filter === "전체" ? items : items.filter((i) => i.tradeType === filter);
 
+  const Wrapper = embedded ? React.Fragment : SimpleBackLayout;
+  const wrapperProps = embedded ? {} : { NAME: "도급·양도·매매", hideFooter: true };
   return (
-    <SimpleBackLayout NAME="도급·양도·매매" hideFooter>
+    <Wrapper {...wrapperProps}>
       <Wrap>
         {!isSubscriber && (
           <GateNotice>유료구독 회원만 게시글 작성 및 열람이 가능합니다</GateNotice>
@@ -133,7 +135,7 @@ const MarketplacePage = () => {
 
         <Fab onClick={() => navigate("/marketplace/create")}>+ 등록</Fab>
       </Wrap>
-    </SimpleBackLayout>
+    </Wrapper>
   );
 };
 

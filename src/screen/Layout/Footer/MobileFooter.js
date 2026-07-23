@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct, IoSwapHorizontal, IoSwapHorizontalOutline } from "react-icons/io5";
+import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct, IoSwapHorizontal, IoSwapHorizontalOutline, IoBusiness, IoBusinessOutline } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../../utility/constants";
 import { useAuth } from "../../../context/AuthContext";
@@ -17,11 +17,11 @@ const TAB_LIST = [
     InactiveIcon: IoHomeOutline,
   },
   {
-    key: "training",
-    label: "기술전수교육",
-    path: "/training",
-    ActiveIcon: IoBook,
-    InactiveIcon: IoBookOutline,
+    key: "brokerage",
+    label: "공동중개",
+    path: "/brokerage",
+    ActiveIcon: IoBusiness,
+    InactiveIcon: IoBusinessOutline,
   },
   {
     key: MOBILEMAINMENU.CHAT,
@@ -31,11 +31,11 @@ const TAB_LIST = [
     InactiveIcon: IoChatbubbleEllipsesOutline,
   },
   {
-    key: "marketplace",
-    label: "도급.양도.매매",
-    path: "/marketplace",
-    ActiveIcon: IoSwapHorizontal,
-    InactiveIcon: IoSwapHorizontalOutline,
+    key: "education",
+    label: "교육.장터",
+    path: "/education-market",
+    ActiveIcon: IoBook,
+    InactiveIcon: IoBookOutline,
   },
   {
     key: MOBILEMAINMENU.CONFIG,

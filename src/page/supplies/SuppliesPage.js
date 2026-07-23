@@ -10,7 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 
-const SuppliesPage = () => {
+const SuppliesPage = ({ embedded } = {}) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { user } = useContext(UserContext);
@@ -34,8 +34,10 @@ const SuppliesPage = () => {
     return () => unsubscribe();
   }, []);
 
+  const Wrapper = embedded ? React.Fragment : MainListLayout;
+  const wrapperProps = embedded ? {} : { NAME: "자재.장비", footerType: "supplies", hideBack: true, location: regionName };
   return (
-    <MainListLayout NAME="자재.장비" footerType="supplies" hideBack location={regionName}>
+    <Wrapper {...wrapperProps}>
       <Content>
         {loading ? (
           <EmptyState>불러오는 중...</EmptyState>
@@ -86,7 +88,7 @@ const SuppliesPage = () => {
       </Content>
 
       <FloatBtn onClick={() => navigate("/supplies/create")}>+ 업체 등록</FloatBtn>
-    </MainListLayout>
+    </Wrapper>
   );
 };
 

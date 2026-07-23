@@ -36,6 +36,8 @@ import MarketplacePage from "./page/order/MarketplacePage";
 import MarketplaceCreatePage from "./page/order/MarketplaceCreatePage";
 import MarketplaceDetailPage from "./page/order/MarketplaceDetailPage";
 import SubscriptionPage from "./page/mypage/SubscriptionPage";
+import EducationMarketPage from "./page/main/EducationMarketPage";
+import BrokeragePage from "./page/main/BrokeragePage";
 import WalletRegisterPage from "./page/mypage/WalletRegisterPage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
 import LandingPage from "./page/landing/LandingPage";
@@ -258,6 +260,8 @@ const AnimatedRoutes = () => {
             {/* Pro */}
             <Route path="/biz-profile" element={wrap(<BizProfilePage />)} />
             <Route path="/pro/list" element={wrap(<ProListPage />)} />
+            <Route path="/education-market" element={wrap(<EducationMarketPage />)} />
+            <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
             <Route path="/training" element={wrap(<TrainingPage />)} />
             <Route path="/training/create" element={wrap(<TrainingCreatePage />)} />
             <Route path="/training/:id" element={wrap(<TrainingDetailPage />)} />
