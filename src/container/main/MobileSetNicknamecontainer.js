@@ -40,6 +40,19 @@ export default function MobileSetNicknamecontainer() {
     const [busy, setBusy] = useState(false);
     const [generating, setGenerating] = useState(false);
     const triedNames = useRef(new Set());
+    const [userType, setUserType] = useState("customer"); // "customer" | "business"
+    const [companyName, setCompanyName] = useState("");
+    const isBiz = userType === "business";
+
+    // 가입 단계에서 넘어온 회원유형/업체명 반영 (소셜은 여기서 선택)
+    useEffect(() => {
+        try {
+            const t = localStorage.getItem("homepro.signup.userType");
+            if (t === "business" || t === "customer") setUserType(t);
+            const c = localStorage.getItem("homepro.signup.companyName");
+            if (c) setCompanyName(c);
+        } catch (e) { }
+    }, []);
 
     useEffect(() => {
         const unsub = watchAuthState((user) => {
@@ -77,8 +90,8 @@ export default function MobileSetNicknamecontainer() {
     }, []);
 
     useEffect(() => {
-        generateUniqueNickname();
-    }, [generateUniqueNickname]);
+        if (!isBiz) generateUniqueNickname(); // 대화명 자동생성은 일반고객만
+    }, [generateUniqueNickname, isBiz]);
 
     const handleGenerate = () => {
         generateUniqueNickname();
@@ -105,9 +118,10 @@ export default function MobileSetNicknamecontainer() {
     };
 
     const handleComplete = async () => {
-        const trimmed = nickname.trim();
-        if (!trimmed) {
-            window.alert("대화명을 입력해주세요.");
+        // 사업자회원=업체명 / 일반고객=대화명
+        const displayValue = isBiz ? companyName.trim() : nickname.trim();
+        if (!displayValue) {
+            window.alert(isBiz ? "업체명을 입력해주세요." : "대화명을 입력해주세요.");
             return;
         }
         if (!uid) return;
@@ -115,13 +129,15 @@ export default function MobileSetNicknamecontainer() {
 
         setBusy(true);
         try {
-            // 최종 중복 검사
-            const taken = await isNicknameTaken(trimmed);
-            if (taken) {
-                setNickStatus("taken");
-                window.alert("이미 사용 중인 대화명입니다. 다른 대화명을 입력해주세요.");
-                setBusy(false);
-                return;
+            // 대화명(일반고객)만 중복 검사 — 업체명은 중복 허용
+            if (!isBiz) {
+                const taken = await isNicknameTaken(displayValue);
+                if (taken) {
+                    setNickStatus("taken");
+                    window.alert("이미 사용 중인 대화명입니다. 다른 대화명을 입력해주세요.");
+                    setBusy(false);
+                    return;
+                }
             }
             // targetUid가 있으면 이미 계정 연결된 상태, 없으면 현재 uid 사용
             const targetUid = localStorage.getItem("__targetUid") || uid;
@@ -137,7 +153,10 @@ export default function MobileSetNicknamecontainer() {
                 provider = "google";
             }
 
-            const patch = { nickname: trimmed, name: trimmed, role: "user" };
+            // 사업자회원: 업체명을 상호/표시명으로. 일반고객: 대화명.
+            const patch = isBiz
+                ? { nickname: displayValue, name: displayValue, companyName: displayValue, userType: "business", role: "user" }
+                : { nickname: displayValue, name: displayValue, userType: "customer", role: "user" };
             // provider가 아직 없을 때만 설정
             const existingProfile = await getUserProfileByUid(targetUid);
             if (!existingProfile?.provider) {
@@ -146,6 +165,7 @@ export default function MobileSetNicknamecontainer() {
 
             // 하나의 문서만 저장 (계정 연결은 LinkPhone에서 처리)
             await upsertUserProfile(targetUid, patch);
+            try { localStorage.removeItem("homepro.signup.userType"); localStorage.removeItem("homepro.signup.companyName"); } catch (e) { }
 
             const profile = await getUserProfileByUid(targetUid);
             const phoneE164 = profile?.phoneE164 || "";
@@ -156,7 +176,7 @@ export default function MobileSetNicknamecontainer() {
 
             dispatch({
                 USERS_ID: targetUid,
-                USERINFO: { nickname: trimmed, phone: phoneE164 },
+                USERINFO: { nickname: displayValue, phone: phoneE164 },
             });
 
             // 추천인 코드 적용 (선택사항 — 실패해도 진행)
@@ -182,10 +202,37 @@ export default function MobileSetNicknamecontainer() {
 
     return (
         <Wrap>
-            <Title>대화명 설정</Title>
-            <Desc>다른 사용자에게 보여질 이름이에요</Desc>
+            <Title>{isBiz ? "업체 정보 설정" : "대화명 설정"}</Title>
+            <Desc>{isBiz ? "다른 사용자에게 보여질 업체명이에요" : "다른 사용자에게 보여질 이름이에요"}</Desc>
 
             <Card>
+                <Field style={{ marginBottom: 16 }}>
+                    <Label>회원유형</Label>
+                    <TypeRow>
+                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")} disabled={busy}>일반고객</TypeBtn>
+                        <TypeBtn type="button" $active={isBiz} onClick={() => setUserType("business")} disabled={busy}>사업자회원</TypeBtn>
+                    </TypeRow>
+                </Field>
+
+                {isBiz ? (
+                    <Field>
+                        <LabelRow>
+                            <Label>업체명</Label>
+                            <RequiredMark>*</RequiredMark>
+                        </LabelRow>
+                        <Input
+                            type="text"
+                            placeholder="사업자등록증 상호명"
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            disabled={busy}
+                        />
+                        <HelperText>사업자(홈프로) 회원의 표시 업체명입니다</HelperText>
+                        {companyName.trim() && (
+                            <Preview>미리보기: <strong>{companyName.trim()}</strong></Preview>
+                        )}
+                    </Field>
+                ) : (
                 <Field>
                     <LabelRow>
                         <Label>대화명</Label>
@@ -228,6 +275,7 @@ export default function MobileSetNicknamecontainer() {
                         </Preview>
                     )}
                 </Field>
+                )}
 
                 <Field style={{ marginTop: 16 }}>
                     <LabelRow>
@@ -244,7 +292,7 @@ export default function MobileSetNicknamecontainer() {
                 </Field>
 
                 <BtnRow>
-                    <PrimaryBtn type="button" onClick={handleComplete} disabled={!nickname.trim() || busy || nickStatus === "taken" || nickStatus === "checking"}>
+                    <PrimaryBtn type="button" onClick={handleComplete} disabled={busy || (isBiz ? !companyName.trim() : (!nickname.trim() || nickStatus === "taken" || nickStatus === "checking"))}>
                         {busy ? "저장중..." : "완료"}
                     </PrimaryBtn>
                 </BtnRow>
@@ -298,6 +346,27 @@ const LabelRow = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
+`;
+
+const TypeRow = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+`;
+
+const TypeBtn = styled.button`
+  flex: 1;
+  height: 46px;
+  border-radius: 10px;
+  font-size: 15px !important;
+  font-weight: 400;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
+  color: ${({ $active }) => ($active ? "#fff" : "rgba(17,24,39,0.7)")};
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:active { transform: translateY(1px); }
 `;
 
 const Label = styled.label`

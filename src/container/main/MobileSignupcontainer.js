@@ -16,10 +16,12 @@ export default function MobileSignupcontainer() {
     const [toast, setToast] = useState("");
     const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
+    const [userType, setUserType] = useState("customer"); // "customer" | "business"
     const [loginId, setLoginId] = useState("");
     const [pw, setPw] = useState("");
     const [pw2, setPw2] = useState("");
     const [name, setName] = useState("");
+    const isBiz = userType === "business";
 
     const unsubRef = useRef(null);
     const routedRef = useRef(false);
@@ -53,10 +55,17 @@ export default function MobileSignupcontainer() {
         const n = safeTrim(name);
 
         if (!id) return showToast("아이디를 입력해주세요.");
-        if (!n) return showToast("이름을 입력해주세요.");
+        if (!n) return showToast(isBiz ? "업체명을 입력해주세요." : "이름을 입력해주세요.");
         if (!p) return showToast("비밀번호를 입력해주세요.");
         if (p.length < 6) return showToast("비밀번호는 6자 이상으로 해주세요.");
         if (p !== p2) return showToast("비밀번호가 일치하지 않아요.");
+
+        // 회원유형/업체명을 다음 단계(프로필 설정)로 전달
+        try {
+            localStorage.setItem("homepro.signup.userType", userType);
+            if (isBiz) localStorage.setItem("homepro.signup.companyName", n);
+            else localStorage.removeItem("homepro.signup.companyName");
+        } catch (e) { }
 
         setBusy(true);
         try {
@@ -105,6 +114,15 @@ export default function MobileSignupcontainer() {
 
             <Card>
                 <Field>
+                    <Label>회원유형</Label>
+                    <TypeRow>
+                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")}>일반고객</TypeBtn>
+                        <TypeBtn type="button" $active={isBiz} onClick={() => setUserType("business")}>사업자회원</TypeBtn>
+                    </TypeRow>
+                    <TypeHint>{isBiz ? "업체명을 입력하는 사업자(홈프로) 회원입니다." : "대화명으로 이용하는 일반 회원입니다. 가입 후 마이에서 사업자회원 전환도 가능해요."}</TypeHint>
+                </Field>
+
+                <Field>
                     <Label>아이디</Label>
                     <Input
                         value={loginId}
@@ -138,12 +156,12 @@ export default function MobileSignupcontainer() {
                 </Field>
 
                 <Field>
-                    <Label>이름</Label>
+                    <Label>{isBiz ? "업체명 (필수)" : "이름"}</Label>
                     <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="홍길동"
-                        autoComplete="name"
+                        placeholder={isBiz ? "사업자등록증 상호명" : "홍길동"}
+                        autoComplete={isBiz ? "organization" : "name"}
                     />
                 </Field>
 
@@ -262,6 +280,31 @@ const BtnRow = styled.div`
   display: flex;
   gap: 12px;
   margin-top: 6px;
+`;
+
+const TypeRow = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
+const TypeBtn = styled.button`
+  flex: 1;
+  height: 48px;
+  border-radius: 10px;
+  font-size: 15px !important;
+  font-weight: 400;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
+  color: ${({ $active }) => ($active ? "#fff" : "rgba(17,24,39,0.7)")};
+  &:active { transform: translateY(1px); }
+`;
+
+const TypeHint = styled.div`
+  font-size: 12.5px !important;
+  color: rgba(17, 24, 39, 0.5);
+  line-height: 1.5;
 `;
 
 const PrimaryBtn = styled.button`

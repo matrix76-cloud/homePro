@@ -752,6 +752,23 @@ const MobileConfigpage = () => {
     setShowEditModal(false);
   };
 
+  // 일반고객 → 사업자회원 전환 (업체명 등록)
+  const handleConvertBusiness = async () => {
+    if (!uid) return;
+    const cn = window.prompt("사업자회원으로 전환합니다.\n업체명(상호명)을 입력하세요:", userData?.companyName || "");
+    if (cn === null) return;
+    const nameVal = cn.trim();
+    if (!nameVal) { window.alert("업체명을 입력해주세요."); return; }
+    try {
+      const { upsertUserProfile } = await import("../../service/UserProfileService");
+      await upsertUserProfile(uid, { userType: "business", companyName: nameVal, nickname: nameVal, name: nameVal });
+      try { await refreshUser?.(); } catch (e) { }
+      window.alert("사업자회원으로 전환되었습니다.");
+    } catch (e) {
+      window.alert("전환에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
+
   const [, setProCats] = useAtom(proCategoriesAtom);
   const handleLogout = async () => {
     await signOutUser();
@@ -875,6 +892,19 @@ const MobileConfigpage = () => {
             </GradeSheetBody>
           </GradeSheetContent>
         </GradeSheetOverlay>
+      )}
+
+      {/* 사업자회원 전환 (일반고객만) */}
+      {userData?.userType !== "business" && (
+        <ContentCard onClick={handleConvertBusiness} style={{ cursor: "pointer" }}>
+          <CardHeader>
+            <div>
+              <CardTitle>사업자회원 전환</CardTitle>
+              <CardDesc>업체명을 등록하고 사업자(홈프로) 회원으로 전환합니다</CardDesc>
+            </div>
+            <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+          </CardHeader>
+        </ContentCard>
       )}
 
       {/* 비즈프로필 */}
