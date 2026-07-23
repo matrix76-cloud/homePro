@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useState, useContext, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../api/config";
@@ -13,7 +13,7 @@ import {
   SPACE_TYPES,
   STORAGE_PATH_PREFIX,
 } from "../../config/homeproConfig";
-import { createOrder } from "../../service/OrderService";
+import { createOrder, updateOrder } from "../../service/OrderService";
 import ORDER_FORM_CONFIG, { COMMON_B2B_FIELDS } from "../../config/orderFormConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCloseCircle } from "react-icons/io5";
@@ -22,6 +22,10 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 const MAX_PHOTOS = 4;
 const RESIZE_PX = 350;
 const JPEG_QUALITY = 0.7;
+
+// 금액 입력 콤마 표기 헬퍼 (330000 → "330,000")
+const onlyDigits = (s) => String(s ?? "").replace(/[^0-9]/g, "");
+const withComma = (s) => { const d = onlyDigits(s); return d ? Number(d).toLocaleString() : ""; };
 
 function resizeAndCompress(file) {
   return new Promise((resolve) => {
@@ -434,6 +438,9 @@ const CatGridName = styled.div`
 export const OrderCreateContent = () => {
   const navigate = useNavigate();
   const { categoryId } = useParams();
+  const { state: navState } = useLocation();
+  const editOrder = navState?.order || null; // 수정 모드: 기존 오더
+  const isEdit = !!editOrder;
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
 
@@ -460,6 +467,7 @@ export const OrderCreateContent = () => {
   const fileInputRef = useRef(null);
   const [addressDetail, setAddressDetail] = useState("");
   const [customInput, setCustomInput] = useState("");
+  const [optionEtc, setOptionEtc] = useState(""); // 옵션 "기타(입력)" 텍스트
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const addressEmbedRef = useRef(null);
 
@@ -487,6 +495,67 @@ export const OrderCreateContent = () => {
   }, [userData?.phoneE164]);
 
   const [step, setStep] = useState("form"); // "form" | "preview"
+  const [helpPopup, setHelpPopup] = useState(null); // { title, items:[{name,desc}] | text }
+
+  // ── 수정 모드: 기존 오더 내용 프리필 (한 번만) ──
+  useEffect(() => {
+    if (!editOrder) return;
+    setSelectedCategory(editOrder.categoryId || "");
+    const cfg = ORDER_FORM_CONFIG[editOrder.categoryId];
+    const subs = editOrder.subcategories && editOrder.subcategories.length
+      ? editOrder.subcategories
+      : (editOrder.subcategory ? String(editOrder.subcategory).split(", ").filter(Boolean) : []);
+    if (cfg?.subGroups && subs.length) {
+      const grp = cfg.subGroups.find((g) => subs.some((s) => s === g.label || s.startsWith(g.label + " ")));
+      if (grp) {
+        setSelectedService(grp.label);
+        setSelectedSub(subs.map((s) => s.startsWith(grp.label + " ") ? `${grp.label}:${s.slice(grp.label.length + 1)}` : s));
+      } else {
+        setSelectedSub(subs);
+      }
+    } else {
+      setSelectedSub(subs);
+    }
+    setSelectedOptions(editOrder.options || []);
+    setOptionEtc(editOrder.optionEtc || "");
+    setBuildingType(editOrder.buildingType || "");
+    if (editOrder.areaValue) {
+      const m = /^(\d+(?:\.\d+)?)(.*)$/.exec(String(editOrder.areaValue));
+      if (m) { setAreaValue(m[1]); if (m[2]) setAreaUnit(m[2]); }
+    }
+    setSpaceFields(editOrder.spaceFields || {});
+    setSpaceType(editOrder.spaceType || "");
+    setCustomInput(editOrder.customInput || "");
+    setDetail(editOrder.description || "");
+    setAddress(editOrder.address || editOrder.location || "");
+    setWorkDate(editOrder.workDate || "");
+    setWorkDatePicker(editOrder.workDatePicker || "");
+    if (typeof editOrder.workTime === "string" && editOrder.workTime) {
+      if (editOrder.workTime.includes("시작")) {
+        setWorkTimeMode("작업시작 설정");
+        setWorkTimeStart(editOrder.workTime.replace("시작", "").trim());
+      } else {
+        setWorkTimeMode(editOrder.workTime);
+      }
+    }
+    setContactPhone(editOrder.contactPhone || "");
+    setCustomerPhone(editOrder.customerPhone || "");
+    setB2bPriceType(editOrder.b2bPriceType || "");
+    setB2bPriceAmount(editOrder.b2bPriceAmount ? String(editOrder.b2bPriceAmount) : "");
+    if (editOrder.referralFee && editOrder.referralFee.type) {
+      setReferralFeeType(editOrder.referralFee.type);
+      if (editOrder.referralFee.type === "fixed") {
+        const amt = Number(editOrder.referralFee.amount) || 0;
+        if (COMMON_B2B_FIELDS.referralFee.fixedAmounts.includes(amt)) setReferralFeeFixed(String(amt));
+        else { setReferralFeeFixed("custom"); setReferralFeeFixedCustom(String(amt)); }
+      } else if (editOrder.referralFee.type === "rate") {
+        setReferralFeeRate(String(editOrder.referralFee.rate));
+      }
+    }
+    setReferralPayMethod(editOrder.referralPayMethod || "");
+    setMatchType(editOrder.matchType || "");
+    setDirectPhone(editOrder.directPhone || "");
+  }, [editOrder]);
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
@@ -581,6 +650,7 @@ export const OrderCreateContent = () => {
     setSchedule("");
     setSpaceType("");
     setCustomInput("");
+    setOptionEtc("");
     setSelectedService("");
   };
 
@@ -588,6 +658,7 @@ export const OrderCreateContent = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
     if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return false; }
     if (!workDate) { showToast("작업날짜를 선택해주세요"); return false; }
+    if (workDate === "예약날짜" && !workDatePicker) { showToast("예약날짜(달력)를 선택해주세요"); return false; }
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
@@ -603,11 +674,14 @@ export const OrderCreateContent = () => {
   const handleSubmit = async (asWaiting = false) => {
     if (submitting) return;
     if (!validateForm()) return;
-    if (!window.confirm(asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?")) return;
+    const confirmMsg = isEdit
+      ? "수정한 내용을 저장하시겠습니까?"
+      : (asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?");
+    if (!window.confirm(confirmMsg)) return;
     setSubmitting(true);
     try {
-      // 사진 업로드
-      const photoURLs = await Promise.all(
+      // 사진 업로드 (수정 모드에서 새로 추가한 게 없으면 기존 사진 유지)
+      const uploaded = await Promise.all(
         photos.map(async (p, i) => {
           const path = `${STORAGE_PATH_PREFIX}/orders/${user?.uid || "anon"}/${Date.now()}_${i}.jpg`;
           const storageRef = ref(storage, path);
@@ -615,6 +689,7 @@ export const OrderCreateContent = () => {
           return getDownloadURL(storageRef);
         })
       );
+      const photoURLs = uploaded.length ? uploaded : (isEdit ? (editOrder.photos || []) : []);
 
       const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
       const writerPhoto = userData?.profileImage || userData?.photoURL || user?.USERINFO?.userimg || "";
@@ -626,7 +701,7 @@ export const OrderCreateContent = () => {
         referralFeeValue = { type: "rate", rate: Number(referralFeeRate) };
       }
 
-      await createOrder({
+      const orderPayload = {
         categoryId: selectedCategory,
         categoryName: category?.shortName || "",
         subcategories: selectedSub.map((s) => s.includes(":") ? `${s.split(":")[0]} ${s.split(":")[1]}` : s),
@@ -636,14 +711,23 @@ export const OrderCreateContent = () => {
         spaceType,
         buildingType,
         options: selectedOptions,
+        optionEtc: (optionEtc && selectedOptions.some((o) => o.includes("기타"))) ? optionEtc : null,
         areaValue: areaValue ? `${areaValue}${areaUnit}` : "",
         spaceFields: Object.keys(spaceFields).length > 0 ? spaceFields : null,
         customInput: customInput || null,
-        schedule: workDate, // 작업 희망일정 제거 — 작업날짜로 통합(하위호환)
+        schedule: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate, // 예약날짜는 날짜만 표기
         address,
         priceType,
         directPrice: priceType === "direct" ? directPrice : "",
-        price: priceType === "direct" ? `${Number(directPrice).toLocaleString()}원` : "견적요청",
+        // 금액 표기 = 단가유형 기준 (예: "시공금액 330,000원" / "현장견적" / "견적요청")
+        price: (() => {
+          const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청" };
+          const label = map[b2bPriceType] || "견적요청";
+          if ((b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") && b2bPriceAmount) {
+            return `${label} ${Number(b2bPriceAmount).toLocaleString()}${b2bPriceType === "hpoint" ? "P" : "원"}`;
+          }
+          return label;
+        })(),
         createdBy: user?.uid || userData?.uid || "",
         writer: nickname,
         writerPhoto,
@@ -651,7 +735,7 @@ export const OrderCreateContent = () => {
         photos: photoURLs,
         // B2B 공통 필드
         workDate: workDate || null,
-        workDatePicker: workDate === "희망날짜지정" ? workDatePicker : null,
+        workDatePicker: workDate === "예약날짜" ? workDatePicker : null,
         workTime: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : (workTimeMode || null),
         contactPhone: contactPhone || null,
         customerPhone: customerPhone || null,
@@ -663,14 +747,19 @@ export const OrderCreateContent = () => {
         matchType: matchType || null,
         directPhone: matchType === "direct" ? directPhone : null,
         orderStatus: asWaiting ? "대기" : "접수",
-      });
-      showToast(asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!");
+      };
+      if (isEdit) {
+        await updateOrder(editOrder.id, orderPayload); // 상태값은 유지, 내용만 갱신
+      } else {
+        await createOrder(orderPayload);
+      }
+      showToast(isEdit ? "수정되었습니다" : (asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!"));
       // 접수 → 자동으로 나의오더현황으로 이동
       try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
       setTimeout(() => navigate("/MobileMain"), 1000);
     } catch (err) {
-      console.error("오더 등록 실패:", err);
-      alert("등록에 실패했습니다. 다시 시도해주세요.");
+      console.error(isEdit ? "오더 수정 실패:" : "오더 등록 실패:", err);
+      alert((isEdit ? "수정" : "등록") + "에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setSubmitting(false);
     }
@@ -685,11 +774,12 @@ export const OrderCreateContent = () => {
   const previewItems = (() => {
     const items = [];
     items.push({ k: "카테고리", v: category?.shortName || "" });
-    if (selectedSub.length) items.push({ k: "세부 항목", v: selectedSub.map((s) => s.includes(":") ? s.split(":")[1] : s).join(", ") });
+    if (selectedSub.length) items.push({ k: "서비스명", v: selectedSub.map((s) => s.includes(":") ? s.split(":")[1] : s).join(", ") });
     if (buildingType) items.push({ k: "건물 유형", v: buildingType });
     if (spaceType) items.push({ k: "공간 유형", v: spaceType });
     if (areaValue) items.push({ k: "면적", v: `${areaValue}${areaUnit}` });
     if (selectedOptions.length) items.push({ k: "옵션", v: selectedOptions.join(", ") });
+    if (optionEtc && selectedOptions.some((o) => o.includes("기타"))) items.push({ k: "옵션 기타", v: optionEtc });
     if (Object.keys(spaceFields).length) {
       const fmt = Object.entries(spaceFields).filter(([_, v]) => v).map(([k, v]) => `${k} ${v}`).join(" / ");
       if (fmt) items.push({ k: "공간 상세", v: fmt });
@@ -700,7 +790,7 @@ export const OrderCreateContent = () => {
     if (callFirst) items.push({ k: "선통화 요청", v: "예" });
     if (contactPhone) items.push({ k: "연락처", v: contactPhone });
     if (priceType === "direct") items.push({ k: "단가(직접)", v: `${Number(directPrice).toLocaleString()}원` });
-    if (workDate) items.push({ k: "작업 날짜", v: workDate === "희망날짜지정" && workDatePicker ? `${workDate} (${workDatePicker})` : workDate });
+    if (workDate) items.push({ k: "작업 날짜", v: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate });
     if (workTimeMode) items.push({ k: "작업 시간", v: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : workTimeMode });
     if (b2bPriceType) {
       const ptLabel = labelOf(COMMON_B2B_FIELDS.priceType.options, b2bPriceType);
@@ -729,8 +819,8 @@ export const OrderCreateContent = () => {
   if (step === "preview") {
     return (
       <>
-        <PreviewHeader>등록 전 입력 내용 확인</PreviewHeader>
-        <PreviewHint>아래 내용으로 등록됩니다. 잘못된 항목은 [수정하기]로 돌아가서 변경하세요.</PreviewHint>
+        <PreviewHeader>{isEdit ? "수정 내용 확인" : "등록 전 입력 내용 확인"}</PreviewHeader>
+        <PreviewHint>{isEdit ? "아래 내용으로 수정됩니다. 잘못된 항목은 [뒤로]로 돌아가서 변경하세요." : "아래 내용으로 등록됩니다. 잘못된 항목은 [수정하기]로 돌아가서 변경하세요."}</PreviewHint>
         {photos.length > 0 && (
           <PreviewSection>
             <PreviewSectionLabel>사진 ({photos.length}/{MAX_PHOTOS})</PreviewSectionLabel>
@@ -750,10 +840,10 @@ export const OrderCreateContent = () => {
           ))}
         </PreviewSection>
         <PreviewActions>
-          <PreviewSecondaryBtn disabled={submitting} onClick={() => setStep("form")}>수정하기</PreviewSecondaryBtn>
-          <PreviewSecondaryBtn disabled={submitting} onClick={() => handleSubmit(true)}>대기</PreviewSecondaryBtn>
+          <PreviewSecondaryBtn disabled={submitting} onClick={() => setStep("form")}>{isEdit ? "뒤로" : "수정하기"}</PreviewSecondaryBtn>
+          {!isEdit && <PreviewSecondaryBtn disabled={submitting} onClick={() => handleSubmit(true)}>대기</PreviewSecondaryBtn>}
           <SubmitButton style={{ flex: 1, marginTop: 12 }} disabled={submitting} onClick={() => handleSubmit(false)}>
-            {submitting ? "등록 중..." : "등록하기"}
+            {submitting ? (isEdit ? "저장 중..." : "등록 중...") : (isEdit ? "수정 저장" : "등록하기")}
           </SubmitButton>
         </PreviewActions>
         {toast && <OrderToast>{toast}</OrderToast>}
@@ -809,15 +899,27 @@ export const OrderCreateContent = () => {
             <Section>
               <Label>서비스 선택</Label>
               <ChipGrid>
-                {formConfig.subGroups.filter((g) => g.label !== "기타").map((group) => (
+                {(selectedService
+                  ? formConfig.subGroups.filter((g) => g.label === selectedService)
+                  : formConfig.subGroups.filter((g) => g.label !== "기타")
+                ).map((group) => (
                   <Chip
                     key={group.label}
                     $selected={selectedService === group.label}
-                    onClick={() => { setSelectedService(selectedService === group.label ? "" : group.label); }}
+                    onClick={() => {
+                      const off = selectedService === group.label;
+                      setSelectedService(off ? "" : group.label);
+                      if (off) { setSelectedSub([]); setCustomInput(""); }
+                    }}
                   >
                     {group.label}
                   </Chip>
                 ))}
+                {selectedService && (
+                  <ServiceChangeLink onClick={() => { setSelectedService(""); setSelectedSub([]); setCustomInput(""); }}>
+                    다시 선택
+                  </ServiceChangeLink>
+                )}
               </ChipGrid>
 
               {/* 선택한 서비스의 종목 + 기타(내용입력) */}
@@ -857,7 +959,7 @@ export const OrderCreateContent = () => {
           {/* fallback: config 없을 때 기존 subcategories 사용 */}
           {!formConfig?.subGroups && category.subcategories && (
             <Section>
-              <Label>세부 항목 선택</Label>
+              <Label>서비스명 선택</Label>
               <ChipGrid>
                 {category.subcategories.map((sub) => (
                   <Chip key={sub} $selected={selectedSub.includes(sub)} onClick={() => handleSubToggle(sub)}>{sub}</Chip>
@@ -870,19 +972,30 @@ export const OrderCreateContent = () => {
           {showDetail && detailConfig?.spaceStructure && (
             <Section>
               <Label>{detailConfig.spaceStructure.label || "공간구조"}</Label>
-              <FieldGrid>
-                {detailConfig.spaceStructure.fields.map((field) => (
-                  <FieldItem key={field}>
-                    <FieldLabel>{field}</FieldLabel>
-                    <FieldInput
-                      type={field.includes("여/부") ? "text" : "number"}
-                      placeholder={field.includes("여/부") ? "여/부" : "0"}
-                      value={spaceFields[field] || ""}
-                      onChange={(e) => setSpaceFields((prev) => ({ ...prev, [field]: e.target.value }))}
-                    />
-                  </FieldItem>
-                ))}
-              </FieldGrid>
+              {detailConfig.spaceStructure.fields.map((field) => {
+                const isYesNo = field.includes("여/부");
+                const isEtc = field === "기타" || field.includes("기타");
+                const cur = spaceFields[field];
+                const setVal = (v) => setSpaceFields((prev) => ({ ...prev, [field]: prev[field] === v ? "" : v }));
+                return (
+                  <div key={field} style={{ marginBottom: 14 }}>
+                    <FieldLabel style={{ marginBottom: 6 }}>{field}</FieldLabel>
+                    {isEtc ? (
+                      <Input
+                        placeholder="기타 내용을 입력하세요"
+                        value={cur || ""}
+                        onChange={(e) => setSpaceFields((prev) => ({ ...prev, [field]: e.target.value }))}
+                      />
+                    ) : (
+                      <ChipGrid>
+                        {(isYesNo ? ["여", "부"] : ["1", "2", "3", "4", "5"]).map((v) => (
+                          <Chip key={v} $selected={String(cur) === v} onClick={() => setVal(v)}>{v}</Chip>
+                        ))}
+                      </ChipGrid>
+                    )}
+                  </div>
+                );
+              })}
             </Section>
           )}
 
@@ -898,6 +1011,14 @@ export const OrderCreateContent = () => {
                   );
                 })}
               </ChipGrid>
+              {selectedOptions.some((o) => o.includes("기타")) && (
+                <Input
+                  style={{ marginTop: 10 }}
+                  placeholder="기타 옵션 내용을 입력하세요"
+                  value={optionEtc}
+                  onChange={(e) => setOptionEtc(e.target.value)}
+                />
+              )}
             </Section>
           )}
 
@@ -993,7 +1114,7 @@ export const OrderCreateContent = () => {
                 <Chip key={opt} $selected={workDate === opt} onClick={() => setWorkDate(opt)}>{opt}</Chip>
               ))}
             </ChipGrid>
-            {workDate === "희망날짜지정" && (
+            {workDate === "예약날짜" && (
               <Input style={{ marginTop: 10 }} type="date" value={workDatePicker} onChange={(e) => setWorkDatePicker(e.target.value)} />
             )}
           </Section>
@@ -1006,16 +1127,30 @@ export const OrderCreateContent = () => {
                 <Chip key={opt} $selected={workTimeMode === opt} onClick={() => setWorkTimeMode(opt)}>{opt}</Chip>
               ))}
             </ChipGrid>
-            {workTimeMode === "작업시작 설정" && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 13, color: THEME.muted, marginBottom: 6 }}>작업 시작 시각 선택</div>
-                <ChipGrid>
-                  {["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00"].map((t) => (
-                    <Chip key={t} $selected={workTimeStart === t} onClick={() => setWorkTimeStart(t)}>{t}</Chip>
-                  ))}
-                </ChipGrid>
-              </div>
-            )}
+            {workTimeMode === "작업시작 설정" && (() => {
+              const wsH = workTimeStart.split(":")[0] || "";
+              const wsM = workTimeStart.split(":")[1] || "";
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 13, color: THEME.muted, marginBottom: 6 }}>작업 시작 시각 (10분 단위, 24시간)</div>
+                  <TimeSelectRow>
+                    <TimeSelect value={wsH} onChange={(e) => setWorkTimeStart(`${e.target.value}:${wsM || "00"}`)}>
+                      <option value="" disabled>시</option>
+                      {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0")).map((h) => (
+                        <option key={h} value={h}>{h}시</option>
+                      ))}
+                    </TimeSelect>
+                    <TimeColon>:</TimeColon>
+                    <TimeSelect value={wsM} onChange={(e) => setWorkTimeStart(`${wsH || "00"}:${e.target.value}`)}>
+                      <option value="" disabled>분</option>
+                      {["00", "10", "20", "30", "40", "50"].map((m) => (
+                        <option key={m} value={m}>{m}분</option>
+                      ))}
+                    </TimeSelect>
+                  </TimeSelectRow>
+                </div>
+              );
+            })()}
           </Section>
 
           {/* 연락처 — 접수자(인증된 본인, 자동) + 고객(실무자) */}
@@ -1032,25 +1167,31 @@ export const OrderCreateContent = () => {
 
           {/* 단가유형 */}
           <Section>
-            <Label>{COMMON_B2B_FIELDS.priceType.label}</Label>
-            <ChipRow4>
+            <LabelRow>
+              <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.priceType.label}</Label>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "단가유형 안내", items: COMMON_B2B_FIELDS.priceType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
+            </LabelRow>
+            <ChipGrid style={{ marginTop: 12 }}>
               {COMMON_B2B_FIELDS.priceType.options.map((opt) => (
                 <Chip key={opt.value} $selected={b2bPriceType === opt.value} onClick={() => setB2bPriceType(opt.value)}>{opt.label}</Chip>
               ))}
-            </ChipRow4>
+            </ChipGrid>
             {COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType)?.hasInput && (() => {
               const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
               const unit = opt?.unit || "원";
               return (
-                <Input style={{ marginTop: 10 }} type="number" placeholder={`금액 입력 (${unit})`} value={b2bPriceAmount} onChange={(e) => setB2bPriceAmount(e.target.value)} />
+                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={`금액 입력 (${unit})`} value={withComma(b2bPriceAmount)} onChange={(e) => setB2bPriceAmount(onlyDigits(e.target.value))} />
               );
             })()}
           </Section>
 
           {/* 소개(캐시백) 수수료 */}
           <Section>
-            <Label>{COMMON_B2B_FIELDS.referralFee.label}</Label>
-            <ChipGrid style={{ marginBottom: 12 }}>
+            <LabelRow>
+              <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "소개(캐시백) 수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
+            </LabelRow>
+            <ChipGrid style={{ marginTop: 12, marginBottom: 12 }}>
               {COMMON_B2B_FIELDS.referralFee.types.map((t) => (
                 <Chip key={t.value} $selected={referralFeeType === t.value} onClick={() => setReferralFeeType(t.value)}>{t.label}</Chip>
               ))}
@@ -1066,7 +1207,7 @@ export const OrderCreateContent = () => {
                   <Chip $selected={referralFeeFixed === "custom"} onClick={() => setReferralFeeFixed("custom")}>직접입력</Chip>
                 </ChipGrid>
                 {referralFeeFixed === "custom" && (
-                  <Input style={{ marginTop: 10 }} type="number" placeholder="수수료 금액 (원)" value={referralFeeFixedCustom} onChange={(e) => setReferralFeeFixedCustom(e.target.value)} />
+                  <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder="수수료 금액 (원)" value={withComma(referralFeeFixedCustom)} onChange={(e) => setReferralFeeFixedCustom(onlyDigits(e.target.value))} />
                 )}
               </>
             )}
@@ -1093,8 +1234,11 @@ export const OrderCreateContent = () => {
 
           {/* 홈프로 선택 */}
           <Section>
-            <Label>{COMMON_B2B_FIELDS.matchType.label}</Label>
-            <ChipGrid>
+            <LabelRow>
+              <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.matchType.label}</Label>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "홈프로 선택(매칭방식) 안내", items: COMMON_B2B_FIELDS.matchType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
+            </LabelRow>
+            <ChipGrid style={{ marginTop: 12 }}>
               {COMMON_B2B_FIELDS.matchType.options.map((opt) => (
                 <Chip key={opt.value} $selected={matchType === opt.value} onClick={() => setMatchType(opt.value)}>{opt.label}</Chip>
               ))}
@@ -1121,6 +1265,24 @@ export const OrderCreateContent = () => {
         </>
       )}
       {toast && <OrderToast>{toast}</OrderToast>}
+      {helpPopup && (
+        <HelpOverlay onClick={() => setHelpPopup(null)}>
+          <HelpBox onClick={(e) => e.stopPropagation()}>
+            <HelpTitle>{helpPopup.title}</HelpTitle>
+            {helpPopup.text ? (
+              <HelpText>{helpPopup.text}</HelpText>
+            ) : (
+              (helpPopup.items || []).map((it) => (
+                <HelpItem key={it.name}>
+                  <HelpItemName>{it.name}</HelpItemName>
+                  <HelpItemDesc>{it.desc}</HelpItemDesc>
+                </HelpItem>
+              ))
+            )}
+            <HelpCloseBtn type="button" onClick={() => setHelpPopup(null)}>확인</HelpCloseBtn>
+          </HelpBox>
+        </HelpOverlay>
+      )}
       {showAddressSearch && (
         <AddressModalOverlay onClick={() => setShowAddressSearch(false)}>
           <AddressModalBox onClick={(e) => e.stopPropagation()}>
@@ -1207,6 +1369,134 @@ const TimeRow = styled.div`
 const ChipRow4 = styled.div`
   display: flex;
   gap: 8px;
+`;
+
+const LabelRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const HelpBtn = styled.button`
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid ${THEME.primary};
+  background: ${THEME.surface};
+  color: ${THEME.primary};
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  &:active { background: ${THEME.primary}12; }
+`;
+
+const ServiceChangeLink = styled.button`
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: ${THEME.primary};
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+  &:active { opacity: 0.7; }
+`;
+
+const TimeSelectRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const TimeSelect = styled.select`
+  flex: 1;
+  padding: 12px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  outline: none;
+  &:focus { border-color: ${THEME.primary}; }
+`;
+
+const TimeColon = styled.span`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.muted};
+`;
+
+const HelpOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+`;
+
+const HelpBox = styled.div`
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 20px;
+`;
+
+const HelpTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 14px;
+`;
+
+const HelpText = styled.div`
+  font-size: 13.5px;
+  color: ${THEME.textSecondary};
+  line-height: 1.6;
+`;
+
+const HelpItem = styled.div`
+  padding: 10px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-of-type { border-bottom: none; }
+`;
+
+const HelpItemName = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  margin-bottom: 4px;
+`;
+
+const HelpItemDesc = styled.div`
+  font-size: 13px;
+  color: ${THEME.textSecondary};
+  line-height: 1.55;
+`;
+
+const HelpCloseBtn = styled.button`
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: ${THEME.primary};
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
 `;
 
 const AddressModalOverlay = styled.div`

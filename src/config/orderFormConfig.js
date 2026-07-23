@@ -1425,7 +1425,7 @@ const ORDER_FORM_CONFIG = {
 export const COMMON_B2B_FIELDS = {
   workDate: {
     label: "작업날짜",
-    options: ["긴급", "오늘", "내일", "희망날짜지정", "가능한 빨리 진행 원해요", "협의가능해요!"],
+    options: ["긴급", "오늘", "내일", "예약날짜", "가능한 빨리 진행 원해요", "협의가능해요!"],
   },
   workTime: {
     label: "작업시간",
@@ -1438,17 +1438,18 @@ export const COMMON_B2B_FIELDS = {
   priceType: {
     label: "단가유형",
     options: [
-      { value: "fixed", label: "시공금액", hasInput: true, unit: "원" },
-      { value: "balance", label: "잔금", hasInput: true, unit: "원" },
-      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P" },
-      { value: "onsite", label: "현장견적", hasInput: false },
-      { value: "estimate", label: "견적요청", hasInput: false },
+      { value: "fixed", label: "시공금액", hasInput: true, unit: "원", desc: "확정된 시공 총액을 직접 제시합니다. 홈프로는 이 금액에 동의하면 수락합니다." },
+      { value: "balance", label: "잔금", hasInput: true, unit: "원", desc: "선금·계약금을 제외한 잔여 금액만 별도로 정해 제시합니다." },
+      { value: "onsite", label: "현장견적", hasInput: false, desc: "현장 확인 후 홈프로가 직접 견적을 산정합니다. 접수 시 금액을 입력하지 않습니다." },
+      { value: "estimate", label: "견적요청", hasInput: false, desc: "여러 홈프로에게 견적을 요청하고, 받은 견적가를 비교해 선정합니다." },
+      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P", desc: "H-포인트로 정산하는 금액입니다. 포인트(P) 단위로 입력합니다." },
     ],
   },
   referralFee: {
     label: "소개(캐시백) 수수료",
+    desc: "오더를 소개·연결해준 대가로 지급하는 수수료입니다. 미설정이면 지급하지 않으며, 설정 시 정액 또는 정률로 금액을 정합니다.",
     types: [
-      { value: "none", label: "수수료없음" },
+      { value: "none", label: "미설정" },
       { value: "fixed", label: "정액설정" },
       { value: "rate", label: "정률설정" },
     ],
@@ -1457,14 +1458,14 @@ export const COMMON_B2B_FIELDS = {
   },
   referralPayMethod: {
     label: "소개 수수료 지급방법",
-    options: ["계좌이체", "포인트", "PI"],
+    options: ["현금(계좌이체)", "H-포인트"],
   },
   matchType: {
     label: "홈프로 선택",
     options: [
-      { value: "priority", label: "빠른배정" },
-      { value: "compare", label: "비교선정" },
-      { value: "direct", label: "지정배정" },
+      { value: "priority", label: "빠른배정", desc: "먼저 수락한 홈프로 1명에게 바로 배정됩니다. 빠르게 진행하고 싶을 때 적합합니다." },
+      { value: "compare", label: "비교선정", desc: "여러 홈프로의 지원·견적을 받아 비교한 뒤 직접 1명을 선정합니다." },
+      { value: "direct", label: "지정배정", desc: "사전에 약속된 특정 홈프로를 전화번호로 지정해 배정합니다." },
     ],
   },
 };

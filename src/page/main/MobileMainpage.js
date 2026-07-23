@@ -174,33 +174,30 @@ const formatOrderDate = (createdAt) => {
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
 };
 
+/* ─── 오더목록 날짜 표기 — 접수시각(createdAt)이 아니라 사용자가 고른 작업날짜 기준 ─── */
+const formatOrderScheduleShort = (order) => {
+  const wd = order.workDate || order.schedule;
+  // 예약날짜(구 희망날짜지정): 날짜만 MM/DD
+  if (wd === "예약날짜" || wd === "희망날짜지정") {
+    const p = order.workDatePicker || (/\d{4}-\d{2}-\d{2}/.test(order.schedule) ? order.schedule : "");
+    if (p) { const [, m, d] = p.split("-"); return `${m}/${d}`; }
+    return "예약";
+  }
+  // 긴급/오늘/내일은 그대로
+  if (wd === "긴급" || wd === "오늘" || wd === "내일") return wd;
+  // 나머지(협의/빨리 등)나 값 없음 → 접수시각 기준 표기로 폴백
+  return formatOrderDate(order.createdAt);
+};
+
 /* ================================================================
    가로 스크롤 힌트 래퍼 — 표가 옆으로 더 있다는 걸 알려주는 담백한 신호
    (우측 고정 페이드 + 작은 정적 chevron. 애니메이션·클릭 없음. 끝까지 밀면 사라짐)
    ================================================================ */
 const ScrollHintTable = ({ children }) => {
-  const ref = useRef(null);
-  const [showHint, setShowHint] = useState(false);
-  const check = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const overflow = el.scrollWidth - el.clientWidth;
-    setShowHint(overflow > 8 && el.scrollLeft < overflow - 8);
-  }, []);
-  useEffect(() => {
-    check();
-    const el = ref.current;
-    if (!el) return;
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, [check, children]);
+  // 우측 은은한 힌트(페이드+화살표) 제거 — 가로 스크롤만 유지 (형 지시 7/23)
   return (
     <TableScrollOuter>
-      <TableWrap ref={ref} onScroll={check}>{children}</TableWrap>
-      <ScrollFade $show={showHint} />
-      <ScrollHintArrow $show={showHint}>
-        <IoChevronForward size={16} />
-      </ScrollHintArrow>
+      <TableWrap>{children}</TableWrap>
     </TableScrollOuter>
   );
 };
@@ -768,10 +765,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               </TableHeader>
               {sortedOrders.map((order) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
-                const dateLabel = formatOrderDate(order.createdAt);
+                const dateLabel = formatOrderScheduleShort(order);
                 const status = mapStatus(order.orderStatus);
                 const statusColor = STATUS_COLOR[status] || STATUS_COLOR["접수"];
-                const isUrgent = dateLabel === "긴급";
+                const isUrgent = order.workDate === "긴급";
                 const regionLabel = formatRegionLabel(order.location);
                 const priceLabel = formatPriceType(order);
                 const matchLabel = formatMatchType(order);
@@ -1241,7 +1238,7 @@ const PointHeader = styled.div`
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 6px 14px 0;
+  padding: 8px 14px 10px;
 `;
 
 const PointValue = styled.div`

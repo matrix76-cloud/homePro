@@ -44,6 +44,7 @@ import { db } from "../../api/config";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
 import { GradeBadge } from "../../utility/gradeUtils";
+import ProfilePopup from "../../components/ProfilePopup";
 
 const STATUS_BADGE = {
   "접수": { bg: THEME.purple, text: "#fff" },
@@ -92,6 +93,8 @@ const OrderDetailPage = () => {
   const [applicants, setApplicants] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [profilePopup, setProfilePopup] = useState(null); // { uid, fallbackName, fallbackPhoto }
+  const [matchedProInfo, setMatchedProInfo] = useState(null); // 배정된 홈프로 프로필(접수자 시점)
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
   const isMatchedPro = order?.matchedProUid === myUid;
@@ -143,11 +146,39 @@ const OrderDetailPage = () => {
     getApplicants(order.id).then(setApplicants).catch(() => setApplicants([]));
   }, [isOwner, matchType, order?.id]);
 
+  // 배정된 홈프로 프로필 로드 (접수자 시점 — 누가 배정됐는지 확인)
+  useEffect(() => {
+    if (!isOwner || !order?.matchedProUid) { setMatchedProInfo(null); return; }
+    getUserProfileByUid(order.matchedProUid)
+      .then((p) => setMatchedProInfo(p))
+      .catch(() => setMatchedProInfo(null));
+  }, [isOwner, order?.matchedProUid]);
+
   // 호출 유형별 핸들러
   // 나의오더현황으로 이동
   const goMyOrders = () => {
     try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
     navigate("/MobileMain");
+  };
+
+  // 채팅 시작 — 오더 기준 방 생성/재사용 후 진입 (당근식: 오더별 대화방)
+  const handleStartChat = async (otherUid, otherName, otherPhoto) => {
+    if (!otherUid) { showToast("상대 정보를 찾을 수 없습니다"); return; }
+    try {
+      const myPhoto = userData?.profileImage || userData?.photoURL || "";
+      const roomId = await createChatRoom(
+        myUid, myName, myPhoto,
+        otherUid, otherName || "상대", otherPhoto || "",
+        { orderId: order.id }
+      );
+      navigate(`/chat/${roomId}`);
+    } catch (e) {
+      showToast("채팅방을 열지 못했습니다");
+    }
+  };
+  const handlePhoneCall = (phone) => {
+    if (!phone) { showToast("등록된 전화번호가 없습니다"); return; }
+    window.location.href = `tel:${phone}`;
   };
 
   const handleAcceptOrder = async () => {
@@ -232,6 +263,7 @@ const OrderDetailPage = () => {
   };
 
   const handleSelectPro = async (proUid) => {
+    if (order.matchedProUid) { showToast("이미 1팀이 선정된 오더입니다"); return; } // 중복선정 방지
     if (!window.confirm("이 홈프로를 선정 하시겠습니까?\n선정 후 자동으로 배정됩니다.")) return; // 팝업 확인
     try {
       if (!selectPro) throw new Error("selectPro 함수 없음");
@@ -417,7 +449,12 @@ const OrderDetailPage = () => {
   const badgeColor = STATUS_BADGE[order.orderStatus] || STATUS_BADGE["접수"];
   const timeLabel = formatOrderTime(order.createdAt);
   const headerName = category ? category.name : "요청 상세";
-  const scheduleLabel = SCHEDULE_OPTIONS.find((o) => o.key === order.schedule)?.label || order.schedule || "-";
+  // 예약날짜(구 희망날짜지정)는 문구 없이 날짜만 표기
+  const isReserveDate = (v) => v === "예약날짜" || v === "희망날짜지정";
+  const scheduleLabel = (() => {
+    if (isReserveDate(order.schedule)) return order.workDatePicker || "예약날짜";
+    return SCHEDULE_OPTIONS.find((o) => o.key === order.schedule)?.label || order.schedule || "-";
+  })();
 
   return (
     <SimpleBackLayout NAME={headerName} hideFooter>
@@ -484,7 +521,14 @@ const OrderDetailPage = () => {
           </ConditionRow>
           <ConditionRow>
             <ConditionLabel>금액</ConditionLabel>
-            <ConditionValue>{order.price || "-"}</ConditionValue>
+            <ConditionValue>{(() => {
+              if (order.b2bPriceType) {
+                const label = PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType;
+                if (order.b2bPriceAmount) return `${label} ${Number(order.b2bPriceAmount).toLocaleString()}${order.b2bPriceType === "hpoint" ? "P" : "원"}`;
+                return label;
+              }
+              return order.price || "-";
+            })()}</ConditionValue>
           </ConditionRow>
           {order.spaceType && (
             <ConditionRow>
@@ -501,7 +545,7 @@ const OrderDetailPage = () => {
             {order.workDate && (
               <ConditionRow>
                 <ConditionLabel>작업날짜</ConditionLabel>
-                <ConditionValue>{order.workDate}{order.workDatePicker ? ` (${order.workDatePicker})` : ""}</ConditionValue>
+                <ConditionValue>{isReserveDate(order.workDate) ? (order.workDatePicker || "예약날짜") : order.workDate}</ConditionValue>
               </ConditionRow>
             )}
             {order.workTime && (
@@ -510,6 +554,39 @@ const OrderDetailPage = () => {
                 <ConditionValue>{typeof order.workTime === "object" ? `${order.workTime.start} ~ ${order.workTime.end}` : order.workTime}</ConditionValue>
               </ConditionRow>
             )}
+          </DetailSection>
+        )}
+
+        {/* ── 배정 홈프로 (접수자 시점) — 누가 배정됐는지 + 프로필 ── */}
+        {isOwner && order.matchedProUid && (
+          <DetailSection>
+            <SectionTitle>배정 홈프로</SectionTitle>
+            <ApplicantCard
+              style={{ cursor: "pointer" }}
+              onClick={() => setProfilePopup({ uid: order.matchedProUid, fallbackName: matchedProInfo?.nickname || matchedProInfo?.name, fallbackPhoto: matchedProInfo?.profileImage || matchedProInfo?.photoURL })}
+            >
+              <ApplicantTop>
+                {(matchedProInfo?.profileImage || matchedProInfo?.photoURL) ? (
+                  <QuoteAvatar src={matchedProInfo.profileImage || matchedProInfo.photoURL} alt="배정 홈프로" />
+                ) : (
+                  <QuoteAvatarPlaceholder>
+                    <IoPersonCircleOutline size={36} color={THEME.muted} />
+                  </QuoteAvatarPlaceholder>
+                )}
+                <ApplicantInfo>
+                  <ApplicantName>{matchedProInfo?.nickname || matchedProInfo?.name || "배정된 홈프로"}</ApplicantName>
+                  <ProfileHint>프로필 보기</ProfileHint>
+                </ApplicantInfo>
+              </ApplicantTop>
+              <ContactRow onClick={(e) => e.stopPropagation()}>
+                <ContactBtn onClick={() => handlePhoneCall(matchedProInfo?.phoneE164 || matchedProInfo?.phone)}>
+                  <IoCallOutline size={16} /> 전화
+                </ContactBtn>
+                <ContactBtn $primary onClick={() => handleStartChat(order.matchedProUid, matchedProInfo?.nickname || matchedProInfo?.name, matchedProInfo?.profileImage || matchedProInfo?.photoURL)}>
+                  <IoChatbubbleEllipsesOutline size={16} /> 채팅
+                </ContactBtn>
+              </ContactRow>
+            </ApplicantCard>
           </DetailSection>
         )}
 
@@ -595,7 +672,7 @@ const OrderDetailPage = () => {
         {/* ── 활동 이력 ── 취소/상태변경/견적통보/수락/지원/선정 타임라인 */}
         {(isOwner || isMatchedPro || (order.applicantUids || []).includes(myUid)) && orderLogs.length > 0 && (
           <DetailSection>
-            <SectionTitle>활동 이력</SectionTitle>
+            <SectionTitle>오더이력</SectionTitle>
             {orderLogs.map((log) => (
               <LogRow key={log.id}>
                 <LogDot $type={log.type} />
@@ -614,7 +691,7 @@ const OrderDetailPage = () => {
         {!isOwner && (order.writer || order.writerPhoto) && (
           <DetailSection>
             <SectionTitle>접수자 프로필</SectionTitle>
-            <ApplicantCard>
+            <ApplicantCard style={{ cursor: "pointer" }} onClick={() => setProfilePopup({ uid: order.createdBy, fallbackName: order.writer, fallbackPhoto: order.writerPhoto })}>
               <ApplicantTop>
                 {order.writerPhoto ? (
                   <QuoteAvatar src={order.writerPhoto} alt={order.writer || "접수자"} />
@@ -625,6 +702,7 @@ const OrderDetailPage = () => {
                 )}
                 <ApplicantInfo>
                   <ApplicantName>{order.writer || "접수자"}</ApplicantName>
+                  <ProfileHint>프로필 보기</ProfileHint>
                 </ApplicantInfo>
               </ApplicantTop>
             </ApplicantCard>
@@ -638,6 +716,7 @@ const OrderDetailPage = () => {
             {quotes.map((q) => (
               <QuoteCard key={q.id}>
                 <ApplicantTop>
+                  <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setProfilePopup({ uid: q.proUid, fallbackName: q.proName, fallbackPhoto: q.proPhoto })}>
                   {q.proPhoto ? (
                     <QuoteAvatar src={q.proPhoto} alt={q.proName} />
                   ) : (
@@ -650,6 +729,7 @@ const OrderDetailPage = () => {
                     <ConditionValue>{Number(q.price || 0).toLocaleString()}원</ConditionValue>
                     {q.message && <ApplicantIntro>{q.message}</ApplicantIntro>}
                   </ApplicantInfo>
+                  </div>
                   {q.status !== "accepted" ? (
                     <SelectProBtn onClick={() => handleAcceptQuote(q)}>수락</SelectProBtn>
                   ) : (
@@ -680,6 +760,7 @@ const OrderDetailPage = () => {
             {applicants.map((app) => (
               <ApplicantCard key={app.proUid}>
                 <ApplicantTop>
+                  <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setProfilePopup({ uid: app.proUid, fallbackName: app.proName, fallbackPhoto: app.proProfile })}>
                   {app.proProfile ? (
                     <QuoteAvatar src={app.proProfile} alt={app.proName} />
                   ) : (
@@ -694,8 +775,21 @@ const OrderDetailPage = () => {
                     </ConditionValue>
                     {app.quoteMessage && <ApplicantIntro>{app.quoteMessage}</ApplicantIntro>}
                   </ApplicantInfo>
-                  <SelectProBtn onClick={() => handleSelectPro(app.proUid)}>선정</SelectProBtn>
+                  </div>
+                  {order.matchedProUid
+                    ? (order.matchedProUid === app.proUid
+                        ? <ConditionValue style={{ color: THEME.primary, fontWeight: 700 }}>배정됨</ConditionValue>
+                        : <ConditionValue style={{ color: THEME.muted }}>미선정</ConditionValue>)
+                    : <SelectProBtn onClick={() => handleSelectPro(app.proUid)}>선정</SelectProBtn>}
                 </ApplicantTop>
+                <ContactRow onClick={(e) => e.stopPropagation()}>
+                  <ContactBtn onClick={() => handlePhoneCall(app.proPhone || app.phone)}>
+                    <IoCallOutline size={15} /> 전화
+                  </ContactBtn>
+                  <ContactBtn $primary onClick={() => handleStartChat(app.proUid, app.proName, app.proProfile)}>
+                    <IoChatbubbleEllipsesOutline size={15} /> 채팅
+                  </ContactBtn>
+                </ContactRow>
               </ApplicantCard>
             ))}
           </DetailSection>
@@ -711,34 +805,38 @@ const OrderDetailPage = () => {
         {isOwner ? (
           /* 접수자 버튼 — 대기 상태면 재접수 / 그 외면 대기후수정 (홈프로 배정 후엔 비활성) */
           <ActionRow>
-            <OutlinedBtn onClick={() => navigate("/order/create", { state: { order } })}>수정</OutlinedBtn>
+            <OutlinedBtn
+              onClick={() => { if (!HP_ASSIGNED_STATUSES.has(order.orderStatus)) navigate("/order/create", { state: { order } }); }}
+              disabled={HP_ASSIGNED_STATUSES.has(order.orderStatus)}
+              style={HP_ASSIGNED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+            >
+              수정
+            </OutlinedBtn>
             {order.orderStatus === "대기" ? (
               <OutlinedBtn onClick={handleOwnerReregister}>재접수</OutlinedBtn>
             ) : (
-              <OutlinedBtn
-                onClick={handleOwnerWaiting}
-                disabled={HP_ASSIGNED_STATUSES.has(order.orderStatus)}
-                style={HP_ASSIGNED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-              >
-                대기후수정
-              </OutlinedBtn>
+              <OutlinedBtn onClick={handleOwnerWaiting}>대기</OutlinedBtn>
             )}
             <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
           </ActionRow>
-        ) : matchType === "priority" ? (
-          /* 우선배정호출 */
+        ) : isMatchedPro ? (
+          /* 이미 배정받은 오더 — 접수자에게 전화/채팅 (작업완료·취소는 나의오더현황 카드) */
           <ActionRow>
-            <SmallBtn onClick={handleCall}>
-              <IoCallOutline size={20} color="#555" />
-            </SmallBtn>
+            <OutlinedBtn onClick={() => handlePhoneCall(order.ordererPhone || order.contactPhone)}>
+              <IoCallOutline size={18} /> 전화
+            </OutlinedBtn>
+            <PrimaryCTA onClick={() => handleStartChat(order.createdBy, order.writer, order.writerPhoto)}>
+              <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
+            </PrimaryCTA>
+          </ActionRow>
+        ) : matchType === "priority" ? (
+          /* 우선배정호출 — 전화 제거, 수락하기만 */
+          <ActionRow>
             <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
           </ActionRow>
         ) : matchType === "compare" ? (
-          /* 다중비교호출 */
+          /* 다중비교호출 — 전화 제거, 지원하기만 */
           <ActionRow>
-            <SmallBtn onClick={handleCall}>
-              <IoCallOutline size={20} color="#555" />
-            </SmallBtn>
             <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
           </ActionRow>
         ) : matchType === "direct" ? (
@@ -748,15 +846,22 @@ const OrderDetailPage = () => {
             <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
           </ActionRow>
         ) : (
-          /* fallback — 매칭방식 미지정 시에도 수락 흐름 (견적 먼저 보내기 폐지) */
+          /* fallback — 매칭방식 미지정 시에도 수락 흐름 (전화 제거) */
           <ActionRow>
-            <SmallBtn onClick={handleCall}>
-              <IoCallOutline size={20} color="#555" />
-            </SmallBtn>
             <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
           </ActionRow>
         )}
       </FixedBottom>
+
+      {/* 프로필 팝업 (접수자/홈프로 클릭) */}
+      {profilePopup && (
+        <ProfilePopup
+          uid={profilePopup.uid}
+          fallbackName={profilePopup.fallbackName}
+          fallbackPhoto={profilePopup.fallbackPhoto}
+          onClose={() => setProfilePopup(null)}
+        />
+      )}
 
       {/* 취소 사유 선택 모달 */}
       {showCancelModal && (
@@ -1481,6 +1586,51 @@ const PrimaryCTA = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.85; }
+`;
+
+const ProfileHint = styled.div`
+  font-size: 12px;
+  color: ${THEME.primary};
+  margin-top: 2px;
+`;
+
+const ContactRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid ${THEME.border};
+`;
+
+const ContactBtn = styled.button`
+  flex: 1;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid ${({ $primary }) => ($primary ? THEME.primary : THEME.border)};
+  background: ${({ $primary }) => ($primary ? THEME.primary : THEME.surface)};
+  color: ${({ $primary }) => ($primary ? "#fff" : THEME.text)};
+  &:active { opacity: 0.85; }
+`;
+
+const AssignedNote = styled.div`
+  flex: 1;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: ${THEME.background};
+  color: ${THEME.muted};
+  font-size: 14px;
+  font-weight: 500;
 `;
 
 const OutlinedBtn = styled.button`

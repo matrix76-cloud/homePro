@@ -88,6 +88,12 @@ const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 
 const formatPriceLine = (order) => {
+  // 현장견적/견적요청: 선정 홈프로가 견적가를 통보하면 그 금액을 함께 표기
+  if (UNPRICED_TYPES.includes(order.b2bPriceType)) {
+    const label = PRICE_TYPE_LABEL[order.b2bPriceType] || "견적요청";
+    const quoted = Number(order.onsiteQuotedPrice) || (order.matchedProUid ? Number(order.applicantQuotes?.[order.matchedProUid]) : 0) || 0;
+    return quoted > 0 ? `${label} ${quoted.toLocaleString()}원` : label;
+  }
   const amt = Number(order.b2bPriceAmount) || 0;
   const unit = order.b2bPriceType === "hpoint" ? "P" : "원";
   const valueText = amt > 0 ? ` ${amt.toLocaleString()}${unit}` : "";
@@ -95,6 +101,13 @@ const formatPriceLine = (order) => {
     return `${PRICE_TYPE_LABEL[order.b2bPriceType]}${valueText}`;
   }
   return order.price || "-";
+};
+
+/* ─── 카드 작업날짜 표기 (예약날짜는 지정한 날짜만) ─── */
+const workDateText = (order) => {
+  const wd = order.workDate;
+  if (wd === "예약날짜" || wd === "희망날짜지정") return order.workDatePicker || "예약날짜";
+  return wd || (/\d{4}-\d{2}-\d{2}/.test(order.schedule || "") ? order.schedule : "") || "";
 };
 
 const formatChatTime = (ts) => {
@@ -115,7 +128,25 @@ export const MyOrdersContent = () => {
   const { userData } = useAuth();
   const uid = user?.uid || userData?.uid || user?.USERS_ID;
   const myName = userData?.nickname || userData?.name || "사용자";
-  const [activeTab, setActiveTab] = useState("전체");
+  // 관점별 상태: 내가 지원한(선정 전) 오더는 홈프로 관점에서 "선정대기"로 표기
+  const viewStatus = (order) => {
+    const raw = normalizeStatus(order.orderStatus);
+    if (order.createdBy !== uid && (order.applicantUids || []).includes(uid) && order.matchedProUid !== uid && (raw === "접수" || raw === "선정대기")) {
+      return "선정대기";
+    }
+    return raw;
+  };
+  const [activeTabs, setActiveTabs] = useState(["전체"]); // 상태 다중 선택
+  const toggleTab = (tab) => {
+    if (tab === "전체") { setActiveTabs(["전체"]); return; }
+    setActiveTabs((prev) => {
+      const woAll = prev.filter((t) => t !== "전체");
+      const next = woAll.includes(tab) ? woAll.filter((t) => t !== tab) : [...woAll, tab];
+      return next.length ? next : ["전체"];
+    });
+  };
+  const showAllTabs = activeTabs.includes("전체");
+  const singleTab = activeTabs.length === 1 ? activeTabs[0] : null;
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chatMap, setChatMap] = useState({});
@@ -204,7 +235,7 @@ export const MyOrdersContent = () => {
   }, [uid]);
 
   const periodFiltered = allOrders.filter((o) => matchPeriod(o.createdAt, activePeriod, dateRange));
-  const filtered = activeTab === "전체" ? periodFiltered : periodFiltered.filter((o) => normalizeStatus(o.orderStatus) === activeTab);
+  const filtered = showAllTabs ? periodFiltered : periodFiltered.filter((o) => activeTabs.includes(viewStatus(o)));
 
   const submitCancelRequest = async () => {
     if (!cancelReqReason) { alert("사유를 선택해주세요"); return; }
@@ -329,18 +360,18 @@ export const MyOrdersContent = () => {
         {/* 상태 필터 탭 */}
         <TabRow>
           {STATUS_TABS.map((tab) => {
-            const count = tab === "전체" ? periodFiltered.length : periodFiltered.filter((o) => normalizeStatus(o.orderStatus) === tab).length;
+            const count = tab === "전체" ? periodFiltered.length : periodFiltered.filter((o) => viewStatus(o) === tab).length;
             return (
-              <TabItem key={tab} $active={activeTab === tab} onClick={() => setActiveTab(tab)}>
-                <TabCount $active={activeTab === tab}>{count}</TabCount>
+              <TabItem key={tab} $active={activeTabs.includes(tab)} onClick={() => toggleTab(tab)}>
+                <TabCount $active={activeTabs.includes(tab)}>{count}</TabCount>
                 <TabLabel>{tab}</TabLabel>
               </TabItem>
             );
           })}
         </TabRow>
         <TabDescWrap>
-          <TabDescArrow $idx={STATUS_TABS.indexOf(activeTab)} />
-          <TabDesc>{STATUS_DESC[activeTab]}</TabDesc>
+          {singleTab && <TabDescArrow $idx={STATUS_TABS.indexOf(singleTab)} />}
+          <TabDesc>{singleTab ? STATUS_DESC[singleTab] : "선택한 상태의 오더를 함께 표시합니다. (상태를 여러 개 선택할 수 있어요)"}</TabDesc>
         </TabDescWrap>
 
         {/* 달력 뷰 (월 단위) */}
@@ -360,7 +391,7 @@ export const MyOrdersContent = () => {
         ) : (
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
-            const displayStatus = normalizeStatus(order.orderStatus);
+            const displayStatus = viewStatus(order);
             const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["등록"];
             const chats = chatMap[order.id] || [];
             return (
@@ -384,6 +415,7 @@ export const MyOrdersContent = () => {
                     <BottomText>{order.location}</BottomText>
                     <BottomText>{order.writer}</BottomText>
                     <BottomText>{MATCH_TYPE_LABEL[order.matchType] || ""}</BottomText>
+                    {workDateText(order) && <BottomText>작업일 {workDateText(order)}</BottomText>}
                   </BottomLeft>
                   <PriceText>{formatPriceLine(order)}</PriceText>
                 </CardBottom>
@@ -440,7 +472,7 @@ export const MyOrdersContent = () => {
                           </ActionBtn>
                         )}
                         <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>작업완료</ActionBtn>
-                        <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소</ActionBtn>
+                        <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
                       </>
                     )}
                   </ActionRow>
@@ -450,17 +482,15 @@ export const MyOrdersContent = () => {
                     <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
                   </ActionRow>
                 )}
+                {/* 접수/대기 카드는 취소·재접수만 (수정·대기 변경은 상세 하단에서) */}
                 {displayStatus === "접수" && order.createdBy === uid && (
                   <ActionRow>
-                    <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); navigate("/order/create", { state: { order } }); }}>수정</ActionBtn>
-                    <ActionBtn $variant="warning" onClick={(e) => handleStatusChange(e, order.id, "대기")}>대기</ActionBtn>
                     <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
                   </ActionRow>
                 )}
                 {displayStatus === "대기" && order.createdBy === uid && (
                   <ActionRow>
                     <ActionBtn $variant="primary" onClick={(e) => handleStatusChange(e, order.id, "접수")}>재접수</ActionBtn>
-                    <ActionBtn $variant="warning" onClick={(e) => { e.stopPropagation(); navigate("/order/create", { state: { order } }); }}>수정</ActionBtn>
                   </ActionRow>
                 )}
                 {/* 비교선정 지원자(선정 전) — 현장 확인 후 견적가 통보 (1회) */}
@@ -487,7 +517,7 @@ export const MyOrdersContent = () => {
           <ModalOverlay onClick={() => setCancelReqOpen(null)}>
             <ModalSheet onClick={(e) => e.stopPropagation()}>
               <ModalHeader>
-                <ModalTitle>취소 사유</ModalTitle>
+                <ModalTitle>취소 요청 사유</ModalTitle>
                 <ModalClose onClick={() => setCancelReqOpen(null)}>
                   <IoCloseOutline size={22} />
                 </ModalClose>
@@ -508,7 +538,7 @@ export const MyOrdersContent = () => {
                   rows={3}
                 />
               )}
-              <ConfirmBtn onClick={submitCancelRequest} disabled={!cancelReqReason}>취소하기</ConfirmBtn>
+              <ConfirmBtn onClick={submitCancelRequest} disabled={!cancelReqReason}>취소 요청하기</ConfirmBtn>
             </ModalSheet>
           </ModalOverlay>
         )}

@@ -227,6 +227,16 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   });
 }
 
+/** 오더 내용 수정 (접수자 편집) — 상태값은 건드리지 않고 내용 필드만 갱신 */
+export async function updateOrder(orderId, data) {
+  const { orderStatus, createdAt, applicantCount, ...rest } = data || {};
+  await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+    ...rest,
+    updatedAt: serverTimestamp(),
+  });
+  return orderId;
+}
+
 /** 우선배정호출 — 홈프로가 수락하기 */
 export const acceptOrder = async (orderId, proUid) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
@@ -299,6 +309,8 @@ export const getApplicants = async (orderId) => {
 /** 다중비교 — 접수자가 1명 선정 */
 export const selectPro = async (orderId, selectedProUid) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  const cur = await getDoc(orderRef);
+  if (cur.exists() && cur.data().matchedProUid) throw new Error("이미 선정된 오더입니다"); // 중복선정 방지
   await updateDoc(orderRef, {
     matchedProUid: selectedProUid,
     orderStatus: ORDER_STATUS.ASSIGNED,
