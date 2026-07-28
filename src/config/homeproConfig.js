@@ -136,18 +136,17 @@ export const SCHEDULE_OPTIONS = [
 // ─── 카테고리 대분류 그룹 ───
 export const CATEGORY_GROUPS = [
     { id: "cleaning", label: "청소", categoryIds: ["professional_cleaning", "regular_cleaning", "appliance_cleaning", "mattress_care", "pest_control", "mold"] },
-    { id: "repair", label: "설비/수리", categoryIds: ["drain_pipe", "home_repair", "boiler", "electrical_work"] },
+    { id: "repair", label: "설비/수리", categoryIds: ["drain_pipe", "leak_detection", "home_repair", "boiler", "electrical_work"] },
     { id: "install", label: "설치", categoryIds: ["aircon_install", "appliance_install"] },
     { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "paint_waterproof", "partial_interior", "full_remodel", "heavy_equipment"] },
     { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer", "fortune"] },
 ];
 
 // ─── 카테고리 ───
-// 대표 지시 7/24: 24개 · 아래 배열 순서가 곧 화면 표기 순서.
-//  - 신설: 정기청소(regular_cleaning) — 기존 전문청소 하위에서 독립
-//  - 제외: 자재.장비.소모품(supplies) · 기업.단체보험(insurance)
-//  - 카테고리별 상세 접수 단계(orderFormConfig)는 대표님 추가 자료 수령 후 반영 예정
 export const CATEGORIES = [
+    // 대표 확정 최종본 7/28 — 25개. 이 배열 순서가 곧 화면 표기 순서.
+    // 예약접수 / AI견적 / 비즈프로필이 모두 이 목록을 그대로 쓴다.
+    // 카테고리별 상세 접수 단계(orderFormConfig)는 대표님 자료 수령분부터 순차 반영.
     {
         id: "professional_cleaning",
         name: "전문청소",
@@ -166,19 +165,27 @@ export const CATEGORIES = [
     },
     {
         id: "drain_pipe",
-        name: "설비.하수구.누수",
+        name: "설비.하수구.배관",
         shortName: "설비.하수구",
         group: "repair",
-        description: "하수구, 배관, 설비, 누수 탐지/공사, 난방",
-        subcategories: ["하수구.배관.설비", "누수탐지", "누수공사", "난방.보일러", "기타"],
+        description: "하수구, 배관, 설비 시공·수리",
+        subcategories: ["하수구.배관.설비", "난방.보일러", "기타"],
     },
     {
-        id: "home_repair",
-        name: "집수리",
-        shortName: "집수리",
+        id: "leak_detection",
+        name: "누수탐지공사",
+        shortName: "누수탐지",
         group: "repair",
-        description: "창호, 욕실, 주방, 도어락 등 각종 소수리/보수",
-        subcategories: ["창호 소수리", "욕실 소수리", "주방 소수리", "전기.조명(생활)", "설비연계 소수리", "벽.천장 부분보수", "가구.생활 설치", "도어락.보안 소수리", "베란다.외부 소수리", "문 소수리", "외부 소수리", "도장(페인트)", "기타"],
+        description: "누수 탐지 및 누수 공사",
+        subcategories: ["누수탐지", "누수공사", "욕실누수", "천장누수", "배관누수", "옥상.외벽누수", "기타"],
+    },
+    {
+        id: "aircon_install",
+        name: "에어컨 이전설치",
+        shortName: "에어컨설치",
+        group: "install",
+        description: "에어컨 신규/이전 설치, 실외기, 고장 점검",
+        subcategories: ["에어컨 신규", "에어컨 이전", "에어컨실외기", "에어컨고장.점검요청", "기타"],
     },
     {
         id: "appliance_cleaning",
@@ -197,20 +204,20 @@ export const CATEGORIES = [
         subcategories: ["침대메트리스", "소파", "카페트", "기타"],
     },
     {
-        id: "moving",
-        name: "용달.포장이사",
-        shortName: "용달.포장이사",
-        group: "life",
-        description: "용달, 가정/사무실/특수/보관 이사",
-        subcategories: ["가정이사", "사무실.상가이사", "특수이사", "부분.추가이사", "보관이사", "기타"],
-    },
-    {
         id: "worker_call",
-        name: "팀원/기술자 요청",
-        shortName: "팀원/기술자",
+        name: "팀원.기술자 구인",
+        shortName: "팀원.기술자",
         group: "life",
         description: "현장 작업 인력/기술자/장비 요청",
         subcategories: ["청소작업", "전문작업", "보통인부", "스페어기사", "기타"],
+    },
+    {
+        id: "home_repair",
+        name: "집수리",
+        shortName: "집수리",
+        group: "repair",
+        description: "창호, 욕실, 주방, 도어락 등 각종 소수리/보수",
+        subcategories: ["창호 소수리", "욕실 소수리", "주방 소수리", "전기.조명(생활)", "설비연계 소수리", "벽.천장 부분보수", "가구.생활 설치", "도어락.보안 소수리", "베란다.외부 소수리", "문 소수리", "외부 소수리", "도장(페인트)", "기타"],
     },
     {
         id: "partial_interior",
@@ -229,30 +236,6 @@ export const CATEGORIES = [
         subcategories: ["욕실 리모델링", "주방리모델링", "부분리모델링", "전체 리모델링", "상가.사무실리모델링", "창호리모델링", "기타"],
     },
     {
-        id: "aircon_install",
-        name: "에어컨설치",
-        shortName: "에어컨설치",
-        group: "install",
-        description: "에어컨 신규/이전 설치, 실외기, 고장 점검",
-        subcategories: ["에어컨 신규", "에어컨 이전", "에어컨실외기", "에어컨고장.점검요청", "기타"],
-    },
-    {
-        id: "appliance_install",
-        name: "가전설치",
-        shortName: "가전설치",
-        group: "install",
-        description: "세탁기, 냉장고, TV, 비데 등 가전 설치",
-        subcategories: ["세탁기", "냉장고", "TV.가구.벽걸이", "인덕션.후드", "음식물처리기", "온수기", "CCTV.네트워크", "비데.정수기", "기타"],
-    },
-    {
-        id: "heavy_equipment",
-        name: "스카이차.건설장비",
-        shortName: "스카이차.장비",
-        group: "construction",
-        description: "스카이차, 크레인, 사다리차, 굴삭기 등 건설장비",
-        subcategories: ["스카이차", "카고크레인", "사다리차", "유압크레인", "굴삭기", "지게차"],
-    },
-    {
         id: "demolition",
         name: "철거",
         shortName: "철거",
@@ -269,20 +252,44 @@ export const CATEGORIES = [
         subcategories: ["가정생활 폐기물", "인테리어 폐기물", "혼합 폐기물", "대형.중량폐기물", "사업장폐기물", "기타"],
     },
     {
-        id: "paint_waterproof",
-        name: "페인트.도장.방수",
-        shortName: "페인트.도장.방수",
-        group: "construction",
-        description: "내외부 페인트, 도장, 방수 시공",
-        subcategories: ["페인트", "도장", "방수", "기타"],
-    },
-    {
         id: "electrical_work",
         name: "전기공사",
         shortName: "전기공사",
         group: "repair",
         description: "배선, 증설, 콘센트/스위치, 조명 공사 등",
         subcategories: ["배선공사", "전기 용량.증설", "콘센트.스위치 신설", "조명공사", "가전 전용 전기공사", "상가.사무실 전기공사", "기타"],
+    },
+    {
+        id: "heavy_equipment",
+        name: "스카이차.건설장비",
+        shortName: "스카이차.장비",
+        group: "construction",
+        description: "스카이차, 크레인, 사다리차, 굴삭기 등 건설장비",
+        subcategories: ["스카이차", "카고크레인", "사다리차", "유압크레인", "굴삭기", "지게차"],
+    },
+    {
+        id: "appliance_install",
+        name: "가전설치",
+        shortName: "가전설치",
+        group: "install",
+        description: "세탁기, 냉장고, TV, 비데 등 가전 설치",
+        subcategories: ["세탁기", "냉장고", "TV.가구.벽걸이", "인덕션.후드", "음식물처리기", "온수기", "CCTV.네트워크", "비데.정수기", "기타"],
+    },
+    {
+        id: "boiler",
+        name: "난방.보일러",
+        shortName: "난방/보일러",
+        group: "repair",
+        description: "가스/기름/전기 보일러, 지역난방, 온수기",
+        subcategories: ["가스보일러", "기름보일러", "전기식보일러", "지역난방", "온수기", "기타"],
+    },
+    {
+        id: "appliance_rental",
+        name: "가전렌탈",
+        shortName: "가전렌탈",
+        group: "life",
+        description: "생활/대형/주방/IT 가전 렌탈",
+        subcategories: ["생활.위생가전", "대형가전", "주방.소형가전", "IT.디지털 가전", "특수목적", "기타"],
     },
     {
         id: "pest_control",
@@ -301,20 +308,20 @@ export const CATEGORIES = [
         subcategories: ["곰팡이제거", "곰팡이 차단코팅", "단열 페인트시공", "단열제 시공", "기타"],
     },
     {
-        id: "boiler",
-        name: "난방.보일러",
-        shortName: "난방/보일러",
-        group: "repair",
-        description: "가스/기름/전기 보일러, 지역난방, 온수기",
-        subcategories: ["가스보일러", "기름보일러", "전기식보일러", "지역난방", "온수기", "기타"],
+        id: "paint_waterproof",
+        name: "페인트.도장.방수",
+        shortName: "페인트.도장.방수",
+        group: "construction",
+        description: "내외부 페인트, 도장, 방수 시공",
+        subcategories: ["페인트", "도장", "방수", "기타"],
     },
     {
-        id: "appliance_rental",
-        name: "가전렌탈",
-        shortName: "가전렌탈",
+        id: "moving",
+        name: "용달.포장이사",
+        shortName: "용달.포장이사",
         group: "life",
-        description: "생활/대형/주방/IT 가전 렌탈",
-        subcategories: ["생활.위생가전", "대형가전", "주방.소형가전", "IT.디지털 가전", "특수목적", "기타"],
+        description: "용달, 가정/사무실/특수/보관 이사",
+        subcategories: ["가정이사", "사무실.상가이사", "특수이사", "부분.추가이사", "보관이사", "기타"],
     },
     {
         id: "computer",

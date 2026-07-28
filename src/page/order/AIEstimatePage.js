@@ -63,38 +63,26 @@ export const AIEstimateContent = () => {
 
   return (
     <PageWrap>
-        {/* 카테고리 선택 (아코디언) */}
+        {/* 카테고리 선택 — 예약접수와 동일한 평면 나열 (대표 지시 7/28) */}
         <Section>
           <Label>카테고리 선택</Label>
-          {CATEGORY_GROUPS.map((group) => {
-            const isOpen = expandedGroup === group.id;
-            const groupCats = CATEGORIES.filter((c) => c.group === group.id);
-            const selectedInGroup = groupCats.find((c) => c.id === selectedCat);
-            return (
-              <CatAccordion key={group.id}>
-                <CatAccordionHeader onClick={() => setExpandedGroup(isOpen ? null : group.id)} $active={!!selectedInGroup}>
-                  <CatAccordionLabel>{group.label}</CatAccordionLabel>
-                  {selectedInGroup && <CatAccordionSelected>{selectedInGroup.shortName}</CatAccordionSelected>}
-                  <CatAccordionArrow>{isOpen ? "▲" : "▼"}</CatAccordionArrow>
+          {!selectedCat ? (
+            CATEGORIES.map((cat) => (
+              <CatAccordion key={cat.id}>
+                <CatAccordionHeader onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}>
+                  <CatAccordionLabel>{cat.name}</CatAccordionLabel>
+                  <CatAccordionArrow>▼</CatAccordionArrow>
                 </CatAccordionHeader>
-                {isOpen && (
-                  <CatGrid>
-                    {groupCats.map((cat) => {
-                      return (
-                        <CatChip
-                          key={cat.id}
-                          $active={selectedCat === cat.id}
-                          onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); setExpandedGroup(null); }}
-                        >
-                          {(() => { const n = cat.shortName.replace(/[./·\-]/g, ""); return n.length > 6 ? n.slice(0, 6) : n; })()}
-                        </CatChip>
-                      );
-                    })}
-                  </CatGrid>
-                )}
               </CatAccordion>
-            );
-          })}
+            ))
+          ) : (
+            <CatAccordion>
+              <CatAccordionHeader $active onClick={() => { setSelectedCat(""); setSelectedSubs([]); setSpaceType(""); setResult(null); }}>
+                <CatAccordionLabel>{CATEGORIES.find((c) => c.id === selectedCat)?.name}</CatAccordionLabel>
+                <CatAccordionArrow>▲</CatAccordionArrow>
+              </CatAccordionHeader>
+            </CatAccordion>
+          )}
         </Section>
 
         {/* 세부 항목 선택 */}

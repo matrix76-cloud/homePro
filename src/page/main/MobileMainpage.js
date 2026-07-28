@@ -483,6 +483,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     return "all_orders";
   });
   const [activeStatusFilter, setActiveStatusFilter] = useState("전체");
+  // 마감·취소 숨기기 (기본 켜짐) — 지원할 수 있는 오더만 보이게 (형 지시 7/28)
+  const [hideClosed, setHideClosed] = useState(true);
   const [activeCatFilters, setActiveCatFilters] = useState([]);
   const [activeDist, setActiveDist] = useState("전체");
   const [activePeriod, setActivePeriod] = useState("전체");
@@ -612,6 +614,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   // 상태 + 카테고리 + 기간 + 거리 필터 적용
   const filteredOrders = allOrders.filter((o) => {
     const mapped = mapStatus(o.orderStatus);
+    // 지원 불가한 오더 숨기기 (형 지시 7/28) — 마감·취소는 어차피 못 들어가는 건이라 기본 숨김
+    if (hideClosed && (mapped === "마감" || mapped === "취소")) return false;
     const statusMatch = activeStatusFilter === "전체" || mapped === activeStatusFilter;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
     const periodMatch = filterByPeriod(o);
@@ -748,6 +752,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </FilterBtn>
             <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
               {activeCatFilters.length > 0 ? `${activeCatFilters.length}개` : "카테고리"} <IoChevronDown size={11} />
+            </FilterBtn>
+            {/* 마감·취소 숨기기 토글 (기본 켜짐) */}
+            <FilterBtn $active={hideClosed} onClick={() => setHideClosed((v) => !v)}>
+              {hideClosed ? "마감·취소 숨김" : "마감·취소 표시"}
             </FilterBtn>
           </FilterBtnRow>
 
@@ -1833,13 +1841,12 @@ const SectionTitle = styled.div`
   padding: 16px 16px 0;
 `;
 
+/* 글자 상향 + 필터 추가로 한 줄에 안 들어가서 줄바꿈 허용 (가로 스크롤이면 뒤쪽 버튼이 안 보임) */
 const FilterBtnRow = styled.div`
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 12px 16px 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  &::-webkit-scrollbar { display: none; }
 `;
 
 const FilterLabel = styled.div`

@@ -390,29 +390,25 @@ const BizProfilePage = () => {
                       <IoCloseOutline size={24} color={THEME.text} />
                     </SheetCloseBtn>
                   </SheetHeader>
+                  {/* 예약접수·AI견적과 동일한 평면 목록·순서 (대표 지시 7/28) */}
                   <SheetList>
-                    {CATEGORY_GROUPS.map((group) => (
-                      <React.Fragment key={group.id}>
-                        <SheetGroupLabel>{group.label}</SheetGroupLabel>
-                        {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
-                          const checked = selectedCats.includes(cat.id);
-                          return (
-                            <SheetItem
-                              key={cat.id}
-                              onClick={() => setSelectedCats((prev) =>
-                                checked ? prev.filter((c) => c !== cat.id) : [...prev, cat.id]
-                              )}
-                            >
-                              <SheetItemLeft>
-                                <SheetCatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : null; })()}</SheetCatIcon>
-                                <SheetItemName>{cat.shortName}</SheetItemName>
-                              </SheetItemLeft>
-                              {checked && <IoCheckmarkCircle size={22} color={THEME.primary} />}
-                            </SheetItem>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
+                    {CATEGORIES.map((cat) => {
+                      const checked = selectedCats.includes(cat.id);
+                      return (
+                        <SheetItem
+                          key={cat.id}
+                          onClick={() => setSelectedCats((prev) =>
+                            checked ? prev.filter((c) => c !== cat.id) : [...prev, cat.id]
+                          )}
+                        >
+                          <SheetItemLeft>
+                            <SheetCatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : null; })()}</SheetCatIcon>
+                            <SheetItemName>{cat.name}</SheetItemName>
+                          </SheetItemLeft>
+                          {checked && <IoCheckmarkCircle size={22} color={THEME.primary} />}
+                        </SheetItem>
+                      );
+                    })}
                   </SheetList>
                   <SheetActions>
                     <SheetResetBtn onClick={() => setSelectedCats([])}>초기화</SheetResetBtn>
