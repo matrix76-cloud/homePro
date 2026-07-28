@@ -134,6 +134,7 @@ const ORDER_FORM_CONFIG = {
   // 4. 가전.분해청소
   // ─────────────────────────────────────────────
   appliance_cleaning: {
+    qtyPerSelected: { label: "선택 품목 수량", unit: "대" },
     notice: "가전분해 클리닝 서비스는 에어컨, 세탁기, 냉장고, 주방후드, 비데 등 가전 제품을 분해하여 내부 오염·먼지·곰팡이 등을 세척·관리하는 전문 클리닝 서비스입니다.",
     subGroups: [
       { label: "에어컨청소", items: ["2In1(스탠드+벽걸이)", "벽걸이형", "스탠드형 일반", "스탠드형 스마트", "천장형 1Way", "천장형 2Way", "천장형 4Way", "매립덕트형", "온풍기", "실외기청소"] },
@@ -155,6 +156,13 @@ const ORDER_FORM_CONFIG = {
   // 5. 침대.소파.카펫
   // ─────────────────────────────────────────────
   mattress_care: {
+    qtyPerSelected: { label: "선택 품목 수량", unit: "개" },
+    inputSections: [
+      { key: "carpet", label: "카페트 크기", fields: [
+        { key: "width", label: "가로", type: "number", unit: "cm" },
+        { key: "height", label: "세로", type: "number", unit: "cm" },
+      ] },
+    ],
     notice: "침대·소파·카페트 클리닝 서비스는 생활오염, 먼지, 진드기, 냄새 등을 제거하여 위생적인 사용 환경을 위한 전문 세척관리 서비스입니다.",
     subGroups: [
       { label: "침대매트리스", items: ["유아용", "싱글", "슈퍼싱글", "더블", "퀸", "킹", "라지킹"] },
@@ -444,6 +452,12 @@ const ORDER_FORM_CONFIG = {
   // 16. 곰팡이재발방지
   // ─────────────────────────────────────────────
   mold: {
+    inputSections: [
+      { key: "moldArea", label: "시공 부위 크기", fields: [
+        { key: "width", label: "가로", type: "number", unit: "m" },
+        { key: "height", label: "세로", type: "number", unit: "m" },
+      ] },
+    ],
     notice: "곰팡이 재발방지 서비스는 곰팡이 제거 후 원인 개선 및 방지 처리를 통해 재발 가능성을 낮추기 위한 전문 관리·시공 서비스입니다.",
     subGroups: [
       { label: "외벽과 맞닿은 벽", items: ["침실외벽", "거실외벽", "북향벽"] },
@@ -570,6 +584,13 @@ const ORDER_FORM_CONFIG = {
   // 21. 폐기물처리
   // ─────────────────────────────────────────────
   waste: {
+    inputSections: [
+      { key: "volumeDetail", label: "물량 상세", fields: [
+        { key: "sack", label: "마대/포대", type: "number", unit: "개" },
+        { key: "furniture", label: "가구/가전", type: "number", unit: "개" },
+        { key: "etc", label: "기타", type: "text", placeholder: "그 밖의 물량을 적어주세요" },
+      ] },
+    ],
     notice: "폐기물처리 서비스는 생활, 공사, 사업장 등에서 발생한 각종 폐기물의 수거, 운반 및 처리 지원을 위한 전문 서비스입니다.",
     subGroups: [
       { label: "가정생활 폐기물", items: ["가구·가전 폐기", "이사 잔짐", "대형 폐기물 다량", "창고·베란다 정리"] },
@@ -762,6 +783,13 @@ const ORDER_FORM_CONFIG = {
   // 27. 자동차
   // ─────────────────────────────────────────────
   auto: {
+    inputSections: [
+      { key: "car", label: "차량 정보", fields: [
+        { key: "model", label: "차종", type: "text", placeholder: "예: 그랜저 IG" },
+        { key: "plate", label: "차량번호", type: "text", placeholder: "예: 12가 3456" },
+        { key: "color", label: "차량색상", type: "text", placeholder: "예: 흰색" },
+      ] },
+    ],
     notice: "자동차 서비스는 차량 점검, 정비, 관리, 부품 교체 및 기타 차량 관련 작업 지원을 위한 전문 서비스입니다.",
     subGroups: [
       { label: "방문 세차.관리", items: ["출장세차", "정기 월세차", "픽업세차", "에바(에어컨) 클리닝", "실내 클리닝", "시트 부분 오염", "반려동물 털 제거", "실내세차+항균 탈취"] },
@@ -850,6 +878,18 @@ const ORDER_FORM_CONFIG = {
   // 29. 이사
   // ─────────────────────────────────────────────
   moving: {
+    inputSections: [
+      { key: "from", label: "출발지", fields: [
+        { key: "addr", label: "주소", type: "text", placeholder: "출발지 주소" },
+        { key: "floor", label: "층수", type: "number", unit: "층" },
+        { key: "elevator", label: "엘리베이터", type: "select", options: ["있음", "없음"] },
+      ] },
+      { key: "to", label: "도착지", fields: [
+        { key: "addr", label: "주소", type: "text", placeholder: "도착지 주소" },
+        { key: "floor", label: "층수", type: "number", unit: "층" },
+        { key: "elevator", label: "엘리베이터", type: "select", options: ["있음", "없음"] },
+      ] },
+    ],
     notice: "용달·포장이사 서비스는 이사, 용달, 소형이사, 보관이사 등 다양한 운송 및 이사 작업을 지원하는 종합 이사 서비스입니다.",
     subGroups: [
       { label: "가정이사", items: ["포장이사", "반포장이사", "일반이사", "원룸·투룸 이사"] },
@@ -948,6 +988,12 @@ const ORDER_FORM_CONFIG = {
   // 32. 사주.작명
   // ─────────────────────────────────────────────
   fortune: {
+    inputSections: [
+      { key: "birth", label: "기본 정보", fields: [
+        { key: "birthDate", label: "생년월일", type: "date" },
+        { key: "birthTime", label: "출생시간", type: "time" },
+      ] },
+    ],
     notice: "작명 및 사주분석 결과는 전문가의 견해에 따른 참고이며, 법적·의학적·재정적 효력을 갖지 않습니다.",
     subGroups: [
       { label: "승.패 분석", items: ["사업운", "계약운", "승진운", "취업운", "시험운", "투자운"] },
@@ -965,6 +1011,18 @@ const ORDER_FORM_CONFIG = {
   },
 
   worker_call: {
+    inputSections: [
+      { key: "crew", label: "숙련도별 인원", fields: [
+        { key: "조공", label: "조공", type: "number", unit: "명" },
+        { key: "준기공", label: "준기공", type: "number", unit: "명" },
+        { key: "기공", label: "기공", type: "number", unit: "명" },
+        { key: "반장", label: "반장", type: "number", unit: "명" },
+      ] },
+      { key: "site", label: "현장 위치", fields: [
+        { key: "pickup", label: "픽업장소", type: "text", placeholder: "픽업 주소" },
+        { key: "arrive", label: "현장도착", type: "text", placeholder: "현장 주소" },
+      ] },
+    ],
     notice: "홈프로는 작업 인력 연결을 위한 중개 서비스만 제공하며, 실제 작업 계약·작업 대금지급·작업 안전 및 사고 책임은 작업 요청자와 작업자 간에 이루어집니다.",
     subGroups: [
       { label: "청소작업", items: ["이사청소", "입주청소", "준공청소", "특수청소", "화재청소", "공장청소", "창고청소", "가전청소", "기타청소"] },

@@ -502,6 +502,8 @@ export const OrderCreateContent = () => {
   const [selectedService, setSelectedService] = useState(""); // 서비스(subGroup 라벨) 드릴다운
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [attrValues, setAttrValues] = useState({}); // 카테고리별 추가 속성 선택값 {key: [값]}
+  const [inputValues, setInputValues] = useState({}); // 직접 입력값 {섹션키: {필드키: 값}}
+  const [itemQty, setItemQty] = useState({});         // 선택 종목별 수량 {종목키: 수량}
   const [buildingType, setBuildingType] = useState("");
   const [areaValue, setAreaValue] = useState("");
   const [areaUnit, setAreaUnit] = useState("평");
@@ -718,6 +720,8 @@ export const OrderCreateContent = () => {
     setCustomInput("");
     setOptionEtc("");
     setAttrValues({});
+    setInputValues({});
+    setItemQty({});
     setSelectedService("");
   };
 
@@ -796,6 +800,20 @@ export const OrderCreateContent = () => {
         attrs: (() => {
           const picked = Object.entries(attrValues).filter(([, v]) => Array.isArray(v) && v.length > 0);
           return picked.length ? Object.fromEntries(picked) : null;
+        })(),
+        // 직접 입력값 (주소·수량·치수·차량정보 등)
+        inputs: (() => {
+          const out = {};
+          Object.entries(inputValues).forEach(([sec, fields]) => {
+            const filled = Object.entries(fields || {}).filter(([, v]) => String(v ?? "").trim() !== "");
+            if (filled.length) out[sec] = Object.fromEntries(filled);
+          });
+          return Object.keys(out).length ? out : null;
+        })(),
+        // 종목별 수량
+        itemQty: (() => {
+          const filled = Object.entries(itemQty).filter(([, v]) => Number(v) > 0);
+          return filled.length ? Object.fromEntries(filled) : null;
         })(),
         customInput: customInput || null,
         schedule: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate, // 예약날짜는 날짜만 표기
@@ -1163,6 +1181,69 @@ export const OrderCreateContent = () => {
             );
           })}
 
+          {/* 선택한 종목별 수량 (가전분해청소·침대소파카펫 등) — 사양서의 '수량' 칸 */}
+          {showDetail && detailConfig?.qtyPerSelected && selectedSub.length > 0 && (
+            <Section>
+              <Label>{detailConfig.qtyPerSelected.label || "수량"}</Label>
+              {selectedSub.map((key) => {
+                const name = key.includes(":") ? key.split(":")[1] : key;
+                return (
+                  <FieldRow key={key}>
+                    <InputFieldLabel>{name}</InputFieldLabel>
+                    <Input
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={itemQty[key] ?? ""}
+                      onChange={(e) => setItemQty((prev) => ({ ...prev, [key]: e.target.value }))}
+                      style={{ flex: 1 }}
+                    />
+                    <FieldUnit>{detailConfig.qtyPerSelected.unit || "개"}</FieldUnit>
+                  </FieldRow>
+                );
+              })}
+            </Section>
+          )}
+
+          {/* 직접 입력이 필요한 항목 (주소·수량·치수·차량정보·생년월일 등)
+              config 의 inputSections 를 타입별 입력칸으로 렌더 (대표 사양서 7/28) */}
+          {showDetail && Array.isArray(detailConfig?.inputSections) && detailConfig.inputSections.map((sec) => (
+            <Section key={sec.key}>
+              <Label>{sec.label}</Label>
+              {sec.fields.map((f) => {
+                const val = inputValues[sec.key]?.[f.key] ?? "";
+                const setVal = (v) => setInputValues((prev) => ({
+                  ...prev,
+                  [sec.key]: { ...(prev[sec.key] || {}), [f.key]: v },
+                }));
+                return (
+                  <FieldRow key={f.key}>
+                    <InputFieldLabel>{f.label}</InputFieldLabel>
+                    {f.type === "select" ? (
+                      <ChipGrid style={{ flex: 1 }}>
+                        {f.options.map((opt) => (
+                          <Chip key={opt} $selected={val === opt} onClick={() => setVal(val === opt ? "" : opt)}>{opt}</Chip>
+                        ))}
+                      </ChipGrid>
+                    ) : (
+                      <Input
+                        type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"}
+                        min={f.type === "number" ? "0" : undefined}
+                        inputMode={f.type === "number" ? "numeric" : undefined}
+                        placeholder={f.placeholder || ""}
+                        value={val}
+                        onChange={(e) => setVal(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                    )}
+                    {f.unit && f.type !== "select" ? <FieldUnit>{f.unit}</FieldUnit> : null}
+                  </FieldRow>
+                );
+              })}
+            </Section>
+          ))}
+
           {/* 면적 입력 */}
           {showDetail && detailConfig?.areaInput && (
             <Section>
@@ -1511,6 +1592,26 @@ const AreaRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+/* 직접 입력 항목 한 줄 (라벨 + 입력칸 + 단위) */
+const FieldRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  & + & { margin-top: 10px; }
+`;
+
+const InputFieldLabel = styled.div`
+  flex: 0 0 96px;
+  font-size: 15px;
+  color: ${THEME.textSecondary};
+`;
+
+const FieldUnit = styled.div`
+  flex: 0 0 auto;
+  font-size: 15px;
+  color: ${THEME.textSecondary};
 `;
 
 const TimeRow = styled.div`
