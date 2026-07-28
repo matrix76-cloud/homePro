@@ -269,7 +269,7 @@ export const AIEstimateContent = () => {
                 <>
                   <TotalRow style={{ marginTop: 16 }}>
                     <TotalLabel>대략적 범위</TotalLabel>
-                    <TotalPrice style={{ fontSize: 18 }}>
+                    <TotalPrice style={{ fontSize: 20 }}>
                       {formatPrice(result.partialEstimate.minPrice)} ~ {formatPrice(result.partialEstimate.maxPrice)}
                     </TotalPrice>
                   </TotalRow>
@@ -327,14 +327,14 @@ const AIIconWrap = styled.div`
 `;
 
 const HeaderTitle = styled.div`
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.03em;
 `;
 
 const HeaderDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: rgba(255,255,255,0.8);
   margin-top: 8px;
@@ -351,7 +351,7 @@ const Section = styled.div`
 `;
 
 const Label = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
@@ -359,7 +359,7 @@ const Label = styled.div`
 `;
 
 const CatGroupLabel = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   background: ${THEME.background};
@@ -384,19 +384,19 @@ const CatAccordionHeader = styled.div`
 
 const CatAccordionLabel = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const CatAccordionSelected = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.primary};
   margin-right: 8px;
 `;
 
 const CatAccordionArrow = styled.span`
-  font-size: 10px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
@@ -418,7 +418,7 @@ const CatChip = styled.button`
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}15` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.text};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: ${({ $active }) => $active ? 600 : 400};
   font-family: inherit;
   cursor: pointer;
@@ -444,7 +444,7 @@ const TextArea = styled.textarea`
   padding: 14px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   background: ${THEME.surface};
@@ -476,7 +476,7 @@ const AnalyzeBtn = styled.button`
   border-radius: 10px;
   background: linear-gradient(135deg, ${THEME.primary}, ${THEME.purple});
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;
@@ -517,13 +517,13 @@ const ResultIcon = styled.div`
 const ResultHeaderText = styled.div``;
 
 const ResultTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const ResultCat = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -540,7 +540,7 @@ const TotalRow = styled.div`
 `;
 
 const TotalLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.textSecondary};
   line-height: 1.4;
@@ -555,13 +555,13 @@ const TotalPriceCol = styled.div`
 `;
 
 const TotalPrice = styled.div`
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: ${THEME.primary};
 `;
 
 const TotalTilde = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   text-align: right;
 `;
@@ -571,7 +571,7 @@ const DetailToggle = styled.div`
   align-items: center;
   justify-content: center;
   gap: 4px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   cursor: pointer;
@@ -601,13 +601,13 @@ const DetailLeft = styled.div`
 `;
 
 const DetailName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const DetailPrice = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.primary};
   flex-shrink: 0;
@@ -623,13 +623,13 @@ const InfoRow = styled.div`
 `;
 
 const InfoLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const InfoValue = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -644,19 +644,19 @@ const TipBox = styled.div`
 `;
 
 const TipIcon = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   flex-shrink: 0;
 `;
 
 const TipText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: #92400E;
   line-height: 1.5;
 `;
 
 const Disclaimer = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 12px;
@@ -671,7 +671,7 @@ const RealEstimateBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;
@@ -683,7 +683,7 @@ const AreaInput = styled.input`
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   outline: none;
@@ -693,7 +693,7 @@ const AreaInput = styled.input`
 `;
 
 const DetailNote = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -704,7 +704,7 @@ const ReasoningBox = styled.div`
   padding: 14px;
   background: ${THEME.background};
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.6;
@@ -720,7 +720,7 @@ const QuestionList = styled.div`
 `;
 
 const QuestionItem = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
   line-height: 1.5;
@@ -742,7 +742,7 @@ const AIToast = styled.div`
   padding: 12px 24px;
   background: #333;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;
@@ -757,7 +757,7 @@ const RetryBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;

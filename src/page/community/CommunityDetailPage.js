@@ -204,25 +204,25 @@ const Badge = styled.div`
   border-radius: 20px;
   background: ${THEME.purpleLight};
   color: ${THEME.purple};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
 `;
 
 const MetaDate = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const AuthorRow = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-top: 10px;
 `;
 
 const Title = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: ${THEME.text};
   margin-top: 16px;
@@ -231,7 +231,7 @@ const Title = styled.div`
 `;
 
 const Content = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 12px;
@@ -271,7 +271,7 @@ const LikeBtn = styled.button`
 `;
 
 const LikeCount = styled.span`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${({ $liked }) => ($liked ? THEME.danger : THEME.muted)};
 `;
@@ -281,14 +281,14 @@ const CommentSection = styled.div`
 `;
 
 const CommentTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 16px;
 `;
 
 const CommentEmpty = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   text-align: center;
@@ -301,13 +301,13 @@ const CommentItem = styled.div`
 `;
 
 const CommentAuthor = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const CommentText = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 4px;
@@ -322,13 +322,13 @@ const CommentMeta = styled.div`
 `;
 
 const CommentDate = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const ReplyBtn = styled.button`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.primary};
   background: none;
@@ -356,13 +356,13 @@ const ReplyIndicator = styled.div`
   justify-content: space-between;
   padding: 8px 16px;
   background: ${THEME.background};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.primary};
 `;
 
 const CancelReply = styled.button`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.muted};
   background: none;
@@ -383,7 +383,7 @@ const CommentInput = styled.input`
   border-radius: 10px;
   border: 1.5px solid ${THEME.border};
   background: ${THEME.background};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   font-family: inherit;
   color: ${THEME.text};
@@ -412,6 +412,6 @@ const LoadingWrap = styled.div`
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  font-size: 15px;
+  font-size: 17px;
   color: ${THEME.muted};
 `;

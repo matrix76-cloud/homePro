@@ -102,8 +102,8 @@ const MobileFooter = ({ type }) => {
               <IoCreateOutline size={20} color={THEME.purple} />
             </div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: THEME.text }}>견적 요청</div>
-              <div style={{ fontSize: 11, color: THEME.muted, marginTop: 1 }}>전문가에게 직접 견적을 받아요</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: THEME.text }}>견적 요청</div>
+              <div style={{ fontSize: 13, color: THEME.muted, marginTop: 1 }}>전문가에게 직접 견적을 받아요</div>
             </div>
           </div>
           <div style={{ height: 1, background: "#f0f0f0" }} />
@@ -117,8 +117,8 @@ const MobileFooter = ({ type }) => {
               <IoSparklesOutline size={20} color="#F59E0B" />
             </div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: THEME.text }}>AI 견적</div>
-              <div style={{ fontSize: 11, color: THEME.muted, marginTop: 1 }}>AI가 즉시 견적을 알려줘요</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: THEME.text }}>AI 견적</div>
+              <div style={{ fontSize: 13, color: THEME.muted, marginTop: 1 }}>AI가 즉시 견적을 알려줘요</div>
             </div>
           </div>
         </div>
@@ -166,7 +166,7 @@ const MobileFooter = ({ type }) => {
                       borderRadius: 8,
                       background: THEME.primary,
                       color: "#fff",
-                      fontSize: 10,
+                      fontSize: 13,
                       fontWeight: 700,
                       display: "flex",
                       alignItems: "center",

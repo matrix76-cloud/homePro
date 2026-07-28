@@ -234,13 +234,13 @@ const TotalCard = styled.div`
 `;
 
 const TotalLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: rgba(255,255,255,0.8);
 `;
 
 const TotalAmount = styled.div`
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   color: #fff;
   margin-top: 6px;
@@ -251,7 +251,7 @@ const SlideSection = styled.div`
 `;
 
 const SlideTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   padding-left: 4px;
@@ -282,20 +282,20 @@ const SlideCard = styled.div`
 
 
 const SlideAmount = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${({ $accent }) => $accent || THEME.primary};
 `;
 
 const SlideLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${THEME.textSecondary};
   line-height: 1.35;
 `;
 
 const SectionTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
   margin-top: 20px;
@@ -325,20 +325,20 @@ const HistoryLeft = styled.div`
 `;
 
 const HistoryReason = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: ${THEME.text};
 `;
 
 const HistoryDate = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
 
 const HistoryAmount = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${({ $type }) => $type === "earn" ? THEME.primary : $type === "use" ? THEME.danger : THEME.text};
   flex-shrink: 0;
@@ -354,7 +354,7 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.textSecondary};
 `;
@@ -393,13 +393,13 @@ const GradeDot = styled.div`
 `;
 
 const GradeName = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: ${({ $active }) => $active ? 700 : 400};
   color: ${THEME.text};
 `;
 
 const GradeMin = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.muted};
 `;

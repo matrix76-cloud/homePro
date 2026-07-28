@@ -78,7 +78,7 @@ const LeftBtn = styled.button`
 `;
 
 const CenterTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   color: ${THEME.text};
   flex: 1;
@@ -109,7 +109,7 @@ const LocationWrap = styled.div`
 `;
 
 const LocationLabel = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
   white-space: nowrap;

@@ -98,8 +98,12 @@ const OrderDetailPage = () => {
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
   const isMatchedPro = order?.matchedProUid === myUid;
+  // 비교선정에 지원했고 아직 선정 전 → 상태 "선정대기" + 접수자와 전화/채팅 가능 (대표 지시 7/24)
+  const isApplicant = !isOwner && !isMatchedPro && (order?.applicantUids || []).includes(myUid);
+  const isPendingApplicant = isApplicant && !order?.matchedProUid;
+  const isUnselectedApplicant = isApplicant && !!order?.matchedProUid;
   // 금액 미정 단가유형(현장견적/견적요청) — 수락 단계에서 금액 입력 X.
-  // 명세 D8/E11: 매칭방식(빠른/비교)으로 먼저 수락·배정되고, 견적가는 배정 후 통보.
+  // 명세 D8/E11: 매칭방식(빠른/비교)으로 먼저 수락·배정되고, 견적가는 배정 후 전송.
   // (현장견적·견적요청 모두 동일 흐름으로 통합 — 견적 먼저 보내기 패러다임 폐지)
   const isUnpriced = ["onsite", "estimate", "quote"].includes(order?.b2bPriceType);
 
@@ -297,7 +301,7 @@ const OrderDetailPage = () => {
           });
         }
       } catch (e) {}
-      await addOrderLog(order.id, { type: "select", message: "홈프로 선정 → 배정", byUid: myUid, byName: myName, byRole: "접수자" });
+      await addOrderLog(order.id, { type: "select", message: "선정완료", byUid: myUid, byName: myName, byRole: "접수자" });
       showToast("홈프로가 선정되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
@@ -747,7 +751,7 @@ const OrderDetailPage = () => {
             <SectionTitle>{isUnpriced ? "견적가 안내" : "단가 안내"}</SectionTitle>
             <DetailText style={{ color: THEME.muted }}>
               {isUnpriced
-                ? "이 오더는 수락 단계에서 금액을 입력하지 않습니다. 먼저 수락하여 배정된 뒤, 현장 확인 후 견적가를 접수자에게 통보합니다."
+                ? "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 현장 확인 또는 사진·통화·채팅 등 제공된 정보를 바탕으로 견적가를 접수자에게 제안합니다. 현장 방문 및 실측은 선택 사항입니다."
                 : `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`}
             </DetailText>
           </DetailSection>
@@ -829,6 +833,22 @@ const OrderDetailPage = () => {
               <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
             </PrimaryCTA>
           </ActionRow>
+        ) : isPendingApplicant ? (
+          /* 비교선정 지원 완료(선정 전) — 상태 선정대기 + 접수자와 전화/채팅 */
+          <>
+            <ApplyStatusLine>지원 완료 · <b>선정대기</b></ApplyStatusLine>
+            <ActionRow>
+              <OutlinedBtn onClick={() => handlePhoneCall(order.ordererPhone || order.contactPhone)}>
+                <IoCallOutline size={18} /> 전화
+              </OutlinedBtn>
+              <PrimaryCTA onClick={() => handleStartChat(order.createdBy, order.writer, order.writerPhoto)}>
+                <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
+              </PrimaryCTA>
+            </ActionRow>
+          </>
+        ) : isUnselectedApplicant ? (
+          /* 비교선정 미선정 — 다른 홈프로가 선정됨 */
+          <ApplyStatusLine $muted>미선정 · 다른 홈프로가 선정되었습니다</ApplyStatusLine>
         ) : matchType === "priority" ? (
           /* 우선배정호출 — 전화 제거, 수락하기만 */
           <ActionRow>
@@ -991,7 +1011,7 @@ const PhotoCounter = styled.div`
   border-radius: 10px;
   background: rgba(0,0,0,0.5);
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
 `;
 
@@ -1009,14 +1029,14 @@ const BadgeRow = styled.div`
 const Badge = styled.span`
   padding: 5px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   background: ${({ $bg }) => $bg};
   color: ${({ $color }) => $color};
 `;
 
 const TimeLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.8);
 `;
@@ -1030,7 +1050,7 @@ const TagSection = styled.div`
 const SubTag = styled.span`
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
@@ -1039,7 +1059,7 @@ const SubTag = styled.span`
 const SpaceTag = styled.span`
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
@@ -1051,7 +1071,7 @@ const TitleSection = styled.div`
 
 const OrderTitle = styled.h1`
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
@@ -1066,7 +1086,7 @@ const WriterRow = styled.div`
 `;
 
 const WriterText = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -1098,14 +1118,14 @@ const InfoContent = styled.div`
 `;
 
 const InfoLabel = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-bottom: 2px;
 `;
 
 const InfoValue = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -1125,14 +1145,14 @@ const DetailSection = styled.div`
 `;
 
 const SectionTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
 `;
 
 const DetailText = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.7;
@@ -1161,12 +1181,12 @@ const LogBody = styled.div`
   min-width: 0;
 `;
 const LogMsg = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
 `;
 const LogMeta = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
@@ -1181,13 +1201,13 @@ const ConditionRow = styled.div`
 `;
 
 const ConditionLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.muted};
 `;
 
 const ConditionValue = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
   text-align: right;
@@ -1220,7 +1240,7 @@ const NavBtnInline = styled.button`
 `;
 
 const PhotoCounterInline = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   font-weight: 500;
 `;
@@ -1228,7 +1248,7 @@ const PhotoCounterInline = styled.div`
 const MatchTag = styled.span`
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
@@ -1258,6 +1278,15 @@ const ActionRow = styled.div`
   gap: 10px;
 `;
 
+/* 지원 홈프로 상태 표기 (선정대기 / 미선정) */
+const ApplyStatusLine = styled.div`
+  font-size: 17px;
+  color: ${(p) => (p.$muted ? THEME.muted : THEME.textSecondary)};
+  margin-bottom: ${(p) => (p.$muted ? 0 : "10px")};
+  text-align: center;
+  b { color: ${(p) => (p.$muted ? THEME.muted : THEME.primary)}; font-weight: 700; }
+`;
+
 const SmallBtn = styled.button`
   width: 48px;
   height: 48px;
@@ -1281,7 +1310,7 @@ const MainCTA = styled.button`
   border: 1.5px solid #D1D5DB;
   background: #fff;
   color: #333;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   cursor: pointer;
   &:active {
@@ -1297,7 +1326,7 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -1315,7 +1344,7 @@ const DetailToast = styled.div`
   padding: 12px 24px;
   background: #333;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;
@@ -1373,20 +1402,20 @@ const QuoteNameRow = styled.div`
 `;
 
 const QuoteName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const QuoteTime = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
 
 const QuotePrice = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.primary};
   flex-shrink: 0;
@@ -1394,7 +1423,7 @@ const QuotePrice = styled.div`
 
 const QuoteMessage = styled.div`
   margin-top: 8px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.5;
@@ -1413,7 +1442,7 @@ const QuoteAcceptBtn = styled.button`
   border-radius: 8px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1423,7 +1452,7 @@ const QuoteAcceptBtn = styled.button`
 const QuoteStatusBadge = styled.span`
   padding: 4px 10px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   background: ${({ $accepted }) => $accepted ? THEME.success : THEME.muted};
   color: #fff;
@@ -1474,7 +1503,7 @@ const SheetHeader = styled.div`
 `;
 
 const SheetTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -1493,7 +1522,7 @@ const SheetBody = styled.div`
 `;
 
 const SheetLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -1510,7 +1539,7 @@ const SheetInput = styled.input`
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   font-family: inherit;
   color: ${THEME.text};
@@ -1521,14 +1550,14 @@ const SheetInput = styled.input`
 `;
 
 const SheetUnit = styled.span`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   color: ${THEME.text};
   flex-shrink: 0;
 `;
 
 const SheetHint = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
@@ -1539,7 +1568,7 @@ const SheetTextarea = styled.textarea`
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   outline: none;
@@ -1551,7 +1580,7 @@ const SheetTextarea = styled.textarea`
 
 const SheetCharCount = styled.div`
   text-align: right;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -1565,7 +1594,7 @@ const SheetSubmitBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1581,7 +1610,7 @@ const PrimaryCTA = styled.button`
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1589,7 +1618,7 @@ const PrimaryCTA = styled.button`
 `;
 
 const ProfileHint = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.primary};
   margin-top: 2px;
 `;
@@ -1610,7 +1639,7 @@ const ContactBtn = styled.button`
   justify-content: center;
   gap: 6px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1629,7 +1658,7 @@ const AssignedNote = styled.div`
   border-radius: 10px;
   background: ${THEME.background};
   color: ${THEME.muted};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
 `;
 
@@ -1640,7 +1669,7 @@ const OutlinedBtn = styled.button`
   border: 1.5px solid ${({ $danger }) => $danger ? THEME.danger : "#D1D5DB"};
   background: #fff;
   color: ${({ $danger }) => $danger ? THEME.danger : "#333"};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1666,13 +1695,13 @@ const ApplicantInfo = styled.div`
 `;
 
 const ApplicantName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const ApplicantIntro = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -1687,7 +1716,7 @@ const SelectProBtn = styled.button`
   border-radius: 8px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1745,7 +1774,7 @@ const CancelRadio = styled.div`
 `;
 
 const CancelLabel = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -1758,7 +1787,7 @@ const CancelConfirmBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;

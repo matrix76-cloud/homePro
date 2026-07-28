@@ -262,7 +262,7 @@ const CatTab = styled.button`
   border: none;
   border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
   background: none;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: ${({ $active }) => ($active ? 700 : 500)};
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   cursor: pointer;
@@ -279,7 +279,7 @@ const EmptyState = styled.div`
 `;
 
 const EmptyText = styled.p`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
 `;
 
@@ -333,7 +333,7 @@ const RoomNameRow = styled.div`
 `;
 
 const RoomName = styled.p`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 0;
@@ -345,7 +345,7 @@ const RoomName = styled.p`
 `;
 
 const CatTag = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.primary};
   background: ${THEME.purpleLight};
@@ -356,7 +356,7 @@ const CatTag = styled.span`
 `;
 
 const OrderCatTag = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.primary};
   background: ${THEME.purpleLight || "#F3F0FF"};
@@ -368,7 +368,7 @@ const OrderCatTag = styled.span`
 `;
 
 const JoinedTag = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.success};
   background: #ecfdf5;
@@ -382,7 +382,7 @@ const MemberCount = styled.span`
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.muted};
 `;
@@ -394,7 +394,7 @@ const OpenFab = styled.button`
   padding: 10px 18px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: none;
   border-radius: 4px;
@@ -405,7 +405,7 @@ const OpenFab = styled.button`
 `;
 
 const LastMessage = styled.p`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   font-weight: 400;
   line-height: 1.4;
@@ -427,7 +427,7 @@ const RoomMeta = styled.div`
 `;
 
 const RoomTime = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   white-space: nowrap;
 `;
@@ -438,7 +438,7 @@ const UnreadBadge = styled.span`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;

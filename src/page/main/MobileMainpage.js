@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -771,38 +771,38 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const dateLabel = formatOrderScheduleShort(order);
                 const status = mapStatus(order.orderStatus);
                 const statusColor = STATUS_COLOR[status] || STATUS_COLOR["접수"];
+                const isNewOrder = status === "접수"; // 진한 보라 배경 + 흰 글씨 강조 행
                 const isUrgent = order.workDate === "긴급";
                 const regionLabel = formatRegionLabel(order.location);
                 const priceLabel = formatPriceType(order);
                 const matchLabel = formatMatchType(order);
                 return (
-                  <TableRow key={order.id} onClick={() => {
+                  <TableRow key={order.id} $newOrder={isNewOrder} onClick={() => {
                     if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
                   }}>
                     <TdCell $flex={0.9} style={{alignItems:"center"}}>
-                      <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
+                      <TdDate $urgent={isUrgent} $accent={isNewOrder}>{dateLabel}</TdDate>
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
-                      <TdStatus style={{color: statusColor}}>
-                        <StatusDot style={{background: statusColor}} />
+                      <TdStatus style={{color: isNewOrder ? "#fff" : statusColor}}>
+                        <StatusDot style={{background: isNewOrder ? "#fff" : statusColor}} />
                         {status}
                       </TdStatus>
                     </TdCell>
+                    {/* 서비스 = 종목명만 표기 (대분류 카테고리명 미표시 — 대표 지시 7/24) */}
+                    {/* 접수 행은 텍스트도 보라로 ($accent) — 날짜는 긴급 빨강 유지 (형 지시 7/28) */}
                     <TdCell $flex={1.2} style={{alignItems:"center"}}>
-                      <TdCatName>{order.categoryName}</TdCatName>
-                      {(order.subcategory || order.subcategories?.[0]) && (
-                        <TdSubName>{order.subcategory || order.subcategories[0]}</TdSubName>
-                      )}
+                      <TdCatName $accent={isNewOrder}>{order.subcategory || order.subcategories?.[0] || order.categoryName}</TdCatName>
                     </TdCell>
                     <TdCell $flex={1.0} style={{alignItems:"center"}}>
-                      <TdLocation>{regionLabel}</TdLocation>
+                      <TdLocation $accent={isNewOrder}>{regionLabel}</TdLocation>
                     </TdCell>
                     <TdCell $flex={1.1} style={{alignItems:"center"}}>
-                      <TdLocation>{priceLabel}</TdLocation>
+                      <TdLocation $accent={isNewOrder}>{priceLabel}</TdLocation>
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
-                      <TdLocation>{matchLabel}</TdLocation>
+                      <TdLocation $accent={isNewOrder}>{matchLabel}</TdLocation>
                     </TdCell>
                   </TableRow>
                 );
@@ -1182,7 +1182,7 @@ const Spinner = styled.div`
 `;
 
 const PullArrow = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   color: ${THEME.muted};
   transition: transform 0.2s ease;
 `;
@@ -1210,14 +1210,14 @@ const UpdateToast = styled.div`
 `;
 
 const UpdateVersion = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.primary};
   margin-bottom: 4px;
 `;
 
 const UpdateContent = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.text};
   line-height: 1.4;
@@ -1225,7 +1225,7 @@ const UpdateContent = styled.div`
 `;
 
 const UpdateText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -1248,7 +1248,7 @@ const PointHeader = styled.div`
 `;
 
 const PointValue = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.primary};
   background: ${THEME.purpleLight};
@@ -1265,28 +1265,28 @@ const Card = styled.div`
 `;
 
 const CardTitle = styled.div`
-  font-size: 18px;
-  font-weight: 700;
-  color: ${THEME.text};
-  letter-spacing: -0.03em;
-`;
-
-const CardDesc = styled.div`
-  font-size: 14px;
-  color: ${THEME.muted};
-  margin-top: 4px;
-  font-weight: 400;
-`;
-
-const Greeting = styled.div`
   font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
 
+const CardDesc = styled.div`
+  font-size: 16px;
+  color: ${THEME.muted};
+  margin-top: 4px;
+  font-weight: 400;
+`;
+
+const Greeting = styled.div`
+  font-size: 22px;
+  font-weight: 700;
+  color: ${THEME.text};
+  letter-spacing: -0.03em;
+`;
+
 const GreetingSub = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   margin-top: 4px;
   font-weight: 400;
@@ -1305,7 +1305,7 @@ const SearchBar = styled.div`
 `;
 
 const SearchPlaceholder = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -1324,13 +1324,13 @@ const StatItem = styled.div`
 `;
 
 const StatNum = styled.div`
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const StatLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -1373,7 +1373,7 @@ const CatIcon = styled.div`
 `;
 
 const CatGroupLabel = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   background: ${THEME.background};
@@ -1384,7 +1384,7 @@ const CatGroupLabel = styled.div`
 `;
 
 const CatName = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.text};
   text-align: center;
@@ -1412,7 +1412,7 @@ const StepNum = styled.div`
   border-radius: 50%;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1425,13 +1425,13 @@ const StepText = styled.div`
 `;
 
 const StepTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const StepDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -1450,7 +1450,7 @@ const HideToast = styled.div`
   padding: 12px 24px;
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;
@@ -1472,7 +1472,7 @@ const CompanyFooter = styled.footer`
 `;
 
 const CompanyName = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -1482,14 +1482,14 @@ const CompanyRows = styled.div`
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   color: ${THEME.muted};
 `;
 
 const CompanyCopy = styled.div`
   margin-top: 10px;
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   opacity: 0.7;
 `;
@@ -1509,13 +1509,13 @@ const InviteCard = styled.div`
 `;
 
 const InviteCardTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const InviteCardDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -1533,7 +1533,7 @@ const InviteCodeBox = styled.div`
 
 const InviteCode = styled.div`
   flex: 1;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: ${THEME.primary};
   letter-spacing: 0.05em;
@@ -1545,7 +1545,7 @@ const InviteCopyBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1556,7 +1556,7 @@ const InviteRegenBtn = styled.button`
   margin-top: 10px;
   background: none;
   border: none;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   text-decoration: underline;
@@ -1578,13 +1578,13 @@ const InviteStatItem = styled.div`
 `;
 
 const InviteStatNum = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const InviteStatLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -1607,7 +1607,7 @@ const InviteInput = styled.input`
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-family: inherit;
   color: ${THEME.text};
   outline: none;
@@ -1622,7 +1622,7 @@ const InviteApplyBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1633,7 +1633,7 @@ const InviteApplyBtn = styled.button`
 
 const ReferredDoneText = styled.div`
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.success || "#10B981"};
   font-weight: 500;
 `;
@@ -1646,7 +1646,7 @@ const InviteToast = styled.div`
   padding: 12px 24px;
   background: rgba(0,0,0,0.8);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   border-radius: 10px;
   z-index: 9999;
   white-space: nowrap;
@@ -1669,7 +1669,7 @@ const HomeTabBtn = styled.button`
   border-bottom: 2px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
   background: ${THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1682,7 +1682,7 @@ const HomeTabBtn = styled.button`
 `;
 
 const HomeTabSub = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
 `;
@@ -1702,12 +1702,12 @@ const PointBalanceCard = styled.div`
 `;
 
 const PointBalanceLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: rgba(255,255,255,0.85);
 `;
 
 const PointBalanceValue = styled.div`
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   color: #fff;
   margin-top: 6px;
@@ -1721,7 +1721,7 @@ const AssetListHeader = styled.div`
 `;
 
 const AssetListTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -1738,7 +1738,7 @@ const PeriodChipRow = styled.div`
 const PeriodChip = styled.button`
   flex-shrink: 0;
   padding: 6px 14px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   border-radius: 20px;
@@ -1766,7 +1766,7 @@ const AssetHistoryItem = styled.div`
 `;
 
 const AssetHistoryReason = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: ${THEME.text};
   overflow: hidden;
@@ -1775,13 +1775,13 @@ const AssetHistoryReason = styled.div`
 `;
 
 const AssetHistoryDate = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   margin-top: 2px;
 `;
 
 const AssetHistoryAmt = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   flex-shrink: 0;
   color: ${({ $type }) => $type === "earn" ? THEME.primary : $type === "use" ? THEME.danger : THEME.text};
@@ -1790,7 +1790,7 @@ const AssetHistoryAmt = styled.div`
 const AssetEmpty = styled.div`
   text-align: center;
   padding: 50px 0;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
 `;
 
@@ -1816,7 +1816,7 @@ const FloatBtn = styled.button`
   padding: 10px 18px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: none;
   border-radius: 4px;
@@ -1827,7 +1827,7 @@ const FloatBtn = styled.button`
 `;
 
 const SectionTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
   padding: 16px 16px 0;
@@ -1843,7 +1843,7 @@ const FilterBtnRow = styled.div`
 `;
 
 const FilterLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.text};
   flex-shrink: 0;
@@ -1860,7 +1860,7 @@ const FilterBtn = styled.button`
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1896,7 +1896,7 @@ const ActionTab = styled.div`
 `;
 
 const ActionLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${({ $active }) => $active ? "#fff" : THEME.muted};
   white-space: nowrap;
@@ -1933,7 +1933,7 @@ const CatFilterBtn = styled.button`
   border: 1.5px solid ${({ $active }) => $active ? TEAL : THEME.border};
   background: ${({ $active }) => $active ? TEAL_LIGHT : THEME.surface};
   color: ${({ $active }) => $active ? TEAL : THEME.textSecondary};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1951,7 +1951,7 @@ const CatChip = styled.button`
   border: none;
   background: ${TEAL};
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1966,7 +1966,7 @@ const PlusBadge = styled.button`
   border: none;
   background: ${TEAL};
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1981,7 +1981,7 @@ const FilterChip = styled.button`
   border: ${({ $active }) => $active ? "none" : `1.5px solid ${THEME.border}`};
   background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2004,7 +2004,7 @@ const StatusTab = styled.div`
   justify-content: center;
   gap: 4px;
   padding: 12px 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
   border-bottom: 2px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
@@ -2015,7 +2015,7 @@ const StatusTab = styled.div`
 `;
 
 const StatusCount = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${({ $active }) => $active ? "#fff" : THEME.muted};
   background: ${({ $active }) => $active ? THEME.primary : THEME.border};
@@ -2046,7 +2046,7 @@ const OrderAvatar = styled.div`
   border-radius: 50%;
   background: ${THEME.purpleLight};
   color: ${THEME.primary};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -2070,7 +2070,7 @@ const OrderTopInfo = styled.div`
 `;
 
 const OrderCustomer = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   display: flex;
@@ -2079,7 +2079,7 @@ const OrderCustomer = styled.div`
 `;
 
 const OrderQuote = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -2090,7 +2090,7 @@ const QuoteNum = styled.span`
 `;
 
 const OrderTime = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   flex-shrink: 0;
@@ -2101,7 +2101,7 @@ const OrderMiddle = styled.div`
 `;
 
 const OrderCatName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
 `;
@@ -2115,7 +2115,7 @@ const OrderSubRow = styled.div`
 `;
 
 const OrderSubName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   word-break: keep-all;
@@ -2123,7 +2123,7 @@ const OrderSubName = styled.div`
 `;
 
 const MatchBadge = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.purple};
   background: ${THEME.purpleLight};
@@ -2136,14 +2136,14 @@ const OrderLocation = styled.div`
   align-items: center;
   gap: 4px;
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
 `;
 
 const OrderDesc = styled.div`
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   line-height: 1.4;
@@ -2155,7 +2155,7 @@ const OrderDesc = styled.div`
 
 const OrderPrice = styled.div`
   margin-top: 8px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.primary};
   display: flex;
@@ -2192,7 +2192,7 @@ const OrderActionBtn = styled.button`
   padding: 14px 0;
   border: none;
   background: none;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   color: ${({ $primary }) => ($primary ? THEME.primary : THEME.textSecondary)};
@@ -2251,15 +2251,21 @@ const TableHeader = styled.div`
   background: #4A5568;
   border-bottom: 1px solid ${THEME.border};
   align-items: center;
-  min-width: 520px;
+  min-width: 600px;
 `;
 
 const ThCell = styled.div`
   flex: ${({ $flex }) => $flex || 1};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
+`;
+
+/* 접수 상태 행 강조 — 진한 보라 배경이 깜빡이고 내용은 흰 글씨 (형 지시 7/28) */
+const newOrderPulse = keyframes`
+  0%, 100% { background: #6D3EE0; }
+  50%      { background: #4A1FA8; }
 `;
 
 const TableRow = styled.div`
@@ -2270,9 +2276,16 @@ const TableRow = styled.div`
   cursor: pointer;
   align-items: center;
   min-height: 40px;
-  min-width: 520px;
+  min-width: 600px;
   &:last-child { border-bottom: none; }
   &:active { background: ${THEME.background}; }
+
+  ${({ $newOrder }) => $newOrder && css`
+    animation: ${newOrderPulse} 1.8s ease-in-out infinite;
+    border-bottom-color: rgba(255, 255, 255, 0.25);
+    &:active { background: #4A1FA8; }
+    @media (prefers-reduced-motion: reduce) { animation: none; background: #6D3EE0; }
+  `}
 `;
 
 const TdCell = styled.div`
@@ -2299,7 +2312,7 @@ const TdAvatarDefault = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
 `;
 
@@ -2314,7 +2327,7 @@ const TdInfoText = styled.div`
 `;
 
 const TdName = styled.div`
-  font-size: 9px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-top: 2px;
   overflow: hidden;
@@ -2323,26 +2336,17 @@ const TdName = styled.div`
 `;
 
 const TdCatName = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
-  color: ${THEME.text};
+  color: ${({ $accent }) => ($accent ? "#fff" : THEME.text)};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 `;
 
-const TdSubName = styled.div`
-  font-size: 11px;
-  font-weight: 400;
-  color: ${THEME.muted};
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-`;
 
 const TdBadge = styled.span`
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.primary};
   background: ${THEME.purpleLight};
@@ -2351,7 +2355,7 @@ const TdBadge = styled.span`
 `;
 
 const TdSub = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-top: 2px;
   overflow: hidden;
@@ -2360,8 +2364,8 @@ const TdSub = styled.div`
 `;
 
 const TdLocation = styled.div`
-  font-size: 13px;
-  color: ${THEME.textSecondary};
+  font-size: 15px;
+  color: ${({ $accent }) => ($accent ? "#fff" : THEME.textSecondary)};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2369,34 +2373,35 @@ const TdLocation = styled.div`
 `;
 
 const TdPrice = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.text};
   white-space: nowrap;
 `;
 
 const TdQuote = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.primary};
 `;
 
 const TdQuoteUnit = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-left: 1px;
 `;
 
 const TdTime = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
 const TdDate = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: ${({ $urgent }) => $urgent ? 700 : 400};
-  color: ${({ $urgent }) => $urgent ? THEME.danger : THEME.text};
+  /* 접수 행($accent)은 진한 보라 배경 위라 긴급 빨강 대신 흰 글씨 (굵기로 긴급 구분) */
+  color: ${({ $urgent, $accent }) => $accent ? "#fff" : ($urgent ? THEME.danger : THEME.text)};
   white-space: nowrap;
 `;
 
@@ -2405,7 +2410,7 @@ const TdStatus = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 `;
@@ -2418,7 +2423,7 @@ const StatusDot = styled.span`
 `;
 
 const TdAmount = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
   text-align: right;
@@ -2428,7 +2433,7 @@ const TdAmount = styled.div`
 const ViewAllBtn = styled.div`
   text-align: center;
   padding: 16px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.primary};
   cursor: pointer;
@@ -2447,13 +2452,13 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.textSecondary};
 `;
 
 const EmptySubText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
@@ -2470,13 +2475,13 @@ const TabPlaceholder = styled.div`
 `;
 
 const TabPlaceholderTitle = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const TabPlaceholderDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -2488,7 +2493,7 @@ const TabPlaceholderBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2542,7 +2547,7 @@ const SheetHeader = styled.div`
 `;
 
 const SheetTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -2576,7 +2581,7 @@ const SheetItem = styled.div`
 
 const SheetGroupLabel = styled.div`
   padding: 10px 20px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   background: ${THEME.background};
@@ -2603,7 +2608,7 @@ const SheetCatIcon = styled.div`
 `;
 
 const SheetItemName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -2622,7 +2627,7 @@ const SheetResetBtn = styled.button`
   border-radius: 10px;
   background: #fff;
   color: ${THEME.textSecondary};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2636,7 +2641,7 @@ const SheetConfirmBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2678,14 +2683,14 @@ const CalIconWrap = styled.div`
 const CalendarText = styled.div``;
 
 const CalTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.primary};
   letter-spacing: -0.02em;
 `;
 
 const CalDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
   margin-top: 2px;
@@ -2730,13 +2735,13 @@ const AIIconWrap = styled.div`
 `;
 
 const AICardTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
 `;
 
 const AICardDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: rgba(255,255,255,0.75);
   margin-top: 3px;
 `;
@@ -2791,13 +2796,13 @@ const PostBadge = styled.div`
   border-radius: 20px;
   background: ${THEME.purpleLight};
   color: ${THEME.purple};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   margin-bottom: 10px;
 `;
 
 const PostTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
   line-height: 1.4;
@@ -2805,7 +2810,7 @@ const PostTitle = styled.div`
 `;
 
 const PostDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -2817,7 +2822,7 @@ const PostDesc = styled.div`
 
 const PostDate = styled.div`
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -2836,7 +2841,7 @@ const GuideBarItem = styled.div`
   border-radius: 20px;
   background: ${({ $bg }) => $bg || THEME.background};
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${THEME.text};
   cursor: pointer;
@@ -2881,7 +2886,7 @@ const GuideSubIcon = styled.div`
 `;
 
 const GuideText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: ${THEME.text};
   letter-spacing: -0.02em;

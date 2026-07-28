@@ -219,7 +219,7 @@ const CenterMsg = styled.div`
   padding: 60px 20px;
   text-align: center;
   color: ${THEME.muted};
-  font-size: 14px;
+  font-size: 16px;
 `;
 const PhotoBox = styled.div`
   position: relative;
@@ -263,7 +263,7 @@ const PhotoCounter = styled.div`
   padding: 4px 10px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   border-radius: 12px;
 `;
 const HeaderCard = styled.div`
@@ -280,7 +280,7 @@ const TopRow = styled.div`
   margin-bottom: 8px;
 `;
 const TypeBadge = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   background: ${THEME.primary};
@@ -288,11 +288,11 @@ const TypeBadge = styled.span`
   border-radius: 12px;
 `;
 const DateText = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 const Title = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
   line-height: 1.4;
@@ -300,7 +300,7 @@ const Title = styled.div`
   word-break: break-word;
 `;
 const Amount = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.primary};
 `;
@@ -312,7 +312,7 @@ const Card = styled.div`
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 `;
 const SectionLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.textSecondary || THEME.muted};
   margin-bottom: 10px;
@@ -325,17 +325,17 @@ const Row = styled.div`
 `;
 const Key = styled.div`
   flex: 0 0 80px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
 `;
 const Val = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   word-break: break-word;
 `;
 const DescText = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   line-height: 1.6;
   white-space: pre-wrap;
@@ -346,13 +346,13 @@ const DisclaimerBox = styled.div`
   padding: 12px 14px;
   background: #FEF3C7;
   color: #92400E;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   border-radius: 10px;
   strong {
     display: block;
     margin-bottom: 4px;
-    font-size: 13px;
+    font-size: 15px;
     color: #78350F;
   }
 `;
@@ -366,7 +366,7 @@ const PrimaryBtn = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   &:active { background: ${THEME.primaryDark}; }
@@ -379,7 +379,7 @@ const DangerBtn = styled.button`
   color: #DC2626;
   border: 1px solid #FCA5A5;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   &:active { background: #FEE2E2; }
@@ -393,7 +393,7 @@ const Toast = styled.div`
   padding: 12px 24px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   border-radius: 10px;
   z-index: 9999;
 `;

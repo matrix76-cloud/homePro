@@ -55,8 +55,8 @@ export default function ReviewTable() {
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: FONT, padding: '18px 22px' }}>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>리뷰 테이블</h1>
-        <span style={{ fontSize: 14, color: C.gray }}>전체 {rows.length}건 · <b style={{ color: CORAL }}>미답변 {unansweredCount}</b></span>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>리뷰 테이블</h1>
+        <span style={{ fontSize: 16, color: C.gray }}>전체 {rows.length}건 · <b style={{ color: CORAL }}>미답변 {unansweredCount}</b></span>
         <div style={{ flex: 1 }} />
         <button onClick={() => nav('/review')} style={btn(false)}>← 화면별 리뷰로</button>
       </div>
@@ -70,17 +70,17 @@ export default function ReviewTable() {
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="내용·화면 검색" style={{ ...sel, width: 200 }} />
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 13, color: C.gray2 }}>{filtered.length}건 표시</span>
+        <span style={{ fontSize: 15, color: C.gray2 }}>{filtered.length}건 표시</span>
       </div>
 
       {/* 테이블 */}
       <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 900 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 16, minWidth: 900 }}>
             <thead>
               <tr style={{ background: '#fafafa', borderBottom: `1px solid ${C.line}` }}>
                 {['상태', '화면', '작성자', '내용', '첨부', '답글', '시간', ''].map((h) => (
-                  <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 13, fontWeight: 700, color: C.gray, whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 15, fontWeight: 700, color: C.gray, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -92,11 +92,11 @@ export default function ReviewTable() {
                 return (
                   <tr key={r.pid} onClick={() => nav(`/review/${r.sid}`)} style={{ borderBottom: `1px solid ${C.line}`, cursor: 'pointer', background: need ? '#eef4ff' : '#fff' }}>
                     <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: need ? CORAL : C.gray2 }}>{need ? '· 미답변' : '완료'}</span>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: need ? CORAL : C.gray2 }}>{need ? '· 미답변' : '완료'}</span>
                     </td>
                     <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
-                      <b style={{ fontSize: 13, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>{r.meta?.no || '-'}</b> {r.meta?.name || r.sid}
-                      <div style={{ fontSize: 12, color: C.gray2 }}>{r.meta?.domainLabel || ''}</div>
+                      <b style={{ fontSize: 15, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>{r.meta?.no || '-'}</b> {r.meta?.name || r.sid}
+                      <div style={{ fontSize: 14, color: C.gray2 }}>{r.meta?.domainLabel || ''}</div>
                     </td>
                     <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
                       <b style={{ color: BY_COLOR[r.by] || C.ink }}>{r.by}</b>
@@ -108,9 +108,9 @@ export default function ReviewTable() {
                       {r.imgs?.length ? `사진 ${r.imgs.length}` : ''} {r.pins?.length ? `핀 ${r.pins.length}` : ''}
                     </td>
                     <td style={{ padding: '9px 12px', textAlign: 'center', color: r.replyCount ? C.ink : C.gray2 }}>{r.replyCount}</td>
-                    <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: C.gray2, fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{r.at || '-'}</td>
+                    <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: C.gray2, fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>{r.at || '-'}</td>
                     <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 13, color: CORAL, fontWeight: 700 }}>열기 →</span>
+                      <span style={{ fontSize: 15, color: CORAL, fontWeight: 700 }}>열기 →</span>
                     </td>
                   </tr>
                 )
@@ -123,5 +123,5 @@ export default function ReviewTable() {
   )
 }
 
-const btn = (on) => ({ fontSize: 14, fontWeight: 700, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${on ? CORAL : C.line}`, background: on ? CORAL : '#fff', color: on ? '#fff' : C.ink2 })
-const sel = { fontSize: 14, padding: '6px 10px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontFamily: FONT, outline: 'none' }
+const btn = (on) => ({ fontSize: 16, fontWeight: 700, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${on ? CORAL : C.line}`, background: on ? CORAL : '#fff', color: on ? '#fff' : C.ink2 })
+const sel = { fontSize: 16, padding: '6px 10px', borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, fontFamily: FONT, outline: 'none' }

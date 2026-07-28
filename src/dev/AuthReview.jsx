@@ -106,6 +106,8 @@ export default function AuthReview() {
 
   useEffect(() => subscribeThread((all) => setThread(all)), [])
   useEffect(() => { setDraftPins([]); setViewPins(null); setPinMode(false) }, [cur.id])
+  // 준비사항은 읽어야 하는 체크리스트라 기본으로 펼쳐둔다 (화면 리뷰는 기존대로 접힘)
+  useEffect(() => { setSpecExpanded(cur.domain === 'prep') }, [cur.domain, cur.id])
   // 관리자 화면 iframe이 열리도록 더미 admin 세션 보장(가드는 존재만 확인)
   useEffect(() => { ensureAdminSession() }, [])
 
@@ -284,13 +286,13 @@ export default function AuthReview() {
     return (
       <div key={e.pid || `${e.by}_${e.at}_${(e.text || '').slice(0, 8)}`} style={{ marginLeft: isReply ? 22 : 0, padding: '10px 13px', borderRadius: 10, border: `1px solid ${st.line}`, background: st.bg, boxShadow: '0 1px 2px rgba(20,30,45,0.04)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          {isReply && <span style={{ color: C.gray2, fontSize: 14 }}>↳</span>}
-          <b style={{ fontSize: 13, color: st.ink }}>{e.by}</b>
-          <span style={{ fontSize: 12, color: C.gray2, fontVariantNumeric: 'tabular-nums' }}>{e.at}</span>
+          {isReply && <span style={{ color: C.gray2, fontSize: 16 }}>↳</span>}
+          <b style={{ fontSize: 15, color: st.ink }}>{e.by}</b>
+          <span style={{ fontSize: 14, color: C.gray2, fontVariantNumeric: 'tabular-nums' }}>{e.at}</span>
           <div style={{ flex: 1 }} />
-          <button onClick={() => del(e.pid || entries.indexOf(e))} title="이 기록 삭제" style={{ flex: 'none', width: 20, height: 20, borderRadius: 5, border: 'none', background: 'transparent', color: C.gray2, cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={() => del(e.pid || entries.indexOf(e))} title="이 기록 삭제" style={{ flex: 'none', width: 20, height: 20, borderRadius: 5, border: 'none', background: 'transparent', color: C.gray2, cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
-        {e.text && <div style={{ fontSize: 14, lineHeight: 1.55, color: C.ink2, whiteSpace: 'pre-line' }}>{e.text}</div>}
+        {e.text && <div style={{ fontSize: 16, lineHeight: 1.55, color: C.ink2, whiteSpace: 'pre-line' }}>{e.text}</div>}
         {e.imgs && e.imgs.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: e.text ? 6 : 0 }}>
             {e.imgs.map((src, k) => (
@@ -299,7 +301,7 @@ export default function AuthReview() {
           </div>
         )}
         {e.pins && e.pins.length > 0 && (
-          <button onClick={() => { setViewPins(e.pins); setPinMode(false) }} style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: '#2571e3', background: '#fdf2ee', border: '1px solid #f5d3c6', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+          <button onClick={() => { setViewPins(e.pins); setPinMode(false) }} style={{ marginTop: 6, fontSize: 15, fontWeight: 700, color: '#2571e3', background: '#fdf2ee', border: '1px solid #f5d3c6', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
             화면 핀 {e.pins.length}개 위치 보기
           </button>
         )}
@@ -316,7 +318,7 @@ export default function AuthReview() {
       {previewImg && (
         <div onClick={() => setPreviewImg(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,20,30,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}>
           <img src={previewImg} alt="원본 미리보기" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '92vh', borderRadius: 8, boxShadow: '0 10px 40px rgba(0,0,0,0.45)', cursor: 'default' }} />
-          <button onClick={() => setPreviewImg(null)} style={{ position: 'absolute', top: 18, right: 22, padding: '7px 14px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.92)', color: '#2b3440', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>닫기 (ESC)</button>
+          <button onClick={() => setPreviewImg(null)} style={{ position: 'absolute', top: 18, right: 22, padding: '7px 14px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.92)', color: '#2b3440', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}>닫기 (ESC)</button>
         </div>
       )}
       <header style={{ flex: 'none', background: C.card, borderBottom: `1px solid ${C.line}`, padding: '12px 20px' }}>
@@ -330,7 +332,7 @@ export default function AuthReview() {
                 key={d.key}
                 onClick={() => nav(`/review/${d.screens[0].id}`)}
                 style={{
-                  fontSize: 14, fontWeight: 800, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                  fontSize: 16, fontWeight: 800, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
                   border: `1px solid ${on ? C.ink : C.line}`, background: on ? C.ink : '#fff', color: on ? '#fff' : C.ink2,
                 }}
               >
@@ -340,17 +342,17 @@ export default function AuthReview() {
             )
           })}
           <div style={{ flex: 1 }} />
-          <button onClick={() => nav('/review-table')} style={{ fontSize: 13, fontWeight: 800, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${C.ink}`, background: C.ink, color: '#fff' }}>전체 테이블</button>
-          <span style={{ fontSize: 13, color: C.gray, marginLeft: 6 }}>좌=화면 / 우상=기획 / 우하=기록</span>
+          <button onClick={() => nav('/review-table')} style={{ fontSize: 15, fontWeight: 800, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${C.ink}`, background: C.ink, color: '#fff' }}>전체 테이블</button>
+          <span style={{ fontSize: 15, color: C.gray, marginLeft: 6 }}>좌=화면 / 우상=기획 / 우하=기록</span>
         </div>
 
         {/* 현재 화면 정보 + iframe 데모 계정 셀렉터 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>{cur.no}</span>
-          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.3px' }}>{cur.name}</h1>
-          <span style={{ fontSize: 13, color: C.gray2, fontFamily: 'ui-monospace, monospace' }}>{cur.path || '— 화면 없음(정책)'}</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>{cur.no}</span>
+          <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-0.3px' }}>{cur.name}</h1>
+          <span style={{ fontSize: 15, color: C.gray2, fontFamily: 'ui-monospace, monospace' }}>{cur.path || '— 화면 없음(정책)'}</span>
           <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 13, color: C.gray, fontWeight: 700 }}>iframe 계정</span>
+          <span style={{ fontSize: 15, color: C.gray, fontWeight: 700 }}>iframe 계정</span>
           <select value={acctUid} onChange={(e) => changeAcct(e.target.value)} style={SEL}>
             <option value={ANON}>로그인 안 함 (인증화면)</option>
             <optgroup label="의뢰자">
@@ -360,9 +362,9 @@ export default function AuthReview() {
               {SEED_ACCOUNTS.filter((a) => a.role.startsWith('홈프로')).map((a) => <option key={a.uid} value={a.uid}>{a.nickname} · {a.role.replace('홈프로', '').replace(/[()]/g, '').trim() || '메인'} · {a.region}</option>)}
             </optgroup>
           </select>
-          {authBusy && <span style={{ fontSize: 12, fontWeight: 700, color: '#2563eb' }}>로그인 중…</span>}
-          {!authBusy && authErr && <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }} title={authErr}>로그인 실패</span>}
-          {!authBusy && !authErr && acctUid !== ANON && authUid && <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>로그인됨</span>}
+          {authBusy && <span style={{ fontSize: 14, fontWeight: 700, color: '#2563eb' }}>로그인 중…</span>}
+          {!authBusy && authErr && <span style={{ fontSize: 14, fontWeight: 700, color: '#dc2626' }} title={authErr}>로그인 실패</span>}
+          {!authBusy && !authErr && acctUid !== ANON && authUid && <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981' }}>로그인됨</span>}
         </div>
 
         {/* 현재 도메인 화면 칩 */}
@@ -374,7 +376,7 @@ export default function AuthReview() {
                 key={r.id}
                 onClick={() => nav(`/review/${r.id}`)}
                 style={{
-                  fontSize: 13, fontWeight: 700, padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
+                  fontSize: 15, fontWeight: 700, padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
                   border: `1px solid ${nUn > 0 ? '#2571e3' : r.id === cur.id ? C.ink : C.line}`,
                   background: r.id === cur.id ? C.ink : '#fff', color: r.id === cur.id ? '#fff' : C.gray,
                 }}
@@ -392,27 +394,27 @@ export default function AuthReview() {
         <div style={{ flex: 'none', width: isLanding ? 1000 : isPC ? 780 : 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {cur.path && !isPC && (
             <div style={{ width: 360, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <button onClick={() => { setPinMode((v) => !v); setViewPins(null) }} style={{ fontSize: 13, fontWeight: 700, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pinMode ? '#2571e3' : C.line}`, background: pinMode ? '#2571e3' : '#fff', color: pinMode ? '#fff' : C.gray }}>
+              <button onClick={() => { setPinMode((v) => !v); setViewPins(null) }} style={{ fontSize: 15, fontWeight: 700, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pinMode ? '#2571e3' : C.line}`, background: pinMode ? '#2571e3' : '#fff', color: pinMode ? '#fff' : C.gray }}>
                 {pinMode ? '핀 찍는 중 · 화면 클릭' : '핀 찍기'}
               </button>
               {draftPins.length > 0 && (
                 <>
-                  <span style={{ fontSize: 13, color: C.gray, fontWeight: 600 }}>핀 {draftPins.length}
+                  <span style={{ fontSize: 15, color: C.gray, fontWeight: 600 }}>핀 {draftPins.length}
                     <button onClick={() => setDraftPins([])} style={{ marginLeft: 5, color: '#2571e3', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>지우기</button>
                   </span>
-                  <button onClick={captureWithPins} disabled={!!busy} title="화면공유로 지도까지 캡처 + 핀 박아 첨부" style={{ fontSize: 13, fontWeight: 800, padding: '5px 12px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', border: 'none', background: '#2b3440', color: '#fff' }}>
+                  <button onClick={captureWithPins} disabled={!!busy} title="화면공유로 지도까지 캡처 + 핀 박아 첨부" style={{ fontSize: 15, fontWeight: 800, padding: '5px 12px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', border: 'none', background: '#2b3440', color: '#fff' }}>
                     {busy || '핀 박아 캡처'}
                   </button>
                 </>
               )}
               {sharing && (
-                <span style={{ fontSize: 12, color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 14, color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />공유중
-                  <button onClick={stopShare} style={{ marginLeft: 2, background: 'none', border: 'none', color: C.gray2, fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>중지</button>
+                  <button onClick={stopShare} style={{ marginLeft: 2, background: 'none', border: 'none', color: C.gray2, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>중지</button>
                 </span>
               )}
               {viewPins && (
-                <button onClick={() => setViewPins(null)} style={{ fontSize: 13, color: C.gray, fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>핀 숨기기</button>
+                <button onClick={() => setViewPins(null)} style={{ fontSize: 15, color: C.gray, fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>핀 숨기기</button>
               )}
             </div>
           )}
@@ -438,7 +440,7 @@ export default function AuthReview() {
                   {(pinMode ? draftPins : viewPins || []).map((p, i) => (
                     <div key={i} style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -100%)', pointerEvents: 'none' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div style={{ background: '#2571e3', color: '#fff', fontSize: 12, fontWeight: 800, padding: '2px 7px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{p.label || i + 1}</div>
+                        <div style={{ background: '#2571e3', color: '#fff', fontSize: 14, fontWeight: 800, padding: '2px 7px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{p.label || i + 1}</div>
                         <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '7px solid #2571e3' }} />
                       </div>
                     </div>
@@ -447,7 +449,7 @@ export default function AuthReview() {
               )}
             </div>
           ) : (
-            <div style={{ width: 360, height: 460, borderRadius: 20, border: `1px dashed ${C.line2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.gray2, fontSize: 14, textAlign: 'center', padding: 24 }}>
+            <div style={{ width: 360, height: 460, borderRadius: 20, border: `1px dashed ${C.line2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.gray2, fontSize: 16, textAlign: 'center', padding: 24 }}>
               화면 없음 — 정책/로직 항목입니다.<br />오른쪽 기획 내용을 참고하세요.
             </div>
           )}
@@ -457,13 +459,13 @@ export default function AuthReview() {
           <section style={{ ...CARD, flex: specExpanded ? '1 1 50%' : 'none', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{ ...CARD_HEAD, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>기획 내용</span>
-              <button onClick={() => setSpecExpanded((v) => !v)} style={{ fontSize: 13, fontWeight: 700, color: C.gray, background: 'none', border: 'none', cursor: 'pointer' }}>{specExpanded ? '접기' : '펼치기'}</button>
+              <button onClick={() => setSpecExpanded((v) => !v)} style={{ fontSize: 15, fontWeight: 700, color: C.gray, background: 'none', border: 'none', cursor: 'pointer' }}>{specExpanded ? '접기' : '펼치기'}</button>
             </div>
             <div className="no-scrollbar" style={{ flex: specExpanded ? 1 : 'none', maxHeight: specExpanded ? 'none' : 100, overflowY: 'auto', padding: '14px 18px' }}>
               <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {cur.spec.map((s, i) => {
                   const star = s.startsWith('★')
-                  return <li key={i} style={{ fontSize: 14, lineHeight: 1.55, color: star ? C.ink : C.ink2, fontWeight: star ? 700 : 400 }}>{s}</li>
+                  return <li key={i} style={{ fontSize: 16, lineHeight: 1.55, color: star ? C.ink : C.ink2, fontWeight: star ? 700 : 400 }}>{s}</li>
                 })}
               </ul>
             </div>
@@ -473,13 +475,13 @@ export default function AuthReview() {
           <section style={{ ...CARD, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{ ...CARD_HEAD, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>기록 <span style={{ color: C.gray, fontWeight: 600 }}>형 · 대표님 · 카스 (시간순)</span></span>
-              <span style={{ fontSize: 12, color: C.gray2, fontWeight: 600 }}>Firestore · reviewThreads</span>
+              <span style={{ fontSize: 14, color: C.gray2, fontWeight: 600 }}>Firestore · reviewThreads</span>
             </div>
 
             {/* 스레드 목록 */}
             <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {entries.length === 0 ? (
-                <div style={{ color: C.gray2, fontSize: 14, textAlign: 'center', padding: '20px 0' }}>아직 기록이 없습니다. 아래에 남겨보세요.</div>
+                <div style={{ color: C.gray2, fontSize: 16, textAlign: 'center', padding: '20px 0' }}>아직 기록이 없습니다. 아래에 남겨보세요.</div>
               ) : (
                 // 형 글(root) + 그 밑에 카스 답글(replyTo=root.pid) 들여쓰기
                 entries.filter((e) => !e.replyTo).flatMap((root) => [
@@ -492,18 +494,18 @@ export default function AuthReview() {
             {/* 입력 — 작성자(형/카스) 선택 후 기록 (Enter=전송 / Shift+Enter=줄바꿈) */}
             <div style={{ flex: 'none', borderTop: `1px solid ${C.line}`, padding: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: C.gray, fontWeight: 700 }}>작성자</span>
+                <span style={{ fontSize: 15, color: C.gray, fontWeight: 700 }}>작성자</span>
                 {['형', '대표님'].map((a) => {
                   const on = author === a
                   const st = BY_STYLE[a]
                   return (
-                    <button key={a} onClick={() => setAuthor(a)} style={{ fontSize: 13, fontWeight: 700, padding: '4px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${on ? st.ink : C.line}`, background: on ? st.ink : '#fff', color: on ? '#fff' : C.gray }}>
+                    <button key={a} onClick={() => setAuthor(a)} style={{ fontSize: 15, fontWeight: 700, padding: '4px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${on ? st.ink : C.line}`, background: on ? st.ink : '#fff', color: on ? '#fff' : C.gray }}>
                       {a}
                     </button>
                   )
                 })}
                 <div style={{ flex: 1 }} />
-                <label style={{ fontSize: 13, fontWeight: 700, padding: '4px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${C.line}`, background: '#fff', color: C.gray }}>
+                <label style={{ fontSize: 15, fontWeight: 700, padding: '4px 12px', borderRadius: 14, cursor: 'pointer', border: `1px solid ${C.line}`, background: '#fff', color: C.gray }}>
                   스샷 첨부
                   <input type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles([...e.target.files]); e.target.value = '' }} />
                 </label>
@@ -513,7 +515,7 @@ export default function AuthReview() {
                   {attachImgs.map((src, k) => (
                     <div key={k} style={{ position: 'relative' }}>
                       <img src={src} alt="첨부" onClick={() => setPreviewImg(src)} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.line}`, cursor: 'zoom-in' }} />
-                      <button onClick={() => setAttachImgs((p) => p.filter((_, j) => j !== k))} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: C.ink, color: '#fff', fontSize: 13, lineHeight: 1, cursor: 'pointer' }}>×</button>
+                      <button onClick={() => setAttachImgs((p) => p.filter((_, j) => j !== k))} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: C.ink, color: '#fff', fontSize: 15, lineHeight: 1, cursor: 'pointer' }}>×</button>
                     </div>
                   ))}
                 </div>
@@ -526,9 +528,9 @@ export default function AuthReview() {
                   onPaste={onPasteImg}
                   placeholder={`${author}(으)로 기록 · 스샷 Ctrl+V 붙여넣기 가능. Enter 전송 · Shift+Enter 줄바꿈`}
                   rows={2}
-                  style={{ flex: 1, resize: 'none', borderRadius: 8, border: `1px solid ${C.line}`, outline: 'none', padding: '9px 11px', fontSize: 14, lineHeight: 1.5, fontFamily: FONT, color: C.ink }}
+                  style={{ flex: 1, resize: 'none', borderRadius: 8, border: `1px solid ${C.line}`, outline: 'none', padding: '9px 11px', fontSize: 16, lineHeight: 1.5, fontFamily: FONT, color: C.ink }}
                 />
-                <button onClick={post} disabled={sending || (!draft.trim() && !attachImgs.length)} style={{ flex: 'none', alignSelf: 'stretch', padding: '0 16px', borderRadius: 8, border: 'none', background: (draft.trim() || attachImgs.length) ? C.ink : C.line, color: '#fff', fontSize: 14, fontWeight: 800, cursor: (draft.trim() || attachImgs.length) ? 'pointer' : 'default' }}>
+                <button onClick={post} disabled={sending || (!draft.trim() && !attachImgs.length)} style={{ flex: 'none', alignSelf: 'stretch', padding: '0 16px', borderRadius: 8, border: 'none', background: (draft.trim() || attachImgs.length) ? C.ink : C.line, color: '#fff', fontSize: 16, fontWeight: 800, cursor: (draft.trim() || attachImgs.length) ? 'pointer' : 'default' }}>
                   기록
                 </button>
               </div>
@@ -543,7 +545,7 @@ export default function AuthReview() {
 // 도우미(DouME) 톤 — 슬레이트 그레이(#3a4351 계열) 무채색 팔레트
 const C = { ink: '#2b3440', ink2: '#3a4351', gray: '#566070', gray2: '#98a2b0', line: '#e6e9ee', line2: '#d6dbe2', bg: '#f7f8fa', card: '#ffffff' }
 // 미답변 N 뱃지 — 형 질문에 답글 안 달린 화면/도메인 표시(포인트 원 + 흰 숫자)
-const NBADGE = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, marginLeft: 5, padding: '0 4px', borderRadius: 8, background: CORAL, color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: 1, verticalAlign: 'middle' }
+const NBADGE = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, marginLeft: 5, padding: '0 4px', borderRadius: 8, background: CORAL, color: '#fff', fontSize: 13, fontWeight: 800, lineHeight: 1, verticalAlign: 'middle' }
 // 작성자별 카드 색 — 형/대표님=지시(선택) · 카스=답변(표시용)
 const BY_STYLE = {
   형: { ink: '#2b3440', line: '#e6e9ee', bg: '#f7f9fb' },
@@ -552,8 +554,8 @@ const BY_STYLE = {
 }
 const FONT = "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif"
 // iframe 데모 계정 셀렉터
-const SEL = { fontSize: 13, padding: '5px 9px', borderRadius: 8, border: '1px solid #e6e9ee', background: '#fff', color: '#2b3440', fontFamily: FONT, outline: 'none', maxWidth: 240 }
+const SEL = { fontSize: 15, padding: '5px 9px', borderRadius: 8, border: '1px solid #e6e9ee', background: '#fff', color: '#2b3440', fontFamily: FONT, outline: 'none', maxWidth: 240 }
 // 카드 — 숨고 톤: 큰 라운드 + 테두리 유지 + 미세 다층 그림자. 좌측 컬러바 없음.
 const CARD = { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, boxShadow: '0 1px 2px rgba(20,30,45,0.05), 0 6px 18px rgba(20,30,45,0.04)' }
 // 카드 상단 헤더 존 — 옅은 무채색 배경으로 제목/본문 명도 구분
-const CARD_HEAD = { flex: 'none', padding: '14px 18px', background: '#f8fafb', borderBottom: `1px solid ${C.line}`, borderTopLeftRadius: 16, borderTopRightRadius: 16, fontSize: 15, fontWeight: 800 }
+const CARD_HEAD = { flex: 'none', padding: '14px 18px', background: '#f8fafb', borderBottom: `1px solid ${C.line}`, borderTopLeftRadius: 16, borderTopRightRadius: 16, fontSize: 17, fontWeight: 800 }

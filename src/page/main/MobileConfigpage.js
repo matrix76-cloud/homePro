@@ -63,7 +63,7 @@ const ProfileNameRow = styled.div`
 `;
 
 const ProfileName = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.02em;
@@ -71,14 +71,14 @@ const ProfileName = styled.div`
 `;
 
 const ProfileSub = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
 
 const ProfileIntro = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 6px;
@@ -86,7 +86,7 @@ const ProfileIntro = styled.div`
 `;
 
 const ProfileEditLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.primary};
 `;
@@ -119,7 +119,7 @@ const ModalHeader = styled.div`
 `;
 
 const ModalTitle = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -208,7 +208,7 @@ const ModalInput = styled.input`
   padding: 14px 16px;
   border: 2px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   font-family: inherit;
   color: ${THEME.text};
@@ -219,13 +219,13 @@ const ModalInput = styled.input`
 
 const ModalInputCount = styled.div`
   text-align: right;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-top: 6px;
 `;
 
 const ModalIntroLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-top: 16px;
@@ -237,7 +237,7 @@ const ModalTextarea = styled.textarea`
   padding: 14px 16px;
   border: 2px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   font-family: inherit;
   color: ${THEME.text};
@@ -257,7 +257,7 @@ const ModalSaveBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -274,7 +274,7 @@ const LogoutButton = styled.button`
   border: none;
   border-radius: 16px;
   color: ${THEME.danger};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
@@ -290,14 +290,14 @@ const CardHeader = styled.div`
 `;
 
 const CardTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
 
 const CardDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   margin-top: 4px;
   font-weight: 400;
@@ -323,7 +323,7 @@ const MenuRow = styled.div`
 `;
 
 const MenuLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -349,7 +349,7 @@ const SingleCard = styled.div`
 `;
 
 const SingleCardIcon = styled.div`
-  font-size: 28px;
+  font-size: 30px;
   width: 48px;
   height: 48px;
   border-radius: 14px;
@@ -366,13 +366,13 @@ const SingleCardText = styled.div`
 `;
 
 const SingleCardTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const SingleCardDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -392,7 +392,7 @@ const SupportItem = styled.div`
 `;
 
 const SupportLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -425,13 +425,13 @@ const InfoItem = styled.div`
 `;
 
 const InfoLabel2 = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const InfoValue2 = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -448,7 +448,7 @@ const ReferralBox = styled.div`
 
 const ReferralCode = styled.div`
   flex: 1;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: ${THEME.primary};
   letter-spacing: 0.05em;
@@ -460,7 +460,7 @@ const CopyBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -471,7 +471,7 @@ const RegenBtn = styled.button`
   margin-top: 8px;
   background: none;
   border: none;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   text-decoration: underline;
@@ -495,13 +495,13 @@ const ReferralStatItem = styled.div`
 `;
 
 const ReferralNum = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const ReferralLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -533,7 +533,7 @@ const EmptyBiz = styled.div`
 `;
 
 const EmptyBizText = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -542,7 +542,7 @@ const BizCatChip = styled.div`
   padding: 8px 14px;
   border-radius: 20px;
   background: ${THEME.background};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
   cursor: pointer;
@@ -559,7 +559,7 @@ const SubStatusRow = styled.div`
 const SubBadge = styled.span`
   padding: 5px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   white-space: nowrap;
   flex-shrink: 0;
@@ -568,7 +568,7 @@ const SubBadge = styled.span`
 `;
 
 const SubText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   white-space: nowrap;
@@ -586,13 +586,13 @@ const CashItem = styled.div`
 `;
 
 const CashAmount = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const CashLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -614,7 +614,7 @@ const ToggleRow = styled.div`
 `;
 
 const ToggleLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -1069,7 +1069,7 @@ const MobileConfigpage = () => {
           </SupportItem>
           <SupportItem as="div" style={{ borderBottom: "none", cursor: "default" }}>
             <SupportLabel>버전 정보</SupportLabel>
-            <span style={{ fontSize: 14, fontWeight: 600, color: THEME.muted }}>v{APP_VERSION}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: THEME.muted }}>v{APP_VERSION}</span>
           </SupportItem>
         </SupportList>
       </ContentCard>
@@ -1135,7 +1135,7 @@ const GradeSheetHeader = styled.div`
 `;
 
 const GradeSheetTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -1180,13 +1180,13 @@ const GradeSheetDot = styled.div`
 
 const GradeSheetLabel = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: ${({ $active }) => $active ? 700 : 400};
   color: ${THEME.text};
 `;
 
 const GradeSheetPts = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -1194,7 +1194,7 @@ const GradeSheetPts = styled.div`
 /* ─── 가이드 & 커뮤니티 (홈 스타일) ─── */
 
 const ConfigCardDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   margin-top: 4px;
   font-weight: 400;
@@ -1233,7 +1233,7 @@ const ConfigGuideSubIcon = styled.div`
 `;
 
 const ConfigGuideText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
   line-height: 1.4;
@@ -1262,20 +1262,20 @@ const ConfigPostBadge = styled.div`
   border-radius: 20px;
   background: ${THEME.purpleLight};
   color: ${THEME.purple};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   margin-bottom: 10px;
 `;
 
 const ConfigPostTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.text};
   line-height: 1.4;
 `;
 
 const ConfigPostDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -1287,7 +1287,7 @@ const ConfigPostDesc = styled.div`
 
 const ConfigPostDate = styled.div`
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;

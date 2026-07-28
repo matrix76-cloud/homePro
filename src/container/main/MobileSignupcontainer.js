@@ -116,8 +116,9 @@ export default function MobileSignupcontainer() {
                 <Field>
                     <Label>회원유형</Label>
                     <TypeRow>
-                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")}>일반고객</TypeBtn>
+                        {/* 사업자회원 왼쪽 · 일반고객 오른쪽 (대표 지시 7/24) */}
                         <TypeBtn type="button" $active={isBiz} onClick={() => setUserType("business")}>사업자회원</TypeBtn>
+                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")}>일반고객</TypeBtn>
                     </TypeRow>
                     <TypeHint>{isBiz ? "업체명을 입력하는 사업자(홈프로) 회원입니다." : "대화명으로 이용하는 일반 회원입니다. 가입 후 마이에서 사업자회원 전환도 가능해요."}</TypeHint>
                 </Field>
@@ -219,7 +220,7 @@ const Head = styled.div`
 `;
 
 const H1 = styled.div`
-  font-size: 20px !important;
+  font-size: 22px !important;
   font-weight: 400;
   letter-spacing: -0.03em;
   color: rgba(17, 24, 39, 0.92);
@@ -257,7 +258,7 @@ const Input = styled.input`
   padding: 0 16px;
   border: 1px solid ${THEME.border};
   background: rgba(255, 255, 255, 0.88);
-  font-size: 15px !important;
+  font-size: 17px !important;
   font-weight: 400;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.9);
@@ -291,7 +292,7 @@ const TypeBtn = styled.button`
   flex: 1;
   height: 48px;
   border-radius: 10px;
-  font-size: 15px !important;
+  font-size: 17px !important;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
@@ -315,7 +316,7 @@ const PrimaryBtn = styled.button`
   background: ${THEME.primary};
   border: none;
   color: #fff;
-  font-size: 15px !important;
+  font-size: 17px !important;
   font-weight: 400;
   letter-spacing: -0.03em;
   cursor: pointer;
@@ -332,7 +333,7 @@ const GhostBtn = styled.button`
   background: ${THEME.surface};
   border: 1px solid ${THEME.border};
   color: rgba(17, 24, 39, 0.86);
-  font-size: 15px !important;
+  font-size: 17px !important;
   font-weight: 400;
   letter-spacing: -0.03em;
   cursor: pointer;
@@ -360,7 +361,7 @@ const OverlayInner = styled.div`
 `;
 
 const OverlayText = styled.div`
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 400;
   color: rgba(17, 24, 39, 0.55);
 `;
@@ -382,7 +383,7 @@ const Toast = styled.div`
   padding: 12px 24px;
   background: #333;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;

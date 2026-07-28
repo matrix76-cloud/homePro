@@ -138,7 +138,7 @@ const FormArea = styled.div`
 `;
 
 const Label = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -152,7 +152,7 @@ const TitleInput = styled.input`
   border-radius: 10px;
   border: 1.5px solid ${THEME.border};
   background: ${THEME.background};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   font-family: inherit;
   color: ${THEME.text};
@@ -168,7 +168,7 @@ const ContentArea = styled.textarea`
   border-radius: 10px;
   border: 1.5px solid ${THEME.border};
   background: ${THEME.background};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   font-family: inherit;
   color: ${THEME.text};
@@ -198,7 +198,7 @@ const ImageAddBtn = styled.button`
   border: none;
   background: ${THEME.purpleLight};
   color: ${THEME.primary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -267,7 +267,7 @@ const SubmitBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;

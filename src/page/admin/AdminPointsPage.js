@@ -15,14 +15,14 @@ const Header = styled.div`
 `;
 
 const Title = styled.h1`
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 4px;
 `;
 
 const SubTitle = styled.p`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     margin: 0;
 `;
@@ -36,7 +36,7 @@ const TabRow = styled.div`
 
 const Tab = styled.button`
     padding: 10px 20px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: ${({ $active }) => ($active ? "700" : "500")};
     color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
     background: none;
@@ -67,7 +67,7 @@ const SearchIcon = styled.span`
     top: 50%;
     transform: translateY(-50%);
     color: ${THEME.muted};
-    font-size: 15px;
+    font-size: 17px;
     pointer-events: none;
 `;
 
@@ -76,7 +76,7 @@ const SearchInput = styled.input`
     padding: 9px 12px 9px 36px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     outline: none;
     background: #fff;
     &:focus {
@@ -85,14 +85,14 @@ const SearchInput = styled.input`
 `;
 
 const CountInfo = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     margin-left: auto;
 `;
 
 const AddBtn = styled.button`
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: none;
     border-radius: 4px;
@@ -120,7 +120,7 @@ const Table = styled.table`
 const Th = styled.th`
     text-align: left;
     padding: 10px 14px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: ${THEME.textSecondary};
     background: ${THEME.background};
@@ -130,7 +130,7 @@ const Th = styled.th`
 
 const Td = styled.td`
     padding: 10px 14px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     border-bottom: 1px solid ${THEME.border};
     white-space: nowrap;
@@ -147,7 +147,7 @@ const Badge = styled.span`
     display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: ${({ $color }) => $color || "#fff"};
     background: ${({ $bg }) => $bg || THEME.muted};
@@ -171,7 +171,7 @@ const PaginationRow = styled.div`
 
 const PageBtn = styled.button`
     padding: 6px 14px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
@@ -188,7 +188,7 @@ const PageBtn = styled.button`
 `;
 
 const PageInfo = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.textSecondary};
 `;
 
@@ -196,14 +196,14 @@ const EmptyRow = styled.div`
     text-align: center;
     padding: 40px 0;
     color: ${THEME.muted};
-    font-size: 14px;
+    font-size: 16px;
 `;
 
 const LoadingWrap = styled.div`
     text-align: center;
     padding: 60px 0;
     color: ${THEME.muted};
-    font-size: 14px;
+    font-size: 16px;
 `;
 
 // ─── Modal Styled ───
@@ -229,7 +229,7 @@ const ModalCard = styled.div`
 `;
 
 const ModalTitle = styled.h3`
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 20px;
@@ -241,7 +241,7 @@ const FormGroup = styled.div`
 
 const FormLabel = styled.label`
     display: block;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.muted};
     margin-bottom: 6px;
@@ -252,7 +252,7 @@ const ModalInput = styled.input`
     padding: 8px 10px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     outline: none;
     box-sizing: border-box;
     &:focus {
@@ -265,7 +265,7 @@ const ModalSelect = styled.select`
     padding: 8px 10px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     outline: none;
     background: #fff;
     box-sizing: border-box;
@@ -283,7 +283,7 @@ const ModalBtnRow = styled.div`
 
 const ModalBtn = styled.button`
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: none;
     border-radius: 4px;
@@ -301,7 +301,7 @@ const ModalBtn = styled.button`
 
 const ModalCloseBtn = styled.button`
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
@@ -324,7 +324,7 @@ const MainTabRow = styled.div`
 
 const MainTab = styled.button`
     padding: 12px 24px;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: ${({ $active }) => ($active ? "700" : "500")};
     color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
     background: none;
@@ -337,7 +337,7 @@ const MainTab = styled.button`
 `;
 
 const RuleKey = styled.code`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.textSecondary};
     background: ${THEME.background};
     padding: 2px 6px;
@@ -348,14 +348,14 @@ const RuleInput = styled.input`
     padding: 6px 8px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     outline: none;
     &:focus { border-color: ${THEME.primary}; }
 `;
 
 const ToggleBtn = styled.button`
     padding: 4px 12px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     border: none;
     border-radius: 999px;
@@ -393,13 +393,13 @@ const PolicyRow = styled.div`
 `;
 const PolicyLabel = styled.div`
     flex: 1;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: ${THEME.text};
 `;
 const PolicyHint = styled.div`
     margin-top: 4px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     color: ${THEME.muted};
 `;
@@ -414,13 +414,13 @@ const PolicyInput = styled.input`
     padding: 8px 10px;
     border: 1px solid ${THEME.border};
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 16px;
     text-align: right;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     &:focus { outline: none; border-color: ${THEME.primary}; }
 `;
 const PolicyUnit = styled.span`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
     min-width: 40px;
 `;
@@ -432,7 +432,7 @@ const PolicyActions = styled.div`
     margin-top: 16px;
 `;
 const PolicySaved = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #16A34A;
 `;
@@ -442,7 +442,7 @@ const PolicySaveBtn = styled.button`
     color: #fff;
     border: none;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     &:hover { opacity: 0.9; }

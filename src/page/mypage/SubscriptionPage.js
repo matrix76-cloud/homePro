@@ -120,26 +120,26 @@ const HeroBox = styled.div`
 `;
 
 const HeroTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   margin-bottom: 8px;
   opacity: 0.9;
 `;
 
 const HeroPrice = styled.div`
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   margin-bottom: 8px;
 `;
 
 const Small = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   opacity: 0.8;
 `;
 
 const HeroDesc = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   opacity: 0.85;
   line-height: 1.5;
 `;
@@ -152,7 +152,7 @@ const Section = styled.div`
 `;
 
 const Label = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
@@ -178,7 +178,7 @@ const RadioDot = styled.div`
 `;
 
 const RadioText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
 `;
 
@@ -187,13 +187,13 @@ const NoticeBox = styled.div`
   padding: 12px 14px;
   background: #FEF3C7;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: #92400E;
   line-height: 1.5;
   strong {
     display: block;
     margin-bottom: 4px;
-    font-size: 13px;
+    font-size: 15px;
     color: #78350F;
   }
 `;
@@ -202,7 +202,7 @@ const SubmitBtn = styled.button`
   margin: 16px 12px 8px;
   padding: 14px;
   width: calc(100% - 24px);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
   background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
@@ -223,7 +223,7 @@ const Toast = styled.div`
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   border-radius: 20px;
   z-index: 1000;
 `;

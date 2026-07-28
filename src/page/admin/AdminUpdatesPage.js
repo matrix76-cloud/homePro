@@ -134,7 +134,7 @@ export default AdminUpdatesPage;
 const Container = styled.div``;
 
 const Title = styled.h1`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 0 0 16px 0;
@@ -161,7 +161,7 @@ const FormGroup = styled.div`
 `;
 
 const Label = styled.label`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -170,7 +170,7 @@ const Input = styled.input`
   padding: 10px 12px;
   border: 1px solid ${THEME.border};
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   outline: none;
 
@@ -183,7 +183,7 @@ const Textarea = styled.textarea`
   padding: 10px 12px;
   border: 1px solid ${THEME.border};
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   resize: vertical;
   outline: none;
@@ -200,7 +200,7 @@ const SubmitButton = styled.button`
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
 
@@ -211,14 +211,14 @@ const SubmitButton = styled.button`
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
   margin: 0 0 12px 0;
 `;
 
 const EmptyText = styled.p`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   text-align: center;
   padding: 20px 0;
@@ -246,20 +246,20 @@ const UpdateInfo = styled.div`
 `;
 
 const VersionBadge = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.primary};
 `;
 
 const UpdateContent = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
   white-space: pre-wrap;
   word-break: break-word;
 `;
 
 const UpdateDate = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
 `;
 

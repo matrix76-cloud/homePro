@@ -438,7 +438,7 @@ const Header = styled.div`
 `;
 
 const Title = styled.h1`
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0;
@@ -446,7 +446,7 @@ const Title = styled.h1`
 
 const RefreshBtn = styled.button`
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.primary};
     background: ${THEME.surface};
@@ -470,7 +470,7 @@ const Tab = styled.button`
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: ${({ $active }) => ($active ? 700 : 500)};
     color: ${({ $active }) => ($active ? THEME.surface : THEME.text)};
     background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
@@ -484,7 +484,7 @@ const Tab = styled.button`
 `;
 
 const TabCount = styled.span`
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: ${({ $active }) => ($active ? "rgba(255,255,255,0.8)" : THEME.muted)};
 `;
@@ -497,7 +497,7 @@ const SearchInput = styled.input`
     width: 100%;
     max-width: 360px;
     padding: 10px 12px;
-    font-size: 13px;
+    font-size: 15px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
     background: ${THEME.surface};
@@ -516,7 +516,7 @@ const EmptyMsg = styled.div`
     text-align: center;
     padding: 60px 0;
     color: ${THEME.muted};
-    font-size: 14px;
+    font-size: 16px;
 `;
 
 const TableWrap = styled.div`
@@ -534,7 +534,7 @@ const Table = styled.table`
 
 const Th = styled.th`
     padding: 12px 14px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: ${THEME.muted};
     text-align: left;
@@ -554,13 +554,13 @@ const Tr = styled.tr`
 
 const Td = styled.td`
     padding: 12px 14px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
 `;
 
 const OrderId = styled.span`
     font-family: monospace;
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.primary};
     font-weight: 600;
 `;
@@ -568,7 +568,7 @@ const OrderId = styled.span`
 const Badge = styled.span`
     display: inline-block;
     padding: 3px 10px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: #fff;
     background: ${({ $color }) => $color};
@@ -577,7 +577,7 @@ const Badge = styled.span`
 
 const StatusSelect = styled.select`
     padding: 5px 8px;
-    font-size: 12px;
+    font-size: 14px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
     background: ${THEME.surface};
@@ -600,7 +600,7 @@ const Pagination = styled.div`
 
 const PageBtn = styled.button`
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
     background: ${THEME.surface};
@@ -614,7 +614,7 @@ const PageBtn = styled.button`
 `;
 
 const PageInfo = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     font-weight: 500;
 `;
@@ -654,7 +654,7 @@ const ModalHeader = styled.div`
 `;
 
 const ModalTitle = styled.h2`
-    font-size: 17px;
+    font-size: 19px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0;
@@ -662,7 +662,7 @@ const ModalTitle = styled.h2`
 
 const CloseBtn = styled.button`
     padding: 6px 14px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.muted};
     background: none;
@@ -688,7 +688,7 @@ const InfoSection = styled.div`
 `;
 
 const SectionTitle = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     color: ${THEME.primary};
     margin-bottom: 10px;
@@ -704,14 +704,14 @@ const InfoRow = styled.div`
 
 const InfoLabel = styled.div`
     flex: 0 0 80px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: ${THEME.muted};
 `;
 
 const InfoValue = styled.div`
     flex: 1;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     word-break: break-all;
 `;

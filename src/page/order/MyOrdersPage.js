@@ -85,12 +85,12 @@ const normalizeStatus = (s) => {
 
 /* ─── 단가유형/요청방식 표시 (메인화면 사양과 동일 포맷) ─── */
 const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
-/* 금액 미정 단가유형 — 수락→배정 후 견적가 통보 (현장견적/견적요청 통합) */
+/* 금액 미정 단가유형 — 수락→배정 후 견적서 전송 (현장견적/견적요청 통합) */
 const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 
 const formatPriceLine = (order) => {
-  // 현장견적/견적요청: 선정 홈프로가 견적가를 통보하면 그 금액을 함께 표기
+  // 현장견적/견적요청: 선정 홈프로가 견적서를 전송하면 그 금액을 함께 표기
   if (UNPRICED_TYPES.includes(order.b2bPriceType)) {
     const label = PRICE_TYPE_LABEL[order.b2bPriceType] || "견적요청";
     const quoted = Number(order.onsiteQuotedPrice) || (order.matchedProUid ? Number(order.applicantQuotes?.[order.matchedProUid]) : 0) || 0;
@@ -130,11 +130,20 @@ export const MyOrdersContent = () => {
   const { userData } = useAuth();
   const uid = user?.uid || userData?.uid || user?.USERS_ID;
   const myName = userData?.nickname || userData?.name || "사용자";
+  // 비교선정에 지원했으나 다른 홈프로가 선정됨 → 취소 분류 + "미선정" 표기 (대표 지시 7/24)
+  const isUnselected = (order) =>
+    order.createdBy !== uid
+    && !!order.matchedProUid
+    && order.matchedProUid !== uid
+    && (order.applicantUids || []).includes(uid);
   // 관점별 상태: 내가 지원한(선정 전) 오더는 홈프로 관점에서 "선정대기"로 표기
   const viewStatus = (order) => {
     const raw = normalizeStatus(order.orderStatus);
-    if (order.createdBy !== uid && (order.applicantUids || []).includes(uid) && order.matchedProUid !== uid && (raw === "접수" || raw === "선정대기")) {
-      return "선정대기";
+    if (order.createdBy === uid) return raw;
+    const isApplicant = (order.applicantUids || []).includes(uid);
+    if (isApplicant && order.matchedProUid !== uid) {
+      if (order.matchedProUid) return "취소";   // 미선정 → 취소 분류
+      if (raw === "접수" || raw === "선정대기") return "선정대기";
     }
     return raw;
   };
@@ -158,7 +167,7 @@ export const MyOrdersContent = () => {
   const [cancelReqOpen, setCancelReqOpen] = useState(null); // { orderId } | null
   const [cancelReqReason, setCancelReqReason] = useState("");
   const [cancelReqDetail, setCancelReqDetail] = useState("");
-  const [priceNotifyOpen, setPriceNotifyOpen] = useState(null); // { order } | null — 현장견적가 통보
+  const [priceNotifyOpen, setPriceNotifyOpen] = useState(null); // { order } | null — 견적서 전송
   const [notifyPrice, setNotifyPrice] = useState("");
   const [notifyMsg, setNotifyMsg] = useState("");
 
@@ -208,6 +217,7 @@ export const MyOrdersContent = () => {
             lastMessage: r.lastMessage || "",
             lastMessageAt: r.lastMessageAt,
             unreadCount: r.unreadCount?.[uid] || 0,
+            otherUid,
             otherName,
           });
         }
@@ -287,9 +297,9 @@ export const MyOrdersContent = () => {
 
   // (자유취소 전환: 접수자 승인/반려 게이트 제거 — handleApproveCancel/handleRejectCancel 삭제)
 
-  // 견적가 통보 (홈프로 → 접수자). 상태는 유지, 정보만 전달.
-  //  - 빠른배정: 배정된 1명이 통보 (onsiteQuotedPrice)
-  //  - 비교선정: 지원자가 통보 (applicant 문서 + applicantQuotes 맵)
+  // 견적서 전송 (홈프로 → 접수자). 상태는 유지, 정보만 전달.
+  //  - 빠른배정: 배정된 1명이 전송 (onsiteQuotedPrice)
+  //  - 비교선정: 지원자가 전송 (applicant 문서 + applicantQuotes 맵)
   const submitPriceNotify = async () => {
     const order = priceNotifyOpen?.order;
     if (!order) return;
@@ -301,9 +311,9 @@ export const MyOrdersContent = () => {
         await notifyApplicantPrice(order.id, uid, priceNum, notifyMsg.trim());
         await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
           title: "견적가 도착",
-          body: `지원 홈프로가 견적가 ${priceNum.toLocaleString()}원을 통보했습니다.`,
+          body: `지원 홈프로가 견적가 ${priceNum.toLocaleString()}원을 전송했습니다.`,
           type: "applicant_quote",
-          chatText: `견적가가 통보되었습니다.\n금액: ${priceNum.toLocaleString()}원`,
+          chatText: `견적서가 전송되었습니다.\n금액: ${priceNum.toLocaleString()}원`,
           chatType: "onsite_quote",
         });
         setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, applicantQuotes: { ...(o.applicantQuotes || {}), [uid]: priceNum } } : o));
@@ -311,20 +321,20 @@ export const MyOrdersContent = () => {
         await notifyOnsitePrice(order.id, priceNum, notifyMsg.trim());
         await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
           title: "견적가 도착",
-          body: `견적가 ${priceNum.toLocaleString()}원이 통보되었습니다.`,
+          body: `견적가 ${priceNum.toLocaleString()}원이 전송되었습니다.`,
           type: "onsite_quote",
-          chatText: `견적가가 수신되었습니다.\n금액: ${priceNum.toLocaleString()}원${notifyMsg.trim() ? `\n${notifyMsg.trim()}` : ""}`,
+          chatText: `견적서가 전송되었습니다.\n금액: ${priceNum.toLocaleString()}원${notifyMsg.trim() ? `\n${notifyMsg.trim()}` : ""}`,
           chatType: "onsite_quote",
         });
         setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, onsiteQuotedPrice: priceNum, onsiteQuoteMessage: notifyMsg.trim() } : o));
       }
-      await addOrderLog(order.id, { type: "quote", message: `견적가 통보 ${priceNum.toLocaleString()}원`, byUid: uid, byName: myName, byRole: "홈프로" });
+      await addOrderLog(order.id, { type: "quote", message: `견적서 전송 ${priceNum.toLocaleString()}원`, byUid: uid, byName: myName, byRole: "홈프로" });
       setPriceNotifyOpen(null);
       setNotifyPrice("");
       setNotifyMsg("");
-      alert("견적가를 통보했습니다");
+      alert("견적서를 전송했습니다");
     } catch (err) {
-      alert("통보 실패: " + (err.message || err));
+      alert("전송 실패: " + (err.message || err));
     }
   };
 
@@ -345,19 +355,22 @@ export const MyOrdersContent = () => {
 
   return (
     <PageWrap>
-        {/* 지난오더조회 + 뷰 토글 */}
+        {/* 지난오더조회 + 뷰 토글 — 글씨 상향(7/28)에 맞춰 기간 입력은 아랫줄로 분리 */}
         <PeriodRow>
           <PeriodSelect value={activePeriod} onChange={(e) => { setActivePeriod(e.target.value); setDateRange({ start: "", end: "" }); }}>
             {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p === "전체" ? "지난오더 조회" : p}</option>)}
           </PeriodSelect>
-          <DateRangeInput type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} />
-          <DateRangeInput type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} />
           <ViewToggleBtn $active={viewMode === "list"} onClick={() => setViewMode("list")}>
-            <IoListOutline size={16} />
+            <IoListOutline size={18} />
           </ViewToggleBtn>
           <ViewToggleBtn $active={viewMode === "calendar"} onClick={() => setViewMode("calendar")}>
-            <IoCalendarOutline size={16} />
+            <IoCalendarOutline size={18} />
           </ViewToggleBtn>
+        </PeriodRow>
+        <PeriodRow>
+          <DateRangeInput type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} />
+          <DateRangeSep>~</DateRangeSep>
+          <DateRangeInput type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} />
         </PeriodRow>
 
         {/* 상태 필터 탭 */}
@@ -392,8 +405,14 @@ export const MyOrdersContent = () => {
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
             const displayStatus = viewStatus(order);
+            const badgeText = isUnselected(order) ? "미선정" : displayStatus;
             const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["등록"];
-            const chats = chatMap[order.id] || [];
+            const isOwnerCard = order.createdBy === uid;
+            const allChats = chatMap[order.id] || [];
+            // 선정 완료 후 접수자 카드에는 배정된 홈프로 1명만 (미선정 지원자 대화 숨김)
+            const chats = isOwnerCard && order.matchedProUid
+              ? allChats.filter((c) => c.otherUid === order.matchedProUid)
+              : allChats;
             return (
               <OrderCard
                 key={order.id}
@@ -401,7 +420,7 @@ export const MyOrdersContent = () => {
               >
                 <CardTop>
                   <CardTopLeft>
-                    <StatusBadge $bg={st.bg} $color={st.color}>{displayStatus}</StatusBadge>
+                    <StatusBadge $bg={st.bg} $color={st.color}>{badgeText}</StatusBadge>
                     {order.createdBy === uid
                       ? <RoleTag $type="request">내가 요청</RoleTag>
                       : <RoleTag $type="support">{PRO_ROLE_TAG_BY_MATCH[order.matchType] || "견적 지원"}</RoleTag>
@@ -420,10 +439,10 @@ export const MyOrdersContent = () => {
                   <PriceText>{formatPriceLine(order)}</PriceText>
                 </CardBottom>
 
-                {/* 견적가 통보 내역 (배정 상태 + 통보됨) */}
+                {/* 견적서 전송 내역 (배정 상태 + 전송됨) */}
                 {UNPRICED_TYPES.includes(order.b2bPriceType) && order.onsiteQuotedPrice > 0 && displayStatus === "배정" && (
                   <OnsitePriceBox onClick={(e) => e.stopPropagation()}>
-                    💰 통보된 견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
+                    전송된 견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
                     {order.onsiteQuoteMessage ? <div style={{ marginTop: 4, color: THEME.muted }}>{order.onsiteQuoteMessage}</div> : null}
                   </OnsitePriceBox>
                 )}
@@ -431,12 +450,12 @@ export const MyOrdersContent = () => {
                 {/* 프로별 채팅 미리보기 목록 */}
                 {chats.length > 0 && (
                   <ChatListWrap>
-                    <ChatListTitle>
-                      {order.createdBy === uid
-                        ? (order.matchedProUid ? "배정된 프로" : `견적 받은 프로 ${chats.length}명`)
-                        : "견적 대화"
-                      }
-                    </ChatListTitle>
+                    {/* 홈프로 시점의 "견적 대화" 문구는 삭제 (대표 지시 7/24) */}
+                    {isOwnerCard && (
+                      <ChatListTitle>
+                        {order.matchedProUid ? "배정된 프로" : `견적 받은 프로 ${chats.length}명`}
+                      </ChatListTitle>
+                    )}
                     {chats.map((chat) => {
                       const hasUnread = chat.unreadCount > 0;
                       return (
@@ -465,10 +484,10 @@ export const MyOrdersContent = () => {
                     {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
                     {order.matchedProUid === uid && (
                       <>
-                        {/* 견적가는 1회만 통보 (의뢰인 확정: 수정·재통보 불가) — 미통보 시에만 버튼 노출 */}
+                        {/* 견적서는 1회만 전송 (의뢰인 확정: 수정·재전송 불가) — 미전송 시에만 버튼 노출 */}
                         {UNPRICED_TYPES.includes(order.b2bPriceType) && !order.onsiteQuotedPrice && (
                           <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(""); setNotifyMsg(""); }}>
-                            견적가 통보
+                            견적서 전송
                           </ActionBtn>
                         )}
                         {(() => {
@@ -504,15 +523,15 @@ export const MyOrdersContent = () => {
                     <ActionBtn $variant="primary" onClick={(e) => handleStatusChange(e, order.id, "접수")}>재접수</ActionBtn>
                   </ActionRow>
                 )}
-                {/* 비교선정 지원자(선정 전) — 현장 확인 후 견적가 통보 (1회) */}
+                {/* 비교선정 지원자(선정 전) — 견적서 전송 (1회) */}
                 {order.createdBy !== uid && order.matchType === "compare" && UNPRICED_TYPES.includes(order.b2bPriceType)
                   && (order.applicantUids || []).includes(uid) && order.matchedProUid !== uid
                   && (displayStatus === "접수" || displayStatus === "선정대기") && (
                   <ActionRow>
                     {!order.applicantQuotes?.[uid] ? (
-                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order, isApplicant: true }); setNotifyPrice(""); setNotifyMsg(""); }}>견적가 통보</ActionBtn>
+                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order, isApplicant: true }); setNotifyPrice(""); setNotifyMsg(""); }}>견적서 전송</ActionBtn>
                     ) : (
-                      <PriceNoticeInline>내 견적가 {Number(order.applicantQuotes[uid]).toLocaleString()}원 통보됨</PriceNoticeInline>
+                      <PriceNoticeInline>내 견적가 {Number(order.applicantQuotes[uid]).toLocaleString()}원 전송됨</PriceNoticeInline>
                     )}
                   </ActionRow>
                 )}
@@ -554,17 +573,17 @@ export const MyOrdersContent = () => {
           </ModalOverlay>
         )}
 
-        {/* 현장견적가 통보 모달 (배정된 수락자 전용) */}
+        {/* 견적서 전송 모달 (배정된 수락자 전용) */}
         {priceNotifyOpen && (
           <ModalOverlay onClick={() => setPriceNotifyOpen(null)}>
             <ModalSheet onClick={(e) => e.stopPropagation()}>
               <ModalHeader>
-                <ModalTitle>견적가 통보</ModalTitle>
+                <ModalTitle>견적서 전송</ModalTitle>
                 <ModalClose onClick={() => setPriceNotifyOpen(null)}>
                   <IoCloseOutline size={22} />
                 </ModalClose>
               </ModalHeader>
-              <NotifyHint>현장 확인 후 산정한 견적가를 접수자에게 통보합니다.{"\n"}한 번 통보하면 수정할 수 없으니 신중히 입력해 주세요.</NotifyHint>
+              <NotifyHint>현장 확인 또는 현장 소개·사진·통화·채팅 등 제공된 정보를 바탕으로 산정한 견적가를 접수자에게 전송합니다. 현장 방문 및 실측은 선택 사항입니다.{"\n"}한 번 전송하면 수정할 수 없으니 신중히 입력해 주세요.</NotifyHint>
               <PriceInputRow>
                 <PriceInput
                   inputMode="numeric"
@@ -580,7 +599,7 @@ export const MyOrdersContent = () => {
                 onChange={(e) => setNotifyMsg(e.target.value.slice(0, 200))}
                 rows={3}
               />
-              <ConfirmBtn onClick={submitPriceNotify} disabled={!notifyPrice}>견적가 통보하기</ConfirmBtn>
+              <ConfirmBtn onClick={submitPriceNotify} disabled={!notifyPrice}>견적서 전송하기</ConfirmBtn>
             </ModalSheet>
           </ModalOverlay>
         )}
@@ -702,7 +721,7 @@ const TabDescArrow = styled.div`
 `;
 
 const TabDesc = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: #fff;
   text-align: left;
   padding: 10px 14px;
@@ -716,14 +735,14 @@ const TabDesc = styled.div`
 `;
 
 const TabCount = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${({ $active }) => $active ? THEME.primary : THEME.muted};
   line-height: 1;
 `;
 
 const TabLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-top: 4px;
   font-weight: 500;
@@ -753,7 +772,7 @@ const CardTopLeft = styled.div`
 `;
 
 const RoleTag = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 4px;
@@ -765,20 +784,20 @@ const StatusBadge = styled.span`
   display: inline-block;
   padding: 4px 10px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   background: ${({ $bg }) => $bg};
   color: ${({ $color }) => $color};
 `;
 
 const OrderDate = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const CardTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
@@ -796,14 +815,14 @@ const TagRow = styled.div`
 const Tag = styled.span`
   padding: 4px 8px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
 `;
 
 const MatchTag = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.purple};
 `;
@@ -823,13 +842,13 @@ const BottomLeft = styled.div`
 `;
 
 const BottomText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const PriceText = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   color: ${THEME.primary};
 `;
@@ -841,7 +860,7 @@ const ChatListWrap = styled.div`
 `;
 
 const ChatListTitle = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.muted};
   margin-bottom: 4px;
@@ -871,14 +890,14 @@ const ChatLeft = styled.div`
 `;
 
 const ChatProName = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: ${({ $unread }) => $unread ? 700 : 500};
   color: ${({ $unread }) => $unread ? THEME.text : THEME.textSecondary};
   flex-shrink: 0;
 `;
 
 const ChatMsg = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: ${({ $unread }) => $unread ? 600 : 400};
   color: ${({ $unread }) => $unread ? THEME.text : THEME.muted};
   white-space: nowrap;
@@ -894,7 +913,7 @@ const ChatRight = styled.div`
 `;
 
 const ChatTime = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
@@ -908,12 +927,12 @@ const UnreadBadge = styled.span`
   border-radius: 9px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 `;
 
 const ReadLabel = styled.span`
-  font-size: 10px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
@@ -935,14 +954,14 @@ const CancelReqBanner = styled.div`
 `;
 
 const CancelReqText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: #92400E;
   line-height: 1.5;
   b { color: #B45309; font-weight: 700; }
 `;
 
 const CancelReqReason = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: #B45309;
   margin-top: 4px;
 `;
@@ -965,7 +984,7 @@ const ActionBtn = styled.button`
   border: 1px solid ${({ $variant }) => VARIANT_COLORS[$variant] || THEME.primary};
   background: ${({ $variant }) => (VARIANT_COLORS[$variant] || THEME.primary) + "10"};
   color: ${({ $variant }) => VARIANT_COLORS[$variant] || THEME.primary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   padding: 6px 16px;
   border-radius: 8px;
@@ -984,7 +1003,7 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -998,7 +1017,7 @@ const PeriodRow = styled.div`
 `;
 
 const PeriodSelect = styled.select`
-  font-size: 12px;
+  font-size: 14px;
   padding: 6px 8px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
@@ -1009,14 +1028,20 @@ const PeriodSelect = styled.select`
 `;
 
 const DateRangeInput = styled.input`
-  font-size: 11px;
-  padding: 6px 6px;
+  font-size: 15px;
+  padding: 8px 10px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   background: #fff;
   color: ${THEME.text};
   flex: 1;
   min-width: 0;
+`;
+
+const DateRangeSep = styled.span`
+  font-size: 15px;
+  color: ${THEME.textSecondary};
+  flex: 0 0 auto;
 `;
 
 const ViewToggleBtn = styled.button`
@@ -1061,7 +1086,7 @@ const ModalHeader = styled.div`
 `;
 
 const ModalTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -1100,7 +1125,7 @@ const ReasonRadio = styled.div`
 `;
 
 const ReasonLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
 `;
 
@@ -1108,7 +1133,7 @@ const DetailInput = styled.textarea`
   width: 100%;
   margin-top: 12px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   resize: none;
@@ -1117,7 +1142,7 @@ const DetailInput = styled.textarea`
 `;
 
 const NotifyHint = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   line-height: 1.5;
   margin-bottom: 12px;
@@ -1133,7 +1158,7 @@ const PriceInputRow = styled.div`
 const PriceInput = styled.input`
   flex: 1;
   padding: 12px 14px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
@@ -1146,13 +1171,13 @@ const PriceInput = styled.input`
 `;
 
 const PriceUnit = styled.span`
-  font-size: 16px;
+  font-size: 18px;
   color: ${THEME.text};
   flex-shrink: 0;
 `;
 
 const PriceNoticeInline = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.primary};
   padding: 6px 4px;
@@ -1164,7 +1189,7 @@ const OnsitePriceBox = styled.div`
   background: #F3F0FF;
   border: 1px solid #E0D7FF;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
   b { color: ${THEME.primary}; font-weight: 700; }
 `;
@@ -1173,7 +1198,7 @@ const ConfirmBtn = styled.button`
   width: 100%;
   margin-top: 16px;
   padding: 14px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
   background: ${(p) => p.disabled ? THEME.muted : THEME.primary};
@@ -1204,13 +1229,13 @@ const CalNavBtn = styled.button`
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   background: #fff;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   color: ${THEME.text};
 `;
 
 const CalTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -1223,7 +1248,7 @@ const CalGrid = styled.div`
 
 const CalWeekCell = styled.div`
   text-align: center;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.muted};
   padding: 6px 0;
@@ -1240,13 +1265,13 @@ const CalDayCell = styled.div`
 `;
 
 const CalDayNum = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const CalDot = styled.div`
-  font-size: 9px;
+  font-size: 13px;
   background: ${THEME.primary};
   color: #fff;
   padding: 1px 4px;
@@ -1258,7 +1283,7 @@ const CalDot = styled.div`
 `;
 
 const CalDotMore = styled.div`
-  font-size: 9px;
+  font-size: 13px;
   color: ${THEME.muted};
   text-align: center;
 `;

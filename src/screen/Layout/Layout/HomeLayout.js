@@ -249,7 +249,7 @@ const LocationMenuItem = styled.div`
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: #191F28;
   cursor: pointer;
@@ -296,7 +296,7 @@ const Spinner = styled.div`
 `;
 
 const SpinnerText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: #191F28;
   font-weight: 500;
 `;

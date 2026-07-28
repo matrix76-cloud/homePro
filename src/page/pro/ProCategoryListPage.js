@@ -77,13 +77,13 @@ const EmptyIcon = styled.div`
 `;
 
 const EmptyText = styled.div`
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 400;
     color: ${THEME.text};
 `;
 
 const EmptySub = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.muted};
 `;
 
@@ -126,14 +126,14 @@ const CatIcon = styled.div`
 const CatInfo = styled.div``;
 
 const CatName = styled.div`
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 400;
     color: ${THEME.text};
 `;
 
 const CatStatus = styled.div`
     display: inline-block;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 500;
     color: #fff;
     background: ${THEME.success};
@@ -149,7 +149,7 @@ const AddBtn = styled.button`
     border-radius: 10px;
     background: ${THEME.primary};
     color: #fff;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 400;
     font-family: inherit;
     cursor: pointer;

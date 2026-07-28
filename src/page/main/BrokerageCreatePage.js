@@ -122,33 +122,33 @@ export default BrokerageCreatePage;
 
 const Wrap = styled.div` padding: 12px 12px 40px; background: ${THEME.background}; min-height: 100%; `;
 const Section = styled.div` background: ${THEME.surface}; margin: 0 0 10px; padding: 16px; border-radius: 14px; box-shadow: ${THEME.cardShadow}; `;
-const Label = styled.div` font-size: 14px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
+const Label = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
 const Req = styled.span` color: #ef4444; `;
-const Hint = styled.div` margin-top: 8px; font-size: 12px; color: ${THEME.muted}; line-height: 1.5; `;
+const Hint = styled.div` margin-top: 8px; font-size: 14px; color: ${THEME.muted}; line-height: 1.5; `;
 const Row = styled.div` display: flex; gap: 10px; `;
 const TypeBtn = styled.button`
-  flex: 1; height: 48px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+  flex: 1; height: 48px; border-radius: 10px; font-size: 17px; font-weight: 600; cursor: pointer; font-family: inherit;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
 `;
 const Chips = styled.div` display: flex; flex-wrap: wrap; gap: 8px; `;
 const Chip = styled.button`
-  padding: 8px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; font-family: inherit; white-space: nowrap;
+  padding: 8px 14px; border-radius: 20px; font-size: 15px; cursor: pointer; font-family: inherit; white-space: nowrap;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
 `;
 const Input = styled.input`
   width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid ${THEME.border}; border-radius: 10px;
-  font-size: 14px; font-family: inherit; outline: none; &:focus { border-color: ${THEME.primary}; }
+  font-size: 16px; font-family: inherit; outline: none; &:focus { border-color: ${THEME.primary}; }
 `;
 const Area = styled.textarea`
   width: 100%; box-sizing: border-box; min-height: 96px; padding: 12px; border: 1px solid ${THEME.border}; border-radius: 10px;
-  font-size: 14px; font-family: inherit; resize: vertical; outline: none; &:focus { border-color: ${THEME.primary}; }
+  font-size: 16px; font-family: inherit; resize: vertical; outline: none; &:focus { border-color: ${THEME.primary}; }
 `;
 const SubmitBtn = styled.button`
   width: 100%; padding: 16px; margin-top: 6px; background: ${THEME.primary}; color: #fff; border: none; border-radius: 10px;
-  font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit;
+  font-size: 18px; font-weight: 600; cursor: pointer; font-family: inherit;
   &:disabled { background: #ccc; }
 `;

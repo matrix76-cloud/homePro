@@ -81,7 +81,7 @@ const LocationWrap = styled.div`
 `;
 
 const LocationText = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   color: ${THEME.text};
   max-width: 140px;

@@ -52,11 +52,19 @@ export async function getUserProfileByUid(uid) {
         return { uid: d.id, ...d.data() };
     }
 
-    // 3) linkedEmailUid로 조회
-    const q3 = query(collection(db, "users"), where("linkedEmailUid", "==", u));
+    // 3) linkedEmailUids 배열에서 조회 (서버 통합이 쓰는 필드)
+    const q3 = query(collection(db, "users"), where("linkedEmailUids", "array-contains", u));
     const q3Snap = await getDocs(q3);
     if (!q3Snap.empty) {
         const d = q3Snap.docs[0];
+        return { uid: d.id, ...d.data() };
+    }
+
+    // 3-b) 기존 linkedEmailUid(단수) 하위 호환
+    const q3b = query(collection(db, "users"), where("linkedEmailUid", "==", u));
+    const q3bSnap = await getDocs(q3b);
+    if (!q3bSnap.empty) {
+        const d = q3bSnap.docs[0];
         return { uid: d.id, ...d.data() };
     }
 

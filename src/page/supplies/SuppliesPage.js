@@ -147,7 +147,7 @@ const HeaderText = styled.div`
 `;
 
 const ShopName = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
   line-height: 1.25;
@@ -183,7 +183,7 @@ const Body = styled.div`
 `;
 
 const Description = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.textSecondary};
   margin-bottom: 14px;
   line-height: 1.55;
@@ -202,7 +202,7 @@ const InfoItem = styled.div`
 `;
 
 const InfoText = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   overflow: hidden;
   text-overflow: ellipsis;
@@ -219,13 +219,13 @@ const EmptyState = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.textSecondary};
 `;
 
 const EmptySub = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
 `;
 
@@ -236,7 +236,7 @@ const FloatBtn = styled.button`
   padding: 10px 18px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: none;
   border-radius: 4px;

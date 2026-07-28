@@ -86,7 +86,7 @@ const PageWrap = styled.div`
   min-height: 60vh;
 `;
 const EmptyText = styled.div`
-  text-align: center; color: #999; padding: 40px 0; font-size: 14px;
+  text-align: center; color: #555; padding: 40px 0; font-size: 16px;
 `;
 const Card = styled.div`
   display: flex; align-items: center; justify-content: space-between;
@@ -97,17 +97,17 @@ const CardInfo = styled.div`
   flex: 1;
 `;
 const CardName = styled.div`
-  font-size: 15px; font-weight: 600; color: #222;
+  font-size: 17px; font-weight: 600; color: #222;
 `;
 const CardReason = styled.div`
-  font-size: 13px; color: #666; margin-top: 4px;
+  font-size: 15px; color: #444; margin-top: 4px;
 `;
 const CardDate = styled.div`
-  font-size: 12px; color: #999; margin-top: 2px;
+  font-size: 14px; color: #555; margin-top: 2px;
 `;
 const RemoveBtn = styled.button`
   display: flex; align-items: center; gap: 4px;
   background: none; border: 1px solid #EF4444; color: #EF4444;
-  border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+  border-radius: 10px; padding: 8px 12px; font-size: 15px; font-weight: 600;
   cursor: pointer;
 `;

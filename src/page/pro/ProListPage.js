@@ -278,7 +278,7 @@ const TabItem = styled.button`
   background: none;
   border: none;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: ${({ $active }) => ($active ? 700 : 500)};
   color: ${({ $active }) => ($active ? THEME.text : THEME.muted)};
   border-bottom: 3px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
@@ -302,7 +302,7 @@ const SubChip = styled.button`
   padding: 6px 12px;
   border-radius: 16px;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: ${({ $active }) => ($active ? 600 : 400)};
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   background: ${({ $active }) => ($active ? `${THEME.primary}10` : "transparent")};
@@ -320,7 +320,7 @@ const ResultRow = styled.div`
 `;
 
 const ResultCount = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary};
   b {
     color: ${THEME.text};
@@ -337,7 +337,7 @@ const DistFilterBtn = styled.button`
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -372,7 +372,7 @@ const FilterSheetHeader = styled.div`
 `;
 
 const FilterSheetTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -391,7 +391,7 @@ const FilterOption = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 16px 4px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: ${({ $active }) => $active ? 600 : 400};
   color: ${({ $active }) => $active ? THEME.text : THEME.text};
   border-bottom: 1px solid ${THEME.border};
@@ -402,7 +402,7 @@ const FilterOption = styled.div`
 
 const EmptyText = styled.div`
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   padding: 60px 0;
 `;
@@ -442,7 +442,7 @@ const ProAvatar = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   flex-shrink: 0;
 `;
@@ -459,7 +459,7 @@ const ProNameRow = styled.div`
 `;
 
 const ProName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   overflow: hidden;
@@ -483,7 +483,7 @@ const MetaDot = styled.span`
 `;
 
 const ProCat = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.textSecondary};
   font-weight: 500;
   flex-shrink: 0;
@@ -493,7 +493,7 @@ const ProRegion = styled.div`
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   overflow: hidden;
   text-overflow: ellipsis;
@@ -508,18 +508,18 @@ const ProRating = styled.div`
 `;
 
 const RatingScore = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const RatingCount = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
 `;
 
 const ProIntro = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary};
   margin-top: 12px;
   padding-top: 12px;
@@ -541,7 +541,7 @@ const ProStat = styled.div`
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -574,7 +574,7 @@ const DetailBtn = styled.button`
   border-radius: 8px;
   border: 1px solid ${THEME.primary};
   background: transparent;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${THEME.primary};
   cursor: pointer;

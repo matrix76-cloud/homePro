@@ -1,7 +1,11 @@
 /* eslint-disable */
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../api/config";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, firebaseApp } from "../api/config";
 import { APP_CONFIG } from "../config/homeproConfig";
+
+// Cloud Functions 배포 리전 (기본값 us-central1 로 나가면 404)
+const FUNCTIONS_REGION = "asia-northeast3";
 
 export function toE164KR(raw) {
     const n = (raw || "").replace(/[^0-9]/g, "");
@@ -18,23 +22,44 @@ export function formatKRPhone(e164) {
     return local;
 }
 
-export function genOtp6() {
-    return String(Math.floor(100000 + Math.random() * 900000));
+/* ─── 전화번호 인증 (서버 발급/검증) ───────────────────────────
+   인증번호를 브라우저에서 만들고 비교하던 방식은 폐기했다.
+   코드 생성·발송·대조는 전부 Cloud Function 이 하고, 클라이언트는
+   성공 시 받은 verificationToken 만 들고 다닌다. (형 지시 7/28)             */
+
+/** 인증번호 발송 요청 */
+export async function requestPhoneCode(phone) {
+    const fn = httpsCallable(getFunctions(firebaseApp, FUNCTIONS_REGION), "requestPhoneCode");
+    const res = await fn({ phone, label: APP_CONFIG.sms.label });
+    return res.data; // { ok, expiresInSec, resendAfterSec }
 }
 
-export async function sendOtpViaProxy({ phone, authcode }) {
-    const cfUrl = APP_CONFIG.sms.cfUrl;
-    if (!cfUrl) throw new Error("SMS 서비스가 설정되지 않았습니다.");
+/** 인증번호 검증 → verificationToken */
+export async function verifyPhoneCode(phone, code) {
+    const fn = httpsCallable(getFunctions(firebaseApp, FUNCTIONS_REGION), "verifyPhoneCode");
+    const res = await fn({ phone, code });
+    return res.data; // { ok, verificationToken, expiresInSec }
+}
 
-    const normalized = phone.replace(/[^0-9]/g, "");
-    const res = await fetch(cfUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalized, authcode, label: APP_CONFIG.sms.label }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "SMS 발송 실패");
-    return data;
+/** 전화번호 연결 + 계정 통합 (인증 토큰 필수) */
+export async function linkPhoneToAccount({ phone, verificationToken, provider }) {
+    const fn = httpsCallable(getFunctions(firebaseApp, FUNCTIONS_REGION), "linkPhoneToAccount");
+    const res = await fn({ phone, verificationToken, provider });
+    return res.data; // { ok, primaryUid, merged }
+}
+
+/** 인증된 번호로 가입 아이디 조회 */
+export async function findAccountByPhone({ phone, verificationToken }) {
+    const fn = httpsCallable(getFunctions(firebaseApp, FUNCTIONS_REGION), "findAccountByPhone");
+    const res = await fn({ phone, verificationToken });
+    return res.data; // { ok, found, loginId, provider }
+}
+
+/** Cloud Functions 호출 오류 → 사용자에게 보여줄 문구 */
+export function phoneAuthErrorMessage(err) {
+    const msg = String(err?.message || "");
+    if (msg && !/internal|unknown/i.test(msg)) return msg;
+    return "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
 export async function findEmailByPhoneE164(phoneE164) {

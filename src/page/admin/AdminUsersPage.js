@@ -286,16 +286,16 @@ const AdminUsersPage = () => {
             <FieldRow><FL>지역</FL><FV>{selectedUser.region || "-"}</FV></FieldRow>
             <FieldRow><FL>가입일</FL><FV>{formatDateTime(selectedUser.createdAt)}</FV></FieldRow>
             {selectedUser.linkedSocialUids?.length > 0 && (
-                <FieldRow><FL>소셜 연결</FL><FV style={{ fontSize: 11 }}>{selectedUser.linkedSocialUids.join(", ")}</FV></FieldRow>
+                <FieldRow><FL>소셜 연결</FL><FV style={{ fontSize: 13 }}>{selectedUser.linkedSocialUids.join(", ")}</FV></FieldRow>
             )}
             {selectedUser.linkedEmailUid && (
-                <FieldRow><FL>이메일 연결</FL><FV style={{ fontSize: 11 }}>{selectedUser.linkedEmailUid}</FV></FieldRow>
+                <FieldRow><FL>이메일 연결</FL><FV style={{ fontSize: 13 }}>{selectedUser.linkedEmailUid}</FV></FieldRow>
             )}
             {selectedUser.referralCode && (
                 <FieldRow><FL>추천인 코드</FL><FV>{selectedUser.referralCode}</FV></FieldRow>
             )}
             {selectedUser.referredBy && (
-                <FieldRow><FL>추천인</FL><FV style={{ fontSize: 11 }}>{selectedUser.referredBy}</FV></FieldRow>
+                <FieldRow><FL>추천인</FL><FV style={{ fontSize: 13 }}>{selectedUser.referredBy}</FV></FieldRow>
             )}
             {selectedUser.categories?.length > 0 && (
                 <FieldRow><FL>카테고리</FL><FV>{selectedUser.categories.join(", ")}</FV></FieldRow>
@@ -476,7 +476,7 @@ const AdminUsersPage = () => {
                         <FieldRow><FL>신청일</FL><FV>{formatDate(p.appliedAt || p.createdAt)}</FV></FieldRow>
                         {p.approvedAt && <FieldRow><FL>승인일</FL><FV>{formatDate(p.approvedAt)}</FV></FieldRow>}
                         {p.licenseUrl && (
-                            <FieldRow><FL>사업자등록증</FL><FV><a href={p.licenseUrl} target="_blank" rel="noreferrer" style={{ color: THEME.primary, fontSize: 12 }}>보기</a></FV></FieldRow>
+                            <FieldRow><FL>사업자등록증</FL><FV><a href={p.licenseUrl} target="_blank" rel="noreferrer" style={{ color: THEME.primary, fontSize: 14 }}>보기</a></FV></FieldRow>
                         )}
                         {p.photoUrls?.length > 0 && (
                             <ProPhotos>
@@ -612,82 +612,82 @@ export default AdminUsersPage;
 
 const Wrap = styled.div``;
 const Header = styled.div`margin-bottom: 20px;`;
-const Title = styled.h1`font-size: 22px; font-weight: 700; color: ${THEME.text}; margin: 0 0 4px;`;
-const SubTitle = styled.p`font-size: 13px; color: ${THEME.muted}; margin: 0;`;
+const Title = styled.h1`font-size: 24px; font-weight: 700; color: ${THEME.text}; margin: 0 0 4px;`;
+const SubTitle = styled.p`font-size: 15px; color: ${THEME.muted}; margin: 0;`;
 
 const SearchBar = styled.div`position: relative; margin-bottom: 16px; max-width: 360px;`;
-const SearchIcon = styled.span`position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: ${THEME.muted}; font-size: 15px; pointer-events: none;`;
-const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 14px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
+const SearchIcon = styled.span`position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: ${THEME.muted}; font-size: 17px; pointer-events: none;`;
+const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
 
 const TableWrap = styled.div`background: #fff; border-radius: 4px; overflow-x: auto; box-shadow: ${THEME.cardShadow};`;
 const Table = styled.table`width: 100%; border-collapse: collapse; min-width: 780px;`;
-const Th = styled.th`text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: ${THEME.textSecondary}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
-const Td = styled.td`padding: 10px 14px; font-size: 13px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
+const Th = styled.th`text-align: left; padding: 10px 14px; font-size: 14px; font-weight: 600; color: ${THEME.textSecondary}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
+const Td = styled.td`padding: 10px 14px; font-size: 15px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
 const Tr = styled.tr`cursor: pointer; transition: background 0.12s; &:hover { background: ${THEME.background}; }`;
 
-const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: ${({ $color }) => $color || "#fff"}; background: ${({ $bg }) => $bg || THEME.muted};`;
-const ActionBtn = styled.button`padding: 4px 10px; font-size: 12px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${({ $bg }) => $bg || THEME.primary}; &:hover { opacity: 0.85; }`;
+const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: ${({ $color }) => $color || "#fff"}; background: ${({ $bg }) => $bg || THEME.muted};`;
+const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${({ $bg }) => $bg || THEME.primary}; &:hover { opacity: 0.85; }`;
 
 const PaginationRow = styled.div`display: flex; justify-content: center; align-items: center; gap: 12px; padding: 16px 0;`;
-const PageBtn = styled.button`padding: 6px 14px; font-size: 13px; font-weight: 600; border: 1px solid ${THEME.border}; border-radius: 4px; background: #fff; color: ${THEME.text}; cursor: pointer; &:disabled { opacity: 0.4; cursor: default; } &:hover:not(:disabled) { background: ${THEME.background}; }`;
-const PageInfo = styled.span`font-size: 13px; color: ${THEME.textSecondary};`;
-const CountInfo = styled.span`font-size: 13px; color: ${THEME.muted}; margin-left: auto;`;
+const PageBtn = styled.button`padding: 6px 14px; font-size: 15px; font-weight: 600; border: 1px solid ${THEME.border}; border-radius: 4px; background: #fff; color: ${THEME.text}; cursor: pointer; &:disabled { opacity: 0.4; cursor: default; } &:hover:not(:disabled) { background: ${THEME.background}; }`;
+const PageInfo = styled.span`font-size: 15px; color: ${THEME.textSecondary};`;
+const CountInfo = styled.span`font-size: 15px; color: ${THEME.muted}; margin-left: auto;`;
 const TopRow = styled.div`display: flex; align-items: center; margin-bottom: 16px; gap: 12px;`;
-const EmptyRow = styled.div`text-align: center; padding: 40px 0; color: ${THEME.muted}; font-size: 14px;`;
-const LoadingWrap = styled.div`text-align: center; padding: 60px 0; color: ${THEME.muted}; font-size: 14px;`;
+const EmptyRow = styled.div`text-align: center; padding: 40px 0; color: ${THEME.muted}; font-size: 16px;`;
+const LoadingWrap = styled.div`text-align: center; padding: 60px 0; color: ${THEME.muted}; font-size: 16px;`;
 
 // ─── Modal ───
 
 const Overlay = styled.div`position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000;`;
 const ModalCard = styled.div`background: #fff; border-radius: 6px; width: 680px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.18);`;
 const ModalHeader = styled.div`display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0;`;
-const ModalTitle = styled.h3`font-size: 18px; font-weight: 700; color: ${THEME.text}; margin: 0; display: flex; align-items: baseline; gap: 10px;`;
-const ModalSubId = styled.span`font-size: 11px; color: ${THEME.muted}; font-weight: 400; font-family: monospace;`;
+const ModalTitle = styled.h3`font-size: 20px; font-weight: 700; color: ${THEME.text}; margin: 0; display: flex; align-items: baseline; gap: 10px;`;
+const ModalSubId = styled.span`font-size: 13px; color: ${THEME.muted}; font-weight: 400; font-family: monospace;`;
 const CloseBtn = styled.button`background: none; border: none; cursor: pointer; color: ${THEME.muted}; padding: 4px; border-radius: 4px; display: flex; &:hover { background: ${THEME.background}; }`;
 
 const TabBar = styled.div`display: flex; gap: 0; border-bottom: 1px solid ${THEME.border}; padding: 0 24px; margin-top: 16px;`;
 const TabItem = styled.button`
-    padding: 10px 14px; font-size: 13px; font-weight: 600; border: none; background: none; cursor: pointer;
+    padding: 10px 14px; font-size: 15px; font-weight: 600; border: none; background: none; cursor: pointer;
     color: ${p => p.$active ? THEME.primary : THEME.muted};
     border-bottom: 2px solid ${p => p.$active ? THEME.primary : "transparent"};
     transition: all 0.15s; display: flex; align-items: center; gap: 4px;
     &:hover { color: ${THEME.text}; }
 `;
-const TabCount = styled.span`font-size: 10px; font-weight: 700; background: ${THEME.background}; color: ${THEME.muted}; padding: 1px 6px; border-radius: 999px;`;
+const TabCount = styled.span`font-size: 13px; font-weight: 700; background: ${THEME.background}; color: ${THEME.muted}; padding: 1px 6px; border-radius: 999px;`;
 const TabContent = styled.div`padding: 20px 24px; overflow-y: auto; flex: 1;`;
-const TabEmpty = styled.div`text-align: center; padding: 40px 0; color: ${THEME.muted}; font-size: 13px;`;
+const TabEmpty = styled.div`text-align: center; padding: 40px 0; color: ${THEME.muted}; font-size: 15px;`;
 
 // ─── Detail fields ───
 
-const FieldRow = styled.div`display: flex; margin-bottom: 10px; font-size: 13px;`;
+const FieldRow = styled.div`display: flex; margin-bottom: 10px; font-size: 15px;`;
 const FL = styled.div`width: 100px; flex-shrink: 0; color: ${THEME.muted}; font-weight: 600;`;
 const FV = styled.div`color: ${THEME.text}; word-break: break-all;`;
 const Divider = styled.div`height: 1px; background: ${THEME.border}; margin: 16px 0;`;
-const ModalInput = styled.input`width: 100%; padding: 8px 10px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 13px; outline: none; &:focus { border-color: ${THEME.primary}; }`;
-const SmallActionBtn = styled.button`padding: 8px 18px; font-size: 13px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; color: #fff; background: ${THEME.primary}; white-space: nowrap; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
+const ModalInput = styled.input`width: 100%; padding: 8px 10px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 15px; outline: none; &:focus { border-color: ${THEME.primary}; }`;
+const SmallActionBtn = styled.button`padding: 8px 18px; font-size: 15px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; color: #fff; background: ${THEME.primary}; white-space: nowrap; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
 
 // ─── Mini table (tabs) ───
 
-const MiniTable = styled.table`width: 100%; border-collapse: collapse; font-size: 12px;`;
-const MTh = styled.th`text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 600; color: ${THEME.muted}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
-const MTd = styled.td`padding: 8px 10px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap; font-size: 12px;`;
-const Mono = styled.span`font-family: monospace; font-size: 11px; color: ${THEME.muted};`;
+const MiniTable = styled.table`width: 100%; border-collapse: collapse; font-size: 14px;`;
+const MTh = styled.th`text-align: left; padding: 8px 10px; font-size: 13px; font-weight: 600; color: ${THEME.muted}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
+const MTd = styled.td`padding: 8px 10px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap; font-size: 14px;`;
+const Mono = styled.span`font-family: monospace; font-size: 13px; color: ${THEME.muted};`;
 const MsgPreview = styled.span`display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`;
-const MiniStatus = styled.span`display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: ${p => p.$color}; background: ${p => `${p.$color}14`};`;
+const MiniStatus = styled.span`display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: 600; color: ${p => p.$color}; background: ${p => `${p.$color}14`};`;
 
 // ─── Points ───
 
 const PointSummary = styled.div`display: flex; gap: 10px; margin-bottom: 16px;`;
 const PointBox = styled.div`flex: 1; background: ${THEME.background}; border-radius: 6px; padding: 14px; text-align: center;`;
-const PointBoxLabel = styled.div`font-size: 11px; color: ${THEME.muted}; font-weight: 600; margin-bottom: 4px;`;
-const PointBoxValue = styled.div`font-size: 16px; font-weight: 700; color: ${p => p.$color || THEME.text};`;
+const PointBoxLabel = styled.div`font-size: 13px; color: ${THEME.muted}; font-weight: 600; margin-bottom: 4px;`;
+const PointBoxValue = styled.div`font-size: 18px; font-weight: 700; color: ${p => p.$color || THEME.text};`;
 
 // ─── Pro tab ───
 
 const ProList = styled.div`display: flex; flex-direction: column; gap: 12px;`;
 const ProCard = styled.div`border: 1px solid ${THEME.border}; border-radius: 6px; padding: 16px;`;
 const ProCardHeader = styled.div`display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;`;
-const ProCategory = styled.div`font-size: 14px; font-weight: 700; color: ${THEME.text};`;
+const ProCategory = styled.div`font-size: 16px; font-weight: 700; color: ${THEME.text};`;
 const ProPhotos = styled.div`display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;`;
 const ProPhoto = styled.img`width: 80px; height: 80px; border-radius: 6px; object-fit: cover; border: 1px solid ${THEME.border};`;
 const ProDetail = styled.div`margin-top: 10px; padding-top: 10px; border-top: 1px solid ${THEME.border};`;

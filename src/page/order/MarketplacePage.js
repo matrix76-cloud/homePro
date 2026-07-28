@@ -152,7 +152,7 @@ const GateNotice = styled.div`
   padding: 10px 14px;
   background: #F5F6F8;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
 `;
 
@@ -168,7 +168,7 @@ const FilterRow = styled.div`
 const FilterChip = styled.button`
   flex-shrink: 0;
   padding: 7px 14px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   border-radius: 18px;
@@ -259,7 +259,7 @@ const MoreOverlay = styled.div`
   justify-content: center;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.3px;
 `;
@@ -276,19 +276,19 @@ const CardTop = styled.div`
 `;
 
 const TypeLabel = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.muted};
   letter-spacing: -0.2px;
 `;
 
 const CardDate = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
 const CardTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   line-height: 1.4;
@@ -296,7 +296,7 @@ const CardTitle = styled.div`
 `;
 
 const CardPrice = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
   color: ${THEME.primary};
   letter-spacing: -0.3px;
@@ -312,7 +312,7 @@ const CardMeta = styled.div`
 `;
 
 const MetaItem = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   &:not(:last-child)::after {
     content: "·";
@@ -322,7 +322,7 @@ const MetaItem = styled.span`
 `;
 
 const CardDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   line-height: 1.55;
 `;
@@ -330,7 +330,7 @@ const CardDesc = styled.div`
 const Empty = styled.div`
   text-align: center;
   padding: 80px 20px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
 `;
 
@@ -339,7 +339,7 @@ const Fab = styled.button`
   bottom: 24px;
   right: 24px;
   padding: 14px 22px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: #fff;
   background: ${THEME.primary};

@@ -112,16 +112,29 @@ const ChatDetailPage = () => {
   // 더보기 메뉴
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  const handleBlockUser = async () => {
+  // 거부 등록 — 브라우저 prompt 대신 커스텀 팝업 (형 지시 7/28)
+  const [blockModalOpen, setBlockModalOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState("");
+  const [blockBusy, setBlockBusy] = useState(false);
+
+  const handleBlockUser = () => {
     setShowMoreMenu(false);
-    const reason = window.prompt("거부 사유를 입력해주세요 (선택)");
-    if (reason === null) return; // 취소
+    setBlockReason("");
+    setBlockModalOpen(true);
+  };
+
+  const submitBlockUser = async () => {
+    if (blockBusy) return;
+    setBlockBusy(true);
     try {
       const { blockUser } = await import("../../service/BlockService");
-      await blockUser(myUid, otherUid, reason || "");
-      alert("거부 등록되었습니다");
+      await blockUser(myUid, otherUid, blockReason.trim());
+      setBlockModalOpen(false);
+      showToast("거부 등록되었습니다");
     } catch (e) {
-      alert(e.message || "거부 등록 실패");
+      showToast(e.message || "거부 등록 실패");
+    } finally {
+      setBlockBusy(false);
     }
   };
 
@@ -712,7 +725,7 @@ const ChatDetailPage = () => {
       {/* 상태 변경은 채팅이 아니라 나의오더현황/오더상세에서만 (명세 J190) — 채팅은 소통 전용 */}
       {orderData && (
         <StatusNoticeBar onClick={() => navigate(`/order/detail/${orderData.id}`, { state: { order: orderData, category: CATEGORIES.find(c => c.id === orderData.categoryId) } })}>
-          ℹ️ 수락·작업완료·취소 등 <b>상태 변경</b>은 나의오더현황(오더 상세)에서 처리해요 ›
+          수락·작업완료·취소 등 <b>상태 변경</b>은 나의오더현황(오더 상세)에서 처리해요 ›
         </StatusNoticeBar>
       )}
 
@@ -1276,6 +1289,32 @@ const ChatDetailPage = () => {
         </CancelModalOverlay>
       )}
 
+      {/* 거부 사유 입력 — 커스텀 팝업 (브라우저 prompt 대체) */}
+      {blockModalOpen && (
+        <CancelModalOverlay onClick={() => setBlockModalOpen(false)}>
+          <CancelModalSheet onClick={(e) => e.stopPropagation()}>
+            <CancelTitle>거부 사유</CancelTitle>
+            <BlockHint>
+              {roomName ? `${roomName} 님을 거부 등록합니다.` : "상대방을 거부 등록합니다."}
+              {"\n"}거부하면 이후 이 상대의 오더가 노출되지 않습니다. 사유는 선택 입력이에요.
+            </BlockHint>
+            <BlockInput
+              placeholder="사유를 입력해주세요 (선택)"
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value.slice(0, 200))}
+              rows={3}
+              autoFocus
+            />
+            <BlockBtnRow>
+              <BlockCancelBtn onClick={() => setBlockModalOpen(false)}>닫기</BlockCancelBtn>
+              <BlockConfirmBtn onClick={submitBlockUser} disabled={blockBusy}>
+                {blockBusy ? "처리 중..." : "거부 등록"}
+              </BlockConfirmBtn>
+            </BlockBtnRow>
+          </CancelModalSheet>
+        </CancelModalOverlay>
+      )}
+
       {toast && <ChatToast>{toast}</ChatToast>}
     </Container>
   );
@@ -1319,7 +1358,7 @@ const OrderInfoBar = styled.div`
 
 const OrderInfoText = styled.div`
   flex: 1;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
   white-space: nowrap;
@@ -1328,19 +1367,18 @@ const OrderInfoText = styled.div`
 `;
 
 const OrderInfoArrow = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${THEME.primary};
   flex-shrink: 0;
 `;
 
+/* 안내 문구는 한 문장이라 flex(=단어별 flex item + gap)로 두면 줄바꿈이 어긋난다 → block + line-height */
 const StatusNoticeBar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 14px;
-  font-size: 12px;
-  color: ${THEME.muted};
+  padding: 11px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: ${THEME.textSecondary};
   background: ${THEME.background};
   border-bottom: 1px solid ${THEME.border};
   cursor: pointer;
@@ -1351,7 +1389,7 @@ const StatusNoticeBar = styled.div`
 const QuoteNotice = styled.div`
   margin-top: 8px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${THEME.primary};
   background: ${THEME.purpleLight || "#F3F0FF"};
@@ -1374,7 +1412,7 @@ const StatusStepBtn = styled.button`
   flex: 1;
   padding: 10px 4px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   border: 1px solid ${({ $active, $enabled }) => $active ? THEME.primary : $enabled ? THEME.primary : "#E0E0E0"};
   background: ${({ $active }) => $active ? THEME.primary : "#fff"};
@@ -1403,7 +1441,7 @@ const OrderStatusBadge = styled.span`
   display: inline-block;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   background: ${({ $status }) => ORDER_STATUS_COLORS[$status] || "#9CA3AF"};
   color: #fff;
@@ -1424,7 +1462,7 @@ const StatusActionBtn = styled.button`
   padding: 10px 0;
   border: none;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   background: ${({ $color }) => $color || THEME.primary};
@@ -1446,7 +1484,7 @@ const BackBtn = styled.button`
 const HeaderTitle = styled.p`
   flex: 1;
   text-align: center;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -1469,7 +1507,7 @@ const HeaderIconBtn = styled.button`
 `;
 
 const MemoBtnBadge = styled.button`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${({ $hasMemo }) => ($hasMemo ? PRIMARY : THEME.muted)};
   background: transparent;
@@ -1504,16 +1542,16 @@ const SearchInput = styled.input`
   flex: 1;
   border: none;
   outline: none;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   background: ${THEME.background};
   border-radius: 10px;
   padding: 8px 12px;
-  &::placeholder { color: #bbb; }
+  &::placeholder { color: #777; }
 `;
 
 const SearchCount = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   flex-shrink: 0;
 `;
@@ -1542,14 +1580,14 @@ const SearchResultItem = styled.div`
 `;
 
 const SearchResultName = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.text};
   flex-shrink: 0;
 `;
 
 const SearchResultText = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1576,7 +1614,7 @@ const MemoBanner = styled.div`
 `;
 
 const MemoBadge = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${PRIMARY};
   background: ${THEME.surface};
@@ -1587,7 +1625,7 @@ const MemoBadge = styled.span`
 `;
 
 const MemoContent = styled.p`
-  font-size: 13px;
+  font-size: 15px;
   color: #2A3A50;
   line-height: 1.4;
   white-space: pre-wrap;
@@ -1620,7 +1658,7 @@ const ModalHeader = styled.div`
 `;
 
 const ModalTitle = styled.p`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -1660,7 +1698,7 @@ const MsgMenuItem = styled.div`
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${({ $danger }) => ($danger ? "#E85830" : THEME.text)};
   cursor: pointer;
   &:active { background: ${THEME.background}; }
@@ -1672,7 +1710,7 @@ const MsgMenuDisabled = styled.div`
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   border-top: 1px solid ${THEME.border};
 `;
@@ -1706,7 +1744,7 @@ const DateDivider = styled.div`
 `;
 
 const DateLabel = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   background: #E8E8EC;
   padding: 4px 12px;
@@ -1726,8 +1764,8 @@ const SenderAvatar = styled.div`
   height: 32px;
   border-radius: 12px;
   background: #E8E8EC;
-  color: #666;
-  font-size: 13px;
+  color: #444;
+  font-size: 15px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1755,7 +1793,7 @@ const MsgContent = styled.div`
 `;
 
 const SenderName = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-bottom: 4px;
   padding-left: 2px;
@@ -1772,7 +1810,7 @@ const Bubble = styled.div`
   border-radius: ${({ $isMine }) => ($isMine ? "14px 14px 4px 14px" : "14px 14px 14px 4px")};
   background: ${({ $isMine }) => ($isMine ? PRIMARY : "#FFFFFF")};
   color: ${({ $isMine }) => ($isMine ? "#FFFFFF" : THEME.text)};
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
@@ -1783,14 +1821,14 @@ const DeletedBubble = styled.div`
   padding: 10px 14px;
   border-radius: ${({ $isMine }) => ($isMine ? "14px 14px 4px 14px" : "14px 14px 14px 4px")};
   background: #F0F0F0;
-  color: #999;
-  font-size: 13px;
+  color: #555;
+  font-size: 15px;
   font-style: italic;
 `;
 
 const EditedTag = styled.span`
   display: inline;
-  font-size: 11px;
+  font-size: 13px;
   opacity: 0.6;
   margin-left: 4px;
 `;
@@ -1808,7 +1846,7 @@ const EditInput = styled.textarea`
   border: 1px solid ${PRIMARY};
   border-radius: 10px;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   resize: none;
   outline: none;
@@ -1822,7 +1860,7 @@ const EditActions = styled.div`
 `;
 
 const EditCancelBtn = styled.button`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   padding: 4px 12px;
   border-radius: 6px;
@@ -1830,7 +1868,7 @@ const EditCancelBtn = styled.button`
 `;
 
 const EditSaveBtn = styled.button`
-  font-size: 12px;
+  font-size: 14px;
   color: white;
   background: ${PRIMARY};
   padding: 4px 12px;
@@ -1840,7 +1878,7 @@ const EditSaveBtn = styled.button`
 `;
 
 const MsgTime = styled.span`
-  font-size: 10px;
+  font-size: 13px;
   color: ${THEME.muted};
   flex-shrink: 0;
   white-space: nowrap;
@@ -1855,7 +1893,7 @@ const MsgTimeWrap = styled.div`
 `;
 
 const UnreadBadge = styled.span`
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: ${PRIMARY};
   line-height: 1;
@@ -1907,7 +1945,7 @@ const FileInfo = styled.div`
 `;
 
 const FileName = styled.p`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${({ $isMine }) => ($isMine ? "#fff" : THEME.text)};
   overflow: hidden;
@@ -1916,7 +1954,7 @@ const FileName = styled.p`
 `;
 
 const FileSize = styled.p`
-  font-size: 11px;
+  font-size: 13px;
   color: ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.6)" : THEME.muted)};
   margin-top: 2px;
 `;
@@ -1939,13 +1977,13 @@ const SchedBubbleHeader = styled.div`
   align-items: center;
   gap: 4px;
   color: ${THEME.text};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   margin-bottom: 6px;
 `;
 
 const SchedBubbleTitle = styled.p`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${({ $isMine }) => ($isMine ? "#fff" : THEME.text)};
   margin-bottom: 6px;
@@ -1960,12 +1998,12 @@ const SchedBubbleRow = styled.div`
 `;
 
 const SchedBubbleText = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.7)" : THEME.muted)};
 `;
 
 const SchedBubbleMemo = styled.p`
-  font-size: 11px;
+  font-size: 13px;
   color: ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.5)" : "#B0B8BF")};
   margin-top: 4px;
   border-top: 1px solid ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.1)" : "#F0F0F0")};
@@ -1999,7 +2037,7 @@ const BubbleCalDayRow = styled.div`
 
 const BubbleCalDayLabel = styled.div`
   text-align: center;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
   color: ${THEME.muted};
   padding: 2px 0;
@@ -2012,7 +2050,7 @@ const BubbleCalRow = styled.div`
 
 const BubbleCalCell = styled.div`
   text-align: center;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.text};
   padding: 4px 0;
@@ -2028,7 +2066,7 @@ const BubbleCalBar = styled.div`
   grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
   background: ${PRIMARY};
   color: #fff;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 600;
   padding: 3px 5px;
   border-radius: 3px;
@@ -2047,26 +2085,26 @@ const SchedsTimelineItem = styled.div`
 `;
 
 const SchedsDateLabel = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.8)" : PRIMARY)};
   margin-bottom: 4px;
 `;
 
 const SchedsTitle = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${({ $isMine }) => ($isMine ? "#fff" : THEME.text)};
 `;
 
 const SchedsTime = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.7)" : THEME.muted)};
   margin-top: 2px;
 `;
 
 const SchedsMemo = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${({ $isMine }) => ($isMine ? "rgba(255,255,255,0.5)" : "#B0B8BF")};
   margin-top: 2px;
 `;
@@ -2100,7 +2138,7 @@ const TypingDot = styled.div`
 `;
 
 const TypingText = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
@@ -2142,14 +2180,14 @@ const TextInput = styled.textarea`
   flex: 1;
   border: none;
   outline: none;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   background: transparent;
   resize: none;
   max-height: 100px;
   line-height: 1.5;
   padding: 6px 0;
-  &::placeholder { color: #bbb; }
+  &::placeholder { color: #777; }
 `;
 
 const ScheduleShareBtn = styled.button`
@@ -2186,7 +2224,7 @@ const SchedShareBtnModal = styled.button`
   padding: 12px;
   border-radius: 10px;
   border: none;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: white;
   background: ${({ disabled }) => (disabled ? "#ccc" : PRIMARY)};
@@ -2205,14 +2243,14 @@ const SchedCreateWrap = styled.div`
 
 const SchedHint = styled.div`
   text-align: center;
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin: 6px 0 4px;
 `;
 
 const SchedRangeLabel = styled.div`
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${PRIMARY};
   margin: 8px 0;
@@ -2220,7 +2258,7 @@ const SchedRangeLabel = styled.div`
 
 const SchedAddBtn = styled.div`
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${PRIMARY};
   padding: 10px 0 4px;
@@ -2251,13 +2289,13 @@ const SchedAddedInfo = styled.div`
 `;
 
 const SchedAddedDate = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${PRIMARY};
   font-weight: 600;
 `;
 
 const SchedAddedTitle = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
   margin-top: 2px;
   overflow: hidden;
@@ -2266,7 +2304,7 @@ const SchedAddedTitle = styled.div`
 `;
 
 const SchedRemoveBtn = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   cursor: pointer;
   padding: 4px;
@@ -2276,7 +2314,7 @@ const SchedRemoveBtn = styled.div`
 
 const SchedEmptyHint = styled.div`
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   padding: 20px 0;
 `;
@@ -2290,7 +2328,7 @@ const SchedItemCard = styled.div`
 `;
 
 const SchedItemDate2 = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${PRIMARY};
   margin-bottom: 8px;
@@ -2307,7 +2345,7 @@ const MiniCalHeader = styled.div`
 const MiniCalNav = styled.button`
   border: none;
   background: transparent;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   padding: 4px 8px;
   cursor: pointer;
@@ -2315,7 +2353,7 @@ const MiniCalNav = styled.button`
 `;
 
 const MiniCalTitle = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -2328,7 +2366,7 @@ const MiniCalDayRow = styled.div`
 `;
 
 const MiniCalDayLabel = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   color: ${({ $sun, $sat }) => ($sun ? "#EF5350" : $sat ? "#42A5F5" : THEME.muted)};
   padding: 2px 0;
 `;
@@ -2351,7 +2389,7 @@ const MiniCalBar = styled.div`
   grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
   background: ${PRIMARY};
   color: #fff;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   padding: 5px 6px;
   border-radius: 4px;
@@ -2375,7 +2413,7 @@ const MiniCalCellWrap = styled.div`
 `;
 
 const MiniCalCell = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   width: 28px;
   height: 28px;
   display: flex;
@@ -2396,13 +2434,13 @@ const SchedFormInput = styled.input`
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
   outline: none;
   box-sizing: border-box;
   margin-bottom: 8px;
   &:focus { border-color: ${PRIMARY}; }
-  &::placeholder { color: #bbb; }
+  &::placeholder { color: #777; }
 `;
 
 const SchedTimeRow = styled.div`
@@ -2417,7 +2455,7 @@ const SchedTimeSelect = styled.select`
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   padding: 10px 8px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
   background: white;
   outline: none;
@@ -2425,7 +2463,7 @@ const SchedTimeSelect = styled.select`
 `;
 
 const SchedTimeSep = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
 `;
 
@@ -2461,20 +2499,20 @@ const QuoteCardHeader = styled.div`
 `;
 
 const QuoteCardLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${PRIMARY};
 `;
 
 const QuoteCardPrice = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: ${PRIMARY};
   padding: 10px 16px 0;
 `;
 
 const QuoteCardMessage = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
   line-height: 1.5;
@@ -2495,7 +2533,7 @@ const QuoteAcceptBtn = styled.button`
   border-radius: 10px;
   background: ${PRIMARY};
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2509,7 +2547,7 @@ const QuoteRejectBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2519,7 +2557,7 @@ const QuoteRejectBtn = styled.button`
 const QuoteStatusBadge = styled.div`
   margin: 14px 16px 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   padding: 6px 0;
   border-radius: 8px;
@@ -2559,14 +2597,14 @@ const ProInfoText = styled.div`
 `;
 
 const ProName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const ProProfileLink = styled.div`
   padding: 8px 16px 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${PRIMARY};
   cursor: pointer;
@@ -2648,13 +2686,13 @@ const ProSheetNameRow = styled.div`
 `;
 
 const ProSheetName = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const ProSheetIntro = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
@@ -2681,13 +2719,13 @@ const ProSheetStatItem = styled.div`
 `;
 
 const ProSheetStatNum = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const ProSheetStatLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -2715,7 +2753,7 @@ const ProSheetCatHeader = styled.div`
 `;
 
 const ProSheetCatName = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -2723,7 +2761,7 @@ const ProSheetCatName = styled.div`
 const ProSheetCatBadge = styled.span`
   padding: 5px 14px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #fff;
   background: ${({ $status }) => $status === "approved" ? THEME.success : "#F59E0B"};
@@ -2740,7 +2778,7 @@ const ProSheetChip = styled.span`
   padding: 6px 14px;
   border-radius: 20px;
   background: ${THEME.background};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.text};
 `;
@@ -2749,7 +2787,7 @@ const ProSheetRegionRow = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.textSecondary};
 `;
 
@@ -2761,7 +2799,7 @@ const ProSheetDetailBtn = styled.button`
   border-radius: 6px;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2777,7 +2815,7 @@ const ProSheetCloseBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2794,7 +2832,7 @@ const SystemMsgWrap = styled.div`
 `;
 
 const SystemMsgText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   background: ${THEME.background};
@@ -2814,7 +2852,7 @@ const LockedInputArea = styled.div`
 `;
 
 const LockedText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -2834,7 +2872,7 @@ const CancelBtn = styled.button`
   border-radius: 10px;
   background: transparent;
   color: ${THEME.danger};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -2850,7 +2888,7 @@ const ActionBtnFull = styled.button`
   border-radius: 10px;
   background: ${({ $green, $gold }) => $green ? THEME.success : $gold ? "#F59E0B" : PRIMARY};
   color: #fff;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2884,14 +2922,14 @@ const PaySheetHandle = styled.div`
 `;
 
 const PaySheetTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 16px;
 `;
 
 const PayLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -2908,7 +2946,7 @@ const PayInput = styled.input`
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   font-family: inherit;
   color: ${THEME.text};
@@ -2918,7 +2956,7 @@ const PayInput = styled.input`
 `;
 
 const PayUnit = styled.span`
-  font-size: 16px;
+  font-size: 18px;
   color: ${THEME.text};
   flex-shrink: 0;
 `;
@@ -2931,7 +2969,7 @@ const PaySubmitBtn = styled.button`
   border-radius: 10px;
   background: ${PRIMARY};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -2960,7 +2998,7 @@ const ReviewTextarea = styled.textarea`
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   outline: none;
@@ -2972,7 +3010,7 @@ const ReviewTextarea = styled.textarea`
 
 const ReviewCharCount = styled.div`
   text-align: right;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-top: 4px;
 `;
@@ -2988,13 +3026,66 @@ const CancelModalSheet = styled.div`
   padding: 20px; width: 100%; max-width: 400px;
 `;
 const CancelTitle = styled.div`
-  font-size: 16px; font-weight: 700; margin-bottom: 16px;
+  font-size: 18px; font-weight: 700; margin-bottom: 16px;
 `;
 const CancelOption = styled.div`
-  padding: 14px 0; font-size: 15px; color: #333;
+  padding: 14px 0; font-size: 17px; color: #333;
   border-bottom: 1px solid #F0F0F4; cursor: pointer;
   &:last-child { border-bottom: none; }
   &:active { background: #F7F8FA; }
+`;
+
+/* 거부 사유 입력 팝업 */
+const BlockHint = styled.p`
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: ${THEME.textSecondary};
+  white-space: pre-line;
+`;
+const BlockInput = styled.textarea`
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  line-height: 1.5;
+  color: ${THEME.text};
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  resize: none;
+  outline: none;
+  &:focus { border-color: ${PRIMARY}; }
+  &::placeholder { color: ${THEME.muted}; }
+`;
+const BlockBtnRow = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+`;
+const BlockCancelBtn = styled.button`
+  flex: 1;
+  height: 50px;
+  border-radius: 10px;
+  border: 1px solid #D1D5DB;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+  cursor: pointer;
+  &:active { background: #F7F8FA; }
+`;
+const BlockConfirmBtn = styled.button`
+  flex: 1;
+  height: 50px;
+  border-radius: 10px;
+  border: none;
+  background: ${({ disabled }) => (disabled ? "#D0D0D0" : THEME.danger)};
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
+  &:active:not(:disabled) { opacity: 0.85; }
 `;
 
 const ChatToast = styled.div`
@@ -3005,7 +3096,7 @@ const ChatToast = styled.div`
   padding: 12px 24px;
   background: #333;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   border-radius: 10px;
   z-index: 9999;
   white-space: nowrap;

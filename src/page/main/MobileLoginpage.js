@@ -30,7 +30,7 @@ const Logo = styled.div`
 `;
 
 const Desc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   margin-bottom: 40px;
 `;
@@ -42,7 +42,7 @@ const Input = styled.input`
   margin-bottom: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   outline: none;
   font-family: inherit;
   &:focus {
@@ -58,7 +58,7 @@ const LoginButton = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
@@ -100,7 +100,7 @@ const FindRow = styled.div`
 `;
 
 const FindLink = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   cursor: pointer;
@@ -120,7 +120,7 @@ const Divider = styled.div`
   max-width: 340px;
   margin: 20px 0;
   color: ${THEME.muted};
-  font-size: 13px;
+  font-size: 15px;
   &::before, &::after {
     content: "";
     flex: 1;
@@ -133,14 +133,14 @@ const Divider = styled.div`
 
 const ErrorText = styled.div`
   color: ${THEME.danger};
-  font-size: 13px;
+  font-size: 15px;
   margin-bottom: 12px;
   text-align: center;
 `;
 
 const SignupRow = styled.div`
   margin-top: 24px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
 `;
 
@@ -330,7 +330,7 @@ const Toast = styled.div`
   padding: 12px 24px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;

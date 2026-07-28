@@ -332,7 +332,7 @@ const SearchInput = styled.input`
   border: none;
   background: none;
   outline: none;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.text};
   font-family: inherit;
@@ -375,7 +375,7 @@ const SectionTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -384,7 +384,7 @@ const ClearAllBtn = styled.button`
   border: none;
   background: none;
   padding: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   cursor: pointer;
@@ -409,7 +409,7 @@ const RecentItem = styled.div`
 `;
 
 const RecentText = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   cursor: pointer;
@@ -443,7 +443,7 @@ const PopularItem = styled.div`
 `;
 
 const PopularRank = styled.span`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${({ $top }) => ($top ? THEME.primary : THEME.muted)};
   min-width: 20px;
@@ -451,7 +451,7 @@ const PopularRank = styled.span`
 `;
 
 const PopularText = styled.span`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -469,7 +469,7 @@ const Tab = styled.div`
   flex: 1;
   text-align: center;
   padding: 12px 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
   border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
@@ -493,7 +493,7 @@ const ResultSection = styled.div`
 `;
 
 const ResultLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.primary};
   margin-bottom: 10px;
@@ -529,13 +529,13 @@ const ResultInfo = styled.div`
 `;
 
 const ResultName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.text};
 `;
 
 const ResultDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -552,7 +552,7 @@ const SubcatRow = styled.div`
 const SubcatChip = styled.span`
   padding: 3px 8px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   background: ${({ $highlight }) => ($highlight ? THEME.purpleLight : THEME.background)};
   color: ${({ $highlight }) => ($highlight ? THEME.purple : THEME.textSecondary)};
@@ -570,7 +570,7 @@ const RegionItem = styled.div`
 `;
 
 const RegionText = styled.span`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -591,19 +591,19 @@ const PriceLeft = styled.div`
 `;
 
 const PriceRange = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.text};
 `;
 
 const PriceDetail = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const PriceCats = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   text-align: right;
@@ -622,13 +622,13 @@ const EtcItem = styled.div`
 `;
 
 const EtcText = styled.span`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
 
 const EtcCat = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.primary};
   padding: 3px 8px;
@@ -647,13 +647,13 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   color: ${THEME.text};
 `;
 
 const EmptySub = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
 `;

@@ -7,20 +7,10 @@ import { getUserProfileByUid } from "../../service/UserProfileService";
 import { sendPasswordResetEmailByAddress } from "../../service/AuthService";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import { requestPhoneCode, verifyPhoneCode, phoneAuthErrorMessage } from "../../service/recoveryService";
 import Tabs from "../../common/Tabs";
 
-const SMS_CF_URL = "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend";
-const SMS_LABEL = "홈프로";
-
-const TEST_RANGE_START = "01062141000";
-const TEST_RANGE_END = "01062142000";
-
 const onlyDigits = (s = "") => (s || "").replace(/\D+/g, "");
-const leftPad11 = (d = "") => String(d || "").padStart(11, "0");
-const inTestRange = (rawDigits = "") => {
-    const d = leftPad11(onlyDigits(rawDigits));
-    return d >= TEST_RANGE_START && d <= TEST_RANGE_END;
-};
 const formatKRPhone = (raw) => {
     let d = onlyDigits(raw);
     if (d.startsWith("82")) d = "0" + d.slice(2);
@@ -39,7 +29,6 @@ const toE164KR = (raw) => {
     const local = d.startsWith("0") ? d.slice(1) : d;
     return `+82${local}`;
 };
-const genOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const maskId = (email) => {
     if (!email) return "";
@@ -116,8 +105,6 @@ export default function MobileFindAccountcontainer() {
     const [loginId, setLoginId] = useState("");
     const [phone, setPhone] = useState("");
     const [codeInput, setCodeInput] = useState("");
-    const [devCode, setDevCode] = useState("");
-    const [sentOtp, setSentOtp] = useState("");
     const [sentToE164, setSentToE164] = useState("");
     const [codeSent, setCodeSent] = useState(false);
     const [phoneVerified, setPhoneVerified] = useState(false);
@@ -129,14 +116,11 @@ export default function MobileFindAccountcontainer() {
     const [resultError, setResultError] = useState("");
 
     const digits = useMemo(() => onlyDigits(phone), [phone]);
-    const isDev = useMemo(() => inTestRange(digits), [digits]);
 
     const resetAll = () => {
         setLoginId("");
         setPhone("");
         setCodeInput("");
-        setDevCode("");
-        setSentOtp("");
         setSentToE164("");
         setCodeSent(false);
         setPhoneVerified(false);
@@ -148,8 +132,6 @@ export default function MobileFindAccountcontainer() {
 
     const resetOtpState = () => {
         setCodeInput("");
-        setDevCode("");
-        setSentOtp("");
         setSentToE164("");
         setCodeSent(false);
         setPhoneVerified(false);
@@ -191,46 +173,22 @@ export default function MobileFindAccountcontainer() {
 
         setOtpBusy(true);
         try {
-            const otp = genOtp();
             const e164 = toE164KR(phone);
+            // 코드 생성·발송·대조 전부 서버가 처리 (형 지시 7/28)
+            const res = await requestPhoneCode(e164);
 
             setSentToE164(e164);
             setCodeSent(true);
             setPhoneVerified(false);
             setCodeInput("");
-            setSecondsLeft(60);
-            setSentOtp(otp);
+            setSecondsLeft(res?.resendAfterSec || 30);
             setResultProfile(null);
             setResultMessage("");
             setResultError("");
 
-            if (isDev) {
-                setDevCode(otp);
-                return;
-            }
-
-            setDevCode("");
-
-            const resp = await fetch(SMS_CF_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    phone: onlyDigits(phone),
-                    authcode: otp,
-                    label: SMS_LABEL,
-                }),
-            });
-
-            if (!resp.ok) {
-                window.alert(`인증 코드를 전송하지 못했습니다. 발송 실패(${resp.status})`);
-                resetOtpState();
-                return;
-            }
-
             window.alert("인증번호를 전송했습니다. 문자 메시지를 확인해 주세요.");
         } catch (e) {
-            window.alert("코드 전송 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
-            resetOtpState();
+            window.alert(phoneAuthErrorMessage(e));
         } finally {
             setOtpBusy(false);
         }
@@ -247,10 +205,11 @@ export default function MobileFindAccountcontainer() {
                 return;
             }
 
-            const expected = String(sentOtp || devCode || "").trim();
-            const got = String(codeInput || "").trim();
-            if (!expected || got !== expected) {
-                window.alert("인증번호가 올바르지 않습니다.");
+            // 서버 대조 — 실패하면 예외가 올라온다 (남은 시도 횟수 포함)
+            try {
+                await verifyPhoneCode(sentToE164, codeInput.trim());
+            } catch (err) {
+                window.alert(phoneAuthErrorMessage(err));
                 return;
             }
 
@@ -380,21 +339,7 @@ export default function MobileFindAccountcontainer() {
                                 </SmallBtn>
                             </InlineRow>
 
-                            {isDev ? (
-                                <HelperText>테스트 번호에서는 인증번호가 화면에 표시됩니다.</HelperText>
-                            ) : (
-                                <HelperText>가입 시 등록한 전화번호를 입력해주세요.</HelperText>
-                            )}
-
-                            {isDev && codeSent && devCode ? (
-                                <CodeBox>
-                                    <div>
-                                        <CodeLabel>개발모드 코드</CodeLabel>
-                                        <CodeValue>{devCode}</CodeValue>
-                                    </div>
-                                    <div style={{ color: THEME.muted, fontSize: 12 }}>{sentToE164}</div>
-                                </CodeBox>
-                            ) : null}
+                            <HelperText>가입 시 등록한 전화번호를 입력해주세요.</HelperText>
 
                             {codeSent ? (
                                 <>
@@ -415,7 +360,7 @@ export default function MobileFindAccountcontainer() {
                                         </SmallBtn>
                                     </InlineRow>
 
-                                    {!isDev && !phoneVerified ? (
+                                    {!phoneVerified ? (
                                         <WarnPill>문자로 받은 인증번호를 입력해주세요.</WarnPill>
                                     ) : null}
                                 </>
@@ -494,7 +439,7 @@ const BackBtn = styled.button`
 
 
 const PageTitle = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 400;
   color: ${THEME.text};
   margin-top: 24px;
@@ -502,7 +447,7 @@ const PageTitle = styled.div`
 `;
 
 const PageDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
@@ -527,14 +472,14 @@ const LabelRow = styled.div`
 `;
 
 const Label = styled.label`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   font-weight: 400;
 `;
 
 const RequiredMark = styled.span`
   color: ${THEME.danger};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
 `;
 
@@ -546,7 +491,7 @@ const Input = styled.input`
   border: 1.5px solid ${THEME.border};
   background: ${THEME.surface};
   color: ${THEME.text};
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   outline: none;
   box-sizing: border-box;
@@ -568,7 +513,7 @@ const SmallBtn = styled.button`
   background: ${THEME.surface};
   border-radius: 10px;
   padding: 0 14px;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   color: ${THEME.text};
   font-weight: 400;
@@ -581,7 +526,7 @@ const SmallBtn = styled.button`
 
 const HelperText = styled.p`
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   font-weight: 400;
 `;
@@ -592,7 +537,7 @@ const CodeBox = styled.div`
   border: 1.5px dashed ${THEME.border};
   border-radius: 10px;
   background: ${THEME.surface};
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.text};
   display: flex;
   align-items: center;
@@ -602,12 +547,12 @@ const CodeBox = styled.div`
 
 const CodeLabel = styled.div`
   color: ${THEME.muted};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
 `;
 
 const CodeValue = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 1px;
   font-weight: 400;
 `;
@@ -619,7 +564,7 @@ const WarnPill = styled.div`
   border-radius: 10px;
   background: rgba(245, 158, 11, 0.1);
   color: #B45309;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
 `;
 
@@ -628,7 +573,7 @@ const ErrorPill = styled.div`
   border-radius: 10px;
   background: rgba(239, 68, 68, 0.08);
   color: ${THEME.danger};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   text-align: center;
 `;
@@ -640,7 +585,7 @@ const ResultSection = styled.div`
 `;
 
 const ResultTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
@@ -657,7 +602,7 @@ const ResultCard = styled.div`
 `;
 
 const ResultLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   text-transform: uppercase;
@@ -665,20 +610,20 @@ const ResultLabel = styled.div`
 `;
 
 const ResultValue = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.02em;
 `;
 
 const ResultSub = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const ResultMessage = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.6;
@@ -696,7 +641,7 @@ const BaseBtn = styled.button`
   width: 100%;
   height: 50px;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;

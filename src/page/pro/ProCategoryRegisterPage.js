@@ -535,7 +535,7 @@ const StepDot = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     flex-shrink: 0;
     background: ${({ $active, $done }) =>
@@ -559,7 +559,7 @@ const StepLabelRow = styled.div`
 `;
 
 const StepLabel = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
     text-align: center;
@@ -575,7 +575,7 @@ const Section = styled.div`
 `;
 
 const SectionTitle = styled.div`
-    font-size: 17px;
+    font-size: 19px;
     font-weight: 700;
     color: ${THEME.text};
     letter-spacing: -0.03em;
@@ -583,7 +583,7 @@ const SectionTitle = styled.div`
 `;
 
 const CatGroupLabel = styled.div`
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     color: ${THEME.textSecondary};
     background: ${THEME.background};
@@ -643,7 +643,7 @@ const CatFallbackChar = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
 `;
 
@@ -657,7 +657,7 @@ const CatCheckBadge = styled.div`
 `;
 
 const CatGridName = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: ${({ $selected }) => ($selected ? 600 : 400)};
     color: ${({ $disabled, $selected }) => $disabled ? THEME.muted : $selected ? THEME.primary : THEME.text};
     text-align: center;
@@ -675,7 +675,7 @@ const ChipWrap = styled.div`
 const Chip = styled.div`
     padding: 8px 14px;
     border-radius: 20px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 400;
     cursor: pointer;
     transition: all 0.15s;
@@ -692,7 +692,7 @@ const StyledInput = styled.input`
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
     border-radius: 10px;
-    font-size: 15px;
+    font-size: 17px;
     font-family: inherit;
     color: ${THEME.text};
     background: ${THEME.surface};
@@ -711,7 +711,7 @@ const StyledTextarea = styled.textarea`
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
     border-radius: 10px;
-    font-size: 15px;
+    font-size: 17px;
     font-family: inherit;
     color: ${THEME.text};
     background: ${THEME.surface};
@@ -728,7 +728,7 @@ const StyledTextarea = styled.textarea`
 
 const CharCount = styled.div`
     text-align: right;
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
     margin-top: 6px;
 `;
@@ -759,7 +759,7 @@ const CertNameInput = styled.input`
     padding: 10px 12px;
     border: 1.5px solid ${THEME.border};
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 16px;
     font-family: inherit;
     color: ${THEME.text};
     background: ${THEME.surface};
@@ -813,7 +813,7 @@ const CertPhotoPlaceholder = styled.div`
 `;
 
 const CertPhotoText = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 400;
     color: ${THEME.muted};
 `;
@@ -831,7 +831,7 @@ const CertAddBtn = styled.div`
 `;
 
 const CertAddText = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     color: ${THEME.primary};
 `;
@@ -859,7 +859,7 @@ const UploadPlaceholder = styled.div`
 `;
 
 const UploadText = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     color: ${THEME.muted};
 `;
@@ -925,13 +925,13 @@ const PhotoAddBtn = styled.div`
 `;
 
 const PhotoAddText = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     color: ${THEME.muted};
 `;
 
 const PhotoHint = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
     margin-top: 8px;
 `;
@@ -942,7 +942,7 @@ const RegionSelectBtn = styled.button`
     padding: 14px 16px;
     border: 1.5px solid ${THEME.border};
     border-radius: 10px;
-    font-size: 15px;
+    font-size: 17px;
     font-family: inherit;
     background: ${THEME.surface};
     cursor: pointer;
@@ -966,7 +966,7 @@ const ActionBtn = styled.button`
     border-radius: 10px;
     background: ${({ $active }) => ($active ? THEME.primary : THEME.border)};
     color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 400;
     font-family: inherit;
     cursor: ${({ $active }) => ($active ? "pointer" : "default")};

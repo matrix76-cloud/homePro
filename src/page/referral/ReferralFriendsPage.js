@@ -102,7 +102,7 @@ const SummaryCard = styled.div`
 `;
 
 const SummaryText = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -151,13 +151,13 @@ const FriendInfo = styled.div`
 `;
 
 const FriendName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const FriendDate = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -172,13 +172,13 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.textSecondary};
 `;
 
 const EmptySub = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;

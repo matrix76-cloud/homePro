@@ -96,39 +96,15 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-app.post("/AuthCodeSend", async (req, res) => {
-    const body = req.body || {};
-    const phone = String(body.phone || "").replace(/\D/g, "");
-    const code = String(body.authcode || "");
-    const label = String(body.label || "홈프로");
-
-    if (!phone || !code) {
-        return res.status(400).json({ ok: false, error: "phone, authcode 필수" });
-    }
-
-    try {
-        const resp = await fetch("http://34.64.211.220:8080/sendSms", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer sms-gateway-shared-key-2025",
-            },
-            body: JSON.stringify({
-                to: phone,
-                templateId: "VERIFY_CODE",
-                label,
-                variables: { code },
-            }),
-        });
-
-        let result = null;
-        try { result = await resp.json(); } catch { result = null; }
-
-        return res.status(200).json({ ok: true, result });
-    } catch (error) {
-        console.error("SMS 발송 실패:", error.message);
-        return res.status(500).json({ ok: false, error: error.message });
-    }
+// [폐쇄됨 7/28] 클라이언트가 만든 인증번호를 그대로 문자로 중계하던 엔드포인트.
+// 인증·횟수제한이 없어 누구나 임의 번호로 문자를 계속 보낼 수 있었고(과금),
+// 코드 검증이 브라우저에서 이뤄져 문자 없이도 통과 가능했다.
+// → 발급·검증·발송을 모두 서버가 하는 phoneAuth.requestPhoneCode / verifyPhoneCode 로 대체.
+app.post("/AuthCodeSend", (req, res) => {
+    return res.status(410).json({
+        ok: false,
+        error: "이 방식은 더 이상 지원하지 않습니다. 앱을 최신 버전으로 새로고침해 주세요.",
+    });
 });
 
 exports.api = require("firebase-functions").region("asia-northeast3").https.onRequest(app);
@@ -602,6 +578,13 @@ exports.onAppUpdate = onDocumentCreated(
 );
 
 /* ─── 테스트 시드/정리 함수 (functions/seed.js) ─── */
+// ─── 전화번호 인증 (서버 발급/검증) ───
+const phoneAuthFns = require("./phoneAuth");
+exports.requestPhoneCode = phoneAuthFns.requestPhoneCode;
+exports.verifyPhoneCode = phoneAuthFns.verifyPhoneCode;
+exports.linkPhoneToAccount = phoneAuthFns.linkPhoneToAccount;
+exports.findAccountByPhone = phoneAuthFns.findAccountByPhone;
+
 const seedFns = require("./seed");
 exports.cleanAllTestData = seedFns.cleanAllTestData;
 exports.seedTestData = seedFns.seedTestData;

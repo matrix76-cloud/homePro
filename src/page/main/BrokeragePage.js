@@ -129,7 +129,7 @@ const NoticeBar = styled.div`
 `;
 const TabRow = styled.div` display: flex; gap: 8px; margin-bottom: 10px; `;
 const TabBtn = styled.button`
-  flex: 1; height: 40px; border-radius: 10px; font-size: 13px; font-weight: ${({ $active }) => ($active ? 600 : 400)};
+  flex: 1; height: 40px; border-radius: 10px; font-size: 15px; font-weight: ${({ $active }) => ($active ? 600 : 400)};
   cursor: pointer; font-family: inherit;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
@@ -140,30 +140,30 @@ const Card = styled.div`
 `;
 const CardTop = styled.div` display: flex; align-items: center; gap: 8px; `;
 const TypeTag = styled.span`
-  font-size: 12px; font-weight: 700; color: #fff; padding: 2px 10px; border-radius: 6px;
+  font-size: 14px; font-weight: 700; color: #fff; padding: 2px 10px; border-radius: 6px;
   background: ${({ $listing }) => ($listing ? "#0EA5A0" : THEME.primary)};
 `;
 const RegionText = styled.span` display: inline-flex; align-items: center; gap: 3px; font-size: 12.5px; color: ${THEME.muted}; flex: 1; `;
-const TimeText = styled.span` font-size: 12px; color: ${THEME.muted}; `;
+const TimeText = styled.span` font-size: 14px; color: ${THEME.muted}; `;
 const OneLine = styled.div` font-size: 15.5px; font-weight: 700; color: ${THEME.text}; margin-top: 10px; line-height: 1.4; `;
 const MetaRow = styled.div` display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; `;
-const MetaChip = styled.span` font-size: 12px; color: ${THEME.textSecondary}; background: ${THEME.background}; padding: 3px 9px; border-radius: 12px; `;
-const PriceText = styled.span` font-size: 14px; font-weight: 700; color: ${THEME.primary}; margin-left: auto; `;
+const MetaChip = styled.span` font-size: 14px; color: ${THEME.textSecondary}; background: ${THEME.background}; padding: 3px 9px; border-radius: 12px; `;
+const PriceText = styled.span` font-size: 16px; font-weight: 700; color: ${THEME.primary}; margin-left: auto; `;
 const DetailText = styled.div` margin-top: 10px; font-size: 13.5px; color: ${THEME.textSecondary}; line-height: 1.55; white-space: pre-wrap; `;
 const CardFoot = styled.div`
   display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid ${THEME.border};
 `;
-const Company = styled.div` font-size: 13px; font-weight: 600; color: ${THEME.text}; `;
+const Company = styled.div` font-size: 15px; font-weight: 600; color: ${THEME.text}; `;
 const ChatBtn = styled.button`
   display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 14px; border-radius: 8px;
-  border: 1px solid ${THEME.primary}; background: ${THEME.primary}; color: #fff; font-size: 13px; font-weight: 600;
+  border: 1px solid ${THEME.primary}; background: ${THEME.primary}; color: #fff; font-size: 15px; font-weight: 600;
   cursor: pointer; font-family: inherit; &:active { opacity: 0.85; }
 `;
-const Empty = styled.div` padding: 60px 20px; text-align: center; font-size: 14px; color: ${THEME.muted}; `;
-const Disclaimer = styled.div` margin-top: 14px; font-size: 11px; color: ${THEME.muted}; line-height: 1.6; `;
+const Empty = styled.div` padding: 60px 20px; text-align: center; font-size: 16px; color: ${THEME.muted}; `;
+const Disclaimer = styled.div` margin-top: 14px; font-size: 13px; color: ${THEME.muted}; line-height: 1.6; `;
 const Fab = styled.button`
   position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%); z-index: 50;
   display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 22px; border-radius: 24px;
-  border: none; background: ${THEME.primary}; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  border: none; background: ${THEME.primary}; color: #fff; font-size: 17px; font-weight: 600; cursor: pointer;
   font-family: inherit; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
 `;

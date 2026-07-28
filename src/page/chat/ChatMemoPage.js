@@ -136,7 +136,7 @@ const BackBtn = styled.button`
 const HeaderTitle = styled.p`
   flex: 1;
   text-align: center;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -155,7 +155,7 @@ const Content = styled.div`
 `;
 
 const Guide = styled.p`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary || "#4E5968"};
   margin-bottom: 10px;
   line-height: 1.5;
@@ -168,7 +168,7 @@ const MemoTextarea = styled.textarea`
   border: 1px solid ${THEME.border};
   border-radius: 12px;
   padding: 16px;
-  font-size: 15px;
+  font-size: 17px;
   color: ${THEME.text};
   line-height: 1.6;
   resize: none;
@@ -180,7 +180,7 @@ const MemoTextarea = styled.textarea`
     border-color: ${PRIMARY};
   }
   &::placeholder {
-    color: #bbb;
+    color: #777;
   }
 `;
 
@@ -193,7 +193,7 @@ const DeleteBtn = styled.button`
   padding: 8px 4px;
   background: none;
   border: none;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.textLight || "#6B7280"};
   cursor: pointer;
   &:disabled {
@@ -217,7 +217,7 @@ const SaveBtn = styled.button`
   height: 50px;
   border: none;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #fff;
   background: ${PRIMARY};

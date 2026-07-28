@@ -54,10 +54,11 @@ export const THEME = {
     purpleLight: "#e7f0fd",   // 보라 배경
     danger: "#EF4444",         // 위험/삭제
     success: "#10B981",        // 성공/완료
-    text: "#191F28",           // 진한 텍스트
-    textSecondary: "#4E5968",  // 보조 텍스트
-    textLight: "#6B7280",
-    muted: "#8B95A1",          // 비활성 텍스트
+    // 연한 글씨 금지 (형 지시 7/28) — 보조/비활성 텍스트도 읽히는 농도로
+    text: "#14181F",           // 진한 텍스트
+    textSecondary: "#2F3A47",  // 보조 텍스트
+    textLight: "#3D4653",
+    muted: "#545E6B",          // 비활성 텍스트
     background: "#F7F8FA",     // 페이지 배경 (더 밝게)
     surface: "#FFFFFF",        // 카드 배경
     border: "#F0F0F4",         // 구분선 (더 연하게)
@@ -134,57 +135,35 @@ export const SCHEDULE_OPTIONS = [
 
 // ─── 카테고리 대분류 그룹 ───
 export const CATEGORY_GROUPS = [
-    { id: "cleaning", label: "청소", categoryIds: ["professional_cleaning", "appliance_cleaning", "mattress_care", "pest_control", "mold"] },
+    { id: "cleaning", label: "청소", categoryIds: ["professional_cleaning", "regular_cleaning", "appliance_cleaning", "mattress_care", "pest_control", "mold"] },
     { id: "repair", label: "설비/수리", categoryIds: ["drain_pipe", "home_repair", "boiler", "electrical_work"] },
     { id: "install", label: "설치", categoryIds: ["aircon_install", "appliance_install"] },
-    { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "paint_waterproof", "partial_interior", "full_remodel", "supplies", "heavy_equipment"] },
-    { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer", "insurance", "fortune"] },
+    { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "paint_waterproof", "partial_interior", "full_remodel", "heavy_equipment"] },
+    { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer", "fortune"] },
 ];
 
 // ─── 카테고리 ───
+// 대표 지시 7/24: 24개 · 아래 배열 순서가 곧 화면 표기 순서.
+//  - 신설: 정기청소(regular_cleaning) — 기존 전문청소 하위에서 독립
+//  - 제외: 자재.장비.소모품(supplies) · 기업.단체보험(insurance)
+//  - 카테고리별 상세 접수 단계(orderFormConfig)는 대표님 추가 자료 수령 후 반영 예정
 export const CATEGORIES = [
-    // ── 청소 ──
     {
         id: "professional_cleaning",
         name: "전문청소",
         shortName: "전문청소",
         group: "cleaning",
-        description: "홈클리닝, 정기청소, 준공청소, 특수청소, 화재청소 등 전문 청소",
-        subcategories: ["홈클리닝", "정기청소", "준공청소", "특수청소", "화재청소", "상업.매장청소", "바닥청소", "외벽.고소청소", "기타"],
+        description: "홈클리닝, 준공청소, 특수청소, 화재청소 등 전문 청소",
+        subcategories: ["홈클리닝", "준공청소", "특수청소", "화재청소", "상업.매장청소", "바닥청소", "외벽.고소청소", "기타"],
     },
     {
-        id: "appliance_cleaning",
-        name: "가전분해 클리닝",
-        shortName: "가전분해청소",
+        id: "regular_cleaning",
+        name: "정기청소",
+        shortName: "정기청소",
         group: "cleaning",
-        description: "에어컨, 세탁기, 냉장고, 주방후드 분해 청소",
-        subcategories: ["에어컨청소", "세탁기청소", "냉장고청소", "주방후드", "비데분해청소", "기타"],
+        description: "건물 공용부·상업시설·주거공간 월 단위 정기 청소",
+        subcategories: ["빌딩공용부", "계단/복도", "엘리베이터", "화장실", "사무실", "병원", "학원", "카페", "음식점", "상가", "매장", "아파트", "빌라/다가구", "단독주택", "오피스텔", "유리 외벽", "바닥왁스", "카펫세척", "공장/물류창고", "기타"],
     },
-    {
-        id: "mattress_care",
-        name: "침대.소파.카펫",
-        shortName: "침대.소파.카펫",
-        group: "cleaning",
-        description: "침대매트리스, 소파, 카펫 전문 케어",
-        subcategories: ["침대메트리스", "소파", "카페트", "기타"],
-    },
-    {
-        id: "pest_control",
-        name: "해충방역",
-        shortName: "해충방역",
-        group: "cleaning",
-        description: "바퀴벌레, 개미, 쥐 등 해충 방역",
-        subcategories: ["바퀴벌레", "개미", "쥐", "비래해충", "기타 해충"],
-    },
-    {
-        id: "mold",
-        name: "곰팡이 재발방지",
-        shortName: "곰팡이",
-        group: "cleaning",
-        description: "곰팡이 제거, 차단코팅, 단열 시공",
-        subcategories: ["곰팡이제거", "곰팡이 차단코팅", "단열 페인트시공", "단열제 시공", "기타"],
-    },
-    // ── 설비/수리 ──
     {
         id: "drain_pipe",
         name: "설비.하수구.누수",
@@ -202,22 +181,53 @@ export const CATEGORIES = [
         subcategories: ["창호 소수리", "욕실 소수리", "주방 소수리", "전기.조명(생활)", "설비연계 소수리", "벽.천장 부분보수", "가구.생활 설치", "도어락.보안 소수리", "베란다.외부 소수리", "문 소수리", "외부 소수리", "도장(페인트)", "기타"],
     },
     {
-        id: "boiler",
-        name: "난방.보일러",
-        shortName: "난방/보일러",
-        group: "repair",
-        description: "가스/기름/전기 보일러, 지역난방, 온수기",
-        subcategories: ["가스보일러", "기름보일러", "전기식보일러", "지역난방", "온수기", "기타"],
+        id: "appliance_cleaning",
+        name: "가전분해 청소",
+        shortName: "가전분해청소",
+        group: "cleaning",
+        description: "에어컨, 세탁기, 냉장고, 주방후드 분해 청소",
+        subcategories: ["에어컨청소", "세탁기청소", "냉장고청소", "주방후드", "비데분해청소", "기타"],
     },
     {
-        id: "electrical_work",
-        name: "전기공사",
-        shortName: "전기공사",
-        group: "repair",
-        description: "배선, 증설, 콘센트/스위치, 조명 공사 등",
-        subcategories: ["배선공사", "전기 용량.증설", "콘센트.스위치 신설", "조명공사", "가전 전용 전기공사", "상가.사무실 전기공사", "기타"],
+        id: "mattress_care",
+        name: "침대.카페트 청소",
+        shortName: "침대.카페트",
+        group: "cleaning",
+        description: "침대매트리스, 소파, 카펫 전문 케어",
+        subcategories: ["침대메트리스", "소파", "카페트", "기타"],
     },
-    // ── 설치 ──
+    {
+        id: "moving",
+        name: "용달.포장이사",
+        shortName: "용달.포장이사",
+        group: "life",
+        description: "용달, 가정/사무실/특수/보관 이사",
+        subcategories: ["가정이사", "사무실.상가이사", "특수이사", "부분.추가이사", "보관이사", "기타"],
+    },
+    {
+        id: "worker_call",
+        name: "팀원/기술자 요청",
+        shortName: "팀원/기술자",
+        group: "life",
+        description: "현장 작업 인력/기술자/장비 요청",
+        subcategories: ["청소작업", "전문작업", "보통인부", "스페어기사", "기타"],
+    },
+    {
+        id: "partial_interior",
+        name: "부분 인테리어",
+        shortName: "부분인테리어",
+        group: "construction",
+        description: "벽면, 바닥, 필름, 주방, 욕실 등 부분 인테리어",
+        subcategories: ["벽면인테리어", "바닥인테리어", "필름 인테리어", "전기.조명인테리어", "가수.수납인테리어", "주방 인테리어", "욕실인테리어", "유리인테리어", "소규모 인테리어", "전체인테리어", "기타"],
+    },
+    {
+        id: "full_remodel",
+        name: "종합 리모델링",
+        shortName: "종합리모델링",
+        group: "construction",
+        description: "욕실, 주방, 전체, 상가 리모델링",
+        subcategories: ["욕실 리모델링", "주방리모델링", "부분리모델링", "전체 리모델링", "상가.사무실리모델링", "창호리모델링", "기타"],
+    },
     {
         id: "aircon_install",
         name: "에어컨설치",
@@ -234,7 +244,14 @@ export const CATEGORIES = [
         description: "세탁기, 냉장고, TV, 비데 등 가전 설치",
         subcategories: ["세탁기", "냉장고", "TV.가구.벽걸이", "인덕션.후드", "음식물처리기", "온수기", "CCTV.네트워크", "비데.정수기", "기타"],
     },
-    // ── 시공/철거 ──
+    {
+        id: "heavy_equipment",
+        name: "스카이차.건설장비",
+        shortName: "스카이차.장비",
+        group: "construction",
+        description: "스카이차, 크레인, 사다리차, 굴삭기 등 건설장비",
+        subcategories: ["스카이차", "카고크레인", "사다리차", "유압크레인", "굴삭기", "지게차"],
+    },
     {
         id: "demolition",
         name: "철거",
@@ -260,61 +277,36 @@ export const CATEGORIES = [
         subcategories: ["페인트", "도장", "방수", "기타"],
     },
     {
-        id: "partial_interior",
-        name: "부분 인테리어",
-        shortName: "부분인테리어",
-        group: "construction",
-        description: "벽면, 바닥, 필름, 주방, 욕실 등 부분 인테리어",
-        subcategories: ["벽면인테리어", "바닥인테리어", "필름 인테리어", "전기.조명인테리어", "가수.수납인테리어", "주방 인테리어", "욕실인테리어", "유리인테리어", "소규모 인테리어", "전체인테리어", "기타"],
+        id: "electrical_work",
+        name: "전기공사",
+        shortName: "전기공사",
+        group: "repair",
+        description: "배선, 증설, 콘센트/스위치, 조명 공사 등",
+        subcategories: ["배선공사", "전기 용량.증설", "콘센트.스위치 신설", "조명공사", "가전 전용 전기공사", "상가.사무실 전기공사", "기타"],
     },
     {
-        id: "full_remodel",
-        name: "종합 리모델링",
-        shortName: "종합리모델링",
-        group: "construction",
-        description: "욕실, 주방, 전체, 상가 리모델링",
-        subcategories: ["욕실 리모델링", "주방리모델링", "부분리모델링", "전체 리모델링", "상가.사무실리모델링", "창호리모델링", "기타"],
+        id: "pest_control",
+        name: "해충방역",
+        shortName: "해충방역",
+        group: "cleaning",
+        description: "바퀴벌레, 개미, 쥐 등 해충 방역",
+        subcategories: ["바퀴벌레", "개미", "쥐", "비래해충", "기타 해충"],
     },
     {
-        id: "supplies",
-        name: "자재.장비.소모품",
-        shortName: "자재.장비",
-        group: "construction",
-        description: "건축/배관/전기/설비/인테리어 자재, 장비, 공구, 소모품",
-        subcategories: ["건축자재", "배관자재", "전기자재", "설비자재", "인테리어자재", "농자재", "장비", "공구", "안전용품", "소모품", "기타"],
+        id: "mold",
+        name: "곰팡이.단열시공",
+        shortName: "곰팡이.단열",
+        group: "cleaning",
+        description: "곰팡이 제거, 차단코팅, 단열 시공",
+        subcategories: ["곰팡이제거", "곰팡이 차단코팅", "단열 페인트시공", "단열제 시공", "기타"],
     },
     {
-        id: "heavy_equipment",
-        name: "스카이차.장비",
-        shortName: "스카이차.장비",
-        group: "construction",
-        description: "스카이차, 크레인, 사다리차, 굴삭기 등",
-        subcategories: ["스카이차", "카고크레인", "사다리차", "유압크레인", "굴삭기", "지게차"],
-    },
-    // ── 생활/기타 ──
-    {
-        id: "worker_call",
-        name: "작업자요청",
-        shortName: "작업자요청",
-        group: "life",
-        description: "현장 작업 인력/기술자/장비 요청",
-        subcategories: ["청소작업", "전문작업", "보통인부", "스페어기사", "기타"],
-    },
-    {
-        id: "moving",
-        name: "포장이사",
-        shortName: "포장이사",
-        group: "life",
-        description: "가정/사무실/특수/보관 이사",
-        subcategories: ["가정이사", "사무실.상가이사", "특수이사", "부분.추가이사", "보관이사", "기타"],
-    },
-    {
-        id: "auto",
-        name: "자동차",
-        shortName: "자동차",
-        group: "life",
-        description: "세차, 정비, 구매상담, 렌트 등",
-        subcategories: ["세차.관리", "출장정비", "전기.전자.장치설치", "베터리출장", "신차구매상담", "장기렌트상담", "내차팔기", "중고차 구매동행", "폐차"],
+        id: "boiler",
+        name: "난방.보일러",
+        shortName: "난방/보일러",
+        group: "repair",
+        description: "가스/기름/전기 보일러, 지역난방, 온수기",
+        subcategories: ["가스보일러", "기름보일러", "전기식보일러", "지역난방", "온수기", "기타"],
     },
     {
         id: "appliance_rental",
@@ -333,12 +325,12 @@ export const CATEGORIES = [
         subcategories: ["컴퓨터.점검수리", "소프트웨어.셋팅", "부품교체", "프린터 설치연결", "출력오류 고장점검", "네트워크.공유설정", "소모품 관리", "사무실.상가패키지", "프린터.복합기 렌탈", "기타"],
     },
     {
-        id: "insurance",
-        name: "기업.단체보험",
-        shortName: "기업보험",
+        id: "auto",
+        name: "자동차",
+        shortName: "자동차",
         group: "life",
-        description: "기업/단체/공사/배상 보험",
-        subcategories: ["특수단체보험", "책임배상보험", "공사.시공보험", "기업.법인종합", "상해.인적보험", "운송.물류보험", "건설기계보험", "재물보험", "기업.법인단체보험", "기타"],
+        description: "세차, 정비, 구매상담, 렌트 등",
+        subcategories: ["세차.관리", "출장정비", "전기.전자.장치설치", "베터리출장", "신차구매상담", "장기렌트상담", "내차팔기", "중고차 구매동행", "폐차"],
     },
     {
         id: "fortune",

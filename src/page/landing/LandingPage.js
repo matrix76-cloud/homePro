@@ -4,14 +4,14 @@
  * - 대상: 청소·인테리어·설비 등 현장 전문가(프로)끼리 일감을 주고받는 하도급/외주 플랫폼
  * - 디자인 토큰: 퍼플 주조색(#2571e3) + 흰/연회색 교차, 버튼 r10 / 카드 r16, 약한 그림자, 라인 아이콘
  * - PC 기준 + 반응형(모바일 stack). 라우트: /intro
- * - 스크린샷 자리는 CSS 목업 → 추후 실제 앱 캡처로 교체
+ * - 스크린샷은 실제 앱 캡처 사용 (public/assets/landing/*.png — 화면 바뀌면 재캡처 필요)
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   FiClipboard, FiCpu, FiUsers, FiMessageSquare, FiMapPin,
-  FiClock, FiShield, FiCheck, FiPlus, FiImage, FiBell, FiCalendar,
+  FiClock, FiShield, FiCheck, FiPlus, FiImage, FiCalendar,
 } from 'react-icons/fi';
 
 const APP_STORE_URL = '#'; // TODO: 아이폰 심사 통과 후 App Store 링크
@@ -37,6 +37,7 @@ const FEATURES = [
     color: '#2571e3',
     title: '일감을 올리면, 동종 프로가 견적을 보냅니다',
     desc: '하도급 줄 일감을 오더로 등록하세요. 분야가 맞는 프로들이 견적을 보내고, 수락하면 채팅방이 자동으로 열립니다.',
+    shot: '/assets/landing/orders.png',
     points: ['오더 등록 → 견적 자동 수신', '견적 수락 시 채팅방 자동 생성', '카테고리별 맞춤 접수폼'],
   },
   {
@@ -45,6 +46,7 @@ const FEATURES = [
     color: '#16A34A',
     title: '사진과 내용만 넣으면, AI가 예상 견적을 뽑아줍니다',
     desc: '현장 사진과 작업 내용을 입력하면 AI가 예상 견적 범위를 산출합니다. 견적 기준이 막막할 때 출발점이 되어 줍니다.',
+    shot: '/assets/landing/ai.png',
     points: ['현장 사진·내용 기반 자동 산출', '분야별 시세 참고', '견적 초안으로 바로 활용'],
   },
   {
@@ -53,6 +55,7 @@ const FEATURES = [
     color: '#F59E0B',
     title: '상황에 맞게 골라 호출하세요',
     desc: '먼저 본 프로에게 빠른배정, 여러 견적을 받아 비교선정, 믿는 프로에게 지정배정까지. 일의 급함과 신뢰도에 맞춰 선택합니다.',
+    shot: '/assets/landing/myorders.png',
     points: ['빠른배정 · 비교선정 · 지정배정', '거부·블랙리스트로 안전하게', '완료 후 리뷰로 신뢰 쌓기'],
   },
   {
@@ -61,14 +64,15 @@ const FEATURES = [
     color: '#0EA5E9',
     title: '진행도 마무리도 한 채팅 안에서',
     desc: '채팅에서 작업 일정을 공유하고, 캘린더로 기간을 관리하세요. 견적부터 정산까지 모든 대화가 한 곳에 남습니다.',
+    shot: '/assets/landing/chat.png',
     points: ['채팅에서 일정 공유 · 미니 캘린더', '기간 단위 일정 관리', '읽음 표시 · 계약/정산 연동'],
   },
 ];
 
 const PROMO = [
-  { Icon: FiClipboard, grad: 'linear-gradient(135deg, #EFE6FB, #F3EEFE)', title: '1분이면 끝나는 오더 등록', desc: '카테고리만 고르면 분야에 맞는 접수폼이 떠요. 사진 몇 장과 내용만 넣으면 끝.' },
-  { Icon: FiImage, grad: 'linear-gradient(135deg, #DBF3E6, #EAF6F0)', title: '내 작업으로 채우는 비즈프로필', desc: '시공 사진과 이력으로 내 전문성을 보여주고, 더 좋은 일감으로 연결되세요.' },
-  { Icon: FiMapPin, grad: 'linear-gradient(135deg, #FCEFD9, #FEF6EA)', title: '내 지역 프로와 먼저 연결', desc: '가까운 지역의 프로끼리 우선 매칭돼 이동·소통 부담이 줄어듭니다.' },
+  { Icon: FiClipboard, grad: 'linear-gradient(135deg, #EFE6FB, #F3EEFE)', shot: '/assets/landing/order-create.png', title: '1분이면 끝나는 오더 등록', desc: '카테고리만 고르면 분야에 맞는 접수폼이 떠요. 사진 몇 장과 내용만 넣으면 끝.' },
+  { Icon: FiImage, grad: 'linear-gradient(135deg, #DBF3E6, #EAF6F0)', shot: '/assets/landing/bizprofile.png', title: '내 작업으로 채우는 비즈프로필', desc: '시공 사진과 이력으로 내 전문성을 보여주고, 더 좋은 일감으로 연결되세요.' },
+  { Icon: FiMapPin, grad: 'linear-gradient(135deg, #FCEFD9, #FEF6EA)', shot: '/assets/landing/prolist.png', title: '내 지역 프로와 먼저 연결', desc: '가까운 지역의 프로끼리 우선 매칭돼 이동·소통 부담이 줄어듭니다.' },
 ];
 
 const STEPS = [
@@ -133,34 +137,12 @@ const LandingPage = () => {
               <SubNote>가입·기본 사용 무료 · iOS · Android 지원</SubNote>
             </HeroText>
 
-            {/* 폰 목업 */}
+            {/* 폰 — 실제 앱 화면 (형 지시 7/28: 목업 → 실제 화면 교체) */}
             <HeroVisual>
               <Phone>
                 <PhoneNotch />
                 <PhoneScreen>
-                  <MockHeader>
-                    <MockDot /> 홈프로
-                  </MockHeader>
-                  <MockNoti $c="#2571e3">
-                    <FiClipboard />
-                    <div>
-                      <b>새 오더 · 상가 입주청소</b>
-                      <span>강남구 · 견적 3건 도착</span>
-                    </div>
-                  </MockNoti>
-                  <MockNoti $c="#16A34A">
-                    <FiBell />
-                    <div>
-                      <b>견적이 수락됐어요</b>
-                      <span>채팅방이 생성되었습니다</span>
-                    </div>
-                  </MockNoti>
-                  <MockCard>
-                    <MockCardTitle>AI 예상 견적</MockCardTitle>
-                    <MockLine $w="90%" />
-                    <MockLine $w="70%" />
-                    <MockThumb />
-                  </MockCard>
+                  <PhoneShot src="/assets/landing/orders.png" alt="홈프로 오더목록 화면" loading="lazy" />
                 </PhoneScreen>
               </Phone>
             </HeroVisual>
@@ -192,12 +174,12 @@ const LandingPage = () => {
             현장 프로끼리 서로의 빈틈을 채워 주는 가장 빠른 방법입니다.
           </WhoLead>
           <PromoList>
-            {PROMO.map(({ Icon, grad, title, desc }, i) => (
+            {PROMO.map(({ grad, shot, title, desc }, i) => (
               <PromoRow key={title} $reverse={i % 2 === 1}>
                 <PromoVisual>
+                  {/* 실제 앱 화면 (형 지시 7/28) */}
                   <PromoBig $g={grad}>
-                    {/* TODO: 실제 앱 화면으로 교체 */}
-                    <Icon />
+                    <PromoShot src={shot} alt={title} loading="lazy" />
                   </PromoBig>
                 </PromoVisual>
                 <PromoBody>
@@ -236,17 +218,10 @@ const LandingPage = () => {
             {FEATURES.map((f, i) => (
               <FeatureRow key={f.title} $reverse={i % 2 === 1}>
                 <FeatureVisual>
-                  <Browser>
-                    <BrowserBar>
-                      <BrowserDot /><BrowserDot /><BrowserDot />
-                    </BrowserBar>
-                    <BrowserBody>
-                      <BigIcon $c={f.color}><f.Icon /></BigIcon>
-                      <MockLine $w="80%" />
-                      <MockLine $w="60%" />
-                      <MockLine $w="70%" />
-                    </BrowserBody>
-                  </Browser>
+                  {/* 실제 앱 화면 (형 지시 7/28) */}
+                  <ShotFrame $c={f.color}>
+                    <ShotImg src={f.shot} alt={f.title} loading="lazy" />
+                  </ShotFrame>
                 </FeatureVisual>
                 <FeatureBody>
                   <FeatureTag $c={f.color}>{f.tag}</FeatureTag>
@@ -348,7 +323,7 @@ const SHADOW = '0 2px 10px rgba(31, 24, 64, 0.06)';
 const Page = styled.div`
   background: #fff;
   color: ${INK};
-  font-size: 16px;
+  font-size: 18px;
   overflow-x: hidden;
 `;
 
@@ -383,7 +358,7 @@ const Nav = styled.nav`
 `;
 
 const Logo = styled.div`
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 800;
   color: ${PRIMARY};
   cursor: pointer;
@@ -394,7 +369,7 @@ const Menu = styled.div`
   display: flex;
   gap: 30px;
   a {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 500;
     color: #4B5563;
     text-decoration: none;
@@ -463,7 +438,7 @@ const Badge = styled.span`
   display: inline-block;
   background: #EDE7FE;
   color: ${PRIMARY};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   padding: 7px 15px;
   border-radius: 999px;
@@ -483,11 +458,11 @@ const H1 = styled.h1`
 const Accent = styled.span`color: ${PRIMARY};`;
 
 const Lead = styled.p`
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.7;
   color: ${SUB};
   margin-bottom: 30px;
-  @media (max-width: 900px) { font-size: 16px; br { display: none; } }
+  @media (max-width: 900px) { font-size: 18px; br { display: none; } }
 `;
 
 const HeroBtns = styled.div`
@@ -498,8 +473,8 @@ const HeroBtns = styled.div`
 
 const SubNote = styled.p`
   margin-top: 16px;
-  font-size: 14px;
-  color: #9CA3AF;
+  font-size: 16px;
+  color: #5A6472;
 `;
 
 /* 폰 목업 */
@@ -533,73 +508,29 @@ const PhoneNotch = styled.div`
 const PhoneScreen = styled.div`
   width: 100%;
   height: 100%;
-  background: ${ALT_BG};
+  background: #1E1832;
   border-radius: 28px;
   overflow: hidden;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  /* 노치가 앱 헤더를 가리지 않도록 상태바 높이만큼 아래에서 시작 */
+  padding-top: 22px;
+  box-sizing: border-box;
 `;
 
-const MockHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 800;
-  font-size: 16px;
-  color: #111827;
-  padding: 18px 4px 6px;
+/* 실제 앱 캡처 — 폰 프레임 안을 가득 채우고 상단부터 보여준다 */
+const PhoneShot = styled.img`
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
 `;
 
-const MockDot = styled.span`
-  width: 26px; height: 26px;
-  border-radius: 8px;
-  background: ${PRIMARY};
-`;
 
-const MockNoti = styled.div`
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: ${SHADOW};
-  svg { color: ${({ $c }) => $c}; font-size: 20px; flex-shrink: 0; }
-  b { display: block; font-size: 13px; color: #111827; }
-  span { display: block; font-size: 11px; color: #9CA3AF; margin-top: 2px; }
-`;
 
-const MockCard = styled.div`
-  background: #fff;
-  border-radius: 12px;
-  padding: 14px;
-  box-shadow: ${SHADOW};
-  flex: 1;
-`;
 
-const MockCardTitle = styled.p`
-  font-size: 13px;
-  font-weight: 800;
-  color: #111827;
-  margin-bottom: 12px;
-`;
 
-const MockLine = styled.div`
-  height: 9px;
-  width: ${({ $w }) => $w || '100%'};
-  background: #ECE8F8;
-  border-radius: 5px;
-  margin-bottom: 8px;
-`;
 
-const MockThumb = styled.div`
-  margin-top: 10px;
-  height: 70px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #E5DCFB, #EFE8FE);
-`;
+
 
 /* Stats */
 const StatsBar = styled.section`
@@ -621,11 +552,11 @@ const StatNum = styled.p`
   font-weight: 800;
   color: #fff;
   letter-spacing: -1px;
-  @media (max-width: 900px) { font-size: 28px; }
+  @media (max-width: 900px) { font-size: 30px; }
 `;
 
 const StatLabel = styled.p`
-  font-size: 14px;
+  font-size: 16px;
   color: rgba(255, 255, 255, 0.85);
   margin-top: 4px;
 `;
@@ -638,7 +569,7 @@ const Section = styled.section`
 
 const Eyebrow = styled.p`
   text-align: center;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${PRIMARY};
   margin-bottom: 12px;
@@ -651,13 +582,13 @@ const SectionTitle = styled.h2`
   color: #111827;
   letter-spacing: -0.8px;
   margin-bottom: 50px;
-  @media (max-width: 900px) { font-size: 25px; }
+  @media (max-width: 900px) { font-size: 27px; }
 `;
 
 /* 홍보 (갤러리 + 설명) */
 const WhoLead = styled.p`
   text-align: center;
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.7;
   color: ${SUB};
   max-width: 640px;
@@ -696,29 +627,43 @@ const PromoBig = styled.div`
   justify-content: center;
   border-radius: ${RADIUS_CARD};
   background: ${({ $g }) => $g};
-  color: rgba(45, 31, 90, 0.4);
   border: 1px solid ${LINE};
   box-shadow: 0 14px 40px rgba(45, 31, 90, 0.1);
-  svg { font-size: 64px; }
+  overflow: hidden;
+  padding: 22px 0 0;
+`;
+
+/* 실제 앱 캡처 — 배경 그라데이션 위에 폰 화면을 얹는다 */
+const PromoShot = styled.img`
+  display: block;
+  width: 42%;
+  min-width: 180px;
+  max-height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 14px 14px 0 0;
+  border: 1px solid rgba(45, 31, 90, 0.12);
+  border-bottom: none;
+  box-shadow: 0 10px 30px rgba(45, 31, 90, 0.18);
 `;
 
 const PromoBody = styled.div``;
 
 const PromoTitle = styled.h3`
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
   color: #111827;
   letter-spacing: -0.6px;
   line-height: 1.35;
   margin-bottom: 14px;
-  @media (max-width: 900px) { font-size: 23px; }
+  @media (max-width: 900px) { font-size: 25px; }
 `;
 
 const PromoDesc = styled.p`
   font-size: 17.5px;
   line-height: 1.7;
   color: ${SUB};
-  @media (max-width: 900px) { font-size: 16px; }
+  @media (max-width: 900px) { font-size: 18px; }
 `;
 
 /* Pain */
@@ -745,19 +690,19 @@ const PainIcon = styled.div`
   border-radius: 13px;
   background: #EDE7FE;
   color: ${PRIMARY};
-  font-size: 24px;
+  font-size: 26px;
   margin-bottom: 18px;
 `;
 
 const PainTitle = styled.h3`
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   color: #111827;
   margin-bottom: 10px;
 `;
 
 const PainDesc = styled.p`
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.7;
   color: ${SUB};
 `;
@@ -786,50 +731,44 @@ const FeatureRow = styled.div`
 const FeatureVisual = styled.div``;
 const FeatureBody = styled.div``;
 
-/* 브라우저 목업 */
-const Browser = styled.div`
+/* 기능 섹션 — 실제 앱 캡처 (기능색 배경 위에 폰 화면) */
+const ShotFrame = styled.div`
+  width: 100%;
+  aspect-ratio: 16 / 11;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   border-radius: ${RADIUS_CARD};
-  overflow: hidden;
+  background: ${({ $c }) => `linear-gradient(160deg, ${$c}1F, ${$c}0A)`};
   border: 1px solid ${LINE};
   box-shadow: 0 14px 40px rgba(45, 31, 90, 0.1);
-  background: #fff;
+  overflow: hidden;
+  padding-top: 26px;
 `;
 
-const BrowserBar = styled.div`
-  background: #F4F2FB;
-  padding: 12px 16px;
-  display: flex;
-  gap: 7px;
-  border-bottom: 1px solid ${LINE};
+const ShotImg = styled.img`
+  display: block;
+  width: 40%;
+  min-width: 176px;
+  max-height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 14px 14px 0 0;
+  border: 1px solid rgba(45, 31, 90, 0.12);
+  border-bottom: none;
+  box-shadow: 0 12px 32px rgba(45, 31, 90, 0.2);
 `;
 
-const BrowserDot = styled.span`
-  width: 11px; height: 11px;
-  border-radius: 50%;
-  background: #D9D2EE;
-`;
 
-const BrowserBody = styled.div`
-  padding: 32px 28px 36px;
-`;
 
-const BigIcon = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px; height: 64px;
-  border-radius: 16px;
-  background: ${({ $c }) => `${$c}14`};
-  color: ${({ $c }) => $c};
-  font-size: 30px;
-  margin-bottom: 24px;
-`;
+
+
 
 const FeatureTag = styled.span`
   display: inline-block;
   background: ${({ $c }) => `${$c}14`};
   color: ${({ $c }) => $c};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   padding: 6px 13px;
   border-radius: 999px;
@@ -837,7 +776,7 @@ const FeatureTag = styled.span`
 `;
 
 const FeatureTitle = styled.h3`
-  font-size: 27px;
+  font-size: 29px;
   font-weight: 800;
   color: #111827;
   margin-bottom: 14px;
@@ -861,7 +800,7 @@ const PointList = styled.ul`
     display: flex;
     align-items: center;
     gap: 11px;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     color: #374151;
   }
@@ -875,7 +814,7 @@ const Check = styled.span`
   border-radius: 50%;
   background: ${({ $c }) => `${$c}1A`};
   color: ${({ $c }) => $c};
-  font-size: 14px;
+  font-size: 16px;
   flex-shrink: 0;
 `;
 
@@ -899,7 +838,7 @@ const StepCard = styled.div`
 
 const StepNo = styled.span`
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   color: ${PRIMARY};
   letter-spacing: 1px;
@@ -914,19 +853,19 @@ const StepIcon = styled.div`
   border-radius: 16px;
   background: #EDE7FE;
   color: ${PRIMARY};
-  font-size: 26px;
+  font-size: 28px;
   margin-bottom: 18px;
 `;
 
 const StepTitle = styled.h3`
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   color: #111827;
   margin-bottom: 10px;
 `;
 
 const StepDesc = styled.p`
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.7;
   color: ${SUB};
 `;
@@ -944,15 +883,15 @@ const DownloadTitle = styled.h2`
   font-weight: 800;
   letter-spacing: -0.8px;
   margin-bottom: 16px;
-  @media (max-width: 900px) { font-size: 26px; }
+  @media (max-width: 900px) { font-size: 28px; }
 `;
 
 const DownloadLead = styled.p`
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.92);
   margin-bottom: 32px;
-  @media (max-width: 900px) { font-size: 16px; }
+  @media (max-width: 900px) { font-size: 18px; }
 `;
 
 const StoreBtns = styled.div`
@@ -967,7 +906,7 @@ const StoreBtn = styled.a`
   background: #1E1832;
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 18px;
   padding: 14px 30px;
   border-radius: ${RADIUS_BTN};
   text-decoration: none;
@@ -997,7 +936,7 @@ const FaqQ = styled.button`
   align-items: center;
   justify-content: space-between;
   padding: 20px 22px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: #1F2937;
   text-align: left;
@@ -1006,7 +945,7 @@ const FaqQ = styled.button`
 const FaqToggle = styled.span`
   display: inline-flex;
   color: ${PRIMARY};
-  font-size: 20px;
+  font-size: 22px;
   transition: transform 0.2s;
   transform: rotate(${({ $open }) => ($open ? '135deg' : '0')});
 `;
@@ -1036,7 +975,7 @@ const FootTop = styled.div`
 `;
 
 const FootLogo = styled.div`
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: #fff;
 `;
@@ -1046,7 +985,7 @@ const FootLinks = styled.div`
   gap: 22px;
   flex-wrap: wrap;
   a {
-    font-size: 14px;
+    font-size: 16px;
     color: rgba(255, 255, 255, 0.7);
     text-decoration: none;
     &:hover { color: #fff; }
@@ -1055,6 +994,6 @@ const FootLinks = styled.div`
 
 const FootCopy = styled.p`
   margin-top: 22px;
-  font-size: 13px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.5);
 `;

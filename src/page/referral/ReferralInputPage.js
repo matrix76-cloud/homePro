@@ -108,7 +108,7 @@ const Wrap = styled.div`
 `;
 
 const Title = styled.div`
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 400;
   letter-spacing: -0.04em;
   color: rgba(17, 24, 39, 0.92);
@@ -116,7 +116,7 @@ const Title = styled.div`
 
 const Desc = styled.div`
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 15px;
   color: rgba(17, 24, 39, 0.55);
 `;
 
@@ -137,7 +137,7 @@ const BenefitBox = styled.div`
 `;
 
 const BenefitTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 12px;
@@ -152,11 +152,11 @@ const BenefitRow = styled.div`
 `;
 
 const BenefitIcon = styled.span`
-  font-size: 20px;
+  font-size: 22px;
 `;
 
 const BenefitText = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.textSecondary};
   strong { color: ${THEME.text}; }
 `;
@@ -173,7 +173,7 @@ const Field = styled.div`
 `;
 
 const Label = styled.label`
-  font-size: 14px;
+  font-size: 16px;
   color: rgba(17, 24, 39, 0.92);
 `;
 
@@ -182,7 +182,7 @@ const Input = styled.input`
   border: none;
   border-bottom: 1px solid rgba(15, 23, 42, 0.12);
   padding: 10px 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 500;
   letter-spacing: 2px;
   outline: none;
@@ -196,7 +196,7 @@ const ResultPill = styled.div`
   margin-top: 12px;
   padding: 10px 14px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   background: ${({ $isError }) => $isError ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.12)"};
   color: ${({ $isError }) => $isError ? "#dc2626" : "#059669"};
 `;
@@ -214,7 +214,7 @@ const BaseBtn = styled.button`
   margin: 0 auto;
   border-radius: 10px;
   padding: 13px 14px;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   display: flex;
   align-items: center;

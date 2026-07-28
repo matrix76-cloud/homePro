@@ -140,7 +140,10 @@ export default function MobileSetNicknamecontainer() {
                 }
             }
             // targetUid가 있으면 이미 계정 연결된 상태, 없으면 현재 uid 사용
-            const targetUid = localStorage.getItem("__targetUid") || uid;
+            // 계정 통합이 끝난 뒤라면 대표 UID 에 프로필을 써야 한다.
+            // 전화번호 화면이 저장하는 키는 __primaryUid 인데 여기선 __targetUid 를 읽고 있어서
+            // 항상 빈 값 → 새 소셜 UID 에 덮어쓰던 버그. 키를 맞춘다. (형 지시 7/28)
+            const targetUid = localStorage.getItem("__primaryUid") || uid;
 
             // provider 판별: 소셜 provider 또는 이메일
             const auth = getAuth();
@@ -209,8 +212,9 @@ export default function MobileSetNicknamecontainer() {
                 <Field style={{ marginBottom: 16 }}>
                     <Label>회원유형</Label>
                     <TypeRow>
-                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")} disabled={busy}>일반고객</TypeBtn>
+                        {/* 사업자회원 왼쪽 · 일반고객 오른쪽 (대표 지시 7/24) */}
                         <TypeBtn type="button" $active={isBiz} onClick={() => setUserType("business")} disabled={busy}>사업자회원</TypeBtn>
+                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")} disabled={busy}>일반고객</TypeBtn>
                     </TypeRow>
                 </Field>
 
@@ -311,7 +315,7 @@ const Wrap = styled.div`
 `;
 
 const Title = styled.div`
-  font-size: 22px !important;
+  font-size: 24px !important;
   font-weight: 400;
   letter-spacing: -0.04em;
   color: rgba(17, 24, 39, 0.92);
@@ -319,7 +323,7 @@ const Title = styled.div`
 
 const Desc = styled.div`
   margin-top: 6px;
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 400;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.55);
@@ -358,7 +362,7 @@ const TypeBtn = styled.button`
   flex: 1;
   height: 46px;
   border-radius: 10px;
-  font-size: 15px !important;
+  font-size: 17px !important;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
@@ -370,14 +374,14 @@ const TypeBtn = styled.button`
 `;
 
 const Label = styled.label`
-  font-size: 14px !important;
+  font-size: 16px !important;
   color: rgba(17, 24, 39, 0.92);
   font-weight: 400;
 `;
 
 const RequiredMark = styled.span`
   color: #ff4b4b;
-  font-size: 14px !important;
+  font-size: 16px !important;
   font-weight: 400;
 `;
 
@@ -398,7 +402,7 @@ const Input = styled.input`
   border: none;
   border-bottom: 1px solid rgba(15, 23, 42, 0.12);
   padding: 10px 40px 10px 0;
-  font-size: 16px !important;
+  font-size: 18px !important;
   outline: none;
   background: transparent;
   box-sizing: border-box;
@@ -411,7 +415,7 @@ const CharCount = styled.span`
   position: absolute;
   right: 0;
   bottom: 12px;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 400;
   color: ${({ $over }) => ($over ? "#ef4444" : "rgba(17, 24, 39, 0.4)")};
 `;
@@ -421,7 +425,7 @@ const SmallBtn = styled.button`
   background: ${THEME.surface};
   border-radius: 10px;
   padding: 12px 12px;
-  font-size: 14px !important;
+  font-size: 16px !important;
   cursor: pointer;
   color: ${THEME.text};
   font-weight: 400;
@@ -433,13 +437,13 @@ const SmallBtn = styled.button`
 
 const HelperText = styled.p`
   margin: 0;
-  font-size: 13px !important;
+  font-size: 15px !important;
   color: rgba(17, 24, 39, 0.48);
   font-weight: 400;
 `;
 
 const NickMsg = styled.div`
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 400;
   color: ${({ $color }) => $color || "inherit"};
 `;
@@ -450,7 +454,7 @@ const Preview = styled.div`
   border-radius: 10px;
   background: ${THEME.background};
   border: 1px dashed ${THEME.border};
-  font-size: 14px !important;
+  font-size: 16px !important;
   color: rgba(17, 24, 39, 0.75);
   font-weight: 400;
 
@@ -473,7 +477,7 @@ const PrimaryBtn = styled.button`
   margin: 0 auto;
   border-radius: 10px;
   padding: 13px 14px;
-  font-size: 16px !important;
+  font-size: 18px !important;
   cursor: pointer;
   display: flex;
   align-items: center;

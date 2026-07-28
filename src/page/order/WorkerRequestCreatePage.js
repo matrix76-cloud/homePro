@@ -227,13 +227,13 @@ const DisclaimerBox = styled.div`
   padding: 12px 14px;
   background: #FEF3C7;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: #92400E;
   line-height: 1.5;
   strong {
     display: block;
     margin-bottom: 4px;
-    font-size: 13px;
+    font-size: 15px;
     color: #78350F;
   }
 `;
@@ -247,14 +247,14 @@ const Section = styled.div`
 `;
 
 const Label = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 10px;
 `;
 
 const SubLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-bottom: 6px;
 `;
@@ -264,7 +264,7 @@ const CatGroup = styled.div`
 `;
 
 const CatGroupLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.muted};
   margin-bottom: 6px;
@@ -278,7 +278,7 @@ const ChipRow = styled.div`
 
 const Chip = styled.button`
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   border-radius: 16px;
@@ -290,7 +290,7 @@ const Chip = styled.button`
 const Input = styled.input`
   width: 100%;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   background: #fff;
@@ -301,7 +301,7 @@ const Input = styled.input`
 const Textarea = styled.textarea`
   width: 100%;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   background: #fff;
@@ -318,7 +318,7 @@ const RowGroup = styled.div`
 `;
 
 const Unit = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   flex-shrink: 0;
 `;
@@ -326,7 +326,7 @@ const Unit = styled.div`
 const SubmitBtn = styled.button`
   margin: 16px 12px 8px;
   padding: 14px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
   background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
@@ -347,7 +347,7 @@ const Toast = styled.div`
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   border-radius: 20px;
   z-index: 1000;
 `;

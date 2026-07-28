@@ -165,13 +165,13 @@ const PostBadge = styled.div`
   border-radius: 20px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   margin-bottom: 10px;
 `;
 
 const PostTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   line-height: 1.4;
@@ -179,7 +179,7 @@ const PostTitle = styled.div`
 `;
 
 const PostContent = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 6px;
@@ -220,7 +220,7 @@ const ThumbMore = styled.div`
   justify-content: center;
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
 `;
 
@@ -232,7 +232,7 @@ const PostFooter = styled.div`
 `;
 
 const PostDate = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -247,13 +247,13 @@ const MetaItem = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const AuthorName = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 6px;
@@ -267,7 +267,7 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -281,7 +281,7 @@ const WriteBtn = styled.button`
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   box-shadow: 0 4px 12px rgba(37, 113, 227, 0.4);

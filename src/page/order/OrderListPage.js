@@ -165,7 +165,7 @@ const CardAvatar = styled.div`
   border-radius: 50%;
   background: ${THEME.purpleLight};
   color: ${THEME.primary};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -187,7 +187,7 @@ const CardTopInfo = styled.div`
 `;
 
 const CardCustomer = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   display: flex;
@@ -196,7 +196,7 @@ const CardCustomer = styled.div`
 `;
 
 const CardQuote = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -207,7 +207,7 @@ const CardQuoteNum = styled.span`
 `;
 
 const CardTime = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   flex-shrink: 0;
@@ -218,7 +218,7 @@ const CardMiddle = styled.div`
 `;
 
 const CardCatName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
 `;
@@ -232,7 +232,7 @@ const CardSubRow = styled.div`
 `;
 
 const CardSubName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   word-break: keep-all;
@@ -240,7 +240,7 @@ const CardSubName = styled.div`
 `;
 
 const CardMatchBadge = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.purple};
   background: ${THEME.purpleLight};
@@ -253,14 +253,14 @@ const CardLocation = styled.div`
   align-items: center;
   gap: 4px;
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
 `;
 
 const CardDesc = styled.div`
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   line-height: 1.4;
@@ -272,7 +272,7 @@ const CardDesc = styled.div`
 
 const CardPrice = styled.div`
   margin-top: 8px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.primary};
   display: flex;
@@ -309,7 +309,7 @@ const CardActionBtn = styled.button`
   padding: 14px 0;
   border: none;
   background: none;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   color: ${({ $primary }) => ($primary ? THEME.primary : THEME.textSecondary)};
@@ -325,7 +325,7 @@ const LoadMoreBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.surface};
   color: ${THEME.textSecondary};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -361,7 +361,7 @@ const HideToast = styled.div`
   padding: 12px 24px;
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;

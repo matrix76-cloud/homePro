@@ -170,7 +170,7 @@ const TabItem = styled.div`
   align-items: center;
   gap: 6px;
   padding: 14px 16px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 400;
   color: ${({ $active }) => ($active ? THEME.text : THEME.muted)};
   border-bottom: 2px solid ${({ $active }) => ($active ? THEME.primary : "transparent")};
@@ -179,7 +179,7 @@ const TabItem = styled.div`
 `;
 
 const TabCount = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
 `;
@@ -209,19 +209,19 @@ const CardTop = styled.div`
 `;
 
 const CategoryText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const StatusText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${({ $color }) => $color};
 `;
 
 const CardTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   color: ${THEME.text};
   letter-spacing: -0.02em;
@@ -238,7 +238,7 @@ const MetaRow = styled.div`
 `;
 
 const MetaText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
 `;
@@ -252,13 +252,13 @@ const CardBottom = styled.div`
 `;
 
 const DateText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const AmountText = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -285,7 +285,7 @@ const IconCircle = styled.div`
 `;
 
 const EmptyTitle = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 400;
   color: ${THEME.text};
   letter-spacing: -0.03em;
@@ -293,7 +293,7 @@ const EmptyTitle = styled.div`
 `;
 
 const EmptyDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   text-align: center;

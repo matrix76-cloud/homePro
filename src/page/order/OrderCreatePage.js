@@ -2,7 +2,7 @@
 import React, { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../api/config";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -53,14 +53,14 @@ const Section = styled.div`
 `;
 
 const Label = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
 `;
 
 const SubLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   margin-bottom: 8px;
 `;
@@ -74,7 +74,7 @@ const ChipGrid = styled.div`
 const Chip = styled.button`
   padding: 8px 16px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 15px;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -94,7 +94,7 @@ const TextArea = styled.textarea`
   padding: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   resize: vertical;
   outline: none;
@@ -109,7 +109,7 @@ const Input = styled.input`
   padding: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   outline: none;
   &:focus {
@@ -126,7 +126,7 @@ const RadioButton = styled.button`
   flex: 1;
   padding: 14px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;
@@ -140,7 +140,7 @@ const CheckRow = styled.label`
   align-items: center;
   gap: 8px;
   padding: 8px 0;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   cursor: pointer;
 `;
@@ -153,7 +153,7 @@ const SubmitButton = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
@@ -171,7 +171,7 @@ const PreviewHeader = styled.div`
   background: ${THEME.surface};
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -192,7 +192,7 @@ const PreviewSection = styled.div`
   box-shadow: ${THEME.cardShadow};
 `;
 const PreviewSectionLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   margin-bottom: 10px;
@@ -218,13 +218,13 @@ const PreviewRow = styled.div`
 `;
 const PreviewKey = styled.div`
   flex: 0 0 96px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.textSecondary};
 `;
 const PreviewVal = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   word-break: break-word;
   white-space: pre-wrap;
@@ -243,12 +243,12 @@ const PreviewSecondaryBtn = styled.button`
   color: ${THEME.text};
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
   &:active { background: ${THEME.background}; }
-  &:disabled { color: #999; }
+  &:disabled { color: #555; }
 `;
 
 const PhotoGrid = styled.div`
@@ -264,7 +264,7 @@ const PhotoBox = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 26px;
   color: ${THEME.muted};
   cursor: pointer;
   background: ${THEME.surface};
@@ -272,10 +272,62 @@ const PhotoBox = styled.div`
   position: relative;
 `;
 
+/* 아직 채우지 않은 자리 — 클릭 불가, 자리만 잡아주는 박스 */
+const PhotoBoxEmpty = styled.div`
+  aspect-ratio: 1;
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  background: ${THEME.background};
+`;
+
+const PhotoBoxHint = styled.span`
+  font-size: 14px;
+  color: ${THEME.textSecondary};
+`;
+
 const PhotoPreview = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
+`;
+
+/* 업로드 진행률 오버레이 */
+const PhotoUploadOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+`;
+
+const PhotoUploadPct = styled.span`
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+`;
+
+const PhotoUploadTrack = styled.div`
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+`;
+
+const PhotoUploadFill = styled.div`
+  height: 100%;
+  background: #fff;
+  transition: width 0.2s ease;
+`;
+
+const PhotoHint = styled.div`
+  margin-top: 10px;
+  font-size: 14px;
+  color: ${THEME.textSecondary};
 `;
 
 const RemoveBtn = styled.button`
@@ -308,7 +360,7 @@ const AddressRow = styled.div`
 
 const AddressText = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   color: ${({ $hasValue }) => ($hasValue ? THEME.text : THEME.muted)};
 `;
 
@@ -319,7 +371,7 @@ const AddressBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.surface};
   color: ${THEME.primary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;
@@ -341,19 +393,19 @@ const CatAccordionHeader = styled.div`
 
 const CatAccordionLabel = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 
 const CatAccordionSelected = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.primary};
   margin-right: 8px;
 `;
 
 const CatAccordionArrow = styled.span`
-  font-size: 10px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
@@ -378,14 +430,14 @@ const CatChipBtn = styled.button`
   border: 1px solid ${({ $selected }) => $selected ? THEME.primary : THEME.border};
   background: ${({ $selected }) => $selected ? `${THEME.primary}15` : THEME.surface};
   color: ${({ $selected }) => $selected ? THEME.primary : THEME.text};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: ${({ $selected }) => $selected ? 600 : 400};
   cursor: pointer;
   &:active { opacity: 0.7; }
 `;
 
 const CatGroupLabel = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   background: ${THEME.background};
@@ -426,7 +478,7 @@ const CatGridIcon = styled.div`
 `;
 
 const CatGridName = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: ${({ $selected }) => ($selected ? 600 : 400)};
   color: ${({ $selected }) => ($selected ? THEME.primary : THEME.text)};
   text-align: center;
@@ -464,6 +516,13 @@ export const OrderCreateContent = () => {
   const [toast, setToast] = useState("");
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
   const [photos, setPhotos] = useState([]);
+  const [compressing, setCompressing] = useState(false);      // 선택 직후 압축 중
+  const [uploadProgress, setUploadProgress] = useState([]);   // 장별 업로드 진행률(%)
+  const totalPhotoSizeText = (() => {
+    const total = photos.reduce((sum, p) => sum + (p.size || 0), 0);
+    if (!total) return "";
+    return total >= 1024 * 1024 ? `${(total / 1024 / 1024).toFixed(1)}MB` : `${Math.round(total / 1024)}KB`;
+  })();
   const fileInputRef = useRef(null);
   const [addressDetail, setAddressDetail] = useState("");
   const [customInput, setCustomInput] = useState("");
@@ -609,14 +668,19 @@ export const OrderCreateContent = () => {
     if (files.length === 0) return;
     const remaining = MAX_PHOTOS - photos.length;
     const toProcess = files.slice(0, remaining);
-    const newPhotos = await Promise.all(
-      toProcess.map(async (f) => {
-        const blob = await resizeAndCompress(f);
-        return { preview: URL.createObjectURL(blob), blob };
-      })
-    );
-    setPhotos((prev) => [...prev, ...newPhotos]);
     e.target.value = "";
+    setCompressing(true);
+    try {
+      const newPhotos = await Promise.all(
+        toProcess.map(async (f) => {
+          const blob = await resizeAndCompress(f);
+          return { preview: URL.createObjectURL(blob), blob, originalSize: f.size, size: blob.size };
+        })
+      );
+      setPhotos((prev) => [...prev, ...newPhotos]);
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handlePhotoRemove = (idx) => {
@@ -624,6 +688,7 @@ export const OrderCreateContent = () => {
       URL.revokeObjectURL(prev[idx].preview);
       return prev.filter((_, i) => i !== idx);
     });
+    setUploadProgress([]);
   };
 
   const handleSubToggle = (sub) => {
@@ -680,14 +745,25 @@ export const OrderCreateContent = () => {
     if (!window.confirm(confirmMsg)) return;
     setSubmitting(true);
     try {
-      // 사진 업로드 (수정 모드에서 새로 추가한 게 없으면 기존 사진 유지)
+      // 사진 업로드 — 장별 진행률 표시 (형 지시 7/28). 업로드 전 이미 압축된 blob 사용.
+      if (photos.length) setUploadProgress(photos.map(() => 0));
       const uploaded = await Promise.all(
-        photos.map(async (p, i) => {
+        photos.map((p, i) => new Promise((resolve, reject) => {
           const path = `${STORAGE_PATH_PREFIX}/orders/${user?.uid || "anon"}/${Date.now()}_${i}.jpg`;
-          const storageRef = ref(storage, path);
-          await uploadBytes(storageRef, p.blob, { contentType: "image/jpeg" });
-          return getDownloadURL(storageRef);
-        })
+          const task = uploadBytesResumable(ref(storage, path), p.blob, { contentType: "image/jpeg" });
+          task.on(
+            "state_changed",
+            (snap) => {
+              const pct = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
+              setUploadProgress((prev) => { const next = [...prev]; next[i] = pct; return next; });
+            },
+            reject,
+            async () => {
+              setUploadProgress((prev) => { const next = [...prev]; next[i] = 100; return next; });
+              resolve(await getDownloadURL(task.snapshot.ref));
+            },
+          );
+        }))
       );
       const photoURLs = uploaded.length ? uploaded : (isEdit ? (editOrder.photos || []) : []);
 
@@ -1094,17 +1170,42 @@ export const OrderCreateContent = () => {
           <Section>
             <Label>현장사진등록 (선택, 최대 {MAX_PHOTOS}장)</Label>
             <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoAdd} />
+            {/* 4칸을 항상 박스로 채워 보여준다 (형 지시 7/28) — 채워진 칸 / + 추가 칸 / 빈 칸 */}
             <PhotoGrid>
-              {photos.map((p, i) => (
-                <PhotoBox key={i} style={{ position: "relative", padding: 0 }}>
-                  <PhotoPreview src={p.preview} alt={`사진${i + 1}`} />
-                  <RemoveBtn onClick={() => handlePhotoRemove(i)}><IoCloseCircle size={22} color="#fff" /></RemoveBtn>
-                </PhotoBox>
-              ))}
-              {photos.length < MAX_PHOTOS && (
-                <PhotoBox onClick={() => fileInputRef.current?.click()}>+</PhotoBox>
-              )}
+              {Array.from({ length: MAX_PHOTOS }).map((_, i) => {
+                const p = photos[i];
+                if (p) {
+                  const pct = uploadProgress[i];
+                  return (
+                    <PhotoBox key={i} $filled style={{ padding: 0 }}>
+                      <PhotoPreview src={p.preview} alt={`사진${i + 1}`} />
+                      {typeof pct === "number" && pct < 100 && (
+                        <PhotoUploadOverlay>
+                          <PhotoUploadPct>{pct}%</PhotoUploadPct>
+                          <PhotoUploadTrack><PhotoUploadFill style={{ width: `${pct}%` }} /></PhotoUploadTrack>
+                        </PhotoUploadOverlay>
+                      )}
+                      {!submitting && (
+                        <RemoveBtn onClick={() => handlePhotoRemove(i)}><IoCloseCircle size={22} color="#fff" /></RemoveBtn>
+                      )}
+                    </PhotoBox>
+                  );
+                }
+                if (i === photos.length) {
+                  return (
+                    <PhotoBox key={i} onClick={() => !compressing && fileInputRef.current?.click()}>
+                      {compressing ? <PhotoBoxHint>압축 중</PhotoBoxHint> : "+"}
+                    </PhotoBox>
+                  );
+                }
+                return <PhotoBoxEmpty key={i} />;
+              })}
             </PhotoGrid>
+            <PhotoHint>
+              {photos.length > 0
+                ? `${photos.length}/${MAX_PHOTOS}장 · 업로드 시 자동 압축(최대 ${RESIZE_PX}px)${totalPhotoSizeText ? ` · 합계 ${totalPhotoSizeText}` : ""}`
+                : `사진은 업로드할 때 자동으로 압축돼요 (최대 ${RESIZE_PX}px, JPEG)`}
+            </PhotoHint>
           </Section>
 
           {/* 주소 */}
@@ -1147,7 +1248,7 @@ export const OrderCreateContent = () => {
               const wsM = workTimeStart.split(":")[1] || "";
               return (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 13, color: THEME.muted, marginBottom: 6 }}>작업 시작 시각 (10분 단위, 24시간)</div>
+                  <div style={{ fontSize: 15, color: THEME.muted, marginBottom: 6 }}>작업 시작 시각 (10분 단위, 24시간)</div>
                   <TimeSelectRow>
                     <TimeSelect value={wsH} onChange={(e) => setWorkTimeStart(`${e.target.value}:${wsM || "00"}`)}>
                       <option value="" disabled>시</option>
@@ -1171,12 +1272,12 @@ export const OrderCreateContent = () => {
           {/* 연락처 — 접수자(인증된 본인, 자동) + 고객(실무자) */}
           <Section>
             <Label>연락처</Label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 14, color: THEME.text }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 16, color: THEME.text }}>
               <span style={{ color: THEME.success }}>✓</span>
               <span style={{ color: THEME.muted }}>접수자(본인)</span>
               <span style={{ fontWeight: 600 }}>{contactPhone || "인증된 번호"}</span>
             </div>
-            <div style={{ fontSize: 13, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
+            <div style={{ fontSize: 15, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
             <Input type="tel" placeholder="고객 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
           </Section>
 
@@ -1319,7 +1420,7 @@ const NoticeBox = styled.div`
   padding: 16px;
   background: ${THEME.purpleLight};
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.6;
@@ -1327,7 +1428,7 @@ const NoticeBox = styled.div`
 `;
 
 const GroupLabel = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   background: ${THEME.background};
@@ -1351,7 +1452,7 @@ const FieldItem = styled.div`
 `;
 
 const FieldLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -1362,7 +1463,7 @@ const FieldInput = styled.input`
   padding: 10px 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   outline: none;
   &:focus { border-color: ${THEME.primary}; }
@@ -1400,7 +1501,7 @@ const HelpBtn = styled.button`
   border: 1px solid ${THEME.primary};
   background: ${THEME.surface};
   color: ${THEME.primary};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   padding: 0;
@@ -1414,7 +1515,7 @@ const ServiceChangeLink = styled.button`
   border: none;
   background: none;
   color: ${THEME.primary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1433,7 +1534,7 @@ const TimeSelect = styled.select`
   padding: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   background: ${THEME.surface};
   color: ${THEME.text};
@@ -1442,7 +1543,7 @@ const TimeSelect = styled.select`
 `;
 
 const TimeColon = styled.span`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.muted};
 `;
@@ -1469,7 +1570,7 @@ const HelpBox = styled.div`
 `;
 
 const HelpTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 14px;
@@ -1488,14 +1589,14 @@ const HelpItem = styled.div`
 `;
 
 const HelpItemName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.primary};
   margin-bottom: 4px;
 `;
 
 const HelpItemDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary};
   line-height: 1.55;
 `;
@@ -1508,7 +1609,7 @@ const HelpCloseBtn = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -1545,7 +1646,7 @@ const AddressModalHeader = styled.div`
 `;
 
 const AddressModalTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -1553,7 +1654,7 @@ const AddressModalTitle = styled.div`
 const AddressCloseBtn = styled.button`
   border: none;
   background: none;
-  font-size: 20px;
+  font-size: 22px;
   color: ${THEME.muted};
   cursor: pointer;
   padding: 4px;
@@ -1587,7 +1688,7 @@ const PhoneInput = styled.input`
   padding: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   outline: none;
   &:focus {
@@ -1596,8 +1697,8 @@ const PhoneInput = styled.input`
 `;
 
 const DirectDesc = styled.div`
-  font-size: 12px;
-  color: #999;
+  font-size: 14px;
+  color: #555;
   margin-top: 4px;
 `;
 
@@ -1609,7 +1710,7 @@ const OrderToast = styled.div`
   padding: 12px 24px;
   background: #333;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   border-radius: 10px;
   z-index: 9999;

@@ -115,9 +115,9 @@ const ProgressWrap = styled.div`
 `;
 
 const ProgressLabel = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
-    color: #6B7280;
+    color: #3D4653;
     margin-bottom: 6px;
     strong { font-weight: 600; }
 `;

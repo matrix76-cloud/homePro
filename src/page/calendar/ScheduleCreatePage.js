@@ -286,7 +286,7 @@ const Header = styled.div`
   flex-shrink: 0;
 `;
 const HeaderTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -330,7 +330,7 @@ const CalNavBtn = styled.button`
   &:active { opacity: 0.5; }
 `;
 const CalTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -340,7 +340,7 @@ const CalDayHeader = styled.div`
 `;
 const CalDayLabel = styled.div`
   text-align: center;
-  font-size: 12px;
+  font-size: 14px;
   color: ${({ $sun }) => $sun ? "#EF4444" : ({ $sat }) => $sat ? "#3B82F6" : THEME.muted};
   padding: 4px 0;
 `;
@@ -372,21 +372,21 @@ const CalNum = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
   color: ${({ $selected, $sun, $sat }) =>
     $selected ? "#fff" : $sun ? "#EF4444" : $sat ? "#3B82F6" : THEME.text};
   background: ${({ $selected }) => $selected ? THEME.purple : "transparent"};
 `;
 const CalHint = styled.div`
   text-align: center;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-top: 8px;
 `;
 
 const RangeDisplay = styled.div`
   text-align: center;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.primary};
   padding: 10px 0;
@@ -400,7 +400,7 @@ const InputSection = styled.div`
 
 const AddBtn = styled.div`
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.primary};
   padding: 10px 0 4px;
@@ -418,7 +418,7 @@ const Bar = styled.div`
   grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
   background: ${THEME.primary};
   color: #fff;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   padding: 5px 6px;
   border-radius: 4px;
@@ -438,7 +438,7 @@ const Section = styled.div`
   margin-bottom: 10px;
 `;
 const Label = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -448,7 +448,7 @@ const Input = styled.input`
   padding: 12px 14px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   color: ${THEME.text};
   background: ${THEME.surface};
   outline: none;
@@ -471,14 +471,14 @@ const Select = styled.select`
   width: 100%;
   border: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 17px;
   color: ${THEME.text};
   outline: none;
   appearance: none;
   -webkit-appearance: none;
 `;
 const TimeSep = styled.span`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
 `;
 const BottomSpacer = styled.div`
@@ -499,7 +499,7 @@ const CompleteBtn = styled.button`
   border: none;
   background: ${({ disabled }) => disabled ? THEME.border : THEME.purple};
   color: #fff;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 400;
   cursor: ${({ disabled }) => disabled ? "default" : "pointer"};
   &:active { background: ${({ disabled }) => disabled ? THEME.border : THEME.primaryDark}; }

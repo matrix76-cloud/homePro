@@ -140,13 +140,13 @@ const Header = styled.div`
   margin-bottom: 20px;
 `;
 const Title = styled.h1`
-  font-size: 22px;
+  font-size: 24px;
   margin: 0 0 4px;
   color: #1b54b8;
 `;
 const Sub = styled.div`
-  font-size: 13px;
-  color: #888;
+  font-size: 15px;
+  color: #4D4D4D;
 `;
 const UrlBox = styled.div`
   background: #FAFAFA;
@@ -155,7 +155,7 @@ const UrlBox = styled.div`
   margin-bottom: 16px;
 `;
 const UrlLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #555;
   margin-bottom: 6px;
@@ -167,14 +167,14 @@ const UrlRow = styled.div`
 const UrlInput = styled.input`
   flex: 1;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 14px;
   border: 1px solid #DDD;
   border-radius: 6px;
   font-family: monospace;
 `;
 const UrlBtn = styled.button`
   padding: 8px 14px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   background: #2571e3;
   color: #fff;
@@ -183,8 +183,8 @@ const UrlBtn = styled.button`
   cursor: pointer;
 `;
 const Hint = styled.div`
-  font-size: 11px;
-  color: #999;
+  font-size: 13px;
+  color: #555;
   margin-top: 4px;
 `;
 const ErrorBox = styled.div`
@@ -192,11 +192,11 @@ const ErrorBox = styled.div`
   color: #991B1B;
   padding: 10px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
   margin-bottom: 12px;
 `;
 const SectionTitle = styled.h3`
-  font-size: 14px;
+  font-size: 16px;
   color: #444;
   margin: 18px 0 10px;
   padding-bottom: 6px;
@@ -226,7 +226,7 @@ const Card = styled.button`
 `;
 const Tag = styled.div`
   display: inline-block;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   background: ${({ $type }) => ($type === "pro" ? "#2571e3" : $type === "pool" ? "#9CA3AF" : "#3B82F6")};
@@ -235,22 +235,22 @@ const Tag = styled.div`
   margin-bottom: 6px;
 `;
 const Name = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: #222;
   margin-bottom: 2px;
 `;
 const Meta = styled.div`
-  font-size: 11px;
-  color: #666;
+  font-size: 13px;
+  color: #444;
 `;
 const SubMeta = styled.div`
-  font-size: 10px;
-  color: #888;
+  font-size: 13px;
+  color: #4D4D4D;
   margin-top: 2px;
 `;
 const Loading = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   color: #2571e3;
   margin-top: 4px;
 `;

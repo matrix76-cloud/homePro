@@ -39,16 +39,16 @@
 }
 
 .site-mobile-footer .buttonEnableText {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: #191F28;
   margin-top: 3px;
 }
 
 .site-mobile-footer .buttonDisableText {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
-  color: #8B95A1;
+  color: #545E6B;
   margin-top: 3px;
 }
 

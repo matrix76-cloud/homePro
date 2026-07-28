@@ -129,14 +129,14 @@ const TopCard = styled.div`
 `;
 
 const TopTitle = styled.div`
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #fff;
     letter-spacing: -0.03em;
 `;
 
 const TopDesc = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     color: rgba(255,255,255,0.85);
     margin-top: 6px;
     font-weight: 400;
@@ -172,20 +172,20 @@ const ContactInfo = styled.div`
 `;
 
 const ContactLabel = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
     font-weight: 400;
 `;
 
 const ContactValue = styled.div`
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 400;
     color: ${THEME.text};
     margin-top: 2px;
 `;
 
 const ContactSub = styled.div`
-    font-size: 11px;
+    font-size: 13px;
     color: ${THEME.muted};
     font-weight: 400;
     flex-shrink: 0;
@@ -205,7 +205,7 @@ const FaqSection = styled.div`
 `;
 
 const FaqTitle = styled.div`
-    font-size: 17px;
+    font-size: 19px;
     font-weight: 700;
     color: ${THEME.text};
     padding: 20px 20px 12px;
@@ -227,7 +227,7 @@ const FaqRow = styled.div`
 
 const FaqQ = styled.div`
     flex: 1;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     color: ${THEME.text};
     line-height: 1.4;
@@ -246,14 +246,14 @@ const FaqBadge = styled.span`
     border-radius: 6px;
     background: ${THEME.primary};
     color: #fff;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     flex-shrink: 0;
 `;
 
 const FaqA = styled.div`
     padding: 0 20px 16px 50px;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.textSecondary};
     line-height: 1.7;
     word-break: keep-all;

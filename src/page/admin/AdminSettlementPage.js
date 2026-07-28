@@ -9,10 +9,10 @@ import { IoSearchOutline, IoDownloadOutline } from "react-icons/io5";
 
 const Page = styled.div``;
 const Header = styled.div`display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;`;
-const Title = styled.h2`font-size:20px;font-weight:700;color:${THEME.text};margin:0;`;
+const Title = styled.h2`font-size:22px;font-weight:700;color:${THEME.text};margin:0;`;
 const HeaderRight = styled.div`display:flex;gap:8px;`;
 const Btn = styled.button`
-    padding:8px 16px;border:none;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;
+    padding:8px 16px;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer;
     background:${p => p.$danger ? THEME.danger : p.$outline ? '#fff' : THEME.primary};
     color:${p => p.$outline ? THEME.primary : '#fff'};
     border:${p => p.$outline ? `1px solid ${THEME.primary}` : 'none'};
@@ -21,37 +21,37 @@ const Btn = styled.button`
 
 const Tabs = styled.div`display:flex;gap:0;border-bottom:1px solid ${THEME.border};margin-bottom:16px;`;
 const Tab = styled.button`
-    padding:10px 18px;border:none;background:none;font-size:14px;cursor:pointer;
+    padding:10px 18px;border:none;background:none;font-size:16px;cursor:pointer;
     color:${p => p.$active ? THEME.primary : THEME.muted};font-weight:${p => p.$active ? 600 : 400};
     border-bottom:${p => p.$active ? `2px solid ${THEME.primary}` : '2px solid transparent'};
 `;
 const TabCount = styled.span`
-    margin-left:4px;font-size:11px;background:${p => p.$active ? THEME.primary : THEME.border};
+    margin-left:4px;font-size:13px;background:${p => p.$active ? THEME.primary : THEME.border};
     color:${p => p.$active ? '#fff' : THEME.muted};padding:1px 6px;border-radius:10px;
 `;
 
 const SearchRow = styled.div`display:flex;align-items:center;gap:12px;margin-bottom:16px;`;
 const SearchWrap = styled.div`position:relative;flex:1;max-width:320px;`;
-const SearchIcon = styled(IoSearchOutline)`position:absolute;left:10px;top:50%;transform:translateY(-50%);color:${THEME.muted};font-size:16px;`;
+const SearchIcon = styled(IoSearchOutline)`position:absolute;left:10px;top:50%;transform:translateY(-50%);color:${THEME.muted};font-size:18px;`;
 const SearchInput = styled.input`
-    width:100%;padding:9px 12px 9px 34px;border:1px solid ${THEME.border};border-radius:4px;font-size:13px;outline:none;
+    width:100%;padding:9px 12px 9px 34px;border:1px solid ${THEME.border};border-radius:4px;font-size:15px;outline:none;
     &:focus{border-color:${THEME.primary};}
 `;
 
 const Card = styled.div`background:#fff;border-radius:4px;overflow:hidden;box-shadow:${THEME.cardShadow};`;
 const Table = styled.table`width:100%;border-collapse:collapse;`;
 const Th = styled.th`
-    padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:${THEME.muted};
+    padding:10px 12px;text-align:left;font-size:14px;font-weight:600;color:${THEME.muted};
     background:${THEME.background};border-bottom:1px solid ${THEME.border};
     &:last-child{text-align:center;}
 `;
 const Td = styled.td`
-    padding:10px 12px;font-size:13px;color:${THEME.text};border-bottom:1px solid ${THEME.border};
+    padding:10px 12px;font-size:15px;color:${THEME.text};border-bottom:1px solid ${THEME.border};
     &:last-child{text-align:center;}
 `;
 const Tr = styled.tr`&:hover{background:#F8FAFC;}cursor:pointer;`;
 const Badge = styled.span`
-    display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;
+    display:inline-block;padding:2px 8px;border-radius:10px;font-size:13px;font-weight:600;
     background:${p => p.$bg || THEME.background};color:${p => p.$color || THEME.text};
 `;
 const AmountCell = styled.span`font-weight:600;color:${THEME.text};`;
@@ -61,15 +61,15 @@ const Overlay = styled.div`
     display:flex;align-items:center;justify-content:center;z-index:1000;
 `;
 const Modal = styled.div`background:#fff;border-radius:4px;width:520px;max-height:85vh;overflow-y:auto;padding:28px;`;
-const ModalTitle = styled.h3`font-size:17px;font-weight:700;color:${THEME.text};margin:0 0 20px;`;
+const ModalTitle = styled.h3`font-size:19px;font-weight:700;color:${THEME.text};margin:0 0 20px;`;
 const Row = styled.div`margin-bottom:14px;`;
-const Label = styled.label`display:block;font-size:12px;font-weight:600;color:${THEME.muted};margin-bottom:4px;`;
+const Label = styled.label`display:block;font-size:14px;font-weight:600;color:${THEME.muted};margin-bottom:4px;`;
 const Input = styled.input`
-    width:100%;padding:9px 12px;border:1px solid ${THEME.border};border-radius:4px;font-size:13px;outline:none;
+    width:100%;padding:9px 12px;border:1px solid ${THEME.border};border-radius:4px;font-size:15px;outline:none;
     &:focus{border-color:${THEME.primary};}
 `;
 const Select = styled.select`
-    width:100%;padding:9px 12px;border:1px solid ${THEME.border};border-radius:4px;font-size:13px;outline:none;
+    width:100%;padding:9px 12px;border:1px solid ${THEME.border};border-radius:4px;font-size:15px;outline:none;
 `;
 const ModalBtns = styled.div`display:flex;gap:8px;justify-content:flex-end;margin-top:20px;`;
 
@@ -79,19 +79,19 @@ const SummaryRow = styled.div`
 const SummaryCard = styled.div`
     background:#fff;border-radius:4px;padding:16px;box-shadow:${THEME.cardShadow};
 `;
-const SummaryLabel = styled.div`font-size:12px;color:${THEME.muted};margin-bottom:4px;`;
-const SummaryValue = styled.div`font-size:20px;font-weight:700;color:${p => p.$color || THEME.text};`;
+const SummaryLabel = styled.div`font-size:14px;color:${THEME.muted};margin-bottom:4px;`;
+const SummaryValue = styled.div`font-size:22px;font-weight:700;color:${p => p.$color || THEME.text};`;
 
 const PageNav = styled.div`display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;`;
 const PageBtn = styled.button`
     padding:6px 14px;border:1px solid ${THEME.border};border-radius:4px;background:#fff;
-    font-size:13px;cursor:pointer;color:${THEME.text};
+    font-size:15px;cursor:pointer;color:${THEME.text};
     &:disabled{opacity:0.4;cursor:default;}
 `;
-const PageInfo = styled.span`font-size:13px;color:${THEME.muted};`;
+const PageInfo = styled.span`font-size:15px;color:${THEME.muted};`;
 
-const Empty = styled.div`padding:40px;text-align:center;color:${THEME.muted};font-size:14px;`;
-const Loading = styled.div`padding:60px;text-align:center;color:${THEME.muted};font-size:14px;`;
+const Empty = styled.div`padding:40px;text-align:center;color:${THEME.muted};font-size:16px;`;
+const Loading = styled.div`padding:60px;text-align:center;color:${THEME.muted};font-size:16px;`;
 
 const STATUS_MAP = {
     pending: { label: "대기", bg: "#FEF3C7", color: "#D97706" },
@@ -263,7 +263,7 @@ const AdminSettlementPage = () => {
                                         <Select
                                             value={it.status}
                                             onChange={e => handleStatusChange(it, e.target.value)}
-                                            style={{ padding: "4px 8px", fontSize: "12px", width: "auto" }}
+                                            style={{ padding: "4px 8px", fontSize: "14px", width: "auto" }}
                                         >
                                             <option value="pending">대기</option>
                                             <option value="approved">승인</option>
@@ -291,12 +291,12 @@ const AdminSettlementPage = () => {
                 <Overlay onClick={() => setModal(null)}>
                     <Modal onClick={e => e.stopPropagation()}>
                         <ModalTitle>정산 상세</ModalTitle>
-                        <Row><Label>정산 ID</Label><div style={{ fontSize: 13, fontFamily: "monospace" }}>{selected.id}</div></Row>
-                        <Row><Label>프로 UID</Label><div style={{ fontSize: 13 }}>{selected.proUid || "-"}</div></Row>
-                        <Row><Label>프로명</Label><div style={{ fontSize: 13 }}>{selected.proName || "-"}</div></Row>
-                        <Row><Label>금액</Label><div style={{ fontSize: 16, fontWeight: 700 }}>{(selected.amount || 0).toLocaleString()}원</div></Row>
-                        <Row><Label>정산방법</Label><div style={{ fontSize: 13 }}>{selected.method || "-"}</div></Row>
-                        <Row><Label>비고</Label><div style={{ fontSize: 13 }}>{selected.note || "-"}</div></Row>
+                        <Row><Label>정산 ID</Label><div style={{ fontSize: 15, fontFamily: "monospace" }}>{selected.id}</div></Row>
+                        <Row><Label>프로 UID</Label><div style={{ fontSize: 15 }}>{selected.proUid || "-"}</div></Row>
+                        <Row><Label>프로명</Label><div style={{ fontSize: 15 }}>{selected.proName || "-"}</div></Row>
+                        <Row><Label>금액</Label><div style={{ fontSize: 18, fontWeight: 700 }}>{(selected.amount || 0).toLocaleString()}원</div></Row>
+                        <Row><Label>정산방법</Label><div style={{ fontSize: 15 }}>{selected.method || "-"}</div></Row>
+                        <Row><Label>비고</Label><div style={{ fontSize: 15 }}>{selected.note || "-"}</div></Row>
                         <Row><Label>상태</Label>
                             <Select value={selected.status} onChange={e => {
                                 handleStatusChange(selected, e.target.value);
@@ -308,8 +308,8 @@ const AdminSettlementPage = () => {
                                 <option value="rejected">거절</option>
                             </Select>
                         </Row>
-                        <Row><Label>요청일</Label><div style={{ fontSize: 13 }}>{formatDate(selected.createdAt)}</div></Row>
-                        <Row><Label>완료일</Label><div style={{ fontSize: 13 }}>{formatDate(selected.completedAt)}</div></Row>
+                        <Row><Label>요청일</Label><div style={{ fontSize: 15 }}>{formatDate(selected.createdAt)}</div></Row>
+                        <Row><Label>완료일</Label><div style={{ fontSize: 15 }}>{formatDate(selected.completedAt)}</div></Row>
                         <ModalBtns>
                             <Btn $outline onClick={() => setModal(null)}>닫기</Btn>
                         </ModalBtns>

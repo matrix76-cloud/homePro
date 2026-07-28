@@ -352,8 +352,8 @@ const AdminDashboardPage = () => {
                         <ResponsiveContainer width="100%" height={200}>
                             <AreaChart data={emptyChartData.users} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <XAxis dataKey="name" tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
                                 <Tooltip content={countTooltip} />
                                 <Area type="monotone" dataKey="value" stroke="#2563EB" fill="#DBEAFE" strokeWidth={2} />
                             </AreaChart>
@@ -370,8 +370,8 @@ const AdminDashboardPage = () => {
                         <ResponsiveContainer width="100%" height={200}>
                             <BarChart data={emptyChartData.orders} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <XAxis dataKey="name" tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
                                 <Tooltip content={countTooltip} />
                                 <Bar dataKey="value" fill="#1B4D7A" radius={[4, 4, 0, 0]} barSize={28} />
                             </BarChart>
@@ -388,8 +388,8 @@ const AdminDashboardPage = () => {
                         <ResponsiveContainer width="100%" height={200}>
                             <AreaChart data={emptyChartData.revenue} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false}
+                                <XAxis dataKey="name" tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false}
                                     tickFormatter={(v) => v >= 10000 ? `${(v / 10000).toFixed(0)}만` : v.toLocaleString()} />
                                 <Tooltip content={revenueTooltip} />
                                 <Area type="monotone" dataKey="value" stroke="#059669" fill="#D1FAE5" strokeWidth={2} />
@@ -467,7 +467,7 @@ const Wrap = styled.div``;
 
 const LoadingWrap = styled.div`
     display: flex; align-items: center; justify-content: center;
-    height: 50vh; font-size: 14px; color: ${THEME.muted};
+    height: 50vh; font-size: 16px; color: ${THEME.muted};
 `;
 
 // ── 통계 카드 ──
@@ -488,7 +488,7 @@ const StatCard = styled.div`
 `;
 
 const StatLabel = styled.div`
-    font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 700;
+    font-size: 15px; color: rgba(255,255,255,0.85); font-weight: 700;
     margin-bottom: 10px; white-space: nowrap;
 `;
 
@@ -497,11 +497,11 @@ const StatValueRow = styled.div`
 `;
 
 const StatValue = styled.span`
-    font-size: 24px; font-weight: 700; color: #fff; line-height: 1.2;
+    font-size: 26px; font-weight: 700; color: #fff; line-height: 1.2;
 `;
 
 const StatUnit = styled.span`
-    font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55);
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.55);
 `;
 
 // ── 차트 ──
@@ -525,11 +525,11 @@ const ChartHeader = styled.div`
 `;
 
 const ChartTitle = styled.h3`
-    font-size: 14px; font-weight: 700; color: ${THEME.text}; margin: 0;
+    font-size: 16px; font-weight: 700; color: ${THEME.text}; margin: 0;
 `;
 
 const ChartSub = styled.span`
-    font-size: 12px; color: ${THEME.muted};
+    font-size: 14px; color: ${THEME.muted};
 `;
 
 const ChartBody = styled.div`
@@ -538,7 +538,7 @@ const ChartBody = styled.div`
 
 const ChartTooltipBox = styled.div`
     background: #1E293B; color: #fff; padding: 8px 12px;
-    border-radius: 4px; font-size: 12px; line-height: 1.5;
+    border-radius: 4px; font-size: 14px; line-height: 1.5;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 `;
 
@@ -563,43 +563,43 @@ const TableHeader = styled.div`
 `;
 
 const TableTitle = styled.h3`
-    font-size: 15px; font-weight: 700; color: ${THEME.text}; margin: 0;
+    font-size: 17px; font-weight: 700; color: ${THEME.text}; margin: 0;
 `;
 
 const MoreLink = styled.button`
     display: flex; align-items: center; gap: 4px;
-    font-size: 13px; color: ${THEME.primary}; font-weight: 500;
+    font-size: 15px; color: ${THEME.primary}; font-weight: 500;
     background: none; border: none; cursor: pointer; padding: 0;
     &:hover { opacity: 0.8; }
 `;
 
 const TableBody = styled.div`overflow-x: auto;`;
 
-const Table = styled.table`width: 100%; border-collapse: collapse; font-size: 13px;`;
+const Table = styled.table`width: 100%; border-collapse: collapse; font-size: 15px;`;
 
 const Th = styled.th`
     text-align: left; padding: 10px 16px;
     background: ${THEME.background}; color: ${THEME.muted};
-    font-weight: 600; font-size: 12px; white-space: nowrap;
+    font-weight: 600; font-size: 14px; white-space: nowrap;
     border-bottom: 1px solid ${THEME.border};
 `;
 
 const Td = styled.td`
     padding: 10px 16px; color: ${THEME.text};
     border-bottom: 1px solid ${THEME.border};
-    white-space: nowrap; font-size: 13px;
+    white-space: nowrap; font-size: 15px;
 `;
 
 const EmptyText = styled.div`
-    text-align: center; color: ${THEME.muted}; padding: 20px 0; font-size: 13px;
+    text-align: center; color: ${THEME.muted}; padding: 20px 0; font-size: 15px;
 `;
 
 const UserName = styled.span`font-weight: 600;`;
-const OrderId = styled.span`font-family: monospace; font-size: 12px; color: ${THEME.muted};`;
+const OrderId = styled.span`font-family: monospace; font-size: 14px; color: ${THEME.muted};`;
 
 const RoleBadge = styled.span`
     display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-weight: 600;
+    font-size: 13px; font-weight: 600;
     color: ${p => p.$pro ? "#D97706" : THEME.primary};
     background: ${p => p.$pro ? "#FFFBEB" : "#EFF6FF"};
 `;
@@ -611,6 +611,6 @@ const ProviderDot = styled.span`
 
 const StatusBadge = styled.span`
     display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-weight: 600;
+    font-size: 13px; font-weight: 600;
     color: ${p => p.$color}; background: ${p => `${p.$color}14`};
 `;

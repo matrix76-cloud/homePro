@@ -40,8 +40,12 @@ function getAuthInstance() {
     return getAuth(firebaseApp);
 }
 
+// Cloud Functions 는 asia-northeast3 에 배포돼 있다. 리전을 빼면 SDK 기본값(us-central1)로
+// 호출돼 404 가 나면서 카카오 로그인이 통째로 실패한다. (형 지시 7/28 — 리전 불일치 수정)
+const FUNCTIONS_REGION = "asia-northeast3";
+
 function getFns() {
-    return getFunctions(firebaseApp);
+    return getFunctions(firebaseApp, FUNCTIONS_REGION);
 }
 
 async function ensureUserDoc({ uid, email, provider }) {

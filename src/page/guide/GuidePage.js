@@ -114,7 +114,7 @@ const Hero = styled.div`
 `;
 
 const HeroTitle = styled.h1`
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: ${THEME.text};
   line-height: 1.4;
@@ -126,7 +126,7 @@ const Empty = styled.div`
   padding: 60px 0;
   text-align: center;
   color: ${THEME.textSecondary};
-  font-size: 15px;
+  font-size: 17px;
 `;
 
 const Timeline = styled.div`
@@ -153,7 +153,7 @@ const StepNum = styled.div`
   border-radius: 50%;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -174,7 +174,7 @@ const StepContent = styled.div`
 `;
 
 const StepTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 6px;
@@ -182,7 +182,7 @@ const StepTitle = styled.div`
 `;
 
 const StepDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   line-height: 1.6;

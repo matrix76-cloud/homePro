@@ -171,7 +171,7 @@ const CenterMsg = styled.div`
   padding: 60px 20px;
   text-align: center;
   color: ${THEME.muted};
-  font-size: 14px;
+  font-size: 16px;
 `;
 const InfoBox = styled.div`
   margin: 8px 12px;
@@ -180,13 +180,13 @@ const InfoBox = styled.div`
   border-radius: 12px;
 `;
 const InfoTitle = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.primary};
   margin-bottom: 6px;
 `;
 const InfoText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.textSecondary || THEME.text};
   line-height: 1.6;
 `;
@@ -198,7 +198,7 @@ const Card = styled.div`
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 `;
 const SectionLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.textSecondary || THEME.muted};
   margin-bottom: 10px;
@@ -214,13 +214,13 @@ const CurrentAddrBox = styled.div`
   line-height: 1.5;
 `;
 const UpdatedAt = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-top: 8px;
 `;
 const EmptyText = styled.div`
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   padding: 8px 0;
 `;
@@ -235,7 +235,7 @@ const AddrInput = styled.input`
   border: 1px solid ${THEME.border};
   border-radius: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
+  font-size: 15px;
   outline: none;
   box-sizing: border-box;
   &:focus { border-color: ${THEME.primary}; }
@@ -249,7 +249,7 @@ const ClearBtn = styled.button`
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -258,7 +258,7 @@ const ClearBtn = styled.button`
   line-height: 1;
 `;
 const Hint = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-top: 6px;
   line-height: 1.5;
@@ -271,7 +271,7 @@ const SaveBtn = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   &:active { background: ${THEME.primaryDark}; }
@@ -282,7 +282,7 @@ const CautionBox = styled.div`
   padding: 14px 16px;
   background: #FEF3C7;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 14px;
   color: #78350F;
   line-height: 1.7;
 `;
@@ -299,7 +299,7 @@ const Toast = styled.div`
   padding: 12px 24px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   border-radius: 10px;
   z-index: 9999;
 `;

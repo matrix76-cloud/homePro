@@ -85,24 +85,24 @@ const Wrap = styled.div`
     padding: 20px 16px 60px;
 `;
 const Title = styled.h1`
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 400;
     color: ${THEME.text};
     margin: 0 0 4px;
 `;
 const Date = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     margin-bottom: 28px;
 `;
 const H2 = styled.h2`
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 400;
     color: ${THEME.text};
     margin: 24px 0 8px;
 `;
 const P = styled.p`
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.textSecondary};
     line-height: 1.7;
     margin: 4px 0;

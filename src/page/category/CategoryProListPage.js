@@ -211,14 +211,14 @@ const CatInfo = styled.div`
 `;
 
 const CatName = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
 
 const CatDesc = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 4px;
@@ -237,7 +237,7 @@ const FilterBar = styled.div`
 `;
 
 const ServiceCount = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -251,7 +251,7 @@ const SortBtn = styled.button`
   padding: 5px 10px;
   border-radius: 20px;
   border: none;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   font-family: inherit;
   background: ${({ $active }) => ($active ? THEME.primary : "transparent")};
@@ -294,7 +294,7 @@ const PhotoBadge = styled.div`
   padding: 4px 10px;
   border-radius: 20px;
   background: rgba(255,255,255,0.7);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: rgba(0,0,0,0.5);
 `;
@@ -323,13 +323,13 @@ const ProInfo = styled.div`
 `;
 
 const ProName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.text};
 `;
 
 const ProMeta = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 1px;
@@ -343,19 +343,19 @@ const RatingWrap = styled.div`
 `;
 
 const RatingText = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.text};
 `;
 
 const ReviewCount = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
 
 const ServiceTitle = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.02em;
@@ -363,7 +363,7 @@ const ServiceTitle = styled.div`
 `;
 
 const ServiceDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 6px;
@@ -384,7 +384,7 @@ const TagRow = styled.div`
 const Tag = styled.span`
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
@@ -400,7 +400,7 @@ const BottomRow = styled.div`
 `;
 
 const PriceText = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.primary};
 `;
@@ -409,7 +409,7 @@ const DetailBtn = styled.div`
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
 `;
@@ -429,14 +429,14 @@ const EmptyIcon = styled.div`
 `;
 
 const EmptyTitle = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
 `;
 
 const EmptyDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 8px;
@@ -449,7 +449,7 @@ const HeaderReqBtn = styled.button`
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;

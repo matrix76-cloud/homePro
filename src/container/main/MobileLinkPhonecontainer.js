@@ -3,9 +3,15 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { linkPhoneToUid, getUserByPhone, linkSocialToExistingUser, linkEmailToExistingUser, initUserDoc } from "../../service/UserProfileService";
+import { initUserDoc } from "../../service/UserProfileService";
 import { getLastSocialProvider } from "../../service/AuthService";
-import { toE164KR, genOtp6, sendOtpViaProxy, formatKRPhone as formatKR } from "../../service/recoveryService";
+import {
+    toE164KR,
+    requestPhoneCode,
+    verifyPhoneCode,
+    linkPhoneToAccount,
+    phoneAuthErrorMessage,
+} from "../../service/recoveryService";
 import { UserContext } from "../../context/User";
 import { THEME } from "../../config/homeproConfig";
 
@@ -41,16 +47,14 @@ export default function MobileLinkPhonecontainer() {
 
     const [phone, setPhone] = useState("");
     const [codeInput, setCodeInput] = useState("");
-    const [devCode, setDevCode] = useState("");
-    const [sentOtp, setSentOtp] = useState("");
     const [sentToE164, setSentToE164] = useState("");
     const [codeSent, setCodeSent] = useState(false);
     const [phoneVerified, setPhoneVerified] = useState(false);
+    const [verificationToken, setVerificationToken] = useState(""); // 서버 인증 완료 증표
     const [secondsLeft, setSecondsLeft] = useState(0);
     const [otpBusy, setOtpBusy] = useState(false);
 
     const digits = useMemo(() => onlyDigits(phone), [phone]);
-    const isDev = useMemo(() => inTestRange(digits), [digits]);
 
     useEffect(() => {
         if (!currentUser?.uid) {
@@ -60,11 +64,10 @@ export default function MobileLinkPhonecontainer() {
 
     const resetOtpState = () => {
         setCodeInput("");
-        setDevCode("");
-        setSentOtp("");
         setSentToE164("");
         setCodeSent(false);
         setPhoneVerified(false);
+        setVerificationToken("");
         setSecondsLeft(0);
     };
 
@@ -89,46 +92,30 @@ export default function MobileLinkPhonecontainer() {
         return codeSent && !phoneVerified && codeInput.trim().length === 6 && !otpBusy && !busy;
     }, [codeSent, phoneVerified, codeInput, otpBusy, busy]);
 
+    // 인증번호 요청 — 코드 생성·발송은 서버가 한다
     const handleSendOtp = async () => {
         if (!canSendOtp) return;
-
         setOtpBusy(true);
         try {
-            const otp = genOtp6();
             const e164 = toE164KR(phone);
-
+            const res = await requestPhoneCode(e164);
             setSentToE164(e164);
             setCodeSent(true);
             setPhoneVerified(false);
+            setVerificationToken("");
             setCodeInput("");
-            setSecondsLeft(60);
-            setSentOtp(otp);
-
-            if (isDev) {
-                setDevCode(otp);
-                return;
-            }
-
-            setDevCode("");
-
-            try {
-                await sendOtpViaProxy({ phone: onlyDigits(phone), authcode: otp });
-                window.alert("인증번호를 전송했습니다. 문자 메시지를 확인해 주세요.");
-            } catch (err) {
-                window.alert(`인증 코드를 전송하지 못했습니다. ${err.message}`);
-                resetOtpState();
-            }
-        } catch (e) {
-            window.alert("코드 전송 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
-            resetOtpState();
+            setSecondsLeft(res?.resendAfterSec || 30);
+            window.alert("인증번호를 전송했습니다. 문자 메시지를 확인해 주세요.");
+        } catch (err) {
+            window.alert(phoneAuthErrorMessage(err));
         } finally {
             setOtpBusy(false);
         }
     };
 
+    // 인증번호 검증 — 대조도 서버가 한다. 성공 시 짧은 수명의 토큰을 받는다.
     const handleVerifyOtp = async () => {
         if (!canVerifyOtp) return;
-
         setOtpBusy(true);
         try {
             if (!sentToE164 || toE164KR(phone) !== sentToE164) {
@@ -136,16 +123,12 @@ export default function MobileLinkPhonecontainer() {
                 resetOtpState();
                 return;
             }
-
-            const expected = String(sentOtp || devCode || "").trim();
-            const got = String(codeInput || "").trim();
-            if (!expected || got !== expected) {
-                window.alert("인증번호가 올바르지 않습니다.");
-                return;
-            }
-
+            const res = await verifyPhoneCode(sentToE164, codeInput.trim());
+            setVerificationToken(res?.verificationToken || "");
             setPhoneVerified(true);
             window.alert("전화번호 인증이 완료되었습니다.");
+        } catch (err) {
+            window.alert(phoneAuthErrorMessage(err));
         } finally {
             setOtpBusy(false);
         }
@@ -154,66 +137,45 @@ export default function MobileLinkPhonecontainer() {
     const handleComplete = async () => {
         if (!uid) return;
 
-        // 전화번호 인증(OTP) 우선 생략 — 입력값 유효성만 확인
-        if (digits.length !== 10 && digits.length !== 11) {
-            window.alert("전화번호를 정확히 입력해주세요.");
+        // 인증을 통과해야만 진행. (이전엔 자릿수만 맞으면 통과해서
+        //  남의 번호 입력만으로 그 계정에 붙는 경로가 있었다)
+        if (!phoneVerified || !verificationToken) {
+            window.alert("전화번호 인증을 먼저 완료해주세요.");
             return;
         }
 
-        const phoneE164 = toE164KR(phone);
+        const phoneE164 = sentToE164 || toE164KR(phone);
         if (!phoneE164) return;
 
         if (busy) return;
         setBusy(true);
         try {
-            // 기존 사용자가 같은 전화번호로 이미 가입했는지 확인
-            const existingUser = await getUserByPhone(phoneE164);
+            const provider = getLastSocialProvider() || currentUser?.providerData?.[0]?.providerId || "";
+            try {
+                await initUserDoc({ uid, email: currentUser?.email || "", provider });
+            } catch (e) { /* 이미 있으면 무시 */ }
 
-            if (existingUser && existingUser.uid !== uid) {
-                // 기존 사용자 발견 → 현재 계정을 기존 사용자에 연결
-                const provider = getLastSocialProvider() || currentUser?.providerData?.[0]?.providerId || "";
-                const normalizedProvider = (provider || "").replace(".com", "").toLowerCase();
+            // 전화번호 연결 + 기존 계정 통합을 서버가 처리 (인증 토큰 검사 포함)
+            const result = await linkPhoneToAccount({
+                phone: phoneE164,
+                verificationToken,
+                provider: (provider || "").replace(".com", "").toLowerCase(),
+            });
 
-                if (normalizedProvider === "email" || normalizedProvider === "password") {
-                    await linkEmailToExistingUser({
-                        existingUid: existingUser.uid,
-                        emailUid: uid,
-                    });
-                } else {
-                    await linkSocialToExistingUser({
-                        existingUid: existingUser.uid,
-                        socialUid: uid,
-                        provider,
-                    });
-                }
-                await linkPhoneToUid({ uid: existingUser.uid, phoneE164 });
+            const resolvedPrimaryUid = result?.primaryUid || uid;
+            dispatch({ primaryUid: resolvedPrimaryUid });
+            try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
 
-                const resolvedPrimaryUid = existingUser.uid;
-                dispatch({ primaryUid: resolvedPrimaryUid });
-                try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
-
-                await refreshUser();
+            await refreshUser();
+            if (result?.merged) {
+                window.alert("같은 번호로 가입된 계정이 있어 하나로 연결했습니다.");
                 nav("/MobileMain", { replace: true });
             } else {
-                // 신규 또는 본인 → 전화번호 연결
-                if (!existingUser) {
-                    // 신규 사용자일 수 있으므로 initUserDoc 호출
-                    const provider = getLastSocialProvider() || currentUser?.providerData?.[0]?.providerId || "";
-                    await initUserDoc({ uid, email: currentUser?.email || "", provider });
-                }
-
-                const result = await linkPhoneToUid({ uid, phoneE164, provider: "link" });
-                const resolvedPrimaryUid = result?.primaryUid || uid;
-
-                dispatch({ primaryUid: resolvedPrimaryUid });
-                try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
-
-                await refreshUser();
                 nav("/ReferralInput", { replace: true });
             }
         } catch (e) {
-            console.error("[LinkPhone] 전화번호 저장 실패:", e?.code, e?.message, e);
-            window.alert("전화번호 저장에 실패했습니다. 다시 시도해주세요.");
+            console.error("[LinkPhone] 전화번호 연결 실패:", e?.code, e?.message, e);
+            window.alert(phoneAuthErrorMessage(e));
         } finally {
             setBusy(false);
         }
@@ -231,20 +193,57 @@ export default function MobileLinkPhonecontainer() {
                         <RequiredMark>*</RequiredMark>
                     </LabelRow>
 
-                    <Input
-                        id="phone"
-                        type="tel"
-                        inputMode="numeric"
-                        autoComplete="tel"
-                        placeholder="010-1234-5678"
-                        value={phone}
-                        onChange={(e) => handlePhoneChange(e.target.value)}
-                        disabled={busy}
-                    />
+                    <InlineRow>
+                        <Input
+                            id="phone"
+                            type="tel"
+                            inputMode="numeric"
+                            autoComplete="tel"
+                            placeholder="010-1234-5678"
+                            value={phone}
+                            onChange={(e) => handlePhoneChange(e.target.value)}
+                            disabled={busy || phoneVerified}
+                        />
+                        <SmallBtn type="button" onClick={handleSendOtp} disabled={!canSendOtp || phoneVerified}>
+                            {otpBusy && !codeSent ? "전송중..."
+                                : secondsLeft > 0 ? `재전송 (${secondsLeft}s)`
+                                : codeSent ? "재전송" : "인증번호 전송"}
+                        </SmallBtn>
+                    </InlineRow>
+                    <HelperText>본인 명의의 휴대폰 번호를 입력해주세요.</HelperText>
                 </Field>
 
+                {/* 인증번호 입력 — 서버가 발급하고 서버가 대조한다 */}
+                {codeSent && !phoneVerified && (
+                    <Field>
+                        <LabelRow>
+                            <Label htmlFor="otp">인증번호</Label>
+                            <RequiredMark>*</RequiredMark>
+                        </LabelRow>
+                        <InlineRow>
+                            <Input
+                                id="otp"
+                                type="tel"
+                                inputMode="numeric"
+                                placeholder="인증번호 6자리"
+                                value={codeInput}
+                                onChange={(e) => setCodeInput(onlyDigits(e.target.value).slice(0, 6))}
+                                disabled={busy || otpBusy}
+                            />
+                            <SmallBtn type="button" onClick={handleVerifyOtp} disabled={!canVerifyOtp}>
+                                {otpBusy ? "확인중..." : "확인"}
+                            </SmallBtn>
+                        </InlineRow>
+                        <HelperText>문자로 받은 인증번호를 입력해주세요. (3분 이내)</HelperText>
+                    </Field>
+                )}
+
+                {phoneVerified && (
+                    <VerifiedPill>전화번호 인증이 완료되었습니다.</VerifiedPill>
+                )}
+
                 <BtnRow>
-                    <PrimaryBtn type="button" onClick={handleComplete} disabled={busy}>
+                    <PrimaryBtn type="button" onClick={handleComplete} disabled={busy || !phoneVerified}>
                         {busy ? "처리중..." : "확인 완료"}
                     </PrimaryBtn>
 
@@ -282,7 +281,7 @@ const Card = styled.div`
 `;
 
 const Title = styled.div`
-  font-size: 22px !important;
+  font-size: 24px !important;
   font-weight: 400;
   letter-spacing: -0.04em;
   color: rgba(17, 24, 39, 0.92);
@@ -290,7 +289,7 @@ const Title = styled.div`
 
 const Desc = styled.div`
   margin-top: 6px;
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 400;
   letter-spacing: -0.02em;
   color: rgba(17, 24, 39, 0.55);
@@ -309,14 +308,14 @@ const LabelRow = styled.div`
 `;
 
 const Label = styled.label`
-  font-size: 14px !important;
+  font-size: 16px !important;
   color: rgba(17, 24, 39, 0.92);
   font-weight: 400;
 `;
 
 const RequiredMark = styled.span`
   color: #ff4b4b;
-  font-size: 14px !important;
+  font-size: 16px !important;
   font-weight: 400;
 `;
 
@@ -325,7 +324,7 @@ const Input = styled.input`
   border: none;
   border-bottom: 1px solid rgba(15, 23, 42, 0.12);
   padding: 10px 0;
-  font-size: 16px !important;
+  font-size: 18px !important;
   outline: none;
   background: transparent;
   box-sizing: border-box;
@@ -345,7 +344,7 @@ const SmallBtn = styled.button`
   background: ${THEME.surface};
   border-radius: 10px;
   padding: 12px 12px;
-  font-size: 14px !important;
+  font-size: 16px !important;
   cursor: pointer;
   color: ${THEME.text};
   font-weight: 400;
@@ -357,7 +356,7 @@ const SmallBtn = styled.button`
 
 const HelperText = styled.p`
   margin: 0;
-  font-size: 13px !important;
+  font-size: 15px !important;
   color: rgba(17, 24, 39, 0.48);
   font-weight: 400;
 `;
@@ -368,7 +367,7 @@ const CodeBox = styled.div`
   border: 1px dashed ${THEME.border};
   border-radius: 10px;
   background: ${THEME.background};
-  font-size: 13px !important;
+  font-size: 15px !important;
   color: rgba(17, 24, 39, 0.92);
   display: flex;
   align-items: center;
@@ -378,12 +377,12 @@ const CodeBox = styled.div`
 
 const CodeLabel = styled.div`
   color: rgba(17, 24, 39, 0.5);
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 400;
 `;
 
 const CodeValue = styled.div`
-  font-size: 15px !important;
+  font-size: 17px !important;
   letter-spacing: 1px;
   font-weight: 400;
 `;
@@ -397,7 +396,7 @@ const VerifiedPill = styled.div`
   border-radius: 999px;
   background: rgba(16, 185, 129, 0.12);
   color: #059669;
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 400;
 `;
 
@@ -410,7 +409,7 @@ const WarnPill = styled.div`
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 400;
 `;
 
@@ -427,7 +426,7 @@ const BaseWideBtn = styled.button`
   margin: 0 auto;
   border-radius: 10px;
   padding: 13px 14px;
-  font-size: 16px !important;
+  font-size: 18px !important;
   cursor: pointer;
   display: flex;
   align-items: center;

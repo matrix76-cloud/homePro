@@ -135,7 +135,7 @@ const CardTop = styled.div`
 `;
 
 const CategoryBadge = styled.span`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     color: #fff;
     background: ${THEME.primary};
@@ -144,13 +144,13 @@ const CategoryBadge = styled.span`
 `;
 
 const StatusBadge = styled.span`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: ${(p) => (p.$status === "마감" ? THEME.muted : THEME.primary)};
 `;
 
 const CardTitle = styled.h3`
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 4px;
@@ -158,13 +158,13 @@ const CardTitle = styled.h3`
 `;
 
 const Instructor = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.textSecondary};
     margin-bottom: 8px;
 `;
 
 const Description = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     line-height: 1.5;
     margin-bottom: 10px;
@@ -188,7 +188,7 @@ const InfoItem = styled.div`
 `;
 
 const InfoText = styled.span`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
 `;
 
@@ -201,13 +201,13 @@ const CardBottom = styled.div`
 `;
 
 const Price = styled.span`
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: ${THEME.primary};
 `;
 
 const DateText = styled.span`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
 `;
 
@@ -225,13 +225,13 @@ const EmptyIcon = styled.div`
 `;
 
 const EmptyText = styled.div`
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: ${THEME.textSecondary};
 `;
 
 const EmptySubText = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     margin-top: 6px;
 `;
@@ -243,7 +243,7 @@ const FloatBtn = styled.button`
     padding: 10px 18px;
     background: ${THEME.primary};
     color: #fff;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: none;
     border-radius: 4px;

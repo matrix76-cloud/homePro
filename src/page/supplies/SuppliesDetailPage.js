@@ -192,7 +192,7 @@ const ShopIcon = styled.div`
 `;
 
 const ShopName = styled.h2`
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 0;
@@ -203,7 +203,7 @@ const DeliveryBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: ${THEME.success};
   background: #ecfdf5;
@@ -222,19 +222,19 @@ const InfoLine = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
 `;
 
 const SectionTitle = styled.h3`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 0 0 12px;
 `;
 
 const Body = styled.p`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.textSecondary};
   line-height: 1.7;
   margin: 0;
@@ -249,7 +249,7 @@ const ChipRow = styled.div`
 
 const Chip = styled.span`
   padding: 6px 14px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border-radius: 20px;
   background: ${THEME.background};
@@ -257,7 +257,7 @@ const Chip = styled.span`
 `;
 
 const RegDate = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   text-align: center;
   padding: 4px 0;
@@ -266,7 +266,7 @@ const RegDate = styled.div`
 const Center = styled.div`
   padding: 80px 0;
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
 `;
 
@@ -297,7 +297,7 @@ const ChatBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   &:active { opacity: 0.85; }
@@ -314,7 +314,7 @@ const CallBtn = styled.button`
   border-radius: 10px;
   background: #fff;
   color: ${THEME.primary};
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
@@ -330,7 +330,7 @@ const ToastWrap = styled.div`
   color: #fff;
   padding: 10px 20px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   z-index: 9999;
   opacity: ${({ $show }) => ($show ? 1 : 0)};
   transition: opacity 0.25s;

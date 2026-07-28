@@ -32,7 +32,7 @@ const FieldGroup = styled.div`
 
 const Label = styled.label`
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -46,7 +46,7 @@ const Required = styled.span`
 const Input = styled.input`
   width: 100%;
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
@@ -66,7 +66,7 @@ const Input = styled.input`
 const Textarea = styled.textarea`
   width: 100%;
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
@@ -121,7 +121,7 @@ const SubmitButton = styled.button`
   width: 100%;
   max-width: 400px;
   padding: 16px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   font-family: inherit;
   color: #fff;
@@ -147,7 +147,7 @@ const Toast = styled.div`
   color: #fff;
   padding: 10px 20px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   z-index: 100;
   white-space: nowrap;
 `;
@@ -158,7 +158,7 @@ const RegionBtn = styled.button`
   padding: 12px 14px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   background: ${THEME.surface};
@@ -274,7 +274,7 @@ const SuppliesCreatePage = () => {
           <FieldGroup>
             <Label>배송 가능 여부</Label>
             <ToggleRow>
-              <span style={{ fontSize: 14, color: THEME.textSecondary }}>
+              <span style={{ fontSize: 16, color: THEME.textSecondary }}>
                 {deliveryAvailable ? "가능" : "불가능"}
               </span>
               <ToggleTrack

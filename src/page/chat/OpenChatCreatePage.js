@@ -109,7 +109,7 @@ const ToastWrap = styled.div`
   color: #fff;
   padding: 10px 20px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   z-index: 9999;
   opacity: ${({ $show }) => ($show ? 1 : 0)};
   transition: opacity 0.25s;
@@ -134,7 +134,7 @@ const FieldGap = styled.div`
 
 const Label = styled.label`
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 8px;
@@ -151,7 +151,7 @@ const Input = styled.input`
   padding: 12px 14px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   background: ${THEME.surface};
@@ -166,7 +166,7 @@ const Textarea = styled.textarea`
   padding: 12px 14px;
   border: 1.5px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: ${THEME.text};
   background: ${THEME.surface};
@@ -185,7 +185,7 @@ const ChipRow = styled.div`
 
 const Chip = styled.button`
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   border-radius: 20px;
@@ -196,7 +196,7 @@ const Chip = styled.button`
 
 const Notice = styled.div`
   margin: 10px 4px;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   line-height: 1.6;
 `;
@@ -222,7 +222,7 @@ const SubmitBtn = styled.button`
   border-radius: 10px;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   opacity: ${({ disabled }) => (disabled ? 0.5 : 1)};

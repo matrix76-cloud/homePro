@@ -525,7 +525,7 @@ const TabRow = styled.div`
 const TabBtn = styled.button`
   flex: 1;
   padding: 14px 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: ${({ $active }) => ($active ? 600 : 400)};
   color: ${({ $active }) => ($active ? THEME.text : THEME.muted)};
   background: transparent;
@@ -562,7 +562,7 @@ const ProfileAvatar = styled.div`
   border-radius: 50%;
   background: ${THEME.purpleLight};
   color: ${THEME.primary};
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -586,13 +586,13 @@ const ProfileNameRow = styled.div`
 `;
 
 const ProfileName = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const ProfileBio = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   line-height: 1.4;
 `;
@@ -601,7 +601,7 @@ const ProfileRegion = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary};
   margin-top: 2px;
 `;
@@ -628,7 +628,7 @@ const ProCardHeader = styled.div`
 `;
 
 const ProCatName = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -636,7 +636,7 @@ const ProCatName = styled.div`
 const StatusBadge = styled.span`
   padding: 4px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   background: ${({ $bg }) => $bg};
   color: ${({ $color }) => $color};
@@ -652,13 +652,13 @@ const SubcatRow = styled.div`
 const SubcatChip = styled.span`
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 14px;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
 `;
 
 const ProCardCerts = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.textSecondary};
   margin-top: 6px;
@@ -668,7 +668,7 @@ const ProCardRegion = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   margin-bottom: 10px;
 `;
@@ -689,7 +689,7 @@ const AddProBtn = styled.div`
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: ${THEME.primary};
   &:active { background: ${THEME.purpleLight}; }
@@ -706,14 +706,14 @@ const EmptyWrap = styled.div`
 `;
 
 const EmptyTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 8px;
 `;
 
 const EmptyDesc = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.muted};
   text-align: center;
   line-height: 1.5;
@@ -739,13 +739,13 @@ const ActivityStat = styled.div`
 `;
 
 const ActivityNum = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const ActivityLabel = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
@@ -768,13 +768,13 @@ const AccountCard = styled.div`
 `;
 
 const AccountTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
 const AccountSub = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-top: 2px;
   margin-bottom: 14px;
@@ -790,7 +790,7 @@ const AccountField = styled.div`
 const AccountLabel = styled.div`
   width: 56px;
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.textSecondary};
 `;
@@ -799,7 +799,7 @@ const AccountInput = styled.input`
   flex: 1;
   min-width: 0;
   padding: 11px 12px;
-  font-size: 14px;
+  font-size: 16px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
   background: ${THEME.background};
@@ -812,7 +812,7 @@ const AccountSaveBtn = styled.button`
   width: 100%;
   margin-top: 6px;
   padding: 13px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
   background: ${({ disabled }) => disabled ? THEME.muted : THEME.primary};
@@ -843,7 +843,7 @@ const ReviewCardHeader = styled.div`
 `;
 
 const ReviewCardTitle = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -852,7 +852,7 @@ const ReviewAvgScore = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -875,7 +875,7 @@ const ReviewItemTop = styled.div`
 `;
 
 const ReviewWriter = styled.span`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.text};
 `;
@@ -886,13 +886,13 @@ const ReviewStars = styled.span`
 `;
 
 const ReviewDate = styled.span`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-left: auto;
 `;
 
 const ReviewText = styled.p`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary};
   line-height: 1.5;
 `;
@@ -907,7 +907,7 @@ const RegisterBtn = styled.button`
   border: none;
   background: ${THEME.primary};
   color: white;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -934,7 +934,7 @@ const FilterBtn = styled.button`
   border: 1.5px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -952,7 +952,7 @@ const SelectedChip = styled.button`
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1000,7 +1000,7 @@ const SheetHeader = styled.div`
 `;
 
 const SheetTitle = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
 `;
@@ -1033,7 +1033,7 @@ const SheetItem = styled.div`
 
 const SheetGroupLabel = styled.div`
   padding: 10px 20px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.textSecondary};
   background: ${THEME.background};
@@ -1060,7 +1060,7 @@ const SheetCatIcon = styled.div`
 `;
 
 const SheetItemName = styled.span`
-  font-size: 15px;
+  font-size: 17px;
   color: ${THEME.text};
 `;
 
@@ -1079,7 +1079,7 @@ const SheetResetBtn = styled.button`
   border: 1px solid ${THEME.border};
   background: transparent;
   color: ${THEME.textSecondary};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1093,7 +1093,7 @@ const SheetConfirmBtn = styled.button`
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1141,14 +1141,14 @@ const FindProInfo = styled.div`
 `;
 
 const FindProName = styled.div`
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: ${THEME.text};
   margin-bottom: 4px;
 `;
 
 const FindProMeta = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
 `;
 
@@ -1162,7 +1162,7 @@ const FindProTags = styled.div`
 const FindProTag = styled.span`
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 15px;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
 `;
@@ -1185,7 +1185,7 @@ const ChatBtn = styled.button`
   border: none;
   background: ${THEME.primary};
   color: white;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1199,7 +1199,7 @@ const ViewBtn = styled.button`
   border: 1px solid ${THEME.border};
   background: transparent;
   color: ${THEME.text};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1216,7 +1216,7 @@ const BlacklistBtn = styled.button`
   border: 1px solid #EF4444;
   background: #FEF2F2;
   color: #EF4444;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   border-radius: 10px;
   cursor: pointer;

@@ -100,20 +100,20 @@ const AvatarPh = styled.div`
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 `;
 const HeadInfo = styled.div` flex: 1; min-width: 0; `;
-const Name = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; `;
-const Company = styled.div` font-size: 13px; color: ${THEME.muted}; margin-top: 2px; `;
+const Name = styled.div` font-size: 19px; font-weight: 700; color: ${THEME.text}; `;
+const Company = styled.div` font-size: 15px; color: ${THEME.muted}; margin-top: 2px; `;
 const MetaRow = styled.div` display: flex; align-items: center; gap: 8px; margin-top: 6px; `;
 const GradeChip = styled.span`
-  font-size: 12px; font-weight: 600; color: #fff; background: ${THEME.primary};
+  font-size: 14px; font-weight: 600; color: #fff; background: ${THEME.primary};
   padding: 2px 8px; border-radius: 6px;
 `;
 const RatingWrap = styled.span`
   display: inline-flex; align-items: center; gap: 3px;
-  font-size: 13px; font-weight: 600; color: ${THEME.text};
+  font-size: 15px; font-weight: 600; color: ${THEME.text};
 `;
 const Rev = styled.span` color: ${THEME.muted}; font-weight: 400; `;
 const Body = styled.div` padding-top: 4px; `;
 const Row = styled.div` display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid ${THEME.border}; &:last-child { border-bottom: none; } `;
-const K = styled.div` flex: 0 0 48px; font-size: 13px; font-weight: 600; color: ${THEME.textSecondary}; `;
+const K = styled.div` flex: 0 0 48px; font-size: 15px; font-weight: 600; color: ${THEME.textSecondary}; `;
 const V = styled.div` flex: 1; font-size: 13.5px; color: ${THEME.text}; line-height: 1.55; word-break: break-word; white-space: pre-wrap; `;
-const Empty = styled.div` padding: 24px 0; text-align: center; font-size: 13px; color: ${THEME.muted}; `;
+const Empty = styled.div` padding: 24px 0; text-align: center; font-size: 15px; color: ${THEME.muted}; `;

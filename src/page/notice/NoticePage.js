@@ -80,7 +80,7 @@ const Wrap = styled.div`
 const EmptyText = styled.div`
     text-align: center;
     padding: 40px 0;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.muted};
 `;
 
@@ -111,7 +111,7 @@ const Badge = styled.span`
     display: inline-block;
     padding: 2px 8px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 400;
     margin-bottom: 6px;
     background: ${({ $type }) =>
@@ -125,7 +125,7 @@ const Badge = styled.span`
 `;
 
 const NoticeTitle = styled.div`
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 400;
     color: ${THEME.text};
     line-height: 1.4;
@@ -133,14 +133,14 @@ const NoticeTitle = styled.div`
 `;
 
 const NoticeDate = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
     margin-top: 4px;
 `;
 
 const NoticeBody = styled.div`
     padding: 0 20px 20px;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.textSecondary};
     line-height: 1.7;
     white-space: pre-line;

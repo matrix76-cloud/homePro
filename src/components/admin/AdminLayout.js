@@ -17,31 +17,31 @@ const Sidebar = styled.aside`
     position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
 `;
 const Logo = styled.div`
-    padding: 24px 20px 20px; font-size: 18px; font-weight: 700; color: #fff;
+    padding: 24px 20px 20px; font-size: 20px; font-weight: 700; color: #fff;
     border-bottom: 1px solid rgba(255,255,255,0.08);
 `;
 const Nav = styled.nav`flex: 1; padding: 12px 8px; overflow-y: auto;`;
 
 const MenuItem = styled(NavLink)`
     display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-    border-radius: 4px; font-size: 14px; color: #94A3B8; text-decoration: none;
+    border-radius: 4px; font-size: 16px; color: #55606E; text-decoration: none;
     margin-bottom: 2px; transition: all 0.15s;
     &:hover { background: rgba(255,255,255,0.06); color: #E2E8F0; }
     &.active { background: ${THEME.primary}; color: #fff; font-weight: 600; }
-    svg { font-size: 18px; flex-shrink: 0; }
+    svg { font-size: 20px; flex-shrink: 0; }
 `;
 
 const MenuGroup = styled.button`
     display: flex; align-items: center; gap: 10px; padding: 10px 14px; width: 100%;
-    border-radius: 4px; font-size: 14px; color: ${p => p.$active ? "#E2E8F0" : "#94A3B8"};
+    border-radius: 4px; font-size: 16px; color: ${p => p.$active ? "#E2E8F0" : "#94A3B8"};
     background: ${p => p.$active ? "rgba(255,255,255,0.06)" : "none"};
     border: none; cursor: pointer; margin-bottom: 2px; transition: all 0.15s; text-align: left;
     &:hover { background: rgba(255,255,255,0.06); color: #E2E8F0; }
-    svg { font-size: 18px; flex-shrink: 0; }
+    svg { font-size: 20px; flex-shrink: 0; }
 `;
 
 const ChevronIcon = styled(IoChevronDownOutline)`
-    margin-left: auto; font-size: 14px !important;
+    margin-left: auto; font-size: 16px !important;
     transform: ${p => p.$open ? "rotate(180deg)" : "rotate(0)"};
     transition: transform 0.2s;
 `;
@@ -54,7 +54,7 @@ const SubMenu = styled.div`
 
 const SubMenuItem = styled(NavLink)`
     display: block; padding: 8px 14px 8px 44px;
-    font-size: 13px; color: #94A3B8; text-decoration: none;
+    font-size: 15px; color: #55606E; text-decoration: none;
     border-radius: 4px; margin-bottom: 1px; transition: all 0.15s;
     &:hover { background: rgba(255,255,255,0.06); color: #E2E8F0; }
     &.active { color: ${THEME.primaryLight}; font-weight: 600; background: rgba(37,99,235,0.12); }
@@ -73,22 +73,22 @@ const Topbar = styled.div`
 
 const TopbarLeft = styled.div`
     display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: ${THEME.muted};
-    svg { font-size: 15px; }
+    font-size: 15px; color: ${THEME.muted};
+    svg { font-size: 17px; }
 `;
 
 const TopbarRight = styled.div`
     display: flex; align-items: center; gap: 16px;
 `;
 
-const AdminName = styled.span`font-size: 13px; font-weight: 600; color: ${THEME.text};`;
+const AdminName = styled.span`font-size: 15px; font-weight: 600; color: ${THEME.text};`;
 
 const TopbarLogout = styled.button`
     display: flex; align-items: center; gap: 5px; padding: 5px 12px;
     border: 1px solid ${THEME.border}; background: #fff; border-radius: 4px;
-    font-size: 12px; color: ${THEME.muted}; cursor: pointer; transition: all 0.15s;
+    font-size: 14px; color: ${THEME.muted}; cursor: pointer; transition: all 0.15s;
     &:hover { background: ${THEME.background}; color: ${THEME.text}; }
-    svg { font-size: 14px; }
+    svg { font-size: 16px; }
 `;
 
 const BreadcrumbBar = styled.div`
@@ -98,12 +98,12 @@ const BreadcrumbBar = styled.div`
 
 const BreadcrumbLink = styled(NavLink)`
     display: flex; align-items: center; gap: 4px;
-    font-size: 13px; color: ${THEME.muted}; text-decoration: none;
+    font-size: 15px; color: ${THEME.muted}; text-decoration: none;
     &:hover { color: ${THEME.primary}; }
 `;
 
 const BreadcrumbCurrent = styled.span`
-    font-size: 13px; font-weight: 600; color: ${THEME.text};
+    font-size: 15px; font-weight: 600; color: ${THEME.text};
 `;
 
 const ContentBody = styled.div`

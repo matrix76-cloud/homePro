@@ -134,7 +134,7 @@ const Header = styled.div`
 `;
 
 const Title = styled.div`
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 400;
   color: ${THEME.text};
 `;
@@ -192,7 +192,7 @@ const Item = styled.button`
   font-weight: 400;
   text-align: left;
   padding: 13px 18px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   cursor: pointer;
   display: block;
@@ -215,7 +215,7 @@ const GhostBtn = styled.button`
   border-radius: 12px;
   border: 1px solid ${THEME.border};
   background: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   font-family: inherit;
   color: ${THEME.muted};
@@ -230,7 +230,7 @@ const PrimaryBtn = styled.button`
   border: none;
   background: ${THEME.primary};
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   font-family: inherit;
   cursor: pointer;

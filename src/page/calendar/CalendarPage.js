@@ -233,7 +233,7 @@ const Wrapper = styled.div`
 `;
 
 const TodayBtn = styled.button`
-  background: none; border: none; font-size: 14px; font-weight: 400;
+  background: none; border: none; font-size: 16px; font-weight: 400;
   color: ${THEME.text}; cursor: pointer; padding: 6px 12px;
   &:active { opacity: 0.6; }
 `;
@@ -249,7 +249,7 @@ const NavBtn = styled.button`
   &:active { opacity: 0.5; }
 `;
 const MonthTitle = styled.div`
-  font-size: 20px; font-weight: 700; color: ${THEME.text};
+  font-size: 22px; font-weight: 700; color: ${THEME.text};
 `;
 
 const DayHeader = styled.div`
@@ -257,7 +257,7 @@ const DayHeader = styled.div`
   padding: 0 8px; margin: 0 12px; background: ${THEME.surface};
 `;
 const DayCell = styled.div`
-  text-align: center; font-size: 13px; font-weight: 400;
+  text-align: center; font-size: 15px; font-weight: 400;
   color: ${({ $isSun }) => $isSun ? "#EF4444" : ({ $isSat }) => $isSat ? "#3B82F6" : THEME.muted};
   padding: 8px 0;
 `;
@@ -281,14 +281,14 @@ const DateCell = styled.div`
 const DateNum = styled.div`
   width: 28px; height: 28px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 400;
+  font-size: 16px; font-weight: 400;
   color: ${({ $isToday, $isSun, $isSat }) =>
     $isToday ? "#fff" : $isSun ? "#EF4444" : $isSat ? "#3B82F6" : THEME.text};
   background: ${({ $isToday }) => $isToday ? THEME.purple : "transparent"};
 `;
 
 const HolidayLabel = styled.div`
-  font-size: 9px; color: #EF4444; margin-top: 1px; line-height: 1;
+  font-size: 13px; color: #EF4444; margin-top: 1px; line-height: 1;
 `;
 
 /* 바 */
@@ -303,7 +303,7 @@ const CalBar = styled.div`
   grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
   background: ${THEME.primary};
   color: #fff;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   padding: 2px 5px;
   border-radius: 4px;

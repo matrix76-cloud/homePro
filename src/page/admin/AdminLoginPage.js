@@ -15,26 +15,26 @@ const Card = styled.div`
     padding: 40px 32px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);
 `;
 const Title = styled.h2`
-    text-align: center; margin: 0 0 8px; font-size: 22px; font-weight: 700; color: ${THEME.text};
+    text-align: center; margin: 0 0 8px; font-size: 24px; font-weight: 700; color: ${THEME.text};
 `;
 const Sub = styled.p`
-    text-align: center; margin: 0 0 28px; font-size: 13px; color: ${THEME.muted};
+    text-align: center; margin: 0 0 28px; font-size: 15px; color: ${THEME.muted};
 `;
 const Label = styled.label`
-    display: block; font-size: 13px; font-weight: 600; color: ${THEME.text}; margin-bottom: 6px;
+    display: block; font-size: 15px; font-weight: 600; color: ${THEME.text}; margin-bottom: 6px;
 `;
 const Input = styled.input`
     width: 100%; padding: 10px 12px; border: 1px solid ${THEME.border}; border-radius: 4px;
-    font-size: 14px; margin-bottom: 16px; outline: none;
+    font-size: 16px; margin-bottom: 16px; outline: none;
     &:focus { border-color: ${THEME.primary}; }
 `;
 const Btn = styled.button`
     width: 100%; padding: 12px; background: ${THEME.primary}; color: #fff;
-    border: none; border-radius: 4px; font-size: 15px; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 4px; font-size: 17px; font-weight: 600; cursor: pointer;
     &:disabled { opacity: 0.5; }
 `;
 const Err = styled.p`
-    color: ${THEME.danger}; font-size: 13px; text-align: center; margin: 12px 0 0;
+    color: ${THEME.danger}; font-size: 15px; text-align: center; margin: 12px 0 0;
 `;
 
 const AdminLoginPage = () => {

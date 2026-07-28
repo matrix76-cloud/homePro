@@ -22,7 +22,7 @@ const HeaderWrapper = styled.div`
 `;
 
 const Title = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 400;
   color: ${THEME.text};
 `;

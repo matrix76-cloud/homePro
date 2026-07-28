@@ -10,7 +10,7 @@ import { AuthProvider } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
 import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
 import RequireAuth from "./components/guards/RequireAuth";
-// import RequirePhone from "./components/guards/RequirePhone";
+import RequirePhone from "./components/guards/RequirePhone";
 import RequireAdmin from "./components/guards/RequireAdmin";
 import AdminLayout from "./components/admin/AdminLayout";
 
@@ -250,6 +250,9 @@ const AnimatedRoutes = () => {
             <Route path="/MobileSetNickname" element={wrap(<MobileSetNicknamepage />)} />
             <Route path="/ReferralInput" element={wrap(<ReferralInputPage />)} />
 
+            {/* 전화번호 미등록이면 /MobileLinkPhone 으로 (형 지시 7/28 — 전화번호 단계 복원).
+                번호가 계정 통합의 기준키라, 이 단계를 건너뛰면 같은 사람이 여러 계정으로 갈라진다. */}
+            <Route element={<RequirePhone />}>
             <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
             <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
             <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
@@ -319,6 +322,7 @@ const AnimatedRoutes = () => {
             <Route path="/community" element={wrap(<CommunityPage />)} />
             <Route path="/community/write" element={wrap(<CommunityWritePage />)} />
             <Route path="/community/:postId" element={wrap(<CommunityDetailPage />)} />
+            </Route>
           </Route>
 
           {/* Referral */}

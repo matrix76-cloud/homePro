@@ -254,7 +254,7 @@ const CenterMsg = styled.div`
   padding: 60px 20px;
   text-align: center;
   color: ${THEME.muted};
-  font-size: 14px;
+  font-size: 16px;
 `;
 const HeaderCard = styled.div`
   background: ${THEME.surface};
@@ -268,13 +268,13 @@ const CategoryTag = styled.div`
   padding: 4px 10px;
   background: ${THEME.purpleLight};
   color: ${THEME.primary};
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   border-radius: 20px;
   margin-bottom: 10px;
 `;
 const Title = styled.div`
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
   line-height: 1.4;
@@ -286,7 +286,7 @@ const SubMeta = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
 `;
 const Dot = styled.span`
@@ -314,26 +314,26 @@ const Row = styled.div`
 `;
 const Key = styled.div`
   flex: 0 0 88px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: ${THEME.textSecondary || THEME.muted};
 `;
 const Val = styled.div`
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   color: ${THEME.text};
   word-break: break-word;
   white-space: pre-wrap;
   line-height: 1.5;
 `;
 const SectionTitle = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 16px 4px 8px;
 `;
 const SectionLabel = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: ${THEME.textSecondary || THEME.muted};
   margin-bottom: 10px;
@@ -344,7 +344,7 @@ const EmptyCard = styled.div`
   border-radius: 16px;
   text-align: center;
   color: ${THEME.muted};
-  font-size: 13px;
+  font-size: 15px;
 `;
 const ApplicantCard = styled.div`
   background: ${THEME.surface};
@@ -367,12 +367,12 @@ const ApplicantAvatar = styled.img`
   background: ${THEME.background};
 `;
 const ApplicantName = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: ${THEME.text};
 `;
 const ApplicantMsg = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.textSecondary || THEME.text};
   background: ${THEME.background};
   padding: 10px 12px;
@@ -392,7 +392,7 @@ const ChatBtn = styled.button`
   color: #fff;
   border: none;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   &:active { background: ${THEME.primaryDark}; }
@@ -405,7 +405,7 @@ const ResponseTextarea = styled.textarea`
   border: 1px solid ${THEME.border};
   border-radius: 10px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   resize: vertical;
   outline: none;
   margin-bottom: 10px;
@@ -419,7 +419,7 @@ const PrimaryBtn = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   &:active { background: ${THEME.primaryDark}; }
@@ -432,7 +432,7 @@ const SecondaryBtn = styled.button`
   color: ${THEME.primary};
   border: 1.5px solid ${THEME.primary};
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   &:active { background: ${THEME.purpleLight}; }
@@ -443,7 +443,7 @@ const NoticeCard = styled.div`
   color: ${THEME.primary};
   padding: 14px 16px;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 15px;
   margin-bottom: 12px;
   text-align: center;
   font-weight: 500;
@@ -456,7 +456,7 @@ const Toast = styled.div`
   padding: 12px 24px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   border-radius: 10px;
   z-index: 9999;
   white-space: nowrap;

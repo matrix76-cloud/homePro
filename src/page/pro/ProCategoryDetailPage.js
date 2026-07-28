@@ -248,7 +248,7 @@ const SliderCounter = styled.div`
     right: 12px;
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     padding: 4px 10px;
     border-radius: 12px;
@@ -265,7 +265,7 @@ const NoPhotoArea = styled.div`
 `;
 
 const NoPhotoText = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.muted};
 `;
 
@@ -284,7 +284,7 @@ const HeaderRow = styled.div`
 `;
 
 const CatName = styled.div`
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 400;
     color: ${THEME.text};
     letter-spacing: -0.02em;
@@ -292,7 +292,7 @@ const CatName = styled.div`
 `;
 
 const CatDesc = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.textSecondary};
     line-height: 1.5;
     word-break: keep-all;
@@ -304,7 +304,7 @@ const StatusBadge = styled.div`
     border-radius: 20px;
     background: ${({ $bg }) => $bg || THEME.success};
     color: ${({ $color }) => $color || "#fff"};
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
@@ -313,14 +313,14 @@ const StatusBadge = styled.div`
 const Section = styled.div`background: ${THEME.surface}; border-radius: 16px; padding: 20px; box-shadow: ${THEME.cardShadow};`;
 
 const SectionTitle = styled.div`
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     color: ${THEME.text};
     margin-bottom: 10px;
 `;
 
 const IntroText = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     line-height: 1.6;
     background: ${THEME.background};
@@ -339,13 +339,13 @@ const InfoRow = styled.div`
 `;
 
 const InfoLabel = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.muted};
     font-weight: 400;
 `;
 
 const InfoValue = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     font-weight: 400;
     text-align: right;
@@ -365,13 +365,13 @@ const DocRow = styled.div`
 
 const DocText = styled.div`
     flex: 1;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     font-weight: 400;
 `;
 
 const DocStatus = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     color: ${THEME.success};
 `;
@@ -383,7 +383,7 @@ const EditBtn = styled.button`
     border-radius: 10px;
     background: ${THEME.primary};
     color: #fff;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 400;
     font-family: inherit;
     cursor: pointer;
@@ -400,7 +400,7 @@ const DeleteBtn = styled.button`
     border-radius: 10px;
     background: ${THEME.surface};
     color: ${THEME.text};
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     font-family: inherit;
     cursor: pointer;

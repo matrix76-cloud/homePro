@@ -15,14 +15,14 @@ const Header = styled.div`
 `;
 
 const Title = styled.h1`
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 4px;
 `;
 
 const SubTitle = styled.p`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     margin: 0;
 `;
@@ -36,7 +36,7 @@ const TabRow = styled.div`
 
 const Tab = styled.button`
     padding: 10px 20px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: ${({ $active }) => ($active ? "700" : "500")};
     color: ${({ $active }) => ($active ? THEME.primary : THEME.muted)};
     background: none;
@@ -57,13 +57,13 @@ const TopRow = styled.div`
 `;
 
 const CountInfo = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
 `;
 
 const CreateBtn = styled.button`
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: none;
     border-radius: 4px;
@@ -91,7 +91,7 @@ const Table = styled.table`
 const Th = styled.th`
     text-align: left;
     padding: 10px 14px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: ${THEME.muted};
     background: ${THEME.background};
@@ -101,7 +101,7 @@ const Th = styled.th`
 
 const Td = styled.td`
     padding: 10px 14px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     border-bottom: 1px solid ${THEME.border};
     white-space: nowrap;
@@ -118,7 +118,7 @@ const Badge = styled.span`
     display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: ${({ $color }) => $color || "#fff"};
     background: ${({ $bg }) => $bg || THEME.muted};
@@ -126,7 +126,7 @@ const Badge = styled.span`
 
 const ActionBtn = styled.button`
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     border: none;
     border-radius: 4px;
@@ -143,7 +143,7 @@ const PinBtn = styled.button`
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 18px;
+    font-size: 20px;
     padding: 2px 6px;
     line-height: 1;
     color: ${({ $pinned }) => ($pinned ? THEME.accent : THEME.muted)};
@@ -175,7 +175,7 @@ const ModalCard = styled.div`
 `;
 
 const ModalTitle = styled.h3`
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 20px;
@@ -187,7 +187,7 @@ const FormGroup = styled.div`
 
 const FormLabel = styled.label`
     display: block;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.muted};
     margin-bottom: 6px;
@@ -198,7 +198,7 @@ const FormSelect = styled.select`
     padding: 8px 10px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     outline: none;
     background: #fff;
     &:focus {
@@ -211,7 +211,7 @@ const FormInput = styled.input`
     padding: 8px 10px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     outline: none;
     box-sizing: border-box;
     &:focus {
@@ -224,7 +224,7 @@ const FormTextarea = styled.textarea`
     padding: 8px 10px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     outline: none;
     resize: vertical;
     box-sizing: border-box;
@@ -238,7 +238,7 @@ const CheckboxRow = styled.label`
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     cursor: pointer;
 `;
@@ -252,7 +252,7 @@ const ModalBtnRow = styled.div`
 
 const ModalBtn = styled.button`
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: none;
     border-radius: 4px;
@@ -270,7 +270,7 @@ const ModalBtn = styled.button`
 
 const ModalCloseBtn = styled.button`
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
@@ -286,14 +286,14 @@ const EmptyRow = styled.div`
     text-align: center;
     padding: 40px 0;
     color: ${THEME.muted};
-    font-size: 14px;
+    font-size: 16px;
 `;
 
 const LoadingWrap = styled.div`
     text-align: center;
     padding: 60px 0;
     color: ${THEME.muted};
-    font-size: 14px;
+    font-size: 16px;
 `;
 
 // ─── Helpers ───

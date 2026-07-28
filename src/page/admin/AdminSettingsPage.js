@@ -802,7 +802,7 @@ const Container = styled.div`
 `;
 
 const PageTitle = styled.h1`
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 8px 0;
@@ -836,7 +836,7 @@ const HeaderLeft = styled.div`
 `;
 
 const HeaderTitle = styled.span`
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     color: ${THEME.text};
 `;
@@ -856,7 +856,7 @@ const PolicyBlock = styled.div`
 `;
 
 const PolicyLabel = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: ${THEME.text};
     margin-bottom: 8px;
@@ -868,7 +868,7 @@ const PolicyTextarea = styled.textarea`
     padding: 12px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.6;
     color: ${THEME.text};
     background: ${THEME.background};
@@ -908,7 +908,7 @@ const ToggleRow = styled.div`
 `;
 
 const ToggleLabel = styled.span`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: ${THEME.text};
 `;
@@ -949,14 +949,14 @@ const InfoRow = styled.div`
 `;
 
 const InfoLabel = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     width: 100px;
     flex-shrink: 0;
 `;
 
 const InfoValue = styled.span`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: ${THEME.text};
 `;
@@ -971,7 +971,7 @@ const SubTitle = styled.div`
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: ${THEME.text};
     margin-bottom: 16px;
@@ -984,7 +984,7 @@ const FormGroup = styled.div`
 
 const FormLabel = styled.label`
     display: block;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: ${THEME.text};
     margin-bottom: 6px;
@@ -995,7 +995,7 @@ const FormInput = styled.input`
     padding: 10px 12px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     background: ${THEME.background};
     box-sizing: border-box;
@@ -1028,7 +1028,7 @@ const SaveButton = styled.button`
     color: #fff;
     border: none;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.2s;
@@ -1047,13 +1047,13 @@ const SuccessText = styled.span`
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.success};
     font-weight: 500;
 `;
 
 const ErrorText = styled.div`
-    font-size: 13px;
+    font-size: 15px;
     color: #ef4444;
     margin-top: 4px;
     margin-bottom: 4px;
@@ -1061,7 +1061,7 @@ const ErrorText = styled.div`
 
 // ─── 테스트 데이터 ───
 const TestDesc = styled.p`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     line-height: 1.5;
     margin-bottom: 16px;
@@ -1078,7 +1078,7 @@ const TestBtn = styled.button`
     border-radius: 4px;
     background: ${THEME.primary};
     color: #fff;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -1095,7 +1095,7 @@ const TestDeleteBtn = styled.button`
     border-radius: 4px;
     background: #FEE2E2;
     color: ${THEME.danger};
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -1109,7 +1109,7 @@ const TestStatus = styled.div`
     padding: 10px 14px;
     border-radius: 4px;
     background: ${THEME.background};
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     font-weight: 500;
 `;
@@ -1127,14 +1127,14 @@ const TestProItem = styled.div`
 `;
 
 const TestProName = styled.div`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: ${THEME.text};
     margin-bottom: 2px;
 `;
 
 const TestProMeta = styled.div`
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.muted};
 `;
 
@@ -1143,7 +1143,7 @@ const FormSelect = styled.select`
     padding: 10px 12px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     background: ${THEME.background};
     box-sizing: border-box;

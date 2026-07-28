@@ -47,7 +47,7 @@ const SegBtn = styled.button`
   flex: 1;
   height: 40px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: ${({ $active }) => ($active ? 600 : 400)};
   cursor: pointer;
   font-family: inherit;

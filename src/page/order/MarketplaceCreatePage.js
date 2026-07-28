@@ -293,25 +293,25 @@ const GuideDivider = styled.div`
 
 const GuideHead = styled.div`
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   color: ${({ $warn }) => ($warn ? "#C0392B" : THEME.text)};
   margin-bottom: 6px;
 `;
 
 const GuideSub = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   color: ${THEME.muted};
   margin-bottom: 6px;
 `;
 
 const GuideText = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   line-height: 1.6;
 `;
 
 const GuideItem = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.7;
   color: ${({ $warn }) => ($warn ? "#C0392B" : THEME.muted)};
 `;
@@ -325,14 +325,14 @@ const Section = styled.div`
 `;
 
 const Label = styled.div`
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 10px;
 `;
 
 const SubLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   color: ${THEME.muted};
   margin-bottom: 6px;
 `;
@@ -345,7 +345,7 @@ const ChipRow = styled.div`
 
 const Chip = styled.button`
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
   border-radius: 16px;
@@ -357,7 +357,7 @@ const Chip = styled.button`
 const Input = styled.input`
   width: 100%;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   background: #fff;
@@ -368,7 +368,7 @@ const Input = styled.input`
 const Textarea = styled.textarea`
   width: 100%;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 15px;
   border: 1px solid ${THEME.border};
   border-radius: 8px;
   background: #fff;
@@ -381,7 +381,7 @@ const Textarea = styled.textarea`
 const SubmitBtn = styled.button`
   margin: 16px 12px 8px;
   padding: 14px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
   background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
@@ -395,7 +395,7 @@ const BottomSpacer = styled.div`
 `;
 
 const PhotoCount = styled.span`
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   margin-left: 6px;
@@ -455,14 +455,14 @@ const PhotoAddSlot = styled.button`
 `;
 
 const PhotoAddIcon = styled.div`
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 300;
   color: ${THEME.muted};
   line-height: 1;
 `;
 
 const PhotoAddLabel = styled.div`
-  font-size: 10px;
+  font-size: 13px;
   color: ${THEME.muted};
 `;
 
@@ -474,7 +474,7 @@ const Toast = styled.div`
   padding: 10px 16px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   border-radius: 20px;
   z-index: 1000;
 `;
@@ -489,14 +489,14 @@ const GateBox = styled.div`
 `;
 
 const GateTitle = styled.div`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
 `;
 
 const GateText = styled.div`
-  font-size: 13px;
+  font-size: 15px;
   color: ${THEME.muted};
   line-height: 1.6;
   margin-bottom: 8px;
@@ -505,7 +505,7 @@ const GateText = styled.div`
 const GateBtn = styled.button`
   margin-top: 20px;
   padding: 12px 24px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
   background: ${THEME.primary};

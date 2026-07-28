@@ -338,50 +338,50 @@ export default AdminProApprovalPage;
 
 const Wrap = styled.div``;
 const Header = styled.div`display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;`;
-const Title = styled.h1`font-size: 22px; font-weight: 700; color: ${THEME.text}; margin: 0;`;
-const RefreshBtn = styled.button`padding: 8px 16px; font-size: 13px; font-weight: 600; color: ${THEME.primary}; background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 4px; cursor: pointer; &:hover { background: ${THEME.background}; }`;
+const Title = styled.h1`font-size: 24px; font-weight: 700; color: ${THEME.text}; margin: 0;`;
+const RefreshBtn = styled.button`padding: 8px 16px; font-size: 15px; font-weight: 600; color: ${THEME.primary}; background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 4px; cursor: pointer; &:hover { background: ${THEME.background}; }`;
 
 const TabBar = styled.div`display: flex; gap: 4px; margin-bottom: 16px;`;
 const TabItem = styled.a`
-    display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 13px; text-decoration: none;
+    display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 15px; text-decoration: none;
     font-weight: ${p => p.$active ? 700 : 500};
     color: ${p => p.$active ? "#fff" : THEME.text};
     background: ${p => p.$active ? THEME.primary : THEME.surface};
     border: 1px solid ${p => p.$active ? THEME.primary : THEME.border};
     border-radius: 4px; cursor: pointer; &:hover { opacity: 0.85; }
 `;
-const TabCount = styled.span`font-size: 11px; font-weight: 600; color: ${p => p.$active ? "rgba(255,255,255,0.8)" : THEME.muted};`;
+const TabCount = styled.span`font-size: 13px; font-weight: 600; color: ${p => p.$active ? "rgba(255,255,255,0.8)" : THEME.muted};`;
 
 const SearchBar = styled.div`position: relative; margin-bottom: 16px; max-width: 360px;`;
 const SearchIcon = styled.span`position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: ${THEME.muted}; pointer-events: none;`;
-const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 14px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
+const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
 
-const EmptyMsg = styled.div`text-align: center; padding: 60px 0; color: ${THEME.muted}; font-size: 14px;`;
+const EmptyMsg = styled.div`text-align: center; padding: 60px 0; color: ${THEME.muted}; font-size: 16px;`;
 
 const TableWrap = styled.div`background: #fff; border-radius: 4px; overflow-x: auto; border: 1px solid ${THEME.border};`;
 const Table = styled.table`width: 100%; border-collapse: collapse; min-width: 700px;`;
-const Th = styled.th`text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: ${THEME.muted}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
-const Td = styled.td`padding: 10px 14px; font-size: 13px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
+const Th = styled.th`text-align: left; padding: 10px 14px; font-size: 14px; font-weight: 600; color: ${THEME.muted}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
+const Td = styled.td`padding: 10px 14px; font-size: 15px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
 const Tr = styled.tr`cursor: pointer; &:hover { background: ${THEME.background}; }`;
 
-const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: ${p => p.$color || "#fff"}; background: ${p => p.$bg || THEME.muted};`;
-const ActionBtn = styled.button`padding: 4px 10px; font-size: 12px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${p => p.$bg || THEME.primary}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
+const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: ${p => p.$color || "#fff"}; background: ${p => p.$bg || THEME.muted};`;
+const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${p => p.$bg || THEME.primary}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
 
 const PaginationRow = styled.div`display: flex; justify-content: center; align-items: center; gap: 12px; padding: 16px 0;`;
-const PageBtn = styled.button`padding: 6px 14px; font-size: 13px; font-weight: 600; border: 1px solid ${THEME.border}; border-radius: 4px; background: #fff; color: ${THEME.text}; cursor: pointer; &:disabled { opacity: 0.4; }`;
-const PageInfo = styled.span`font-size: 13px; color: ${THEME.muted};`;
+const PageBtn = styled.button`padding: 6px 14px; font-size: 15px; font-weight: 600; border: 1px solid ${THEME.border}; border-radius: 4px; background: #fff; color: ${THEME.text}; cursor: pointer; &:disabled { opacity: 0.4; }`;
+const PageInfo = styled.span`font-size: 15px; color: ${THEME.muted};`;
 
 // ─── Modal ───
 const Overlay = styled.div`position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000;`;
 const Modal = styled.div`background: #fff; border-radius: 6px; width: 600px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.18);`;
 const ModalHeader = styled.div`display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid ${THEME.border};`;
-const ModalTitle = styled.h3`font-size: 18px; font-weight: 700; color: ${THEME.text}; margin: 0;`;
+const ModalTitle = styled.h3`font-size: 20px; font-weight: 700; color: ${THEME.text}; margin: 0;`;
 const CloseBtn = styled.button`background: none; border: none; cursor: pointer; color: ${THEME.muted}; padding: 4px; border-radius: 4px; display: flex; &:hover { background: ${THEME.background}; }`;
 const ModalBody = styled.div`padding: 20px 24px; overflow-y: auto; flex: 1;`;
 
 const Section = styled.div`margin-bottom: 20px;`;
-const SectionTitle = styled.div`font-size: 13px; font-weight: 700; color: ${THEME.primary}; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid ${THEME.border};`;
-const InfoRow = styled.div`display: flex; padding: 5px 0; gap: 12px; font-size: 13px;`;
+const SectionTitle = styled.div`font-size: 15px; font-weight: 700; color: ${THEME.primary}; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid ${THEME.border};`;
+const InfoRow = styled.div`display: flex; padding: 5px 0; gap: 12px; font-size: 15px;`;
 const IL = styled.div`flex: 0 0 80px; color: ${THEME.muted}; font-weight: 600;`;
 const IV = styled.div`flex: 1; color: ${THEME.text}; word-break: break-all;`;
 
@@ -391,5 +391,5 @@ const Photo = styled.img`width: 100px; height: 100px; border-radius: 6px; object
 
 const ActionSection = styled.div`margin-top: 20px; padding-top: 16px; border-top: 1px solid ${THEME.border}; display: flex; flex-direction: column; gap: 10px;`;
 const RejectArea = styled.div`display: flex; gap: 8px;`;
-const RejectInput = styled.input`flex: 1; padding: 8px 10px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 13px; outline: none; &:focus { border-color: ${THEME.primary}; }`;
-const BigBtn = styled.button`padding: 10px 24px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; color: #fff; background: ${p => p.$bg}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
+const RejectInput = styled.input`flex: 1; padding: 8px 10px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 15px; outline: none; &:focus { border-color: ${THEME.primary}; }`;
+const BigBtn = styled.button`padding: 10px 24px; font-size: 16px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; color: #fff; background: ${p => p.$bg}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;

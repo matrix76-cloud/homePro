@@ -240,7 +240,7 @@ export default AdminChatPage;
 const Wrapper = styled.div``;
 
 const Title = styled.h2`
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: ${THEME.text};
     margin-bottom: 20px;
@@ -269,7 +269,7 @@ const Table = styled.table`
 
 const Th = styled.th`
     padding: 10px 12px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.textSecondary};
     background: ${THEME.background};
@@ -290,7 +290,7 @@ const Tr = styled.tr`
 
 const Td = styled.td`
     padding: 10px 12px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
     max-width: 200px;
     overflow: hidden;
@@ -312,7 +312,7 @@ const StatusTag = styled.span`
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     background: ${({ $status }) => STATUS_COLORS[$status]?.bg || "#F3F4F6"};
     color: ${({ $status }) => STATUS_COLORS[$status]?.color || "#6B7280"};
@@ -320,7 +320,7 @@ const StatusTag = styled.span`
 
 const DeleteBtn = styled.button`
     padding: 4px 10px;
-    font-size: 12px;
+    font-size: 14px;
     color: ${THEME.surface};
     background: ${THEME.danger};
     border: none;
@@ -363,7 +363,7 @@ const ModalHeader = styled.div`
 `;
 
 const ModalTitle = styled.h3`
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0;
@@ -371,7 +371,7 @@ const ModalTitle = styled.h3`
 
 const CloseBtn = styled.button`
     padding: 6px 14px;
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.textSecondary};
     background: ${THEME.background};
     border: 1px solid ${THEME.border};
@@ -397,7 +397,7 @@ const InfoRow = styled.div`
 `;
 
 const InfoLabel = styled.span`
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: ${THEME.muted};
     min-width: 72px;
@@ -405,7 +405,7 @@ const InfoLabel = styled.span`
 `;
 
 const InfoValue = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
 `;
 
@@ -418,7 +418,7 @@ const MsgSection = styled.div`
 
 const MsgSectionTitle = styled.div`
     padding: 12px 20px 8px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.textSecondary};
 `;
@@ -437,19 +437,19 @@ const MsgItem = styled.div`
 `;
 
 const MsgSender = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     color: ${THEME.text};
     margin-right: 8px;
 `;
 
 const MsgText = styled.span`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.text};
 `;
 
 const MsgTime = styled.div`
-    font-size: 11px;
+    font-size: 13px;
     color: ${THEME.muted};
     margin-top: 2px;
 `;

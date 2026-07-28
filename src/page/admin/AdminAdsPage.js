@@ -84,21 +84,21 @@ const Header = styled.div`
 const TitleArea = styled.div``;
 
 const Title = styled.h1`
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 4px;
 `;
 
 const SubTitle = styled.p`
-    font-size: 13px;
+    font-size: 15px;
     color: ${THEME.muted};
     margin: 0;
 `;
 
 const PrimaryBtn = styled.button`
     padding: 9px 18px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #fff;
     background: ${THEME.primary};
@@ -110,7 +110,7 @@ const PrimaryBtn = styled.button`
 
 const DangerBtn = styled.button`
     padding: 5px 12px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: ${THEME.danger};
     background: none;
@@ -122,7 +122,7 @@ const DangerBtn = styled.button`
 
 const EditBtn = styled.button`
     padding: 5px 12px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: ${THEME.primary};
     background: none;
@@ -144,7 +144,7 @@ const Table = styled.table`
 
 const Th = styled.th`
     padding: 12px 14px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.muted};
     background: ${THEME.background};
@@ -155,7 +155,7 @@ const Th = styled.th`
 
 const Td = styled.td`
     padding: 12px 14px;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     border-bottom: 1px solid ${THEME.border};
     vertical-align: middle;
@@ -164,7 +164,7 @@ const Td = styled.td`
 const Badge = styled.span`
     display: inline-block;
     padding: 3px 10px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: #fff;
     background: ${({ $color }) => $color};
@@ -175,7 +175,7 @@ const Empty = styled.div`
     padding: 48px 0;
     text-align: center;
     color: ${THEME.muted};
-    font-size: 14px;
+    font-size: 16px;
 `;
 
 // ─── Modal ───
@@ -202,7 +202,7 @@ const Modal = styled.div`
 `;
 
 const ModalTitle = styled.h2`
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     color: ${THEME.text};
     margin: 0 0 20px;
@@ -214,7 +214,7 @@ const FormGroup = styled.div`
 
 const Label = styled.label`
     display: block;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: ${THEME.text};
     margin-bottom: 6px;
@@ -225,7 +225,7 @@ const Input = styled.input`
     padding: 9px 12px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     outline: none;
     box-sizing: border-box;
     &:focus { border-color: ${THEME.primary}; }
@@ -236,7 +236,7 @@ const Select = styled.select`
     padding: 9px 12px;
     border: 1px solid ${THEME.border};
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     outline: none;
     background: #fff;
     box-sizing: border-box;
@@ -247,7 +247,7 @@ const CheckRow = styled.label`
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
+    font-size: 16px;
     color: ${THEME.text};
     cursor: pointer;
 `;
@@ -261,7 +261,7 @@ const BtnRow = styled.div`
 
 const CancelBtn = styled.button`
     padding: 9px 18px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: ${THEME.muted};
     background: ${THEME.background};
