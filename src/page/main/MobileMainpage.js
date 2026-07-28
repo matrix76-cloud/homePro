@@ -619,6 +619,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     // (검수 7/28: 숨김이 먼저 걸려 상태→마감 선택 시 항상 빈 목록이 되던 충돌 수정)
     const wantsClosed = activeStatusFilter === "마감" || activeStatusFilter === "취소";
     if (hideClosed && !wantsClosed && (mapped === "마감" || mapped === "취소")) return false;
+    // '대기' = 접수자가 수정하려고 보류한 오더 — 본인 외에는 숨긴다 (전수검사 7/29:
+    // 사양상 "메인에 안 올라감"인데 노출·수락까지 가능해 보류 중 오더를 채갈 수 있었음)
+    if (mapped === "대기" && o.createdBy !== uid) return false;
     const statusMatch = activeStatusFilter === "전체" || mapped === activeStatusFilter;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
     const periodMatch = filterByPeriod(o);
@@ -790,6 +793,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 return (
                   <TableRow key={order.id} $newOrder={isNewOrder} onClick={() => {
                     if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
+                    if (status === "대기" && order.createdBy !== uid) { showToast("접수자가 수정 중인 오더입니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
                   }}>
                     <TdCell $flex={0.9} style={{alignItems:"center"}}>

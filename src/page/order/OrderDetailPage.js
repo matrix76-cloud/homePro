@@ -641,20 +641,23 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 연락처 (배정 후에만 공개) ── */}
-        {(isOwner || isMatchedPro) && (order.ordererPhone || order.clientPhone) && (
+        {/* ── 연락처 (배정 후에만 공개) ──
+            전수검사 7/29: 접수폼은 contactPhone/customerPhone 으로 저장하는데 여기선
+            ordererPhone/clientPhone 만 읽어 섹션이 영원히 안 뜨던 필드 불일치 수정
+            (구 필드는 폴백으로 유지) */}
+        {(isOwner || isMatchedPro) && (order.contactPhone || order.customerPhone || order.ordererPhone || order.clientPhone) && (
           <DetailSection>
             <SectionTitle>연락처</SectionTitle>
-            {order.ordererPhone && (
+            {(order.contactPhone || order.ordererPhone) && (
               <ConditionRow>
                 <ConditionLabel>접수자</ConditionLabel>
-                <ConditionValue>{order.ordererPhone}</ConditionValue>
+                <ConditionValue>{order.contactPhone || order.ordererPhone}</ConditionValue>
               </ConditionRow>
             )}
-            {order.clientPhone && (
+            {(order.customerPhone || order.clientPhone) && (
               <ConditionRow>
                 <ConditionLabel>고객(실무자)</ConditionLabel>
-                <ConditionValue>{order.clientPhone}</ConditionValue>
+                <ConditionValue>{order.customerPhone || order.clientPhone}</ConditionValue>
               </ConditionRow>
             )}
           </DetailSection>
@@ -907,11 +910,22 @@ const OrderDetailPage = () => {
             <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
           </ActionRow>
         ) : matchType === "direct" ? (
-          /* 지정배정 */
-          <ActionRow>
-            <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
-            <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
-          </ActionRow>
+          /* 지정배정 — 지정된 번호의 홈프로만 수락/거절 가능 (전수검사 7/29:
+             가드가 없어 아무 프로나 수락하거나, 거절하기로 남의 오더를 통째로
+             '대기' 상태로 내려버릴 수 있었음) */
+          (() => {
+            const digits = (s) => String(s || "").replace(/[^0-9]/g, "").replace(/^82/, "0");
+            const isDesignated = !!order.directPhone
+              && digits(order.directPhone) === digits(userData?.phoneE164 || userData?.phone);
+            return isDesignated ? (
+              <ActionRow>
+                <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
+                <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
+              </ActionRow>
+            ) : (
+              <ApplyStatusLine $muted>지정배정 오더 · 지정된 홈프로만 수락할 수 있습니다</ApplyStatusLine>
+            );
+          })()
         ) : (
           /* fallback — 매칭방식 미지정 시에도 수락 흐름 (전화 제거) */
           <ActionRow>

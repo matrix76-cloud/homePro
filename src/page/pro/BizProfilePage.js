@@ -180,9 +180,10 @@ const BizProfilePage = () => {
   const handleStartChat = async (pro) => {
     if (!myUid || myUid === pro.uid) return;
     try {
+      // 상대 이름 자리에 소개글(intro) 문장이 들어가던 버그 수정 (전수검사 7/29)
       const roomId = await createChatRoom(
         myUid, userData?.companyName || userData?.name || "", userData?.photoURL || "",
-        pro.uid, pro.detail?.intro || getCatName(pro.categoryId) + " 전문가", ""
+        pro.uid, pro.companyName || pro.nickname || pro.name || getCatName(pro.categoryId) + " 전문가", ""
       );
       navigate(`/chat/${roomId}`);
     } catch (err) {

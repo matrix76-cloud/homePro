@@ -70,7 +70,10 @@ export async function createChatRoom(myUid, myName, myPhoto, otherUid, otherName
     lastMessageAt: serverTimestamp(),
     createdAt: serverTimestamp(),
     messageCount: 0,
-    ...(orderId ? { orderId, quoteId: quoteId || "", quoteStatus: "pending" } : {}),
+    // (전수검사 7/29) quoteStatus:"pending" 부여 제거 — 이 값이 입력창을 잠그는데,
+    // 잠금을 푸는 구 견적수락 흐름이 폐기돼 모든 오더 채팅방이 영구 대화불가가 됐었음.
+    // 현행 흐름(수락→배정, 견적서 전송)에서 채팅은 처음부터 열린 소통 채널이어야 한다.
+    ...(orderId ? { orderId, quoteId: quoteId || "" } : {}),
     ...(trainingId ? { trainingId, trainingTitle: trainingTitle || "" } : {}),
     ...(supplyId ? { supplyId, supplyTitle: supplyTitle || "" } : {}),
     roomType: type || (orderId ? "quote" : trainingId ? "training" : supplyId ? "supply" : "general"),

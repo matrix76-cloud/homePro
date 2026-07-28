@@ -100,6 +100,12 @@ const HomeLayout = (props) => {
           const display = regionToDisplayName(mapped);
           dispatch({ USERINFO: { address_name: display } });
           try { localStorage.setItem(REGION_STORAGE_KEY, JSON.stringify(mapped)); } catch {}
+          // Firestore 에도 저장 (전수검사 7/29: 표시만 하고 users.region 을 안 써서,
+          // 헤더엔 지역이 뜨는데 거리 필터·가까운거리순은 전부 "미상" 취급되던 문제)
+          const uid = userData?.uid;
+          if (uid) {
+            try { await upsertUserProfile(uid, { region: mapped }); } catch (e) {}
+          }
         }
       }
     })();

@@ -406,7 +406,7 @@ export const MyOrdersContent = () => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
             const displayStatus = viewStatus(order);
             const badgeText = isUnselected(order) ? "미선정" : displayStatus;
-            const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["등록"];
+            const st = STATUS_STYLE[displayStatus] || STATUS_STYLE["접수"];
             const isOwnerCard = order.createdBy === uid;
             const allChats = chatMap[order.id] || [];
             // 선정 완료 후 접수자 카드에는 배정된 홈프로 1명만 (미선정 지원자 대화 숨김)

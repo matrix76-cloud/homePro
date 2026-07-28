@@ -374,8 +374,9 @@ exports.onOrderUpdated = onDocumentUpdated(
         }
 
         // 배정된 Pro에게 알림 (본인이 변경한 게 아니면)
-        if (after.assignedPro && after.assignedPro !== updatedBy && after.assignedPro !== after.createdBy) {
-            targetUids.push(after.assignedPro);
+        // (전수검사 7/29) assignedPro 는 앱이 쓰지 않는 필드 — 실제 배정 필드는 matchedProUid
+        if (after.matchedProUid && after.matchedProUid !== updatedBy && after.matchedProUid !== after.createdBy) {
+            targetUids.push(after.matchedProUid);
         }
 
         const categoryName = after.categoryName || "";

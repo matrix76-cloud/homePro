@@ -17,7 +17,11 @@ const formatDate = (ts) => {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 };
 
-const formatPrice = (price) => {
+// priceType 우선 — 등록 폼이 무료/협의 모두 price 0 으로 저장해서
+// "협의" 교육이 목록에서 "무료"로 보이던 문제 (전수검사 7/29)
+const formatPrice = (price, priceType) => {
+    if (priceType === "협의") return "가격 협의";
+    if (priceType === "무료") return "무료";
     if (!price && price !== 0) return "가격 미정";
     if (price === 0) return "무료";
     return `${Number(price).toLocaleString()}원`;
@@ -92,7 +96,7 @@ const TrainingPage = ({ embedded } = {}) => {
                                 </InfoItem>
                             </InfoRow>
                             <CardBottom>
-                                <Price>{formatPrice(item.price)}</Price>
+                                <Price>{formatPrice(item.price, item.priceType)}</Price>
                                 <DateText>{formatDate(item.createdAt)}</DateText>
                             </CardBottom>
                         </Card>

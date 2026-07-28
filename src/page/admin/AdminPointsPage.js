@@ -678,6 +678,16 @@ const AdminPointsPage = () => {
                 createdAt: Timestamp.now(),
             };
             await addDoc(collection(db, "homepro_cash"), docData);
+            // 사용자 잔액(users.referralPoints)도 함께 증감 (전수검사 7/29:
+            // 원장에만 기록돼 사용자 내역엔 뜨는데 상단 잔액 P 는 그대로였음)
+            try {
+                const { doc: docRef, updateDoc: upd, increment } = await import("firebase/firestore");
+                const delta = form.type === "earn" ? Number(form.amount) : -Number(form.amount);
+                await upd(docRef(db, "users", form.uid.trim()), { referralPoints: increment(delta) });
+            } catch (e) {
+                console.warn("사용자 잔액 반영 실패:", e.message);
+                alert("원장 기록은 저장됐지만 사용자 잔액 반영에 실패했습니다. UID를 확인하세요.");
+            }
             closeModal();
             fetchRecords();
         } catch (err) {

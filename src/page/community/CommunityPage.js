@@ -10,38 +10,7 @@ import Tabs from "../../common/Tabs";
 
 const TABS = ["자유게시판", "이벤트/공지"];
 
-const DEFAULT_NOTICES = [
-  {
-    id: "default_1",
-    type: "notice",
-    title: "홈프로 오픈 기념 이벤트!",
-    content: "지금 가입하면 첫 오더 수수료 무료",
-    likeCount: 0,
-    commentCount: 0,
-    createdAt: { toDate: () => new Date("2026-02-08") },
-    authorName: "홈프로 운영팀",
-  },
-  {
-    id: "default_2",
-    type: "notice",
-    title: "추천인 보상 프로그램 안내",
-    content: "친구를 초대하고 캐시를 받으세요",
-    likeCount: 0,
-    commentCount: 0,
-    createdAt: { toDate: () => new Date("2026-02-08") },
-    authorName: "홈프로 운영팀",
-  },
-  {
-    id: "default_3",
-    type: "notice",
-    title: "프로필 완성도 높이는 법",
-    content: "완성도가 높을수록 고객 매칭률 UP",
-    likeCount: 0,
-    commentCount: 0,
-    createdAt: { toDate: () => new Date("2026-02-08") },
-    authorName: "홈프로 운영팀",
-  },
-];
+// (전수검사 7/29 제거) DEFAULT_NOTICES — 실체 없는 하드코딩 이벤트 안내
 
 const CommunityPage = () => {
   const navigate = useNavigate();
@@ -55,17 +24,12 @@ const CommunityPage = () => {
     setLoading(true);
     setPosts([]);
     getPosts(type)
-      .then((result) => {
-        if (type === "notice" && result.length === 0) {
-          setPosts(DEFAULT_NOTICES);
-        } else {
-          setPosts(result);
-        }
-      })
+      // (전수검사 7/29) 가짜 공지 폴백 제거 — "오픈 기념 이벤트" 같은 실체 없는
+      // 이벤트 안내가 하드코딩으로 노출되고 있었음. 없으면 빈 상태로 정직하게.
+      .then((result) => setPosts(result))
       .catch((err) => {
         console.error(err);
-        if (type === "notice") setPosts(DEFAULT_NOTICES);
-        else setPosts([]);
+        setPosts([]);
       })
       .finally(() => setLoading(false));
   }, [type]);

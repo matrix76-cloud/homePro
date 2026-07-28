@@ -116,12 +116,18 @@ const AdminMatchingPage = () => {
         fetchOrders();
     }, [fetchOrders]);
 
-    // 상태 변경
+    // 상태 변경 — 사용자 앱이 읽는 필드는 한글 orderStatus (전수검사 7/29:
+    // 영문 status 만 바꿔서 관리자 화면끼리만 맞고 사용자 화면은 불변이었음)
+    const ADMIN_TO_ORDER_STATUS = {
+        requested: "접수", matched: "배정", in_progress: "배정",
+        completed: "완료", cancelled: "취소",
+    };
     const handleStatusChange = async (orderId, newStatus, e) => {
         if (e) e.stopPropagation();
         try {
             await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
                 status: newStatus,
+                orderStatus: ADMIN_TO_ORDER_STATUS[newStatus] || newStatus,
                 updatedAt: new Date(),
             });
             setOrders((prev) =>

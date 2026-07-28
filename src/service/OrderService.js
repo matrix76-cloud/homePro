@@ -334,6 +334,11 @@ export const setOrderWaiting = async (orderId) => {
   await updateDoc(orderRef, {
     orderStatus: ORDER_STATUS.WAITING,
     matchedProUid: null,
+    // 지원 데이터도 함께 초기화 (전수검사 7/29: applicants 서브컬렉션만 지우고
+    // 이 필드들을 남겨서, 재접수 후에도 옛 지원자 화면에 유령 "선정대기" 카드가 남았음)
+    applicantUids: [],
+    applicantCount: 0,
+    applicantQuotes: {},
   });
   // applicants 서브컬렉션 전체 삭제 (재접수 시 새로 모집)
   const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");

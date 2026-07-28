@@ -93,10 +93,12 @@ const ChatDetailPage = () => {
     return subscribeChatRoom(roomId, setRoom);
   }, [roomId]);
 
-  // 입장 시 unread 초기화
+  // 입장 시 + 방을 보고 있는 동안 새 메시지 수신 시 unread 초기화
+  // (전수검사 7/29: 입장 1회만 지워서, 보고 있는 대화에 뱃지가 계속 쌓이고
+  //  상대에겐 안읽음 "1" 이 지워지지 않던 문제)
   useEffect(() => {
     if (roomId && myUid) clearUnread(roomId, myUid);
-  }, [roomId, myUid]);
+  }, [roomId, myUid, messages.length]);
 
   // 메시지 실시간 수신
   useEffect(() => {
@@ -312,18 +314,24 @@ const ChatDetailPage = () => {
         const groupId = isSingle ? null : `grp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const dates = getDatesInRange(item.startDate, item.endDate);
 
+        // 공유 일정은 대화 양쪽 모두의 캘린더에 저장 (전수검사 7/29:
+        // 보낸 사람 것만 저장되고 그마저 캘린더가 제외해 유령 데이터였음)
+        const scheduleOwners = (room?.participants || [myUid]);
         for (const dateStr of dates) {
-          await add(col(db, "homepro_schedules"), {
-            uid: myUid,
-            title: item.title,
-            date: dateStr,
-            startHour: item.startHour,
-            endHour: item.endHour,
-            ...(groupId && { groupId }),
-            source: "chat",
-            roomId,
-            createdAt: ts(),
-          });
+          for (const ownerUid of scheduleOwners) {
+            await add(col(db, "homepro_schedules"), {
+              uid: ownerUid,
+              title: item.title,
+              date: dateStr,
+              startHour: item.startHour,
+              endHour: item.endHour,
+              ...(groupId && { groupId }),
+              source: "chat",
+              sharedBy: myUid,
+              roomId,
+              createdAt: ts(),
+            });
+          }
         }
         chatSchedules.push({
           title: item.title,
@@ -480,10 +488,12 @@ const ChatDetailPage = () => {
     }
   };
 
-  // 견적 연동 채팅방: 메시지 입력 잠금 여부
+  // (전수검사 7/29) 견적 잠금 폐기 — 구 견적수락 흐름의 잔재로, 잠금을 풀
+  // 유일한 경로(견적 수락)가 도달 불가라 모든 오더 채팅방이 영구 대화불가였음.
+  // 기존에 pending 으로 생성된 방들도 있으므로 판정 자체를 없애 전부 연다.
   const isQuoteRoom = !!room?.orderId;
   const quoteStatus = room?.quoteStatus || "";
-  const isQuoteLocked = isQuoteRoom && (quoteStatus === "pending" || quoteStatus === "rejected" || quoteStatus === "cancelled");
+  const isQuoteLocked = false;
   const isOrderOwner = orderData
     ? orderData.createdBy === myUid
     : room?.orderId && room?.participants
@@ -718,7 +728,13 @@ const ChatDetailPage = () => {
         <OrderInfoBar onClick={() => navigate(`/order/detail/${orderData.id}`, { state: { order: orderData, category: CATEGORIES.find(c => c.id === orderData.categoryId) } })}>
           {orderDisplayStatus && <OrderStatusBadge $status={orderDisplayStatus}>{orderDisplayStatus}</OrderStatusBadge>}
           <OrderInfoText>{orderData.title || "오더 상세 보기"}</OrderInfoText>
-          <OrderInfoArrow>상세보기 ›</OrderInfoArrow>
+          {/* 완료된 오더 — 접수자가 리뷰 작성 (전수검사 7/29: handleOpenReview 를 부르는
+              UI 가 없어서 리뷰 파이프라인 전체가 도달 불가였음. 유일한 진입점 복원) */}
+          {orderDisplayStatus === "완료" && isOrderOwner ? (
+            <ReviewOpenBtn onClick={(e) => { e.stopPropagation(); handleOpenReview(); }}>리뷰 작성</ReviewOpenBtn>
+          ) : (
+            <OrderInfoArrow>상세보기 ›</OrderInfoArrow>
+          )}
         </OrderInfoBar>
       )}
 
@@ -1296,7 +1312,7 @@ const ChatDetailPage = () => {
             <CancelTitle>거부 사유</CancelTitle>
             <BlockHint>
               {roomName ? `${roomName} 님을 거부 등록합니다.` : "상대방을 거부 등록합니다."}
-              {"\n"}거부하면 이후 이 상대의 오더가 노출되지 않습니다. 사유는 선택 입력이에요.
+              {"\n"}거부하면 이 상대의 오더를 수락·지원할 수 없게 됩니다. 사유는 선택 입력이에요.
             </BlockHint>
             <BlockInput
               placeholder="사유를 입력해주세요 (선택)"
@@ -1371,6 +1387,19 @@ const OrderInfoArrow = styled.div`
   font-weight: 500;
   color: ${THEME.primary};
   flex-shrink: 0;
+`;
+
+const ReviewOpenBtn = styled.button`
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
 `;
 
 /* 안내 문구는 한 문장이라 flex(=단어별 flex item + gap)로 두면 줄바꿈이 어긋난다 → block + line-height */

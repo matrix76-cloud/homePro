@@ -233,6 +233,11 @@ const TrainingCreatePage = () => {
         instructor: form.instructor.trim(),
         startDate: form.startDate || null,
         endDate: form.endDate || null,
+        // 목록 화면이 읽는 요약 일정 문자열 (전수검사 7/29: 목록은 period 를 읽는데
+        // 등록 폼이 안 만들어서 항상 "일정 미정"으로 나오던 문제)
+        period: form.startDate
+          ? (form.endDate && form.endDate !== form.startDate ? `${form.startDate} ~ ${form.endDate}` : form.startDate)
+          : null,
         startTime: form.startTime || null,
         capacity: form.capacity ? Number(form.capacity) : null,
         methods: form.methods,

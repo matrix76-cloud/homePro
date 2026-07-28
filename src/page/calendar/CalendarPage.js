@@ -49,7 +49,9 @@ const CalendarPage = () => {
           where("date", "<=", endKey)
         );
         const snap = await getDocs(q);
-        setSchedules(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => s.source !== "chat"));
+        // 채팅에서 공유된 일정도 함께 표시 (전수검사 7/29: 제외 필터 때문에
+        // 공유 일정이 어떤 화면에도 안 나오던 문제 — source 로 구분만 하고 모두 노출)
+        setSchedules(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {
         console.error("일정 조회 실패:", e);
       }

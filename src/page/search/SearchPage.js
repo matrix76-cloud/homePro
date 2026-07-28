@@ -26,7 +26,8 @@ const REGIONS = [];
 const PRICE_DATA = [];
 
 /* ─── 검색 결과 탭 ─── */
-const RESULT_TABS = ["전체", "카테고리", "지역", "금액", "기타"];
+// 지역/금액 탭은 데이터 소스가 비어 있어 항상 0건이라 제거 (전수검사 7/29)
+const RESULT_TABS = ["전체", "카테고리", "기타"];
 
 /* ================================================================ */
 
@@ -163,6 +164,8 @@ const SearchPage = () => {
               </Section>
             )}
 
+            {/* 데이터 연동 전까지 빈 섹션은 숨김 (전수검사 7/29: 제목만 있는 빈 껍데기였음) */}
+            {POPULAR_SEARCHES.length > 0 && (
             <Section>
               <SectionHeader>
                 <SectionTitle>
@@ -179,6 +182,7 @@ const SearchPage = () => {
                 ))}
               </PopularGrid>
             </Section>
+            )}
           </>
         ) : (
           /* ══════ 검색 후: 탭 + 결과 ══════ */

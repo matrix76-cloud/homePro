@@ -67,13 +67,12 @@ export async function getReferralCode(uid) {
 
 /** 추천인 코드 적용 (유효성 검증 포함) */
 export async function applyReferralCode(myUid, code) {
+  // 코드는 대문자로 생성·저장된다 — 소문자로 입력해도 통과되도록 대문자 정규화 후 조회
+  // (전수검사 7/29: 정규화값을 만들어놓고 원본으로 조회해 소문자 입력이 항상 실패했음)
   const trimmed = (code || "").trim().toUpperCase();
   if (!trimmed) return { success: false, message: "코드를 입력해주세요" };
 
-  // 대소문자 무시 — DB에는 소문자로 저장되므로 원본 코드로 조회
-  const normalizedCode = code.trim();
-
-  const codeSnap = await getDoc(doc(db, CODES_COL, normalizedCode));
+  const codeSnap = await getDoc(doc(db, CODES_COL, trimmed));
   if (!codeSnap.exists()) return { success: false, message: "존재하지 않는 코드입니다" };
 
   const codeData = codeSnap.data();
