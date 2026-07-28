@@ -2296,7 +2296,11 @@ const TableRow = styled.div`
 
   ${({ $newOrder }) => $newOrder && css`
     animation: ${newOrderPulse} 1.8s ease-in-out infinite;
-    border-bottom-color: rgba(255, 255, 255, 0.25);
+    /* 접수 행이 연속으로 붙으면 큰 보라 덩어리로 보임 → 행마다 여백+라운드로
+       독립 카드 느낌 분리 (형 리뷰 7/29) */
+    margin: 4px 6px;
+    border-radius: 10px;
+    border-bottom: none;
     &:active { background: #4A1FA8; }
     @media (prefers-reduced-motion: reduce) { animation: none; background: #6D3EE0; }
   `}
