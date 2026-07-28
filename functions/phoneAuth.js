@@ -317,7 +317,78 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   4) 아이디 찾기 — 인증된 번호로 가입 아이디 조회
+   4) 비밀번호 재설정 — 전화 인증 토큰 검증 후 서버가 직접 변경
+   (기존 /resetPassword 는 인증 없이 uid+newPassword 만으로 남의
+    비밀번호를 바꿀 수 있는 열린 엔드포인트였음 → 폐쇄하고 대체.
+    가입 아이디는 가상 도메인(@homepro.app) 이메일이라 재설정 "메일"은
+    도달할 수 없다 — 그래서 메일 발송이 아니라 직접 변경 방식이어야 한다)
+   ───────────────────────────────────────────────────────────── */
+exports.resetPasswordWithPhone = onCall({ region: REGION }, async (request) => {
+    const e164 = toE164(request.data?.phone);
+    assertKoreanMobile(e164);
+    const verifRef = await assertToken(e164, request.data?.verificationToken);
+
+    const loginId = String(request.data?.loginId || "").trim().toLowerCase();
+    const newPassword = String(request.data?.newPassword || "");
+    if (!loginId) throw new HttpsError("invalid-argument", "아이디를 입력해 주세요.");
+    if (newPassword.length < 6) throw new HttpsError("invalid-argument", "비밀번호는 6자 이상이어야 합니다.");
+
+    // 인증된 번호의 계정 조회
+    const firestore = db();
+    let uid = null;
+    const idx = await firestore.collection("users_by_phone").doc(e164).get();
+    if (idx.exists) uid = idx.data()?.uid || null;
+    if (!uid) {
+        const ph = await firestore.collection("phones").doc(e164).get();
+        if (ph.exists) uid = ph.data()?.primaryUid || ph.data()?.uid || null;
+    }
+    if (!uid) throw new HttpsError("not-found", "이 전화번호로 가입된 계정이 없습니다.");
+
+    const userSnap = await firestore.collection("users").doc(uid).get();
+    if (!userSnap.exists) throw new HttpsError("not-found", "계정 정보를 찾을 수 없습니다.");
+    const u = userSnap.data();
+
+    // 입력한 아이디가 이 계정 것인지 확인 (이메일/이메일 로컬부/loginId/닉네임/이름)
+    const candidates = [];
+    if (u.email) { candidates.push(String(u.email).toLowerCase()); candidates.push(String(u.email).split("@")[0].toLowerCase()); }
+    if (u.loginId) candidates.push(String(u.loginId).toLowerCase());
+    if (u.nickname) candidates.push(String(u.nickname).toLowerCase());
+    if (u.name) candidates.push(String(u.name).toLowerCase());
+    if (!candidates.includes(loginId)) {
+        throw new HttpsError("permission-denied", "입력한 아이디와 전화번호가 일치하는 계정이 없습니다.");
+    }
+
+    // 소셜 계정은 비밀번호가 없다
+    const prov = String(u.provider || "").toLowerCase();
+    if (["google", "kakao", "apple"].some((p) => prov.includes(p))) {
+        throw new HttpsError("failed-precondition", "소셜 로그인 계정입니다. 해당 소셜 로그인을 이용해 주세요.");
+    }
+    if (!u.email) throw new HttpsError("failed-precondition", "이메일(아이디) 정보가 없는 계정입니다. 관리자에게 문의해 주세요.");
+
+    // Auth 계정은 이메일로 찾는다 — 계정 통합으로 문서 ID 와 Auth uid 가 다를 수 있음
+    let authUser;
+    try {
+        authUser = await admin.auth().getUserByEmail(u.email);
+    } catch (e) {
+        throw new HttpsError("not-found", "로그인 계정을 찾을 수 없습니다. 관리자에게 문의해 주세요.");
+    }
+    await admin.auth().updateUser(authUser.uid, { password: newPassword });
+    await firestore.collection("users").doc(uid).set(
+        { updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true },
+    );
+
+    // 토큰 1회용 소비
+    await verifRef.set({
+        tokenHash: admin.firestore.FieldValue.delete(),
+        tokenExpiresAt: admin.firestore.FieldValue.delete(),
+        consumedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { ok: true };
+});
+
+/* ─────────────────────────────────────────────────────────────
+   5) 아이디 찾기 — 인증된 번호로 가입 아이디 조회
    ───────────────────────────────────────────────────────────── */
 exports.findAccountByPhone = onCall({ region: REGION }, async (request) => {
     const e164 = toE164(request.data?.phone);

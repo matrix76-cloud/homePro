@@ -109,43 +109,12 @@ app.post("/AuthCodeSend", (req, res) => {
 
 exports.api = require("firebase-functions").region("asia-northeast3").https.onRequest(app);
 
-// ─── 비밀번호 변경 (Firebase Auth + Firestore) ───
-exports.resetPassword = onRequest({ region: "asia-northeast3", cors: true }, async (req, res) => {
-    if (req.method !== "POST") {
-        res.status(405).json({ error: "Method not allowed" });
-        return;
-    }
-
-    const { uid, newPassword } = req.body || {};
-
-    if (!uid || !newPassword) {
-        res.status(400).json({ ok: false, error: "uid, newPassword 필수" });
-        return;
-    }
-
-    if (String(newPassword).length < 6) {
-        res.status(400).json({ ok: false, error: "비밀번호는 6자 이상이어야 합니다." });
-        return;
-    }
-
-    try {
-        // Firebase Auth 비밀번호 업데이트
-        await admin.auth().updateUser(uid, { password: newPassword });
-
-        // Firestore 문서도 업데이트
-        const userRef = db.doc(`users/${uid}`);
-        const snap = await userRef.get();
-        if (snap.exists) {
-            await userRef.set({ updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        }
-
-        res.status(200).json({ ok: true });
-    } catch (err) {
-        console.error("resetPassword error:", err.message);
-        res.status(500).json({ ok: false, error: err.message });
-    }
+// [폐쇄됨 7/29] 비밀번호 변경 — 인증 없이 uid+newPassword 만으로 남의 비밀번호를
+// 바꿀 수 있는 열린 엔드포인트였다 (검수 7/28 지적). 전화 인증 토큰을 검증하는
+// phoneAuth.resetPasswordWithPhone 으로 대체.
+exports.resetPassword = onRequest({ region: "asia-northeast3", cors: true }, (req, res) => {
+    res.status(410).json({ ok: false, error: "이 방식은 더 이상 지원하지 않습니다." });
 });
-
 // ─── 푸시 알림 발송 (notifications 문서 생성 트리거) ───
 exports.onNotificationSend = onDocumentCreated(
     { document: "notifications/{notifId}", region: "asia-northeast3" },
@@ -584,6 +553,7 @@ exports.requestPhoneCode = phoneAuthFns.requestPhoneCode;
 exports.verifyPhoneCode = phoneAuthFns.verifyPhoneCode;
 exports.linkPhoneToAccount = phoneAuthFns.linkPhoneToAccount;
 exports.findAccountByPhone = phoneAuthFns.findAccountByPhone;
+exports.resetPasswordWithPhone = phoneAuthFns.resetPasswordWithPhone;
 
 const seedFns = require("./seed");
 exports.cleanAllTestData = seedFns.cleanAllTestData;

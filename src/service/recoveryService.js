@@ -55,6 +55,14 @@ export async function findAccountByPhone({ phone, verificationToken }) {
     return res.data; // { ok, found, loginId, provider }
 }
 
+/** 비밀번호 재설정 — 전화 인증 토큰 검증 후 서버가 직접 변경
+    (가입 아이디는 가상 이메일이라 "재설정 메일"은 도달 불가 → 직접 변경 방식) */
+export async function resetPasswordWithPhone({ phone, verificationToken, loginId, newPassword }) {
+    const fn = httpsCallable(getFunctions(firebaseApp, FUNCTIONS_REGION), "resetPasswordWithPhone");
+    const res = await fn({ phone, verificationToken, loginId, newPassword });
+    return res.data; // { ok }
+}
+
 /** Cloud Functions 호출 오류 → 사용자에게 보여줄 문구 */
 export function phoneAuthErrorMessage(err) {
     const msg = String(err?.message || "");
@@ -102,19 +110,8 @@ export async function findUidByPhoneE164(phoneE164) {
     return snap.data().uid || null;
 }
 
-export async function resetPasswordViaProxy({ uid, newPassword }) {
-    const cfUrl = APP_CONFIG.resetPasswordUrl;
-    if (!cfUrl) throw new Error("비밀번호 리셋 서비스가 설정되지 않았습니다.");
-
-    const res = await fetch(cfUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid, newPassword }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "비밀번호 변경 실패");
-    return data;
-}
+// (제거 7/29) resetPasswordViaProxy — 폐쇄된 무인증 엔드포인트를 부르던 죽은 헬퍼.
+// 대체: resetPasswordWithPhone (전화 인증 토큰 검증)
 
 export function maskEmail(email) {
     if (!email) return "";

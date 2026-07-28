@@ -4,10 +4,9 @@ import styled from "styled-components";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { getUserProfileByUid } from "../../service/UserProfileService";
-import { sendPasswordResetEmailByAddress } from "../../service/AuthService";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
-import { requestPhoneCode, verifyPhoneCode, phoneAuthErrorMessage } from "../../service/recoveryService";
+import { requestPhoneCode, verifyPhoneCode, resetPasswordWithPhone, phoneAuthErrorMessage } from "../../service/recoveryService";
 import Tabs from "../../common/Tabs";
 
 const onlyDigits = (s = "") => (s || "").replace(/\D+/g, "");
@@ -114,6 +113,34 @@ export default function MobileFindAccountcontainer() {
     const [resultProfile, setResultProfile] = useState(null);
     const [resultMessage, setResultMessage] = useState("");
     const [resultError, setResultError] = useState("");
+    // 비밀번호 재설정 — 인증 토큰 + 새 비밀번호 입력 폼 (7/29)
+    const [verificationToken, setVerificationToken] = useState("");
+    const [showPwReset, setShowPwReset] = useState(false);
+    const [newPw, setNewPw] = useState("");
+    const [newPw2, setNewPw2] = useState("");
+    const [pwBusy, setPwBusy] = useState(false);
+
+    const handleResetPassword = async () => {
+        if (pwBusy) return;
+        const p1 = newPw.trim();
+        if (p1.length < 6) { window.alert("비밀번호는 6자 이상으로 해주세요."); return; }
+        if (p1 !== newPw2.trim()) { window.alert("비밀번호가 일치하지 않습니다."); return; }
+        setPwBusy(true);
+        try {
+            await resetPasswordWithPhone({
+                phone: sentToE164,
+                verificationToken,
+                loginId: loginId.trim(),
+                newPassword: p1,
+            });
+            setShowPwReset(false);
+            setResultMessage("비밀번호가 변경되었습니다.\n새 비밀번호로 로그인해주세요.");
+        } catch (e) {
+            window.alert(phoneAuthErrorMessage(e));
+        } finally {
+            setPwBusy(false);
+        }
+    };
 
     const digits = useMemo(() => onlyDigits(phone), [phone]);
 
@@ -128,6 +155,10 @@ export default function MobileFindAccountcontainer() {
         setResultProfile(null);
         setResultMessage("");
         setResultError("");
+        setVerificationToken("");
+        setShowPwReset(false);
+        setNewPw("");
+        setNewPw2("");
     };
 
     const resetOtpState = () => {
@@ -139,6 +170,10 @@ export default function MobileFindAccountcontainer() {
         setResultProfile(null);
         setResultMessage("");
         setResultError("");
+        setVerificationToken("");
+        setShowPwReset(false);
+        setNewPw("");
+        setNewPw2("");
     };
 
     const handleTabChange = (tab) => {
@@ -207,7 +242,9 @@ export default function MobileFindAccountcontainer() {
 
             // 서버 대조 — 실패하면 예외가 올라온다 (남은 시도 횟수 포함)
             try {
-                await verifyPhoneCode(sentToE164, codeInput.trim());
+                const vres = await verifyPhoneCode(sentToE164, codeInput.trim());
+                // 비밀번호 변경에 쓰는 1회용 토큰 (10분 유효)
+                setVerificationToken(vres?.verificationToken || "");
             } catch (err) {
                 window.alert(phoneAuthErrorMessage(err));
                 return;
@@ -248,19 +285,13 @@ export default function MobileFindAccountcontainer() {
                 const prov = String(profile.provider || "").toLowerCase();
                 const isSocial = prov === "google" || prov === "kakao" || prov === "apple"
                     || prov.includes("google") || prov.includes("kakao") || prov.includes("apple");
-                const email = profile.email;
 
-                if (email && !isSocial) {
-                    const res = await sendPasswordResetEmailByAddress(email);
-                    if (res.success) {
-                        setResultMessage("비밀번호 재설정 링크를 이메일로 보냈습니다.");
-                    } else {
-                        setResultError(res.error_message || "재설정 이메일 발송에 실패했습니다.");
-                    }
-                } else if (isSocial) {
+                if (isSocial) {
                     setResultMessage(`이 계정은 ${providerLabel(profile)}으로 가입되었습니다.\n해당 소셜 로그인을 이용해주세요.`);
                 } else {
-                    setResultMessage("계정을 확인했습니다.\n등록된 이메일이 없어 재설정 메일을 보낼 수 없습니다. 관리자에게 문의해주세요.");
+                    // 아이디는 가상 이메일(@homepro.app)이라 재설정 "메일"은 도달할 수 없다 —
+                    // 인증을 통과했으니 이 자리에서 새 비밀번호를 직접 설정한다 (7/29)
+                    setShowPwReset(true);
                 }
             }
         } catch (e) {
@@ -376,6 +407,40 @@ export default function MobileFindAccountcontainer() {
                                     <SecondaryBtn type="button" onClick={resetAll}>다시 시도</SecondaryBtn>
                                 </BtnRow>
                             </>
+                        ) : resultProfile && showPwReset ? (
+                            /* 인증 통과 → 새 비밀번호 직접 설정 (가상 이메일이라 재설정 메일 불가) */
+                            <>
+                                <ResultTitle>새 비밀번호 설정</ResultTitle>
+                                <ResultCard>
+                                    <ResultMessage>본인 확인이 완료되었습니다.{"\n"}사용할 새 비밀번호를 입력해주세요.</ResultMessage>
+                                </ResultCard>
+                                <Field style={{ marginTop: 14 }}>
+                                    <Input
+                                        type="password"
+                                        placeholder="새 비밀번호 (6자 이상)"
+                                        value={newPw}
+                                        onChange={(e) => setNewPw(e.target.value)}
+                                        autoComplete="new-password"
+                                        disabled={pwBusy}
+                                    />
+                                </Field>
+                                <Field>
+                                    <Input
+                                        type="password"
+                                        placeholder="새 비밀번호 확인"
+                                        value={newPw2}
+                                        onChange={(e) => setNewPw2(e.target.value)}
+                                        autoComplete="new-password"
+                                        disabled={pwBusy}
+                                    />
+                                </Field>
+                                <BtnRow>
+                                    <PrimaryBtn type="button" onClick={handleResetPassword} disabled={pwBusy || newPw.trim().length < 6 || !newPw2.trim()}>
+                                        {pwBusy ? "변경 중..." : "비밀번호 변경"}
+                                    </PrimaryBtn>
+                                    <SecondaryBtn type="button" onClick={resetAll} disabled={pwBusy}>취소</SecondaryBtn>
+                                </BtnRow>
+                            </>
                         ) : resultProfile ? (
                             <>
                                 {activeTab === TAB_FIND_ID ? (
@@ -392,13 +457,10 @@ export default function MobileFindAccountcontainer() {
                                         <ResultTitle>
                                             {resultMessage?.includes("소셜") || resultMessage?.includes("로그인을 이용")
                                                 ? "소셜 계정 안내"
-                                                : "재설정 이메일 발송 완료"}
+                                                : "비밀번호 변경 완료"}
                                         </ResultTitle>
                                         <ResultCard>
                                             <ResultMessage>{resultMessage}</ResultMessage>
-                                            {resultProfile.email && !resultMessage?.includes("소셜") && (
-                                                <ResultSub>{maskId(resultProfile.email)}</ResultSub>
-                                            )}
                                         </ResultCard>
                                     </>
                                 )}
