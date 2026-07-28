@@ -45,13 +45,18 @@ export const CHAT_CONFIG = {
 export const STORAGE_PATH_PREFIX = "homepro";
 
 // ─── 테마 색상 (숨고 스타일 기반) ───
+// 브랜드 색상 — 대표님 지시 7/28: "우측(초록) 색상 중심으로 왼쪽(보라) 색상 가미"
+//  · 초록 #00C74E = 전달받은 앱 아이콘에서 추출한 메인 색
+//  · 보라 #653A7D = 파이코인 아이콘에서 추출, 포인트로만 사용
 export const THEME = {
-    primary: "#2571e3",        // 홈프로 퍼플
-    primaryLight: "#6ba3f0",   // 밝은 버전
-    primaryDark: "#1b54b8",    // 어두운 버전
-    accent: "#F59E0B",         // 포인트 (골드/오렌지)
-    purple: "#2571e3",        // 보라 CTA
-    purpleLight: "#e7f0fd",   // 보라 배경
+    primary: "#00C74E",        // 메인 (초록)
+    primaryLight: "#4BD980",   // 밝은 버전
+    primaryDark: "#00A341",    // 어두운 버전 (흰 배경 위 텍스트·눌림 상태)
+    accent: "#F59E0B",         // 포인트 (골드/오렌지 — 파이 심볼 계열)
+    plum: "#653A7D",           // 보라 포인트 ("왼쪽 색상 가미")
+    plumLight: "#F1EAF6",      // 보라 연배경
+    purple: "#00C74E",        // (레거시 키) 메인 CTA
+    purpleLight: "#E6F9EE",   // (레거시 키) 메인 연배경
     danger: "#EF4444",         // 위험/삭제
     success: "#10B981",        // 성공/완료
     // 연한 글씨 금지 (형 지시 7/28) — 보조/비활성 텍스트도 읽히는 농도로

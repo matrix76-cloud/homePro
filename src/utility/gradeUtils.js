@@ -9,7 +9,7 @@ const DEFAULT_RULES = {
     bronze:  { label: "브론즈", minPoints: 500, color: "#A1887F" },
     silver:  { label: "실버", minPoints: 2000, color: "#90A4AE" },
     gold:    { label: "골드", minPoints: 5000, color: "#F59E0B" },
-    diamond: { label: "다이아", minPoints: 15000, color: "#2571e3" },
+    diamond: { label: "다이아", minPoints: 15000, color: "#00C74E" },
     master:  { label: "마스터", minPoints: 50000, color: "#EF4444" },
 };
 
@@ -126,7 +126,7 @@ const ProgressTrack = styled.div`
     width: 100%;
     height: 10px;
     border-radius: 5px;
-    background: #e7f0fd;
+    background: #E6F9EE;
     overflow: hidden;
 `;
 
@@ -134,6 +134,6 @@ const ProgressFill = styled.div`
     width: ${({ $width }) => $width}%;
     height: 100%;
     border-radius: 5px;
-    background: #2571e3;
+    background: #00C74E;
     transition: width 0.3s ease;
 `;

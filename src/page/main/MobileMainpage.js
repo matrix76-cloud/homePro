@@ -2718,7 +2718,7 @@ const CalAddBtn = styled.button`
 
 const AICard = styled.div`
   margin: 12px 12px 0;
-  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark || "#1b54b8"});
+  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark || "#00A341"});
   border-radius: 12px;
   padding: 18px 20px;
   display: flex;

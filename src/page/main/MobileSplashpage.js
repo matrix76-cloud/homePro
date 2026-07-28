@@ -14,9 +14,10 @@ const twinkle = keyframes`
   50% { opacity: 1; transform: scale(1.2); }
 `;
 
-/* 스플래시 배경 — 심볼(#7C5CFC 보라)과 맞춘 보라. 앱 블루(THEME.primary)와 섞이면
-   로고만 보라로 튀어서 배경을 보라로 통일 (형 지시 7/28). 심볼 타일보다 한 톤 깊게 잡아 로고가 떠 보이게. */
-const SPLASH_BG = "#5B3FD6";
+/* 스플래시 배경 — 브랜드 초록으로 전환 (대표님 지시 7/28: 초록 중심).
+   로고 심볼도 같은 초록이라, 배경은 한 톤 깊게 잡아 심볼이 떠 보이게 한다.
+   (직전까지는 보라 심볼에 맞춘 보라 배경이었음 — 심볼이 초록으로 바뀌면서 함께 전환) */
+const SPLASH_BG = "#00A341";
 
 const Container = styled.div`
   display: flex;

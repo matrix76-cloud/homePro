@@ -977,7 +977,7 @@ const VARIANT_COLORS = {
   danger: "#EF4444",
   success: "#10B981",
   warning: "#F59E0B",
-  primary: "#2571e3",
+  primary: "#00C74E",
 };
 
 const ActionBtn = styled.button`

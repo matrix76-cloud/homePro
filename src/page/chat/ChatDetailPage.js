@@ -1428,7 +1428,7 @@ const StatusStepBtn = styled.button`
 const ORDER_STATUS_COLORS = {
   "접수": "#3B82F6",
   "등록": "#3B82F6",
-  "배정": "#2571e3",
+  "배정": "#00C74E",
   "선정대기": "#F59E0B",
   "업체선택대기": "#F59E0B",
   "완료": "#10B981",

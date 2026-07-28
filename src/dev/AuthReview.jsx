@@ -11,7 +11,7 @@ import { SEED_ACCOUNTS, loginAsSeed, logoutReview, ANON, getSavedAcct, saveAcct,
 // 좌=실제 화면(iframe) + 핀 찍기(화면공유로 지도까지 캡처) / 우상=기획 / 우하=기록 스레드(Firestore).
 const ALL = DOMAINS.flatMap((d) => d.screens.map((s) => ({ ...s, domain: d.key })))
 
-const CORAL = '#2571e3'
+const CORAL = '#00C74E'
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -301,7 +301,7 @@ export default function AuthReview() {
           </div>
         )}
         {e.pins && e.pins.length > 0 && (
-          <button onClick={() => { setViewPins(e.pins); setPinMode(false) }} style={{ marginTop: 6, fontSize: 15, fontWeight: 700, color: '#2571e3', background: '#fdf2ee', border: '1px solid #f5d3c6', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+          <button onClick={() => { setViewPins(e.pins); setPinMode(false) }} style={{ marginTop: 6, fontSize: 15, fontWeight: 700, color: '#00C74E', background: '#fdf2ee', border: '1px solid #f5d3c6', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
             화면 핀 {e.pins.length}개 위치 보기
           </button>
         )}
@@ -377,7 +377,7 @@ export default function AuthReview() {
                 onClick={() => nav(`/review/${r.id}`)}
                 style={{
                   fontSize: 15, fontWeight: 700, padding: '4px 10px', borderRadius: 14, cursor: 'pointer',
-                  border: `1px solid ${nUn > 0 ? '#2571e3' : r.id === cur.id ? C.ink : C.line}`,
+                  border: `1px solid ${nUn > 0 ? '#00C74E' : r.id === cur.id ? C.ink : C.line}`,
                   background: r.id === cur.id ? C.ink : '#fff', color: r.id === cur.id ? '#fff' : C.gray,
                 }}
               >
@@ -394,13 +394,13 @@ export default function AuthReview() {
         <div style={{ flex: 'none', width: isLanding ? 1000 : isPC ? 780 : 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {cur.path && !isPC && (
             <div style={{ width: 360, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <button onClick={() => { setPinMode((v) => !v); setViewPins(null) }} style={{ fontSize: 15, fontWeight: 700, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pinMode ? '#2571e3' : C.line}`, background: pinMode ? '#2571e3' : '#fff', color: pinMode ? '#fff' : C.gray }}>
+              <button onClick={() => { setPinMode((v) => !v); setViewPins(null) }} style={{ fontSize: 15, fontWeight: 700, padding: '5px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pinMode ? '#00C74E' : C.line}`, background: pinMode ? '#00C74E' : '#fff', color: pinMode ? '#fff' : C.gray }}>
                 {pinMode ? '핀 찍는 중 · 화면 클릭' : '핀 찍기'}
               </button>
               {draftPins.length > 0 && (
                 <>
                   <span style={{ fontSize: 15, color: C.gray, fontWeight: 600 }}>핀 {draftPins.length}
-                    <button onClick={() => setDraftPins([])} style={{ marginLeft: 5, color: '#2571e3', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>지우기</button>
+                    <button onClick={() => setDraftPins([])} style={{ marginLeft: 5, color: '#00C74E', fontWeight: 700, cursor: 'pointer', background: 'none', border: 'none' }}>지우기</button>
                   </span>
                   <button onClick={captureWithPins} disabled={!!busy} title="화면공유로 지도까지 캡처 + 핀 박아 첨부" style={{ fontSize: 15, fontWeight: 800, padding: '5px 12px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', border: 'none', background: '#2b3440', color: '#fff' }}>
                     {busy || '핀 박아 캡처'}
@@ -440,8 +440,8 @@ export default function AuthReview() {
                   {(pinMode ? draftPins : viewPins || []).map((p, i) => (
                     <div key={i} style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -100%)', pointerEvents: 'none' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div style={{ background: '#2571e3', color: '#fff', fontSize: 14, fontWeight: 800, padding: '2px 7px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{p.label || i + 1}</div>
-                        <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '7px solid #2571e3' }} />
+                        <div style={{ background: '#00C74E', color: '#fff', fontSize: 14, fontWeight: 800, padding: '2px 7px', borderRadius: 7, whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{p.label || i + 1}</div>
+                        <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '7px solid #00C74E' }} />
                       </div>
                     </div>
                   ))}

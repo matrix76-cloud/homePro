@@ -11,7 +11,7 @@ const META = Object.fromEntries(ALL.map((s) => [s.id, s]))
 const C = { ink: '#2b3440', ink2: '#3a4351', gray: '#566070', gray2: '#98a2b0', line: '#e6e9ee', bg: '#f7f8fa', card: '#fff' }
 const BY_COLOR = { 형: '#2b3440', 대표님: '#c05621', 카스: '#3b6ea5' }
 const FONT = "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif"
-const CORAL = '#2571e3'
+const CORAL = '#00C74E'
 
 export default function ReviewTable() {
   const nav = useNavigate()

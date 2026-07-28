@@ -2,7 +2,7 @@
  * 홈프로 PC 영업 랜딩 (앱 다운로드 유도)
  * - 레퍼런스: classmanage LandingPage 구조 재현 + 홈프로 B2B 톤으로 카피 전면 교체
  * - 대상: 청소·인테리어·설비 등 현장 전문가(프로)끼리 일감을 주고받는 하도급/외주 플랫폼
- * - 디자인 토큰: 퍼플 주조색(#2571e3) + 흰/연회색 교차, 버튼 r10 / 카드 r16, 약한 그림자, 라인 아이콘
+ * - 디자인 토큰: 퍼플 주조색(#00C74E) + 흰/연회색 교차, 버튼 r10 / 카드 r16, 약한 그림자, 라인 아이콘
  * - PC 기준 + 반응형(모바일 stack). 라우트: /intro
  * - 스크린샷은 실제 앱 캡처 사용 (public/assets/landing/*.png — 화면 바뀌면 재캡처 필요)
  */
@@ -34,7 +34,7 @@ const FEATURES = [
   {
     Icon: FiClipboard,
     tag: '오더·견적',
-    color: '#2571e3',
+    color: '#00C74E',
     title: '일감을 올리면, 동종 프로가 견적을 보냅니다',
     desc: '하도급 줄 일감을 오더로 등록하세요. 분야가 맞는 프로들이 견적을 보내고, 수락하면 채팅방이 자동으로 열립니다.',
     shot: '/assets/landing/orders.png',
@@ -311,7 +311,7 @@ const LandingPage = () => {
 export default LandingPage;
 
 /* ============ design tokens ============ */
-const PRIMARY = '#2571e3';
+const PRIMARY = '#00C74E';
 const INK = '#1F2937';
 const SUB = '#6B7280';
 const LINE = '#EEEAFB';
@@ -872,7 +872,7 @@ const StepDesc = styled.p`
 
 /* Download */
 const Download = styled.section`
-  background: linear-gradient(135deg, ${PRIMARY} 0%, #6ba3f0 100%);
+  background: linear-gradient(135deg, ${PRIMARY} 0%, #4BD980 100%);
   padding: 84px 0;
   text-align: center;
   color: #fff;

@@ -1009,7 +1009,7 @@ const MobileConfigpage = () => {
             <ConfigGuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><ConfigGuideSubIcon><IoSendOutline size={18} color="#B45309" /></ConfigGuideSubIcon></ConfigGuideIconWrap>
             <ConfigGuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</ConfigGuideText>
           </ConfigGuideCard>
-          <ConfigGuideCard $bg="#e7f0fd" onClick={() => navigate("/guide/2")}>
+          <ConfigGuideCard $bg="#E6F9EE" onClick={() => navigate("/guide/2")}>
             <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><ConfigGuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></ConfigGuideSubIcon></ConfigGuideIconWrap>
             <ConfigGuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</ConfigGuideText>
           </ConfigGuideCard>
@@ -1021,7 +1021,7 @@ const MobileConfigpage = () => {
             <ConfigGuideIconWrap><IoCameraOutline size={32} color="#059669" /></ConfigGuideIconWrap>
             <ConfigGuideText>프로필 사진,{"\n"}이렇게 찍으세요</ConfigGuideText>
           </ConfigGuideCard>
-          <ConfigGuideCard $bg="#e7f0fd" onClick={() => navigate("/guide/5")}>
+          <ConfigGuideCard $bg="#E6F9EE" onClick={() => navigate("/guide/5")}>
             <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></ConfigGuideIconWrap>
             <ConfigGuideText>등급 시스템{"\n"}포인트로 올리세요</ConfigGuideText>
           </ConfigGuideCard>
