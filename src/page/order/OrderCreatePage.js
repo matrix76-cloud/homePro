@@ -501,6 +501,7 @@ export const OrderCreateContent = () => {
   const [selectedSub, setSelectedSub] = useState([]);
   const [selectedService, setSelectedService] = useState(""); // 서비스(subGroup 라벨) 드릴다운
   const [selectedOptions, setSelectedOptions] = useState([]);
+  const [attrValues, setAttrValues] = useState({}); // 카테고리별 추가 속성 선택값 {key: [값]}
   const [buildingType, setBuildingType] = useState("");
   const [areaValue, setAreaValue] = useState("");
   const [areaUnit, setAreaUnit] = useState("평");
@@ -716,6 +717,7 @@ export const OrderCreateContent = () => {
     setSpaceType("");
     setCustomInput("");
     setOptionEtc("");
+    setAttrValues({});
     setSelectedService("");
   };
 
@@ -790,6 +792,11 @@ export const OrderCreateContent = () => {
         optionEtc: (optionEtc && selectedOptions.some((o) => o.includes("기타"))) ? optionEtc : null,
         areaValue: areaValue ? `${areaValue}${areaUnit}` : "",
         spaceFields: Object.keys(spaceFields).length > 0 ? spaceFields : null,
+        // 카테고리별 추가 속성 (오염유형·발생시점·설치유형 등) — 빈 값은 제외하고 저장
+        attrs: (() => {
+          const picked = Object.entries(attrValues).filter(([, v]) => Array.isArray(v) && v.length > 0);
+          return picked.length ? Object.fromEntries(picked) : null;
+        })(),
         customInput: customInput || null,
         schedule: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate, // 예약날짜는 날짜만 표기
         address,
@@ -1124,6 +1131,37 @@ export const OrderCreateContent = () => {
               </ChipGrid>
             </Section>
           )}
+
+          {/* 카테고리별 추가 속성 (대표 사양서 7/28) — 오염유형·발생시점·설치유형 등
+              config 의 attrSections 를 그대로 칩 목록으로 렌더. multi=true 면 중복선택. */}
+          {showDetail && Array.isArray(detailConfig?.attrSections) && detailConfig.attrSections.map((sec) => {
+            const picked = attrValues[sec.key] || [];
+            return (
+              <Section key={sec.key}>
+                <Label>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
+                <ChipGrid>
+                  {sec.options.map((opt) => {
+                    const on = picked.includes(opt);
+                    return (
+                      <Chip
+                        key={opt}
+                        $selected={on}
+                        onClick={() => setAttrValues((prev) => {
+                          const cur = prev[sec.key] || [];
+                          if (sec.multi) {
+                            return { ...prev, [sec.key]: cur.includes(opt) ? cur.filter((v) => v !== opt) : [...cur, opt] };
+                          }
+                          return { ...prev, [sec.key]: cur.includes(opt) ? [] : [opt] };
+                        })}
+                      >
+                        {opt}
+                      </Chip>
+                    );
+                  })}
+                </ChipGrid>
+              </Section>
+            );
+          })}
 
           {/* 면적 입력 */}
           {showDetail && detailConfig?.areaInput && (
