@@ -130,7 +130,9 @@ exports.requestPhoneCode = onCall({ region: REGION }, async (request) => {
     }, { merge: true });
 
     try {
-        await sendSms(e164.replace(/^\+82/, "0"), code, request.data?.label);
+        // label 은 서버 상수로 고정 — 클라이언트 값을 통과시키면 발신 문구 일부를
+        // 임의 문자열로 바꿔 보낼 수 있다(스미싱 악용 소지, 검수 7/28)
+        await sendSms(e164.replace(/^\+82/, "0"), code, "홈프로");
     } catch (e) {
         console.error("SMS 발송 실패:", e.message);
         throw new HttpsError("unavailable", "문자 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.");
@@ -223,7 +225,9 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
     const result = await firestore.runTransaction(async (tx) => {
         const [phoneSnap, meSnap] = await Promise.all([tx.get(phoneRef), tx.get(meRef)]);
         const phoneData = phoneSnap.exists ? phoneSnap.data() : null;
-        const primaryUid = phoneData?.primaryUid || uid;
+        // 구 시드/레거시 phones 문서는 primaryUid 없이 uid 필드만 갖는다 —
+        // 폴백이 없으면 기존 계정과 병합 없이 번호를 조용히 가로채게 됨 (검수 7/28)
+        const primaryUid = phoneData?.primaryUid || phoneData?.uid || uid;
         const merged = primaryUid !== uid;
 
         if (merged) {
@@ -240,6 +244,11 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
                 tx.set(primaryRef, {
                     [linkField]: admin.firestore.FieldValue.arrayUnion(uid),
                     providers: admin.firestore.FieldValue.arrayUnion(provider || "unknown"),
+                    // 대표 문서에 번호가 비어 있으면(데이터 드리프트) 인증할 때마다
+                    // RequirePhone 에 걸려 영구 바운스 — 방어적으로 함께 기록 (검수 7/28)
+                    phoneE164: e164,
+                    phone: phoneText,
+                    phoneVerified: true,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 }, { merge: true });
 
@@ -279,6 +288,9 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
             });
         } else {
             tx.set(phoneRef, {
+                // 구 문서에 primaryUid 가 없으면 이번에 확정한 값으로 백필 —
+                // 안 하면 이 번호는 영영 병합 판정이 안 된다 (검수 7/28)
+                primaryUid,
                 linkedUids: admin.firestore.FieldValue.arrayUnion(uid),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });

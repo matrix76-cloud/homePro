@@ -247,13 +247,9 @@ export default function MobileLinkPhonecontainer() {
                         {busy ? "처리중..." : "확인 완료"}
                     </PrimaryBtn>
 
-                    <SecondaryBtn
-                        type="button"
-                        onClick={() => nav("/MobileMain", { replace: true })}
-                        disabled={busy}
-                    >
-                        나중에 하기
-                    </SecondaryBtn>
+                    {/* (검수 7/28 제거) "나중에 하기" — RequirePhone 가드가 /MobileMain 진입을
+                        다시 이 화면으로 돌려보내 아무 일도 안 하는 죽은 버튼이었음.
+                        전화번호는 계정 통합 기준키라 건너뛰기 자체를 허용하지 않는다. */}
                 </BtnRow>
             </Card>
         </Wrap>

@@ -1,9 +1,22 @@
 rules_version = '2';
 
+// 검수 7/28 — 전화번호 인증 관련 컬렉션 잠금.
+// 주의: rules 는 겹치는 규칙 중 하나라도 allow 면 통과라, 전면 개방 와일드카드와
+// 별도의 deny 블록을 나란히 두면 잠기지 않는다. 와일드카드 자체에 조건을 건다.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    match /{collection}/{doc=**} {
+      // phone_verifications: 서버(Admin SDK) 전용.
+      //  - 읽기 허용 시: 인증코드 해시+salt 를 가져가 6자리 오프라인 브루트포스 가능
+      //  - 쓰기 허용 시: 토큰 해시를 직접 심어 SMS 없이 계정 연결 위조 가능
+      allow read: if collection != 'phone_verifications';
+      // phones / users_by_phone: 연결·통합은 서버 함수(linkPhoneToAccount)만 수행.
+      //  조회(아이디 찾기)는 읽기라 위 read 규칙으로 계속 동작한다.
+      allow write: if collection != 'phone_verifications'
+                   && collection != 'phones'
+                   && collection != 'users_by_phone';
+      // 그 외 컬렉션은 기존 개방 상태 유지 — 앱 전체가 클라이언트 SDK 직접 접근에
+      // 의존하고 있어 전면 잠금은 별도 과제 (보안 개선 항목에 기재).
     }
   }
 }

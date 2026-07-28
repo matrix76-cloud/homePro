@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { THEME, CATEGORIES, ORDER_STATUS } from "../../config/homeproConfig";
+import ORDER_FORM_CONFIG from "../../config/orderFormConfig";
 import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus, addOrderLog, getOrderLogs } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
@@ -541,6 +542,52 @@ const OrderDetailPage = () => {
             </ConditionRow>
           )}
         </DetailSection>
+
+        {/* ── 접수 상세 정보 ── 접수폼에서 고른 속성·입력값·수량 (검수 7/28: 입력만 받고
+            아무 데도 표시하지 않아 홈프로가 견적에 필요한 정보를 못 보던 문제 수정) */}
+        {(() => {
+          const fc = ORDER_FORM_CONFIG[order.categoryId] || {};
+          const rows = [];
+          if (order.buildingType) rows.push(["건물유형", order.buildingType]);
+          if (order.areaValue) rows.push(["면적", order.areaValue]);
+          // 선택 속성 (오염유형·발생시점 등) — config 라벨로 표시
+          if (order.attrs) {
+            const labelOf = (key) => (fc.attrSections || []).find((s) => s.key === key)?.label || key;
+            Object.entries(order.attrs).forEach(([k, v]) => rows.push([labelOf(k), Array.isArray(v) ? v.join(", ") : String(v)]));
+          }
+          // 직접 입력값 (주소·치수·차량정보 등)
+          if (order.inputs) {
+            Object.entries(order.inputs).forEach(([secKey, fields]) => {
+              const sec = (fc.inputSections || []).find((s) => s.key === secKey);
+              const fieldLabel = (fk) => sec?.fields?.find((f) => f.key === fk);
+              Object.entries(fields).forEach(([fk, fv]) => {
+                const f = fieldLabel(fk);
+                rows.push([`${sec?.label || secKey} ${f?.label || fk}`, `${fv}${f?.unit || ""}`]);
+              });
+            });
+          }
+          // 종목별 수량
+          if (order.itemQty) {
+            Object.entries(order.itemQty).forEach(([k, v]) => {
+              const name = k.includes(":") ? k.split(":")[1] : k;
+              rows.push([`${name} 수량`, `${v}${fc.qtyPerSelected?.unit || "개"}`]);
+            });
+          }
+          if (order.options?.length) rows.push(["옵션", order.options.join(", ")]);
+          if (order.customInput) rows.push(["기타 입력", order.customInput]);
+          if (!rows.length) return null;
+          return (
+            <DetailSection>
+              <SectionTitle>접수 상세 정보</SectionTitle>
+              {rows.map(([label, value], i) => (
+                <ConditionRow key={i}>
+                  <ConditionLabel>{label}</ConditionLabel>
+                  <ConditionValue>{value}</ConditionValue>
+                </ConditionRow>
+              ))}
+            </DetailSection>
+          );
+        })()}
 
         {/* ── 작업 일정 ── */}
         {(order.workDate || order.workTime) && (

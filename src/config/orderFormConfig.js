@@ -23,15 +23,15 @@ const ORDER_FORM_CONFIG = {
       { label: "기타", items: ["입력"] }
     ],
     attrSections: [
-      { key: "cleanOptions", label: "옵션선택", multi: true, options: ["새집증후군", "헌집증후군", "스티커제거", "욕실실리콘재시공", "냉장고내부", "에어컨내부", "물때제거", "주방실리콘재시공", "주방후드", "고온스팀살균", "줄눈시공", "피톤치드", "붙박이장 내부", "UV살균", "나노코팅"] },
-      { key: "commercialType", label: "상업/청소유형", options: ["일반 매장청소", "오픈/입점 전 청소", "폐업 정리청소", "특수오염청소"] },
-      { key: "floorMaterial", label: "바닥재질", options: ["타일", "대리석", "마루/강마루", "데코타일", "에폭시", "콘크리트", "기타"] },
-      { key: "soilType", label: "오염유형", multi: true, options: ["혈흔/체액", "부패/악취", "쓰레기", "화재/그을음", "분변/하수", "해충/사체"] },
-      { key: "soilCause", label: "발생원인", options: ["고독사", "사고", "자살", "화재", "역류", "방치"] },
-      { key: "workScope", label: "작업범위", multi: true, options: ["전체청소", "방", "화장실", "주방", "거실", "벽/천장", "철거여부"] },
-      { key: "wasteType", label: "폐기물처리", multi: true, options: ["일반폐기물", "대형폐기물", "의료폐기물", "위험폐기물"] },
-      { key: "fireDamage", label: "피해정도", options: ["경미", "보통", "심각"] },
-      { key: "buildingHeight", label: "건물 높이/층수", options: ["2층이하", "3~5층", "6층이상"] }
+      { key: "cleanOptions", label: "옵션선택", services: ["홈클리닝"], multi: true, options: ["새집증후군", "헌집증후군", "스티커제거", "욕실실리콘재시공", "냉장고내부", "에어컨내부", "물때제거", "주방실리콘재시공", "주방후드", "고온스팀살균", "줄눈시공", "피톤치드", "붙박이장 내부", "UV살균", "나노코팅"] },
+      { key: "commercialType", label: "상업/청소유형", services: ["상업.매장청소"], options: ["일반 매장청소", "오픈/입점 전 청소", "폐업 정리청소", "특수오염청소"] },
+      { key: "floorMaterial", label: "바닥재질", services: ["바닥 전문청소"], options: ["타일", "대리석", "마루/강마루", "데코타일", "에폭시", "콘크리트", "기타"] },
+      { key: "soilType", label: "오염유형", services: ["특수청소"], multi: true, options: ["혈흔/체액", "부패/악취", "쓰레기", "화재/그을음", "분변/하수", "해충/사체"] },
+      { key: "soilCause", label: "발생원인", services: ["특수청소"], options: ["고독사", "사고", "자살", "화재", "역류", "방치"] },
+      { key: "workScope", label: "작업범위", services: ["특수청소"], multi: true, options: ["전체청소", "방", "화장실", "주방", "거실", "벽/천장", "철거여부"] },
+      { key: "wasteType", label: "폐기물처리", services: ["특수청소"], multi: true, options: ["일반폐기물", "대형폐기물", "의료폐기물", "위험폐기물"] },
+      { key: "fireDamage", label: "피해정도", services: ["화재청소"], options: ["경미", "보통", "심각"] },
+      { key: "buildingHeight", label: "건물 높이/층수", services: ["외벽.고소청소"], options: ["2층이하", "3~5층", "6층이상"] }
     ],
     buildingTypes: ["아파트", "빌라/다가구", "단독주택", "오피스텔", "원룸", "투룸", "상가", "사무실", "공장", "창고", "주택", "기타"],
     areaInput: ["평", "m2"],

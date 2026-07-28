@@ -140,10 +140,11 @@ export default function MobileSetNicknamecontainer() {
                 }
             }
             // targetUid가 있으면 이미 계정 연결된 상태, 없으면 현재 uid 사용
-            // 계정 통합이 끝난 뒤라면 대표 UID 에 프로필을 써야 한다.
-            // 전화번호 화면이 저장하는 키는 __primaryUid 인데 여기선 __targetUid 를 읽고 있어서
-            // 항상 빈 값 → 새 소셜 UID 에 덮어쓰던 버그. 키를 맞춘다. (형 지시 7/28)
-            const targetUid = localStorage.getItem("__primaryUid") || uid;
+            // 검수 7/28: localStorage 의 대표 UID 를 읽던 코드 제거.
+            // 온보딩 순서가 닉네임 → 전화번호 연결이라, 이 시점의 저장값은 항상
+            // "이전 사용자" 것일 수밖에 없고, 그대로 쓰면 남의 계정에 프로필을 덮어쓴다.
+            // 통합은 전화번호 단계에서 서버가 처리하므로 여기선 현재 로그인 uid 에만 쓴다.
+            const targetUid = uid;
 
             // provider 판별: 소셜 provider 또는 이메일
             const auth = getAuth();

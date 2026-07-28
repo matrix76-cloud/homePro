@@ -134,6 +134,9 @@ export const AuthProvider = ({ children }) => {
         if (firestoreUid) {
             removeFcmToken(firestoreUid).catch(() => {});
         }
+        // 계정 통합 대표 UID — 남겨두면 다음 사용자의 온보딩이 이전 사용자
+        // 계정에 프로필을 덮어쓴다 (검수 7/28)
+        try { localStorage.removeItem("__primaryUid"); } catch (e) {}
         if (isInRnWebView()) postToRN("START_SIGNOUT");
         await signOutUser();
         setCurrentUser(null);

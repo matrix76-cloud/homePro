@@ -239,7 +239,7 @@ const UserMain = ({ navigate, nickname }) => (
           <CatGroupLabel>{group.label}</CatGroupLabel>
           <CategoryGrid>
             {CATEGORIES.filter((cat) => cat.group === group.id).map((cat) => (
-              <CategoryItem key={cat.id} onClick={() => navigate(cat.id === "worker_call" ? "/order/worker-request/create" : `/category/${cat.id}`)}>
+              <CategoryItem key={cat.id} onClick={() => navigate(`/category/${cat.id}`)}>
                 <CatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</CatIcon>
                 <CatName>{cat.shortName}</CatName>
               </CategoryItem>
@@ -614,8 +614,11 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   // 상태 + 카테고리 + 기간 + 거리 필터 적용
   const filteredOrders = allOrders.filter((o) => {
     const mapped = mapStatus(o.orderStatus);
-    // 지원 불가한 오더 숨기기 (형 지시 7/28) — 마감·취소는 어차피 못 들어가는 건이라 기본 숨김
-    if (hideClosed && (mapped === "마감" || mapped === "취소")) return false;
+    // 지원 불가한 오더 숨기기 (형 지시 7/28) — 마감·취소는 어차피 못 들어가는 건이라 기본 숨김.
+    // 단 상태 필터에서 마감/취소를 직접 고르면 그건 보겠다는 뜻이므로 숨김을 무시한다
+    // (검수 7/28: 숨김이 먼저 걸려 상태→마감 선택 시 항상 빈 목록이 되던 충돌 수정)
+    const wantsClosed = activeStatusFilter === "마감" || activeStatusFilter === "취소";
+    if (hideClosed && !wantsClosed && (mapped === "마감" || mapped === "취소")) return false;
     const statusMatch = activeStatusFilter === "전체" || mapped === activeStatusFilter;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
     const periodMatch = filterByPeriod(o);

@@ -202,6 +202,10 @@ const PreviewPhotoRow = styled.div`
   gap: 8px;
   flex-wrap: wrap;
 `;
+const PreviewThumbWrap = styled.div`
+  position: relative;
+  display: inline-block;
+`;
 const PreviewPhotoThumb = styled.img`
   width: 72px;
   height: 72px;
@@ -562,6 +566,13 @@ export const OrderCreateContent = () => {
   // ── 수정 모드: 기존 오더 내용 프리필 (한 번만) ──
   useEffect(() => {
     if (!editOrder) return;
+    // 카테고리 개편으로 삭제된 카테고리(자재.장비, 기업보험 등)의 구 오더 —
+    // 편집 폼이 빈 껍데기가 되므로 안내 후 돌려보낸다 (검수 7/28)
+    if (editOrder.categoryId && !CATEGORIES.some((c) => c.id === editOrder.categoryId)) {
+      window.alert("이 오더의 카테고리는 개편으로 삭제되어 수정할 수 없습니다.\n새 카테고리로 다시 접수해 주세요.");
+      navigate(-1);
+      return;
+    }
     setSelectedCategory(editOrder.categoryId || "");
     const cfg = ORDER_FORM_CONFIG[editOrder.categoryId];
     const subs = editOrder.subcategories && editOrder.subcategories.length
@@ -573,7 +584,10 @@ export const OrderCreateContent = () => {
         setSelectedService(grp.label);
         setSelectedSub(subs.map((s) => s.startsWith(grp.label + " ") ? `${grp.label}:${s.slice(grp.label.length + 1)}` : s));
       } else {
-        setSelectedSub(subs);
+        // 서비스 라벨 개편으로 구 오더의 그룹을 못 찾는 경우 — 옛 종목을 state 에 남기면
+        // 새로 고른 종목과 섞여 저장되므로 비운다. 기존 값은 상세 요청내용에 힌트로 보존.
+        setSelectedSub([]);
+        setDetail((prev) => prev || `(기존 선택: ${subs.join(", ")})\n${editOrder.description || ""}`);
       }
     } else {
       setSelectedSub(subs);
@@ -588,6 +602,10 @@ export const OrderCreateContent = () => {
     setSpaceFields(editOrder.spaceFields || {});
     setSpaceType(editOrder.spaceType || "");
     setCustomInput(editOrder.customInput || "");
+    // 검수 7/28: 수정 진입 시 복원 누락 → 저장할 때 null 로 덮어써 기존 값이 소멸하던 버그
+    setAttrValues(editOrder.attrs || {});
+    setInputValues(editOrder.inputs || {});
+    setItemQty(editOrder.itemQty || {});
     setDetail(editOrder.description || "");
     setAddress(editOrder.address || editOrder.location || "");
     setWorkDate(editOrder.workDate || "");
@@ -621,17 +639,16 @@ export const OrderCreateContent = () => {
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
-  // 통합 카테고리(전문청소/설비.하수구.누수) — 선택한 서비스별 전용 상세폼 매핑
-  const SERVICE_FORM_MAP = {
-    "홈클리닝": "move_cleaning", "정기청소": "regular_cleaning", "특수청소": "special_cleaning",
-    "준공청소": "business_cleaning", "화재청소": "special_cleaning", "상업.매장청소": "business_cleaning",
-    "바닥청소": "business_cleaning", "사업장청소": "business_cleaning", "외벽.고소청소": "business_cleaning",
-    "하수구.배관.설비": "drain_pipe", "누수탐지": "leak_detection", "누수공사": "leak_construction", "난방.보일러": "boiler",
-  };
-  // 상세 필드(옵션/공간구조/주거유형/면적 등)는 선택한 서비스 폼을 따름
-  const detailConfig = (selectedService && ORDER_FORM_CONFIG[SERVICE_FORM_MAP[selectedService]]) || formConfig;
+  // (검수 7/28 제거) 구 SERVICE_FORM_MAP — 서비스 라벨로 옛 config(move_cleaning 등)에
+  // 우회하던 매핑. 라벨 개편으로 매핑이 어긋나 새 사양(attrSections)이 가려지거나
+  // 무관한 섹션이 노출되던 원인. 이제 카테고리 자신의 config 하나만 쓴다.
+  const detailConfig = formConfig;
   // subGroups(서비스 선택) 카테고리는 서비스 고른 뒤에 상세필드 노출
   const showDetail = !formConfig?.subGroups || !!selectedService;
+  // attrSections 에 services 배열이 있으면 해당 서비스 선택 시에만 표시
+  const visibleAttrSections = (detailConfig?.attrSections || []).filter(
+    (sec) => !sec.services || sec.services.includes(selectedService)
+  );
 
   // Daum 주소 API 스크립트 로드
   useEffect(() => {
@@ -886,6 +903,25 @@ export const OrderCreateContent = () => {
       if (fmt) items.push({ k: "공간 상세", v: fmt });
     }
     if (customInput) items.push({ k: "기타 입력", v: customInput });
+    // 카테고리별 속성·입력값·수량 (검수 7/28: 미리보기 누락 → 입력한 값을 확인 못 하던 문제)
+    Object.entries(attrValues).forEach(([key, vals]) => {
+      if (!Array.isArray(vals) || !vals.length) return;
+      const sec = (detailConfig?.attrSections || []).find((s) => s.key === key);
+      items.push({ k: sec?.label || key, v: vals.join(", ") });
+    });
+    Object.entries(inputValues).forEach(([secKey, fields]) => {
+      const sec = (detailConfig?.inputSections || []).find((s) => s.key === secKey);
+      Object.entries(fields || {}).forEach(([fk, fv]) => {
+        if (String(fv ?? "").trim() === "") return;
+        const f = sec?.fields?.find((x) => x.key === fk);
+        items.push({ k: `${sec?.label || secKey} ${f?.label || fk}`, v: `${fv}${f?.unit || ""}` });
+      });
+    });
+    Object.entries(itemQty).forEach(([key, qty]) => {
+      if (!(Number(qty) > 0)) return;
+      const name = key.includes(":") ? key.split(":")[1] : key;
+      items.push({ k: `${name} 수량`, v: `${qty}${detailConfig?.qtyPerSelected?.unit || "개"}` });
+    });
     items.push({ k: "주소", v: addressDetail ? `${address} ${addressDetail}` : address });
     items.push({ k: "요청 내용", v: detail });
     if (callFirst) items.push({ k: "선통화 요청", v: "예" });
@@ -926,9 +962,21 @@ export const OrderCreateContent = () => {
           <PreviewSection>
             <PreviewSectionLabel>사진 ({photos.length}/{MAX_PHOTOS})</PreviewSectionLabel>
             <PreviewPhotoRow>
-              {photos.map((p, i) => (
-                <PreviewPhotoThumb key={i} src={p.preview} alt={`photo-${i}`} />
-              ))}
+              {photos.map((p, i) => {
+                const pct = uploadProgress[i];
+                return (
+                  <PreviewThumbWrap key={i}>
+                    <PreviewPhotoThumb src={p.preview} alt={`photo-${i}`} />
+                    {/* 업로드 진행률 — 실제 업로드는 이 미리보기 화면에서 일어난다 (검수 7/28) */}
+                    {submitting && typeof pct === "number" && pct < 100 && (
+                      <PhotoUploadOverlay>
+                        <PhotoUploadPct>{pct}%</PhotoUploadPct>
+                        <PhotoUploadTrack><PhotoUploadFill style={{ width: `${pct}%` }} /></PhotoUploadTrack>
+                      </PhotoUploadOverlay>
+                    )}
+                  </PreviewThumbWrap>
+                );
+              })}
             </PreviewPhotoRow>
           </PreviewSection>
         )}
@@ -962,12 +1010,9 @@ export const OrderCreateContent = () => {
             CATEGORIES.map((cat) => (
               <CatAccordion key={cat.id}>
                 <CatAccordionHeader onClick={() => {
-                  // 작업자요청은 전용 화면으로 (카테고리 편입)
-                  if (cat.id === "worker_call") {
-                    try { sessionStorage.setItem("homepro.main.activeTab", "worker_request"); } catch (e) {}
-                    navigate("/MobileMain");
-                    return;
-                  }
+                  // (기존: worker_call 은 작업자요청 탭으로 리다이렉트했으나,
+                  //  대표 사양서 7/28 로 팀원.기술자 구인 접수폼이 생기면서 폼 진입으로 변경.
+                  //  리다이렉트가 남아 있으면 그 접수폼에 도달 자체가 불가 — 검수에서 발견)
                   setSelectedCategory(cat.id);
                   resetForm();
                 }}>
@@ -1152,7 +1197,7 @@ export const OrderCreateContent = () => {
 
           {/* 카테고리별 추가 속성 (대표 사양서 7/28) — 오염유형·발생시점·설치유형 등
               config 의 attrSections 를 그대로 칩 목록으로 렌더. multi=true 면 중복선택. */}
-          {showDetail && Array.isArray(detailConfig?.attrSections) && detailConfig.attrSections.map((sec) => {
+          {showDetail && visibleAttrSections.map((sec) => {
             const picked = attrValues[sec.key] || [];
             return (
               <Section key={sec.key}>
