@@ -316,6 +316,24 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
     return { ok: true, ...result };
 });
 
+/** 이 users 문서에 연결된 "아이디/비밀번호 로그인" Auth 계정을 찾는다.
+    검수 7/29: 실DB 의 users 문서에는 email 필드가 저장돼 있지 않다 —
+    로그인 아이디(가상 이메일)는 Firebase Auth 쪽에만 있으므로 거기서 역조회.
+    후보: 문서 email → 문서 ID → linkedEmailUids(통합 계정) 순. */
+async function resolveAuthAccount(u, docId) {
+    if (u.email) {
+        try { return await admin.auth().getUserByEmail(u.email); } catch (e) { /* 계속 */ }
+    }
+    const tryUids = [docId, ...(Array.isArray(u.linkedEmailUids) ? u.linkedEmailUids : []), ...(u.linkedEmailUid ? [u.linkedEmailUid] : [])];
+    for (const t of tryUids) {
+        try {
+            const rec = await admin.auth().getUser(t);
+            if (rec.email) return rec;
+        } catch (e) { /* 다음 후보 */ }
+    }
+    return null;
+}
+
 /* ─────────────────────────────────────────────────────────────
    4) 비밀번호 재설정 — 전화 인증 토큰 검증 후 서버가 직접 변경
    (기존 /resetPassword 는 인증 없이 uid+newPassword 만으로 남의
@@ -348,8 +366,19 @@ exports.resetPasswordWithPhone = onCall({ region: REGION }, async (request) => {
     if (!userSnap.exists) throw new HttpsError("not-found", "계정 정보를 찾을 수 없습니다.");
     const u = userSnap.data();
 
-    // 입력한 아이디가 이 계정 것인지 확인 (이메일/이메일 로컬부/loginId/닉네임/이름)
-    const candidates = [];
+    // 아이디/비밀번호 로그인 계정을 Auth 에서 역조회
+    // (users 문서에는 email 이 저장돼 있지 않은 계정이 대부분 — 검수 7/29)
+    const authUser = await resolveAuthAccount(u, uid);
+    if (!authUser) {
+        const prov = String(u.provider || "").toLowerCase();
+        if (["google", "kakao", "apple"].some((p) => prov.includes(p))) {
+            throw new HttpsError("failed-precondition", "소셜 로그인 계정입니다. 해당 소셜 로그인을 이용해 주세요.");
+        }
+        throw new HttpsError("failed-precondition", "아이디/비밀번호 방식으로 가입된 계정이 아닙니다. 관리자에게 문의해 주세요.");
+    }
+
+    // 입력한 아이디가 이 계정 것인지 확인 (Auth 이메일/로컬부 + 문서의 보조 식별자)
+    const candidates = [String(authUser.email).toLowerCase(), String(authUser.email).split("@")[0].toLowerCase()];
     if (u.email) { candidates.push(String(u.email).toLowerCase()); candidates.push(String(u.email).split("@")[0].toLowerCase()); }
     if (u.loginId) candidates.push(String(u.loginId).toLowerCase());
     if (u.nickname) candidates.push(String(u.nickname).toLowerCase());
@@ -358,20 +387,6 @@ exports.resetPasswordWithPhone = onCall({ region: REGION }, async (request) => {
         throw new HttpsError("permission-denied", "입력한 아이디와 전화번호가 일치하는 계정이 없습니다.");
     }
 
-    // 소셜 계정은 비밀번호가 없다
-    const prov = String(u.provider || "").toLowerCase();
-    if (["google", "kakao", "apple"].some((p) => prov.includes(p))) {
-        throw new HttpsError("failed-precondition", "소셜 로그인 계정입니다. 해당 소셜 로그인을 이용해 주세요.");
-    }
-    if (!u.email) throw new HttpsError("failed-precondition", "이메일(아이디) 정보가 없는 계정입니다. 관리자에게 문의해 주세요.");
-
-    // Auth 계정은 이메일로 찾는다 — 계정 통합으로 문서 ID 와 Auth uid 가 다를 수 있음
-    let authUser;
-    try {
-        authUser = await admin.auth().getUserByEmail(u.email);
-    } catch (e) {
-        throw new HttpsError("not-found", "로그인 계정을 찾을 수 없습니다. 관리자에게 문의해 주세요.");
-    }
     await admin.auth().updateUser(authUser.uid, { password: newPassword });
     await firestore.collection("users").doc(uid).set(
         { updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true },
@@ -409,14 +424,17 @@ exports.findAccountByPhone = onCall({ region: REGION }, async (request) => {
     if (!userSnap.exists) return { ok: true, found: false };
 
     const u = userSnap.data();
-    const email = u.email || "";
+    // 로그인 아이디는 Auth 쪽에서 역조회 (users 문서엔 email 이 없는 계정이 대부분)
+    const authUser = await resolveAuthAccount(u, uid);
+    const email = authUser?.email || u.email || "";
     // 내부 아이디 도메인은 떼고 보여준다
     const loginId = email.endsWith("@homepro.app") ? email.replace("@homepro.app", "") : email;
     return {
         ok: true,
         found: true,
-        loginId,
+        loginId, // 빈 값이면 아이디/비밀번호 방식 가입이 아닌 계정
         provider: u.provider || (Array.isArray(u.providers) ? u.providers[0] : "") || "",
+        nickname: u.nickname || u.name || "",
         createdAt: u.createdAt ? u.createdAt.toDate?.()?.toISOString?.() || null : null,
     };
 });

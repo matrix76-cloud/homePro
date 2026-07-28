@@ -6,7 +6,7 @@ import { collection, query, where, getDocs, doc, getDoc } from "firebase/firesto
 import { getUserProfileByUid } from "../../service/UserProfileService";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
-import { requestPhoneCode, verifyPhoneCode, resetPasswordWithPhone, phoneAuthErrorMessage } from "../../service/recoveryService";
+import { requestPhoneCode, verifyPhoneCode, resetPasswordWithPhone, findAccountByPhone, phoneAuthErrorMessage } from "../../service/recoveryService";
 import Tabs from "../../common/Tabs";
 
 const onlyDigits = (s = "") => (s || "").replace(/\D+/g, "");
@@ -241,10 +241,12 @@ export default function MobileFindAccountcontainer() {
             }
 
             // 서버 대조 — 실패하면 예외가 올라온다 (남은 시도 횟수 포함)
+            let token = "";
             try {
                 const vres = await verifyPhoneCode(sentToE164, codeInput.trim());
-                // 비밀번호 변경에 쓰는 1회용 토큰 (10분 유효)
-                setVerificationToken(vres?.verificationToken || "");
+                // 후속 요청(아이디 조회·비밀번호 변경)에 쓰는 1회용 토큰 (10분 유효)
+                token = vres?.verificationToken || "";
+                setVerificationToken(token);
             } catch (err) {
                 window.alert(phoneAuthErrorMessage(err));
                 return;
@@ -254,6 +256,26 @@ export default function MobileFindAccountcontainer() {
 
             setBusy(true);
             const phoneE164 = sentToE164 || toE164KR(phone);
+
+            if (activeTab === TAB_FIND_ID) {
+                // 아이디 조회는 서버가 처리 — 로그인 아이디는 Auth 에만 있어서
+                // 클라이언트 Firestore 조회로는 닉네임밖에 못 얻는다 (검수 7/29)
+                try {
+                    const acc = await findAccountByPhone({ phone: phoneE164, verificationToken: token });
+                    if (!acc?.found) {
+                        setResultError("이 전화번호로 가입된 계정이 없습니다.");
+                        setBusy(false);
+                        return;
+                    }
+                    setResultProfile(acc); // { loginId, provider, nickname }
+                    setResultMessage("");
+                } catch (err) {
+                    setResultError(phoneAuthErrorMessage(err));
+                }
+                setBusy(false);
+                return;
+            }
+
             const uid = await findUidByPhoneE164(phoneE164);
 
             if (!uid) {
@@ -269,10 +291,7 @@ export default function MobileFindAccountcontainer() {
                 return;
             }
 
-            if (activeTab === TAB_FIND_ID) {
-                setResultProfile(profile);
-                setResultMessage("");
-            } else {
+            {
                 // 비밀번호 찾기 — 아이디 + 전화번호가 함께 일치해야 함
                 if (!idMatchesProfile(loginId, profile)) {
                     setResultError("입력한 아이디와 전화번호가 일치하는 계정이 없습니다.");
@@ -444,14 +463,30 @@ export default function MobileFindAccountcontainer() {
                         ) : resultProfile ? (
                             <>
                                 {activeTab === TAB_FIND_ID ? (
-                                    <>
-                                        <ResultTitle>가입된 계정을 찾았습니다</ResultTitle>
-                                        <ResultCard>
-                                            <ResultLabel>아이디</ResultLabel>
-                                            <ResultValue>{displayId(resultProfile)}</ResultValue>
-                                            <ResultSub>{providerLabel(resultProfile)}</ResultSub>
-                                        </ResultCard>
-                                    </>
+                                    /* 전화 인증을 마친 본인이므로 아이디는 가리지 않고 전체 표시.
+                                       소셜·전화가입 계정은 아이디가 없어 안내로 분기 (검수 7/29) */
+                                    resultProfile.loginId ? (
+                                        <>
+                                            <ResultTitle>가입된 계정을 찾았습니다</ResultTitle>
+                                            <ResultCard>
+                                                <ResultLabel>아이디</ResultLabel>
+                                                <ResultValue>{resultProfile.loginId}</ResultValue>
+                                                <ResultSub>{providerLabel(resultProfile)}{resultProfile.nickname ? ` · ${resultProfile.nickname}` : ""}</ResultSub>
+                                            </ResultCard>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ResultTitle>{/소셜|google|kakao|apple/i.test(resultProfile.provider || "") ? "소셜 계정 안내" : "계정 안내"}</ResultTitle>
+                                            <ResultCard>
+                                                <ResultMessage>
+                                                    {/google|kakao|apple/i.test(resultProfile.provider || "")
+                                                        ? `이 번호는 ${providerLabel(resultProfile)}으로 가입되어 있습니다.\n별도 아이디 없이 해당 소셜 로그인을 이용해주세요.`
+                                                        : "이 번호의 계정은 아이디/비밀번호 방식으로 가입되지 않았습니다.\n관리자에게 문의해주세요."}
+                                                </ResultMessage>
+                                                {resultProfile.nickname ? <ResultSub>{resultProfile.nickname}</ResultSub> : null}
+                                            </ResultCard>
+                                        </>
+                                    )
                                 ) : (
                                     <>
                                         <ResultTitle>
