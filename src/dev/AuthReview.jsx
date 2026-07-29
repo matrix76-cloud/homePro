@@ -6,6 +6,7 @@ import { auth } from '../api/config'
 import { DOMAINS } from './reviewData'
 import { subscribeThread, postEntry, deleteEntry } from './reviewThreadService'
 import { SEED_ACCOUNTS, loginAsSeed, logoutReview, ANON, getSavedAcct, saveAcct, ensureAdminSession } from './reviewAuth'
+import QaBoard from './QaBoard'
 
 // 개발 전용 리뷰 허브 (/review/:id · DEV 게이트) — homePro 전 도메인 통합. (seekone 리뷰 도구 이식)
 // 좌=실제 화면(iframe) + 핀 찍기(화면공유로 지도까지 캡처) / 우상=기획 / 우하=기록 스레드(Firestore).
@@ -73,6 +74,7 @@ export default function AuthReview() {
   const domain = DOMAINS.find((d) => d.key === cur.domain)
   const isPC = cur.domain === 'admin' || cur.domain === 'landing' // 관리자·PC랜딩=PC 풀와이드 → 넓은 프레임(스케일 축소)
   const isLanding = cur.domain === 'landing' // 랜딩=실제 데스크톱 뷰포트 통째 축소
+  const isQa = cur.domain === 'qa' // 기능점검 결과표 — 미리보기·계정전환 없이 판정+스샷 보드만
   const [thread, setThread] = useState(null) // { id: [{by,at,text}] }
   const [draft, setDraft] = useState('')
   const [author, setAuthor] = useState('형') // 작성자: 형 | 카스
@@ -389,6 +391,11 @@ export default function AuthReview() {
         </div>
       </header>
 
+      {/* 기능점검 결과 — 미리보기·계정전환 없이 판정+스샷 보드만 (seekone 방식 이식 7/29) */}
+      {isQa ? (
+        <QaBoard />
+      ) : (
+      <>
       {/* 본문: 좌 화면 / 우 (기획 + 노트) */}
       <div style={{ flex: 1, display: 'flex', minHeight: 0, padding: 18, gap: 18 }}>
         <div style={{ flex: 'none', width: isLanding ? 1000 : isPC ? 780 : 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -538,6 +545,8 @@ export default function AuthReview() {
           </section>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
