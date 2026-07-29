@@ -1,9 +1,12 @@
 // 리뷰 도구 데이터 — homePro 전 도메인 화면 목록 + 기획 요약.
 // seekone 리뷰 도구 이식. 코드 기반 자동 추출본이니 부정확하면 형이 수정.
-// 도메인 9개 · 화면 71개.
 // 각 화면: { no, id(전역 유니크), name, path(빈 문자열=정책/화면없음), spec:[불릿, ★=핵심] }
+import { TEST_REVIEW } from './testcases/index.js'
 
 export const DOMAINS = [
+  // 실기기 테스트 — 형이 기기에서 따라 하며 단계별 [됨]/[안 됨]을 남기는 체크리스트.
+  // 케이스 데이터 = src/dev/testcases/ (그룹 구성은 형이 확정 예정). seekone 방식 이식(7/30).
+  { key: 'test', label: '실기기 테스트', screens: TEST_REVIEW },
   // 기능점검 결과 — 카테고리별 심화점검 결과표(판정+스샷). seekone 방식 이식(7/29).
   // 데이터 = public/qa/manifest.json. 카테고리별 터미널 에이전트가 점검을 돌려 채운다(지휘=카스).
   { key: 'qa', label: '기능점검 결과', screens: [{ id: 'qa-board', no: 'QA', name: '심화점검 결과표', path: '', spec: [

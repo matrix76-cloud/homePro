@@ -75,6 +75,7 @@ export default function AuthReview() {
   const isPC = cur.domain === 'admin' || cur.domain === 'landing' // 관리자·PC랜딩=PC 풀와이드 → 넓은 프레임(스케일 축소)
   const isLanding = cur.domain === 'landing' // 랜딩=실제 데스크톱 뷰포트 통째 축소
   const isQa = cur.domain === 'qa' // 기능점검 결과표 — 미리보기·계정전환 없이 판정+스샷 보드만
+  const isTest = cur.domain === 'test' // 실기기 테스트 — 케이스 체크리스트만 (미리보기 없음)
   const [thread, setThread] = useState(null) // { id: [{by,at,text}] }
   const [draft, setDraft] = useState('')
   const [author, setAuthor] = useState('형') // 작성자: 형 | 카스
@@ -276,6 +277,19 @@ export default function AuthReview() {
     setDraftPins((p) => [...p, { x, y, label, target }])
   }
 
+  // 실기기 테스트 결과 — 스레드에 "[완료] n단계" / "[미완료] n단계 — 사유"로 남긴다(리뷰 시스템 재사용).
+  //  형이 남긴 [미완료]는 미답변 루트로 잡혀 카스 점검 큐(dump-reviews)에 바로 들어온다.
+  const clearTestResult = async (pids) => {
+    await Promise.all((pids || []).map((pid) => deleteEntry(pid).catch(() => {})))
+  }
+  const postTestResult = async (caseId, kind, memo, stepNo) => {
+    const t = (memo || '').trim()
+    if (kind === '미완료' && !t) return false
+    const head = `[${kind}] ${stepNo}단계`
+    await postEntry({ screenId: caseId, by: '형', text: t ? `${head} — ${t}` : head }).catch(() => {})
+    return true
+  }
+
   // 기록 1건 삭제 (confirm 후) — Firestore docId(pid). 글 삭제 시 그 댓글도 함께.
   const del = async (pid) => {
     if (!pid || !window.confirm('이 기록을 삭제할까요? (달린 댓글도 함께 삭제)')) return
@@ -369,8 +383,8 @@ export default function AuthReview() {
           {!authBusy && !authErr && acctUid !== ANON && authUid && <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981' }}>로그인됨</span>}
         </div>
 
-        {/* 현재 도메인 화면 칩 */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
+        {/* 현재 도메인 화면 칩 (실기기 테스트는 케이스가 많아 칩 대신 보드 서브탭으로) */}
+        {!isTest && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
           {domain.screens.map((r) => {
             const nUn = unanswered(r.id)
             return (
@@ -388,12 +402,15 @@ export default function AuthReview() {
               </button>
             )
           })}
-        </div>
+        </div>}
       </header>
 
       {/* 기능점검 결과 — 미리보기·계정전환 없이 판정+스샷 보드만 (seekone 방식 이식 7/29) */}
       {isQa ? (
         <QaBoard />
+      ) : isTest ? (
+        /* 실기기 테스트 — 케이스를 한 화면에 쭉 나열하고 단계마다 됨/안 됨을 남긴다 (seekone 방식 이식 7/30) */
+        <TestBoard cases={domain.screens} thread={thread} onDone={postTestResult} onClear={clearTestResult} />
       ) : (
       <>
       {/* 본문: 좌 화면 / 우 (기획 + 노트) */}
@@ -568,3 +585,185 @@ const SEL = { fontSize: 15, padding: '5px 9px', borderRadius: 8, border: '1px so
 const CARD = { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, boxShadow: '0 1px 2px rgba(20,30,45,0.05), 0 6px 18px rgba(20,30,45,0.04)' }
 // 카드 상단 헤더 존 — 옅은 무채색 배경으로 제목/본문 명도 구분
 const CARD_HEAD = { flex: 'none', padding: '14px 18px', background: '#f8fafb', borderBottom: `1px solid ${C.line}`, borderTopLeftRadius: 16, borderTopRightRadius: 16, fontSize: 17, fontWeight: 800 }
+
+/* ════════════════ 실기기 테스트 보드 (seekone 방식 이식 7/30) ════════════════
+   케이스를 그룹 서브탭으로 나눠 나열하고, 단계마다 [됨]/[안 됨]을 남긴다.
+   결과는 reviewThreads 에 "[완료] n단계"/"[미완료] n단계 — 사유" 형식으로 쌓인다. */
+const OK_GREEN = '#15803d'   // 됨
+const FAIL_RED = '#dc2626'   // 안 됨
+
+function TestBoard({ cases, thread, onDone, onClear }) {
+  // 케이스가 많아 한 번에 다 나열하면 너무 길다 → 그룹 서브탭으로 나눠 본다.
+  const groups = [...new Set(cases.map((c) => c.group).filter(Boolean))]
+  const [tab, setTab] = useState(groups[0] || '')
+  const shown = groups.length ? cases.filter((c) => c.group === tab) : cases
+  // 그룹별 진행률 — 어느 묶음이 남았는지 탭에서 바로 보이게
+  const progress = (gname) => {
+    const rows = cases.filter((c) => c.group === gname)
+    const total = rows.reduce((n, c) => n + c.steps.length, 0)
+    let done = 0, fail = 0
+    rows.forEach((c) => {
+      const seen = {}
+      ;(thread?.[c.id] || []).forEach((e) => {
+        const m = (e.text || '').match(/^\[(완료|미완료)\]\s*(\d+)단계/)
+        if (m) seen[m[2]] = m[1]
+      })
+      Object.values(seen).forEach((v) => { if (v === '완료') done += 1; else fail += 1 })
+    })
+    return { total, done, fail }
+  }
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 20px 60px' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+        {groups.length > 1 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {groups.map((gname) => {
+              const on = gname === tab
+              const pr = progress(gname)
+              return (
+                <button key={gname} onClick={() => setTab(gname)}
+                  style={{ fontSize: 15, fontWeight: 800, padding: '8px 14px', borderRadius: 9, cursor: 'pointer',
+                    border: `1px solid ${on ? C.ink : C.line}`, background: on ? C.ink : '#fff', color: on ? '#fff' : C.ink2, fontFamily: FONT }}>
+                  {gname}
+                  <span style={{ marginLeft: 6, fontWeight: 600, opacity: on ? 0.75 : 1, color: on ? '#fff' : C.gray }}>
+                    {pr.done}/{pr.total}
+                  </span>
+                  {pr.fail > 0 && <span style={{ marginLeft: 5, color: on ? '#fecaca' : FAIL_RED, fontWeight: 800 }}>안 됨 {pr.fail}</span>}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <div style={{ fontSize: 15, color: C.gray, marginBottom: 14 }}>
+          기기에서 하나씩 따라 해 보고 각 단계에 결과를 남겨 주세요. 안 되면 그 자리에 사유를 적으면 카스가 바로 확인합니다.
+        </div>
+        {shown.map((c) => <TestCaseRow key={c.id} c={c} entries={thread?.[c.id] || []} onDone={onDone} onClear={onClear} />)}
+      </div>
+    </div>
+  )
+}
+
+function TestCaseRow({ c, entries, onDone, onClear }) {
+  // 단계별 결과 — 스레드 글 형식: "[완료] 3단계" / "[미완료] 3단계 — 사유"
+  const byStep = {}
+  entries.forEach((e) => {
+    const m = (e.text || '').match(/^\[(완료|미완료)\]\s*(\d+)단계/)
+    if (!m) return
+    const n = Number(m[2])
+    const prev = byStep[n]
+    byStep[n] = {
+      kind: m[1],
+      text: e.text.replace(/^\[(완료|미완료)\]\s*\d+단계\s*(—\s*)?/, ''),
+      at: e.at,
+      pids: [...(prev?.pids || []), e.pid].filter(Boolean), // 같은 단계에 쌓인 기록 전부(초기화 시 함께 삭제)
+    }
+  })
+  const doneN = c.steps.filter((_, i) => byStep[i + 1]?.kind === '완료').length
+  const failN = c.steps.filter((_, i) => byStep[i + 1]?.kind === '미완료').length
+
+  return (
+    <section style={{ ...CARD, padding: '18px 20px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>{c.no}</span>
+        <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.3px' }}>{c.name}</h2>
+        <span style={{ fontSize: 14, color: C.gray }}>{c.target ? `${c.target} · ` : ''}약 {c.minutes || 3}분</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 15, fontWeight: 800, color: failN ? FAIL_RED : doneN === c.steps.length ? OK_GREEN : C.gray2 }}>
+          {doneN}/{c.steps.length} 완료{failN > 0 ? ` · 안 됨 ${failN}` : ''}
+        </span>
+      </div>
+
+      <div style={TC_H}>따라 하기 · 한 단계씩 확인</div>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: 'hidden' }}>
+        {c.steps.map((st, i) => (
+          <StepRow key={i} n={i + 1} st={st} res={byStep[i + 1]} caseId={c.id} onDone={onDone} onClear={onClear} first={i === 0} />
+        ))}
+      </div>
+
+      {c.expect && (
+        <div style={{ marginTop: 14, padding: '12px 15px', borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, fontSize: 15, lineHeight: 1.65, color: C.ink2 }}>
+          <b style={{ fontWeight: 800 }}>이렇게 되면 통과 · </b>{c.expect}
+        </div>
+      )}
+
+      {c.also?.length > 0 && (
+        <>
+          <div style={TC_H}>같이 확인할 것</div>
+          <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {c.also.map((t, i) => <li key={i} style={{ fontSize: 15, lineHeight: 1.6, color: C.ink2 }}>{t}</li>)}
+          </ul>
+        </>
+      )}
+    </section>
+  )
+}
+
+// 한 단계 — 오른쪽에서 바로 되나/안 되나 체크하고, 안 되면 그 자리에 사유를 적는다.
+function StepRow({ n, st, res, caseId, onDone, onClear, first }) {
+  const [open, setOpen] = useState(false)   // 미완료 입력칸 펼침
+  const [memo, setMemo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const state = res?.kind
+
+  // 같은 상태의 버튼을 다시 누르면 그 단계 기록을 지우고 미실행으로 되돌린다.
+  const mark = async (kind, text) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      if (state === kind) { await onClear(res?.pids || []); setMemo(''); setOpen(false); return }
+      const ok = await onDone(caseId, kind, text, n)
+      if (ok) { setMemo(''); setOpen(false) }
+    } finally { setBusy(false) }
+  }
+  // '안 됨'은 입력칸 토글이 먼저다 — 이미 미완료인 상태에서 다시 누르면 초기화
+  const onFailClick = () => { if (state === '미완료') mark('미완료', ''); else setOpen((v) => !v) }
+
+  const bg = state === '미완료' ? '#fef2f2' : state === '완료' ? '#f2faf4' : 'transparent'
+  return (
+    <div style={{ borderTop: first ? 'none' : `1px solid ${C.line}`, background: bg }}>
+      <div style={{ display: 'flex', gap: 12, padding: '11px 14px', alignItems: 'flex-start' }}>
+        <span style={{ flex: 'none', width: 24, height: 24, borderRadius: '50%', background: C.bg, color: C.ink2, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{n}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.55 }}>{st.do}</div>
+          <div style={{ marginTop: 3, fontSize: 14, color: C.gray, lineHeight: 1.6 }}>{st.see}</div>
+          {state && (
+            <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6 }}>
+              <b style={{ color: state === '완료' ? OK_GREEN : FAIL_RED, fontWeight: 800 }}>{state}</b>
+              <span style={{ color: C.gray2 }}> · {res.at}</span>
+              {res.text && <span style={{ color: C.ink2 }}> — {res.text}</span>}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 'none', display: 'flex', gap: 6 }}>
+          <button onClick={() => mark('완료', '')} disabled={busy}
+            style={STEP_BTN(state === '완료', OK_GREEN)}>됨</button>
+          <button onClick={onFailClick} disabled={busy}
+            style={STEP_BTN(state === '미완료', FAIL_RED)}>안 됨</button>
+        </div>
+      </div>
+      {open && (
+        <div style={{ display: 'flex', gap: 8, padding: '0 14px 12px 50px' }}>
+          <input
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && memo.trim()) mark('미완료', memo) }}
+            autoFocus
+            placeholder="무엇이 어떻게 안 됐는지 (Enter 로 기록)"
+            style={{ flex: 1, minWidth: 0, borderRadius: 8, border: `1px solid ${C.line2}`, outline: 'none', padding: '9px 12px', fontSize: 15, fontFamily: FONT, color: C.ink }}
+          />
+          <button onClick={() => mark('미완료', memo)} disabled={busy || !memo.trim()}
+            style={{ flex: 'none', padding: '0 16px', borderRadius: 8, border: 'none', background: memo.trim() ? C.ink : C.line, color: '#fff', fontSize: 14, fontWeight: 800, cursor: memo.trim() ? 'pointer' : 'default', fontFamily: FONT }}>
+            기록
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const STEP_BTN = (on, color) => ({
+  minWidth: 52, padding: '6px 10px', borderRadius: 8, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: FONT,
+  border: `1px solid ${on ? color : C.line2}`, background: on ? color : '#fff', color: on ? '#fff' : C.gray,
+})
+
+const TC_H = { margin: '18px 0 8px', fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px' }
