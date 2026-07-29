@@ -39,7 +39,6 @@ import SubscriptionPage from "./page/mypage/SubscriptionPage";
 import EducationMarketPage from "./page/main/EducationMarketPage";
 import BrokeragePage from "./page/main/BrokeragePage";
 import BrokerageCreatePage from "./page/main/BrokerageCreatePage";
-import WalletRegisterPage from "./page/mypage/WalletRegisterPage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
 import LandingPage from "./page/landing/LandingPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
@@ -302,7 +301,6 @@ const AnimatedRoutes = () => {
             <Route path="/marketplace/create" element={wrap(<MarketplaceCreatePage />)} />
             <Route path="/marketplace/:marketplaceId" element={wrap(<MarketplaceDetailPage />)} />
             <Route path="/subscription" element={wrap(<SubscriptionPage />)} />
-            <Route path="/mypage/wallet" element={wrap(<WalletRegisterPage />)} />
 
             {/* Search */}
             <Route path="/search" element={wrap(<SearchPage />)} />
@@ -364,6 +362,21 @@ const AnimatedRoutes = () => {
 };
 
 function App() {
+  // 초대 딥링크 캡처: /?code=AB123456 → 가입/추천코드 입력 시 자동 입력 (대표 지시 7/29)
+  // 카카오 OAuth ?code= 와 구분: 추천코드는 영대문자 2 + 숫자 6 고정 포맷만 캡처 후 URL에서 제거
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = (params.get("code") || "").trim().toUpperCase();
+      if (/^[A-Z]{2}\d{6}$/.test(code)) {
+        localStorage.setItem("homepro.pendingReferralCode", code);
+        params.delete("code");
+        const rest = params.toString();
+        window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
+
   return (
     <AuthProvider>
       <GlobalStyle />

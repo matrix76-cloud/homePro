@@ -1,25 +1,48 @@
 /* eslint-disable */
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtomValue } from "jotai";
 import { CATEGORIES, THEME } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
+import { getMyProDocs } from "../../service/ProService";
+import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { IoChevronForward, IoAddOutline } from "react-icons/io5";
 
+/* 상태별 표기 — 즉시승인 도입 후 공동중개(부동산)만 승인대기가 남음 (대표 지시 7/29) */
+const STATUS_LABEL = { approved: "승인완료", pending: "승인대기", rejected: "반려" };
+const STATUS_BG = { approved: THEME.success, pending: "#E0A800", rejected: THEME.danger };
+
 const ProCategoryListPage = () => {
     const navigate = useNavigate();
+    const { userData } = useAuth();
     const proCategories = useAtomValue(proCategoriesAtom);
     const myCats = CATEGORIES.filter((c) => proCategories.includes(c.id));
+    const [statusMap, setStatusMap] = useState({});
+
+    useEffect(() => {
+        const uid = userData?.uid;
+        if (!uid) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const docs = await getMyProDocs(uid);
+                if (cancelled) return;
+                const map = {};
+                docs.forEach((d) => { if (d.categoryId) map[d.categoryId] = d.status || "approved"; });
+                setStatusMap(map);
+            } catch (e) { /* 표시용 — 실패해도 목록은 유지 */ }
+        })();
+        return () => { cancelled = true; };
+    }, [userData?.uid]);
 
     return (
         <SimpleBackLayout NAME="업무분야 관리" hideFooter>
             <Wrap>
                 {myCats.length === 0 ? (
                     <EmptyBox>
-                        <EmptyIcon>📋</EmptyIcon>
                         <EmptyText>등록된 업무분야가 없습니다</EmptyText>
                         <EmptySub>아래 버튼을 눌러 분야를 등록하세요</EmptySub>
                     </EmptyBox>
@@ -31,7 +54,9 @@ const ProCategoryListPage = () => {
                                     <CatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</CatIcon>
                                     <CatInfo>
                                         <CatName>{cat.name}</CatName>
-                                        <CatStatus>승인완료</CatStatus>
+                                        <CatStatus $bg={STATUS_BG[statusMap[cat.id]] || THEME.success}>
+                                            {STATUS_LABEL[statusMap[cat.id]] || "승인완료"}
+                                        </CatStatus>
                                     </CatInfo>
                                 </CatLeft>
                                 <IoChevronForward size={18} color={THEME.muted} />
@@ -136,7 +161,7 @@ const CatStatus = styled.div`
     font-size: 13px;
     font-weight: 500;
     color: #fff;
-    background: ${THEME.success};
+    background: ${({ $bg }) => $bg || THEME.success};
     padding: 2px 10px;
     border-radius: 20px;
     margin-top: 4px;

@@ -78,6 +78,10 @@ export async function getUserProfileByUid(uid) {
 
 /**
  * 프로필 업데이트 (merge)
+ *
+ * 차수(accessTier): 문서에 값이 없을 때만 기본 "tier2"(2차수)로 세팅.
+ * 이미 값이 있으면(관리자가 1차수로 올린 회원 포함) 절대 덮지 않는다.
+ * (대표 지시 7/29 — 최초 가입 사업자 회원은 2차수 배정)
  */
 export async function upsertUserProfile(uid, patch) {
     const u = safeTrim(uid);
@@ -88,6 +92,9 @@ export async function upsertUserProfile(uid, patch) {
     const base = { ...(patch || {}), uid: u, updatedAt: serverTimestamp() };
     if (!snap.exists() || !snap.data().createdAt) {
         base.createdAt = serverTimestamp();
+    }
+    if (base.accessTier === undefined && (!snap.exists() || !snap.data().accessTier)) {
+        base.accessTier = "tier2";
     }
 
     await setDoc(ref, base, { merge: true });
@@ -111,6 +118,8 @@ export async function initUserDoc({ uid, email, provider }) {
             phoneE164: "",
             phoneVerified: false,
             status: "",
+            // 차수(등급) — 신규 가입은 항상 2차수(오더 등록 5분 후 수락 가능). 대표 지시 7/29
+            accessTier: "tier2",
             createdAt: serverTimestamp(),
         });
     }

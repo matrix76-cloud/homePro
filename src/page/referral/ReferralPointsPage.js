@@ -20,7 +20,30 @@ const InviteIcon = () => (
 );
 const GiftIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <path d="M22 10h-2.18C20.56 9.22 21 8.16 21 7c0-2.76-2.24-5-5-5-1.4 0-2.65.58-3.56 1.5L14 5.06l1.56-1.56C14.65 2.58 13.4 2 12 2 9.24 2 7 4.24 7 7c0 1.16.44 2.22 1.18 3H6c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7c.55 0 1-.45 1-1v-3c0-1.1-.9-2-2-2z" fill="#8B5CF6"/>
+    <path d="M22 10h-2.18C20.56 9.22 21 8.16 21 7c0-2.76-2.24-5-5-5-1.4 0-2.65.58-3.56 1.5L14 5.06l1.56-1.56C14.65 2.58 13.4 2 12 2 9.24 2 7 4.24 7 7c0 1.16.44 2.22 1.18 3H6c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7c.55 0 1-.45 1-1v-3c0-1.1-.9-2-2-2z" fill="#10B981"/>
+  </svg>
+);
+/* 가입 환영 */
+const WelcomeIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="14" r="11" fill="#10B981" opacity=".18"/>
+    <path d="M14 8v12M8 14h12" stroke="#10B981" strokeWidth="2.4" strokeLinecap="round"/>
+  </svg>
+);
+/* 비즈프로필 완료 */
+const ProfileIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <rect x="4" y="3" width="20" height="22" rx="3" fill="#0F172A" opacity=".12"/>
+    <path d="M9 9h10M9 13h10M9 17h6" stroke="#2F3A47" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+/* 피추천인 활동 보상 */
+const NetworkIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="6" r="3.2" fill="#10B981"/>
+    <circle cx="6.5" cy="21" r="3.2" fill="#10B981" opacity=".45"/>
+    <circle cx="21.5" cy="21" r="3.2" fill="#10B981" opacity=".45"/>
+    <path d="M14 9.5L7 18M14 9.5L21 18" stroke="#10B981" strokeWidth="1.8" strokeLinecap="round"/>
   </svg>
 );
 const OrderIcon = () => (
@@ -64,10 +87,15 @@ const ReviewIcon = () => (
 );
 
 const RULE_STYLE = {
+  signup:             { icon: WelcomeIcon, bg: "#ECFDF5", accent: "#10B981" },
   referral_invite:    { icon: InviteIcon, bg: "#ECFDF5", accent: "#10B981" },
-  referral_signup:    { icon: GiftIcon,   bg: "#E6F9EE", accent: "#8B5CF6" },
+  referral_signup:    { icon: GiftIcon,   bg: "#E6F9EE", accent: "#10B981" },
+  profile_complete:   { icon: ProfileIcon, bg: "#F4F5F7", accent: "#2F3A47" },
   order_create:       { icon: OrderIcon,  bg: "#EFF6FF", accent: "#3B82F6" },
   order_complete:     { icon: CheckIcon,  bg: "#ECFDF5", accent: "#10B981" },
+  order_perform:      { icon: CheckIcon,  bg: "#ECFDF5", accent: "#10B981" },
+  referral_order_complete:   { icon: NetworkIcon, bg: "#F4F5F7", accent: "#2F3A47" },
+  referral_perform_complete: { icon: NetworkIcon, bg: "#F4F5F7", accent: "#2F3A47" },
   community_post:     { icon: PenIcon,    bg: "#FFFBEB", accent: "#F59E0B" },
   community_like_10:  { icon: () => <HeartIcon level={10} />,  bg: "#FDF2F8", accent: "#F472B6" },
   community_like_50:  { icon: () => <HeartIcon level={50} />,  bg: "#FDF2F8", accent: "#EC4899" },
@@ -77,6 +105,19 @@ const RULE_STYLE = {
   review_like_10:     { icon: () => <HeartIcon level={10} />,  bg: "#FDF2F8", accent: "#F472B6" },
   review_like_50:     { icon: () => <HeartIcon level={50} />,  bg: "#FDF2F8", accent: "#EC4899" },
   review_like_100:    { icon: () => <HeartIcon level={100} />, bg: "#FDF2F8", accent: "#DB2777" },
+};
+
+/* 지급 조건 안내 문구 (대표 확정 조건표 2026-07-30) — 금액만으로는 조건이 안 보이는 항목에만 */
+const RULE_NOTE = {
+  signup: "가입 시 자동 적립",
+  referral_invite: "내 코드로 가입 시",
+  referral_signup: "추천코드 입력 시",
+  profile_complete: "휴대폰 인증 · 비즈프로필 · 사업자등록증 완료 시 1회",
+  order_complete: "접수한 오더가 완료처리될 때",
+  order_perform: "수행한 오더가 완료처리될 때",
+  review: "별점 등록 + 15자 이상 작성 시",
+  referral_order_complete: "피추천인이 접수한 오더 완료 시",
+  referral_perform_complete: "피추천인이 수행한 오더 완료 시",
 };
 
 const ReferralPointsPage = () => {
@@ -161,8 +202,9 @@ const ReferralPointsPage = () => {
                 return (
                   <SlideCard key={key} $bg={style.bg}>
                     {IconComp && <IconComp />}
-                    <SlideAmount $accent={style.accent}>+{rule.amount}P</SlideAmount>
+                    <SlideAmount $accent={style.accent}>+{rule.amount.toLocaleString()}P</SlideAmount>
                     <SlideLabel>{rule.label}</SlideLabel>
+                    {RULE_NOTE[key] && <SlideNote>{RULE_NOTE[key]}</SlideNote>}
                   </SlideCard>
                 );
               })}
@@ -269,8 +311,10 @@ const SlideRow = styled.div`
 
 const SlideCard = styled.div`
   flex-shrink: 0;
-  min-width: 130px;
-  max-width: 150px;
+  min-width: 150px;
+  max-width: 168px;
+  /* 조건 문구 유무로 카드 높이가 들쭉날쭉해지지 않게 최소 높이 고정 */
+  min-height: 186px;
   background: ${({ $bg }) => $bg || THEME.surface};
   border-radius: 16px;
   padding: 16px 14px;
@@ -288,10 +332,18 @@ const SlideAmount = styled.div`
 `;
 
 const SlideLabel = styled.div`
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: ${THEME.textSecondary};
   line-height: 1.35;
+`;
+
+const SlideNote = styled.div`
+  margin-top: auto;
+  font-size: 13px;
+  font-weight: 400;
+  color: ${THEME.muted};
+  line-height: 1.45;
 `;
 
 const SectionTitle = styled.div`

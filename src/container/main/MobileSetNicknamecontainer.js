@@ -36,7 +36,10 @@ export default function MobileSetNicknamecontainer() {
     const [uid, setUid] = useState("");
     const [nickname, setNickname] = useState("");
     const [nickStatus, setNickStatus] = useState(""); // "", "checking", "ok", "taken"
-    const [referralInput, setReferralInput] = useState("");
+    // 초대 딥링크(/?code=)로 들어온 경우 자동 입력 (대표 지시 7/29)
+    const [referralInput, setReferralInput] = useState(() => {
+        try { return localStorage.getItem("homepro.pendingReferralCode") || ""; } catch (e) { return ""; }
+    });
     const [busy, setBusy] = useState(false);
     const [generating, setGenerating] = useState(false);
     const triedNames = useRef(new Set());
@@ -188,11 +191,22 @@ export default function MobileSetNicknamecontainer() {
                 USERINFO: { nickname: displayValue, phone: phoneE164 },
             });
 
+            // 가입 환영 포인트 1,000P (누구나 최초 1회 — 대표 확정 2026-07-30)
+            // 이 컨테이너는 기존 회원이 재진입할 수도 있어, users.signupBonusAt +
+            // 원장 조회 이중 가드가 들어간 grantSignupBonus 로만 지급한다.
+            try {
+                const { grantSignupBonus } = await import("../../service/PointService");
+                await grantSignupBonus(targetUid, displayValue);
+            } catch (e) {
+                console.warn("가입 환영 포인트 지급 실패:", e.message);
+            }
+
             // 추천인 코드 적용 (선택사항 — 실패해도 진행)
             if (referralInput.trim()) {
                 try {
                     const { applyReferralCode } = await import("../../service/ReferralService");
                     await applyReferralCode(targetUid, referralInput.trim());
+                    try { localStorage.removeItem("homepro.pendingReferralCode"); } catch (e2) { /* ignore */ }
                 } catch (e) {
                     console.warn("추천인 코드 적용 실패:", e.message);
                 }
@@ -298,7 +312,7 @@ export default function MobileSetNicknamecontainer() {
                         onChange={(e) => setReferralInput(e.target.value)}
                         disabled={busy}
                     />
-                    <HelperText>추천인 코드 입력은 선택사항입니다</HelperText>
+                    <HelperText>선택사항입니다. 코드를 입력하면 추천인과 회원님 모두 3,000P가 적립됩니다</HelperText>
                 </Field>
 
                 <BtnRow>

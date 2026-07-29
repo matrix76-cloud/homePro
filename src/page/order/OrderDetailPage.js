@@ -45,6 +45,7 @@ import { db } from "../../api/config";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
 import { GradeBadge } from "../../utility/gradeUtils";
+import { ACCEPT_DELAY_SEC, getAccessTier, getAcceptRemainSec, formatAcceptRemain } from "../../utility/tierUtils";
 import ProfilePopup from "../../components/ProfilePopup";
 
 const STATUS_BADGE = {
@@ -109,6 +110,27 @@ const OrderDetailPage = () => {
   const isUnpriced = ["onsite", "estimate", "quote"].includes(order?.b2bPriceType);
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
+
+  /* ── 차수(등급) 게이트 — 대표 지시 7/29 ──
+     1차수: 오더 접수 즉시 수락 / 2차수: 오더 등록 후 300초(5분) 경과해야 수락 가능.
+     지원하기(다중비교)는 게이트 대상 아님. 접수자 본인 화면에도 영향 없음. */
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const myTier = getAccessTier(userData);
+  const acceptRemainSec = myTier === "tier2" && !isOwner ? getAcceptRemainSec(order, nowMs) : 0;
+  const acceptLocked = acceptRemainSec > 0;
+  const acceptDelayMin = Math.round(ACCEPT_DELAY_SEC / 60);
+
+  // 남은 시간 1초 카운트다운 (0 되면 인터벌 스스로 정리 → 버튼 정상 복귀)
+  useEffect(() => {
+    if (myTier !== "tier2" || isOwner || !order) return;
+    if (getAcceptRemainSec(order, Date.now()) <= 0) return;
+    const timer = setInterval(() => {
+      const n = Date.now();
+      setNowMs(n);
+      if (getAcceptRemainSec(order, n) <= 0) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [myTier, isOwner, order?.id, order?.createdAt]);
 
   useEffect(() => {
     if (!myUid) return;
@@ -188,6 +210,14 @@ const OrderDetailPage = () => {
 
   const handleAcceptOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    // 차수 게이트 방어 (버튼 우회 대비) — 2차수는 오더 등록 후 5분 경과 전 수락 불가
+    if (getAccessTier(userData) === "tier2") {
+      const remain = getAcceptRemainSec(order, Date.now());
+      if (remain > 0) {
+        showToast(`2차수 회원은 오더 등록 ${acceptDelayMin}분 후부터 수락할 수 있습니다 (${formatAcceptRemain(remain)} 남음)`);
+        return;
+      }
+    }
     if (!window.confirm("해당 오더를 수락 하시겠습니까?")) return; // 팝업 확인
     try {
       if (!acceptOrder) throw new Error("acceptOrder 함수 없음");
@@ -900,10 +930,17 @@ const OrderDetailPage = () => {
           /* 비교선정 미선정 — 다른 홈프로가 선정됨 */
           <ApplyStatusLine $muted>미선정 · 다른 홈프로가 선정되었습니다</ApplyStatusLine>
         ) : matchType === "priority" ? (
-          /* 우선배정호출 — 전화 제거, 수락하기만 */
-          <ActionRow>
-            <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
-          </ActionRow>
+          /* 우선배정호출 — 전화 제거, 수락하기만 (2차수는 등록 5분 후 해제) */
+          <>
+            {acceptLocked && <TierGateNote>2차수 회원은 오더 등록 {acceptDelayMin}분 후부터 수락할 수 있습니다</TierGateNote>}
+            <ActionRow>
+              {acceptLocked ? (
+                <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
+              ) : (
+                <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
+              )}
+            </ActionRow>
+          </>
         ) : matchType === "compare" ? (
           /* 다중비교호출 — 전화 제거, 지원하기만 */
           <ActionRow>
@@ -918,19 +955,33 @@ const OrderDetailPage = () => {
             const isDesignated = !!order.directPhone
               && digits(order.directPhone) === digits(userData?.phoneE164 || userData?.phone);
             return isDesignated ? (
-              <ActionRow>
-                <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
-                <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
-              </ActionRow>
+              <>
+                {acceptLocked && <TierGateNote>2차수 회원은 오더 등록 {acceptDelayMin}분 후부터 수락할 수 있습니다</TierGateNote>}
+                <ActionRow>
+                  <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
+                  {acceptLocked ? (
+                    <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
+                  ) : (
+                    <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
+                  )}
+                </ActionRow>
+              </>
             ) : (
               <ApplyStatusLine $muted>지정배정 오더 · 지정된 홈프로만 수락할 수 있습니다</ApplyStatusLine>
             );
           })()
         ) : (
           /* fallback — 매칭방식 미지정 시에도 수락 흐름 (전화 제거) */
-          <ActionRow>
-            <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
-          </ActionRow>
+          <>
+            {acceptLocked && <TierGateNote>2차수 회원은 오더 등록 {acceptDelayMin}분 후부터 수락할 수 있습니다</TierGateNote>}
+            <ActionRow>
+              {acceptLocked ? (
+                <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
+              ) : (
+                <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>
+              )}
+            </ActionRow>
+          </>
         )}
       </FixedBottom>
 
@@ -1669,13 +1720,22 @@ const PrimaryCTA = styled.button`
   height: 48px;
   border-radius: 10px;
   border: none;
-  background: ${THEME.primary};
-  color: #fff;
+  background: ${({ $locked }) => ($locked ? "#E5E7EB" : THEME.primary)};
+  color: ${({ $locked }) => ($locked ? THEME.muted : "#fff")};
   font-size: 18px;
   font-weight: 600;
   font-family: inherit;
-  cursor: pointer;
-  &:active { opacity: 0.85; }
+  cursor: ${({ $locked }) => ($locked ? "not-allowed" : "pointer")};
+  font-variant-numeric: tabular-nums;
+  &:active { opacity: ${({ $locked }) => ($locked ? 1 : 0.85)}; }
+`;
+
+/* 차수 게이트 안내 (2차수 수락 대기) — 대표 지시 7/29 */
+const TierGateNote = styled.div`
+  font-size: 14px;
+  color: ${THEME.textSecondary};
+  text-align: center;
+  margin-bottom: 8px;
 `;
 
 const ProfileHint = styled.div`

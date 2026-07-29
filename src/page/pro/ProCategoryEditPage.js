@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
-import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
+import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, uploadCertLicenses, registerProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
@@ -30,6 +30,7 @@ const ProCategoryEditPage = () => {
     const [existingLicenseUrl, setExistingLicenseUrl] = useState(null);
     const [activityPhotos, setActivityPhotos] = useState([]);
     const [existingPhotoUrls, setExistingPhotoUrls] = useState([]);
+    const [existingStatus, setExistingStatus] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const fileRef = useRef(null);
     const activityFileRef = useRef(null);
@@ -54,9 +55,18 @@ const ProCategoryEditPage = () => {
             setExperience(d.experience || "");
             setIntro(d.intro || "");
             setRegion(data.region || d.region || null);
-            setCerts(d.certs || []);
+            // 저장된 자격증에는 id가 없어 수정/삭제가 동작하지 않았음 → 로드 시 id 부여 + 사진 미리보기 복원
+            const savedCerts = Array.isArray(d.certs) ? d.certs : [];
+            setCerts(savedCerts.map((c, i) => ({
+                id: `saved-${i}`,
+                certName: c.certName || c.name || "",
+                url: c.url || "",
+                file: null,
+                preview: c.url || null,
+            })));
             setExistingLicenseUrl(data.licenseUrl || null);
             setExistingPhotoUrls(data.photoUrls || []);
+            setExistingStatus(data.status || null);
             // extraFields 복원
             const extras = {};
             catDetailFields.forEach((f) => {
@@ -136,13 +146,16 @@ const ProCategoryEditPage = () => {
                 ? await uploadActivityPhotos(uid, categoryId, activityPhotos.map((p) => p.file))
                 : [];
             const allPhotoUrls = [...existingPhotoUrls, ...newPhotoUrls];
+            // 자격증 사진 업로드 (기존 URL은 유지)
+            const certList = await uploadCertLicenses(uid, certs);
             await registerProCategory(uid, categoryId, finalLicenseUrl, allPhotoUrls, {
                 subcategories: selectedSubs,
                 experience,
                 intro,
-                certs: certs.map((c) => ({ certName: c.certName })),
+                certs: certList,
+                certLicenses: certList.map((c) => ({ name: c.certName, url: c.url || "" })),
                 ...extraFields,
-            }, region);
+            }, region, { existingStatus });
             alert("프로필이 수정되었습니다.");
             navigate(-1);
         } catch (err) {
@@ -174,11 +187,10 @@ const ProCategoryEditPage = () => {
                 )}
 
                 {catDetailFields.map((field) => {
-                    const isCertField = ["certifications", "licenseNumber", "permits"].includes(field.key);
                     return (
                     <Section key={field.key}>
                         <SectionTitle>{field.label}</SectionTitle>
-                        {field.type === "text" && !isCertField && <StyledInput type="text" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} />}
+                        {field.type === "text" && <StyledInput type="text" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} />}
                         {field.type === "number" && <StyledInput type="number" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} min="0" inputMode="numeric" />}
                         {field.type === "textarea" && <StyledTextarea placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} rows={3} />}
                         {field.type === "chips" && (
@@ -188,26 +200,29 @@ const ProCategoryEditPage = () => {
                                 ))}
                             </ChipWrap>
                         )}
-                        {isCertField && (
-                            <CertSection>
-                                {certs.map((cert) => (
-                                    <CertCard key={cert.id}>
-                                        <CertCardHeader>
-                                            <CertNameInput type="text" placeholder={field.placeholder || "자격증명"} value={cert.certName} onChange={(e) => updateCertName(cert.id, e.target.value)} />
-                                            <RemoveBtn onClick={() => removeCert(cert.id)}><IoCloseCircle size={22} color="#fff" /></RemoveBtn>
-                                        </CertCardHeader>
-                                        <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
-                                            {cert.preview ? <CertPhotoPreview src={cert.preview} /> : <CertPlaceholder><IoCameraOutline size={28} color={THEME.muted} /><SmallText>사진 첨부</SmallText></CertPlaceholder>}
-                                        </CertPhotoArea>
-                                        <HiddenInput ref={(el) => (certFileRefs.current[cert.id] = el)} type="file" accept="image/*,.pdf" onChange={(e) => handleCertPhoto(cert.id, e)} />
-                                    </CertCard>
-                                ))}
-                                <AddBtn onClick={addCert}><IoDocumentOutline size={20} color={THEME.primary} /><AddBtnText>자격증 추가하기</AddBtnText></AddBtn>
-                            </CertSection>
-                        )}
                     </Section>
                     );
                 })}
+
+                {/* 자격증·면허 — 카테고리 필드와 무관하게 항상 편집 가능 */}
+                <Section>
+                    <SectionTitle>자격증·면허</SectionTitle>
+                    <CertSection>
+                        {certs.map((cert) => (
+                            <CertCard key={cert.id}>
+                                <CertCardHeader>
+                                    <CertNameInput type="text" placeholder="자격증명 (예: 전기기능사)" value={cert.certName} onChange={(e) => updateCertName(cert.id, e.target.value)} />
+                                    <RemoveBtn onClick={() => removeCert(cert.id)}><IoCloseCircle size={22} color="#fff" /></RemoveBtn>
+                                </CertCardHeader>
+                                <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
+                                    {cert.preview ? <CertPhotoPreview src={cert.preview} /> : <CertPlaceholder><IoCameraOutline size={28} color={THEME.muted} /><SmallText>사진 첨부</SmallText></CertPlaceholder>}
+                                </CertPhotoArea>
+                                <HiddenInput ref={(el) => (certFileRefs.current[cert.id] = el)} type="file" accept="image/*,.pdf" onChange={(e) => handleCertPhoto(cert.id, e)} />
+                            </CertCard>
+                        ))}
+                        <AddBtn onClick={addCert}><IoDocumentOutline size={20} color={THEME.primary} /><AddBtnText>자격증 추가하기</AddBtnText></AddBtn>
+                    </CertSection>
+                </Section>
 
                 <Section>
                     <SectionTitle>경력 (년)</SectionTitle>

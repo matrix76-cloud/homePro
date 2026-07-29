@@ -1,12 +1,15 @@
 /* eslint-disable */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import {
   IoLocationOutline, IoAddOutline, IoChevronForward,
   IoPersonCircleOutline, IoStar, IoChatbubbleOutline,
   IoChevronDown, IoCloseOutline, IoCheckmarkCircle,
+  IoLogoInstagram, IoLogoYoutube, IoLinkOutline, IoGlobeOutline,
+  IoArrowBack, IoOpenOutline, IoTrashOutline, IoDocumentTextOutline,
 } from "react-icons/io5";
+import { SiNaver } from "react-icons/si";
 import { CATEGORIES, CATEGORY_GROUPS, THEME } from "../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
@@ -22,6 +25,33 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { GradeBadge, GradeProgressBar } from "../../utility/gradeUtils";
 import { addToBlacklist } from "../../service/BlacklistService";
 import { IoShieldOutline } from "react-icons/io5";
+import {
+  MAX_CERTIFICATES, saveBusinessLicense, removeBusinessLicense,
+  addCertificate, removeCertificate, hasBusinessLicense,
+  formatUploadedAt, getCompletedOrderCount,
+} from "../../service/CertificateService";
+
+/* SNS·포트폴리오 채널 정의 — 대표 지시 7/30: 각 채널 고유 컬러 + 로고 노출 */
+const SNS_META = [
+  { key: "blog", label: "네이버 블로그", color: "#03C75A", Icon: SiNaver, placeholder: "blog.naver.com/아이디" },
+  { key: "instagram", label: "인스타그램", color: "#D6216B", Icon: IoLogoInstagram, placeholder: "아이디 또는 주소" },
+  { key: "youtube", label: "유튜브", color: "#E62117", Icon: IoLogoYoutube, placeholder: "youtube.com/@채널" },
+  { key: "portfolio", label: "포트폴리오", color: "#2F3A47", Icon: IoLinkOutline, placeholder: "숨고·오늘의집 등 주소" },
+  { key: "website", label: "개인 웹사이트", color: "#2F3A47", Icon: IoGlobeOutline, placeholder: "example.com" },
+];
+
+const EMPTY_SNS = { blog: "", instagram: "", youtube: "", portfolio: "", website: "" };
+
+/* 입력값 정규화 — 프로토콜 없으면 https:// 부여, 인스타 아이디만 입력 시 프로필 주소로 */
+const normalizeSnsValue = (key, raw) => {
+  const v = String(raw || "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  if (key === "instagram" && !v.includes("/") && !v.includes(".")) {
+    return `https://instagram.com/${v.replace(/^@/, "")}`;
+  }
+  return `https://${v.replace(/^\/+/, "")}`;
+};
 
 const BizProfilePage = () => {
   const navigate = useNavigate();
@@ -40,6 +70,24 @@ const BizProfilePage = () => {
   const [account, setAccount] = useState({ bank: "", number: "", holder: "" });
   const [savingAccount, setSavingAccount] = useState(false);
 
+  // 포트폴리오·SNS 링크
+  const [sns, setSns] = useState(EMPTY_SNS);
+  const [savingSns, setSavingSns] = useState(false);
+  const [webView, setWebView] = useState(null); // { url, label }
+
+  // 증명서
+  const [certificates, setCertificates] = useState([]);
+  const [bizLicense, setBizLicense] = useState(null);
+  const [certTitle, setCertTitle] = useState("");
+  const [uploadingBiz, setUploadingBiz] = useState(false);
+  const [uploadingCert, setUploadingCert] = useState(false);
+  const [imageView, setImageView] = useState(null); // { url, title }
+  const bizFileRef = useRef(null);
+  const certFileRef = useRef(null);
+
+  // 신뢰지표 — 홈프로 누적 오더 완료 건수
+  const [completedCount, setCompletedCount] = useState(null);
+
   // Firestore에서 프로필 조회 (본인 또는 다른 프로)
   const targetUid = viewUid || myUid;
   useEffect(() => {
@@ -51,9 +99,106 @@ const BizProfilePage = () => {
         if (data.account) {
           setAccount({ bank: data.account.bank || "", number: data.account.number || "", holder: data.account.holder || "" });
         }
+        setSns({ ...EMPTY_SNS, ...(data.snsLinks || {}) });
+        setCertificates(Array.isArray(data.certificates) ? data.certificates : []);
+        setBizLicense(data.businessLicense && data.businessLicense.url ? data.businessLicense : null);
       }
     }).catch(() => {});
   }, [targetUid]);
+
+  // 누적 오더 완료 건수
+  useEffect(() => {
+    if (!targetUid) return;
+    let alive = true;
+    getCompletedOrderCount(targetUid).then((n) => { if (alive) setCompletedCount(n); }).catch(() => {});
+    return () => { alive = false; };
+  }, [targetUid]);
+
+  const handleSaveSns = async () => {
+    if (!myUid) return;
+    setSavingSns(true);
+    try {
+      const snsLinks = {};
+      SNS_META.forEach(({ key }) => { snsLinks[key] = normalizeSnsValue(key, sns[key]); });
+      await upsertUserProfile(myUid, { snsLinks });
+      setSns({ ...EMPTY_SNS, ...snsLinks });
+      setMyProfile((p) => ({ ...(p || {}), snsLinks }));
+      alert("포트폴리오·SNS 링크가 저장되었습니다");
+    } catch (e) {
+      alert("저장 실패: " + (e.message || e));
+    } finally {
+      setSavingSns(false);
+    }
+  };
+
+  const handleBizFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !myUid) return;
+    setUploadingBiz(true);
+    try {
+      const saved = await saveBusinessLicense(myUid, file);
+      setBizLicense(saved);
+      setMyProfile((p) => ({ ...(p || {}), businessLicense: saved }));
+      // 비즈프로필 작성 완료 2,000P (1회, 조건 판정은 함수 내부 — 대표 지시 7/29)
+      try {
+        const { grantProfileCompleteBonus } = await import("../../service/PointService");
+        await grantProfileCompleteBonus(myUid, myProfile?.nickname || myProfile?.name || userData?.name || "");
+      } catch (err2) { /* 보너스 실패가 업로드를 막지 않게 */ }
+      alert("사업자등록증이 등록되었습니다");
+    } catch (err) {
+      alert("업로드 실패: " + (err.message || err));
+    } finally {
+      setUploadingBiz(false);
+    }
+  };
+
+  const handleRemoveBiz = async () => {
+    if (!myUid || !window.confirm("사업자등록증을 삭제할까요?")) return;
+    try {
+      await removeBusinessLicense(myUid);
+      setBizLicense(null);
+      setMyProfile((p) => ({ ...(p || {}), businessLicense: null }));
+    } catch (err) {
+      alert("삭제 실패: " + (err.message || err));
+    }
+  };
+
+  const handleCertPick = () => {
+    if (!certTitle.trim()) {
+      alert("서류 제목을 먼저 입력해주세요");
+      return;
+    }
+    certFileRef.current?.click();
+  };
+
+  const handleCertFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !myUid) return;
+    setUploadingCert(true);
+    try {
+      const next = await addCertificate(myUid, certTitle, file);
+      setCertificates(next);
+      setMyProfile((p) => ({ ...(p || {}), certificates: next }));
+      setCertTitle("");
+    } catch (err) {
+      alert(err.message || "등록 실패");
+    } finally {
+      setUploadingCert(false);
+    }
+  };
+
+  const handleRemoveCert = async (certId) => {
+    if (!myUid || !window.confirm("이 증명서를 삭제할까요?")) return;
+    try {
+      const next = await removeCertificate(myUid, certId);
+      setCertificates(next);
+      setMyProfile((p) => ({ ...(p || {}), certificates: next }));
+    } catch (err) {
+      alert("삭제 실패: " + (err.message || err));
+    }
+  };
 
   const handleSaveAccount = async () => {
     if (!myUid) return;
@@ -194,33 +339,96 @@ const BizProfilePage = () => {
   // 다른 프로 프로필 보기 — 승인된 전문분야만
   const viewPros = isViewingOther ? myPros.filter((p) => p.status === "approved") : myPros;
 
+  /* ── 신뢰요소 파생값 (타인 열람 모드 상단 노출) ── */
+  const regionText = (() => {
+    const r = myProfile?.region;
+    if (!r) return "";
+    if (typeof r === "string") return r;
+    return `${r.sido || ""} ${r.gu || ""}`.trim();
+  })();
+
+  const mainCategoryText = [...new Set(
+    (isViewingOther ? viewPros : myPros.filter((p) => p.status === "approved"))
+      .map((p) => getCatName(p.categoryId))
+      .filter(Boolean)
+  )].join(" · ");
+
+  const careerText = (() => {
+    const explicit = myProfile?.career || myProfile?.experience;
+    if (explicit) return typeof explicit === "number" ? `${explicit}년` : String(explicit);
+    const years = viewPros.map((p) => Number(p.detail?.experience)).filter((n) => n > 0);
+    return years.length ? `${Math.max(...years)}년` : "";
+  })();
+
+  const licenseVerified = hasBusinessLicense(myProfile);
+  const activeSns = SNS_META.filter((m) => (myProfile?.snsLinks || {})[m.key]);
+
   const ProfileContent = (
     <PageWrap>
       {/* 프로필 */}
       {tab === "profile" && (
           <>
-            {/* 프로필 요약 */}
+            {/* 프로필 요약 + 전문분야 등록하기 (대표 지시 7/30: 한 박스로 통합) */}
             <ProfileCard>
-              {(myProfile?.photoURL || myProfile?.profileImage) ? (
-                <ProfileImg src={myProfile.photoURL || myProfile.profileImage} alt="" />
-              ) : (
-                <ProfileAvatar>{(myProfile?.name || userData?.name || "?").charAt(0)}</ProfileAvatar>
-              )}
-              <ProfileInfo>
-                <ProfileNameRow>
-                  <ProfileName>{myProfile?.companyName || myProfile?.name || userData?.name || "이름 없음"}</ProfileName>
-                  <GradeBadge grade={myProfile?.grade || userData?.grade} size="sm" />
-                </ProfileNameRow>
-                <ProfileBio>
-                  {myProfile?.intro || (isViewingOther ? "" : "한줄 소개를 작성해보세요")}
-                </ProfileBio>
-                {(myProfile?.region?.sido) && (
-                  <ProfileRegion>
-                    <IoLocationOutline size={14} />
-                    {myProfile.region.sido} {myProfile.region.gu || ""}
-                  </ProfileRegion>
+              <ProfileTopRow>
+                {(myProfile?.photoURL || myProfile?.profileImage) ? (
+                  <ProfileImg src={myProfile.photoURL || myProfile.profileImage} alt="" />
+                ) : (
+                  <ProfileAvatar>{(myProfile?.name || userData?.name || "?").charAt(0)}</ProfileAvatar>
                 )}
-              </ProfileInfo>
+                <ProfileInfo>
+                  <ProfileNameRow>
+                    <ProfileName>{myProfile?.companyName || myProfile?.name || userData?.name || "이름 없음"}</ProfileName>
+                    <GradeBadge grade={myProfile?.grade || userData?.grade} size="sm" />
+                  </ProfileNameRow>
+                  <ProfileBio>
+                    {myProfile?.intro || (isViewingOther ? "" : "한줄 소개를 작성해보세요")}
+                  </ProfileBio>
+                  {regionText && (
+                    <ProfileRegion>
+                      <IoLocationOutline size={14} />
+                      {regionText}
+                    </ProfileRegion>
+                  )}
+                </ProfileInfo>
+              </ProfileTopRow>
+
+              {/* 타인 열람 — 신뢰요소 (인증·지역·주요 카테고리·경력·누적 완료) */}
+              {isViewingOther && (
+                <TrustSection>
+                  <TrustCertLine $verified={licenseVerified}>
+                    {licenseVerified ? "사업자등록증 인증" : "사업자등록증 미등록"}
+                  </TrustCertLine>
+                  {regionText && (
+                    <TrustRow><TrustKey>활동 지역</TrustKey><TrustVal>{regionText}</TrustVal></TrustRow>
+                  )}
+                  {mainCategoryText && (
+                    <TrustRow><TrustKey>주요 분야</TrustKey><TrustVal>{mainCategoryText}</TrustVal></TrustRow>
+                  )}
+                  {careerText && (
+                    <TrustRow><TrustKey>경력</TrustKey><TrustVal>{careerText}</TrustVal></TrustRow>
+                  )}
+                  <TrustRow>
+                    <TrustKey>완료 실적</TrustKey>
+                    <TrustVal>
+                      {completedCount === null
+                        ? "집계 중..."
+                        : <TrustStrong>홈프로 누적 오더 완료 {completedCount}건</TrustStrong>}
+                    </TrustVal>
+                  </TrustRow>
+                </TrustSection>
+              )}
+
+              {/* 본인 — 전문분야 등록 진입 (박스 통합) */}
+              {!isViewingOther && (
+                <ProfileActionRow onClick={() => navigate("/pro/register-category")}>
+                  <ProfileActionLabel>
+                    <IoAddOutline size={18} color={THEME.primary} />
+                    전문분야 등록하기
+                  </ProfileActionLabel>
+                  <IoChevronForward size={18} color={THEME.muted} />
+                </ProfileActionRow>
+              )}
             </ProfileCard>
 
             {/* 등급 + 활동 통계 (4열) */}
@@ -272,6 +480,168 @@ const BizProfilePage = () => {
               </AccountCard>
             )}
 
+            {/* 포트폴리오·SNS — 본인: 입력/저장 (대표 지시 7/30) */}
+            {!isViewingOther && (
+              <AccountCard>
+                <AccountTitle>포트폴리오 · SNS</AccountTitle>
+                <AccountSub>등록한 채널은 내 프로필을 보는 홈프로에게 노출됩니다</AccountSub>
+                {SNS_META.map(({ key, label, placeholder }) => (
+                  <SnsField key={key}>
+                    <SnsLabel>{label}</SnsLabel>
+                    <AccountInput
+                      value={sns[key] || ""}
+                      onChange={(e) => setSns((s) => ({ ...s, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  </SnsField>
+                ))}
+                <AccountSaveBtn onClick={handleSaveSns} disabled={savingSns}>
+                  {savingSns ? "저장 중..." : "링크 저장"}
+                </AccountSaveBtn>
+                <SnsHint>주소 형식이 아니어도 저장 시 자동으로 정리됩니다</SnsHint>
+              </AccountCard>
+            )}
+
+            {/* 포트폴리오·SNS — 타인: 채널 버튼 (각 채널 고유 컬러) */}
+            {isViewingOther && activeSns.length > 0 && (
+              <AccountCard>
+                <AccountTitle>포트폴리오 · SNS</AccountTitle>
+                <AccountSub>버튼을 누르면 앱 안에서 바로 열립니다</AccountSub>
+                <SnsBtnRow>
+                  {activeSns.map(({ key, label, color, Icon }) => (
+                    <SnsBtn
+                      key={key}
+                      $color={color}
+                      onClick={() => setWebView({ url: myProfile.snsLinks[key], label })}
+                    >
+                      <Icon size={20} />
+                      <span>{label}</span>
+                    </SnsBtn>
+                  ))}
+                </SnsBtnRow>
+              </AccountCard>
+            )}
+
+            {/* 증명서 관리 — 본인 (대표 지시 7/30) */}
+            {!isViewingOther && (
+              <AccountCard>
+                <AccountTitle>증명서 관리</AccountTitle>
+                <AccountSub>등록한 증명서는 프로필 신뢰도에 반영됩니다</AccountSub>
+
+                <CertBlock>
+                  <CertBlockHead>
+                    <CertBlockTitle>사업자등록증</CertBlockTitle>
+                    <CertRequired>필수</CertRequired>
+                  </CertBlockHead>
+                  <CertStateLine $verified={!!bizLicense}>
+                    {bizLicense
+                      ? `등록됨${formatUploadedAt(bizLicense.uploadedAt) ? ` · ${formatUploadedAt(bizLicense.uploadedAt)}` : ""}`
+                      : "아직 등록되지 않았습니다"}
+                  </CertStateLine>
+                  <CertActionRow>
+                    <CertActionBtn
+                      onClick={() => bizFileRef.current?.click()}
+                      disabled={uploadingBiz}
+                    >
+                      {uploadingBiz ? "업로드 중..." : bizLicense ? "교체" : "업로드"}
+                    </CertActionBtn>
+                    {bizLicense && (
+                      <>
+                        <CertActionBtn onClick={() => setImageView({ url: bizLicense.url, title: "사업자등록증" })}>
+                          보기
+                        </CertActionBtn>
+                        <CertActionBtn $danger onClick={handleRemoveBiz}>삭제</CertActionBtn>
+                      </>
+                    )}
+                  </CertActionRow>
+                  <HiddenFile ref={bizFileRef} type="file" accept="image/*" onChange={handleBizFile} />
+                </CertBlock>
+
+                <CertBlock>
+                  <CertBlockHead>
+                    <CertBlockTitle>추가 증명서</CertBlockTitle>
+                    <CertCountText>{certificates.length} / {MAX_CERTIFICATES}</CertCountText>
+                  </CertBlockHead>
+                  {certificates.length > 0 && (
+                    <CertList>
+                      {certificates.map((c) => (
+                        <CertItem key={c.id}>
+                          <CertItemMain onClick={() => setImageView({ url: c.url, title: c.title })}>
+                            <IoDocumentTextOutline size={17} color={THEME.textSecondary} />
+                            <CertItemText>
+                              <CertItemTitle>{c.title}</CertItemTitle>
+                              {formatUploadedAt(c.uploadedAt) && (
+                                <CertItemDate>{formatUploadedAt(c.uploadedAt)} 등록</CertItemDate>
+                              )}
+                            </CertItemText>
+                          </CertItemMain>
+                          <CertDeleteBtn onClick={() => handleRemoveCert(c.id)} aria-label="삭제">
+                            <IoTrashOutline size={17} />
+                          </CertDeleteBtn>
+                        </CertItem>
+                      ))}
+                    </CertList>
+                  )}
+                  {certificates.length >= MAX_CERTIFICATES ? (
+                    <CertLimitText>추가 증명서는 최대 {MAX_CERTIFICATES}건까지 등록할 수 있습니다. 기존 서류를 삭제하고 등록해주세요.</CertLimitText>
+                  ) : (
+                    <>
+                      <SnsField>
+                        <SnsLabel>서류 제목</SnsLabel>
+                        <AccountInput
+                          value={certTitle}
+                          onChange={(e) => setCertTitle(e.target.value)}
+                          placeholder="예: 건설업 면허증, 전기기능사 자격증"
+                        />
+                      </SnsField>
+                      <CertActionRow>
+                        <CertActionBtn onClick={handleCertPick} disabled={uploadingCert}>
+                          {uploadingCert ? "업로드 중..." : "파일 선택하고 추가"}
+                        </CertActionBtn>
+                      </CertActionRow>
+                    </>
+                  )}
+                  <HiddenFile ref={certFileRef} type="file" accept="image/*" onChange={handleCertFile} />
+                </CertBlock>
+              </AccountCard>
+            )}
+
+            {/* 증명서 열람 — 타인 (사업자등록증은 인증 표기만, 추가 증명서는 열람 허용) */}
+            {isViewingOther && (
+              <AccountCard>
+                <AccountTitle>증명서 {certificates.length}건</AccountTitle>
+                <AccountSub>
+                  사업자등록증은 개인정보 보호를 위해 인증 여부만 표시됩니다
+                </AccountSub>
+                <CertStateLine $verified={licenseVerified}>
+                  {licenseVerified ? "사업자등록증 인증" : "사업자등록증 미등록"}
+                </CertStateLine>
+                {certificates.length > 0 ? (
+                  <CertList>
+                    {certificates.map((c) => (
+                      <CertItem key={c.id}>
+                        <CertItemMain onClick={() => setImageView({ url: c.url, title: c.title })}>
+                          <IoDocumentTextOutline size={17} color={THEME.textSecondary} />
+                          <CertItemText>
+                            <CertItemTitle>{c.title}</CertItemTitle>
+                            {formatUploadedAt(c.uploadedAt) && (
+                              <CertItemDate>{formatUploadedAt(c.uploadedAt)} 등록</CertItemDate>
+                            )}
+                          </CertItemText>
+                        </CertItemMain>
+                        <IoChevronForward size={17} color={THEME.muted} />
+                      </CertItem>
+                    ))}
+                  </CertList>
+                ) : (
+                  <CertLimitText>등록된 추가 증명서가 없습니다</CertLimitText>
+                )}
+              </AccountCard>
+            )}
+
             {/* 리뷰 목록 */}
             {showReviews && reviews.length > 0 && (
               <ReviewSummaryCard>
@@ -312,11 +682,9 @@ const BizProfilePage = () => {
                   <EmptyDesc>등록된 전문분야가 없습니다</EmptyDesc>
                 ) : (
                   <>
+                    {/* 진입 버튼은 상단 프로필 박스로 통합 (대표 지시 7/30) — 안내 문구만 유지 */}
                     <EmptyTitle>아직 등록한 전문분야가 없어요</EmptyTitle>
-                    <EmptyDesc>전문분야를 등록하고 고객의 요청을 받아보세요</EmptyDesc>
-                    <RegisterBtn onClick={() => navigate("/pro/register-category")}>
-                      <IoAddOutline size={18} /> 전문분야 등록하기
-                    </RegisterBtn>
+                    <EmptyDesc>위 프로필의 전문분야 등록하기에서<br />분야를 등록하고 고객의 요청을 받아보세요</EmptyDesc>
                   </>
                 )}
               </EmptyWrap>
@@ -354,12 +722,7 @@ const BizProfilePage = () => {
                     </ProCard>
                   );
                 })}
-                {!isViewingOther && (
-                  <AddProBtn onClick={() => navigate("/pro/register-category")}>
-                    <IoAddOutline size={20} color={THEME.primary} />
-                    <span>전문분야 등록하기</span>
-                  </AddProBtn>
-                )}
+                {/* 하단 추가 버튼 제거 — 상단 프로필 박스의 전문분야 등록하기로 통합 (대표 지시 7/30) */}
               </>
             )}
           </>
@@ -481,6 +844,38 @@ const BizProfilePage = () => {
           </BlacklistBtnWrap>
         )}
 
+        {/* 인앱 브라우저 — SNS·포트폴리오 링크 열기 */}
+        {webView && (
+          <WebOverlay>
+            <WebBar>
+              <WebBarBtn onClick={() => setWebView(null)} aria-label="뒤로가기">
+                <IoArrowBack size={22} color={THEME.text} />
+              </WebBarBtn>
+              <WebBarTitle>{webView.label}</WebBarTitle>
+              <WebBarOpen onClick={() => window.open(webView.url, "_blank")}>
+                <IoOpenOutline size={16} /> 외부로 열기
+              </WebBarOpen>
+            </WebBar>
+            <WebFrame src={webView.url} title={webView.label} />
+            <WebNote>화면이 보이지 않으면 외부로 열기를 눌러주세요</WebNote>
+          </WebOverlay>
+        )}
+
+        {/* 증명서 이미지 열람 */}
+        {imageView && (
+          <ImageOverlay onClick={() => setImageView(null)}>
+            <ImageBar onClick={(e) => e.stopPropagation()}>
+              <ImageBarTitle>{imageView.title}</ImageBarTitle>
+              <WebBarBtn onClick={() => setImageView(null)} aria-label="닫기">
+                <IoCloseOutline size={24} color="#fff" />
+              </WebBarBtn>
+            </ImageBar>
+            <ImageBody onClick={(e) => e.stopPropagation()}>
+              <CertImage src={imageView.url} alt={imageView.title} />
+            </ImageBody>
+          </ImageOverlay>
+        )}
+
         <BottomSpacer />
       </PageWrap>
   );
@@ -536,13 +931,78 @@ const TabBtn = styled.button`
 /* ── 내 프로필 ── */
 
 const ProfileCard = styled.div`
-  display: flex;
-  gap: 16px;
-  padding: 24px 20px;
+  padding: 24px 20px 8px;
   margin: 12px 12px 0;
   background: ${THEME.surface};
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
+`;
+
+const ProfileTopRow = styled.div`
+  display: flex;
+  gap: 16px;
+  padding-bottom: 16px;
+`;
+
+/* 전문분야 등록 진입 — 프로필과 같은 박스 안 (구분선으로만 분리) */
+const ProfileActionRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-top: 1px solid ${THEME.border};
+  cursor: pointer;
+  &:active { opacity: 0.6; }
+`;
+
+const ProfileActionLabel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: ${THEME.text};
+`;
+
+/* ── 타인 열람 신뢰요소 ── */
+
+const TrustSection = styled.div`
+  border-top: 1px solid ${THEME.border};
+  padding: 14px 0 8px;
+`;
+
+const TrustCertLine = styled.div`
+  font-size: 15px;
+  font-weight: ${({ $verified }) => ($verified ? 700 : 400)};
+  color: ${({ $verified }) => ($verified ? THEME.primaryDark : THEME.muted)};
+  margin-bottom: 10px;
+`;
+
+const TrustRow = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 5px 0;
+`;
+
+const TrustKey = styled.div`
+  flex: 0 0 74px;
+  font-size: 15px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+`;
+
+const TrustVal = styled.div`
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: ${THEME.text};
+  line-height: 1.45;
+  word-break: break-word;
+`;
+
+const TrustStrong = styled.span`
+  font-weight: 700;
+  color: ${THEME.text};
 `;
 
 const ProfileImg = styled.img`
@@ -674,22 +1134,6 @@ const ProCardArrow = styled.div`
   position: absolute;
   top: 20px;
   right: 20px;
-`;
-
-const AddProBtn = styled.div`
-  margin: 12px 12px 0;
-  padding: 20px;
-  border: 1.5px dashed ${THEME.border};
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  color: ${THEME.primary};
-  &:active { background: ${THEME.purpleLight}; }
 `;
 
 /* ── 빈 상태 ── */
@@ -894,21 +1338,293 @@ const ReviewText = styled.p`
   line-height: 1.5;
 `;
 
-const RegisterBtn = styled.button`
+/* ── 포트폴리오 · SNS ── */
+
+const SnsField = styled.div`
+  margin-bottom: 12px;
+`;
+
+const SnsLabel = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.textSecondary};
+  margin-bottom: 6px;
+`;
+
+const SnsHint = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  margin-top: 8px;
+`;
+
+const SnsBtnRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
+/* 채널 고유 컬러 허용 구간 (대표 지시) */
+const SnsBtn = styled.button`
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 20px;
-  padding: 12px 24px;
-  border-radius: 10px;
+  gap: 7px;
+  padding: 11px 14px;
   border: none;
-  background: ${THEME.primary};
-  color: white;
-  font-size: 16px;
-  font-weight: 500;
+  border-radius: 10px;
+  background: ${({ $color }) => $color};
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  &:active { opacity: 0.8; }
+  &:active { opacity: 0.85; }
+`;
+
+/* ── 증명서 ── */
+
+const CertBlock = styled.div`
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid ${THEME.border};
+`;
+
+const CertBlockHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+`;
+
+const CertBlockTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const CertRequired = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${THEME.danger};
+`;
+
+const CertCountText = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+`;
+
+const CertStateLine = styled.div`
+  font-size: 15px;
+  font-weight: ${({ $verified }) => ($verified ? 700 : 400)};
+  color: ${({ $verified }) => ($verified ? THEME.primaryDark : THEME.muted)};
+  margin-bottom: 10px;
+`;
+
+const CertActionRow = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const CertActionBtn = styled.button`
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid ${({ $danger }) => ($danger ? THEME.danger : THEME.border)};
+  background: ${THEME.surface};
+  color: ${({ $danger, disabled }) => (disabled ? THEME.muted : $danger ? THEME.danger : THEME.text)};
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
+  &:active { background: ${THEME.background}; }
+`;
+
+const HiddenFile = styled.input`
+  display: none;
+`;
+
+const CertList = styled.div`
+  margin-bottom: 12px;
+`;
+
+const CertItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-child { border-bottom: none; }
+`;
+
+const CertItemMain = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  &:active { opacity: 0.6; }
+`;
+
+const CertItemText = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const CertItemTitle = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+  color: ${THEME.text};
+  word-break: break-word;
+`;
+
+const CertItemDate = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  margin-top: 2px;
+`;
+
+const CertDeleteBtn = styled.button`
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 6px;
+  color: ${THEME.muted};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  &:active { opacity: 0.6; }
+`;
+
+const CertLimitText = styled.div`
+  font-size: 14px;
+  color: ${THEME.muted};
+  line-height: 1.5;
+`;
+
+/* ── 인앱 브라우저 ── */
+
+const WebOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: ${THEME.surface};
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+`;
+
+const WebBar = styled.div`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid ${THEME.border};
+`;
+
+const WebBarBtn = styled.button`
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+`;
+
+const WebBarTitle = styled.div`
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const WebBarOpen = styled.button`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { background: ${THEME.background}; }
+`;
+
+const WebFrame = styled.iframe`
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: ${THEME.surface};
+`;
+
+const WebNote = styled.div`
+  flex-shrink: 0;
+  padding: 11px 14px;
+  border-top: 1px solid ${THEME.border};
+  background: ${THEME.background};
+  font-size: 13px;
+  color: ${THEME.textSecondary};
+  text-align: center;
+`;
+
+/* ── 증명서 이미지 열람 ── */
+
+const ImageOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+`;
+
+const ImageBar = styled.div`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+`;
+
+const ImageBarTitle = styled.div`
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const ImageBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow: auto;
+`;
+
+const CertImage = styled.img`
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 `;
 
 /* ── 전문가 찾기 탭 ── */

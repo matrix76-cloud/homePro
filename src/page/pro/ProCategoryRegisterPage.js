@@ -1,13 +1,19 @@
 /* eslint-disable */
-import React, { useContext, useState, useRef, useMemo } from "react";
+import React, { useContext, useState, useRef, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { CATEGORIES, CATEGORY_GROUPS, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
+import { CATEGORIES, CATEGORY_GROUPS, PRO_ONLY_CATEGORY_GROUPS, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
-import { uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
+import {
+    uploadBusinessLicense,
+    uploadActivityPhotos,
+    uploadCertLicenses,
+    registerProCategory,
+    isApprovalRequiredCategory,
+} from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
@@ -22,6 +28,13 @@ import {
 } from "react-icons/tb";
 
 const STEP_LABELS = ["분야 선택", "상세 정보"];
+
+// 한 번에 등록 가능한 최대 카테고리 수 (대표 지시 7/30)
+const MAX_CATS = 5;
+
+// PRO_DETAIL_FIELDS 안에서 "자격증/면허" 성격의 텍스트 필드 키
+// (사진 첨부는 공통 자격증 섹션에서 한 번만 받는다)
+const CERT_TEXT_KEYS = ["certifications", "licenseNumber", "permits"];
 
 // 카테고리 ID → 디테일 라인 아이콘 (모노톤, currentColor 상속)
 const DETAIL_ICONS = {
@@ -59,6 +72,7 @@ const DETAIL_ICONS = {
     auto: TbCar,
     // 생활
     realestate: TbBuildingSkyscraper,
+    brokerage: TbBuildingSkyscraper,
     moving: TbTruckDelivery,
     appliance_rental: TbDeviceTv,
     insurance: TbShieldHalfFilled,
@@ -77,59 +91,96 @@ const ProCategoryRegisterPage = () => {
     // step
     const [step, setStep] = useState(1);
 
-    // step 1
-    const [selectedCat, setSelectedCat] = useState(null);
+    // step 1 — 최대 5개 일괄 선택
+    const [selectedCats, setSelectedCats] = useState([]);
 
-    // step 2
-    const [selectedSubs, setSelectedSubs] = useState([]);
+    // step 2 — 카테고리별 입력 (세부분야 / 동적 필드)
+    const [subsByCat, setSubsByCat] = useState({});   // { catId: [sub] }
+    const [extrasByCat, setExtrasByCat] = useState({}); // { catId: { key: value } }
+
+    // step 2 — 공통 입력
     const [experience, setExperience] = useState("");
     const [intro, setIntro] = useState("");
     const [region, setRegion] = useState(null); // { sido, gu }
     const [showRegionModal, setShowRegionModal] = useState(false);
-    const [extraFields, setExtraFields] = useState({});
     const [certs, setCerts] = useState([]); // [{ id, certName, file, preview }]
     const certFileRefs = useRef({});
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [activityPhotos, setActivityPhotos] = useState([]);
     const [submitting, setSubmitting] = useState(false);
+    const [toast, setToast] = useState("");
+    const toastTimer = useRef(null);
     const fileRef = useRef(null);
     const activityFileRef = useRef(null);
 
     const { userData } = useAuth();
     const uid = user?.USERS_ID || userData?.uid;
 
-    const catObj = useMemo(
-        () => CATEGORIES.find((c) => c.id === selectedCat),
-        [selectedCat]
-    );
-    const hasSubcategories = catObj?.subcategories?.length > 0;
+    useEffect(() => () => clearTimeout(toastTimer.current), []);
 
-    const catDetailFields = useMemo(
-        () => PRO_DETAIL_FIELDS[selectedCat] || [],
-        [selectedCat]
+    const showToast = (msg) => {
+        setToast(msg);
+        clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(""), 2000);
+    };
+
+    // 선택 순서를 유지한 카테고리 객체 목록
+    const selectedCatObjs = useMemo(
+        () => selectedCats.map((id) => CATEGORIES.find((c) => c.id === id)).filter(Boolean),
+        [selectedCats]
     );
 
     // ─── step 1 handlers ───
-    const handleSelectCat = (catId) => {
+    const handleToggleCat = (catId) => {
         if (proCategories.includes(catId)) return;
-        setSelectedCat(catId);
-        setSelectedSubs([]);
-        setExtraFields({});
+        if (selectedCats.includes(catId)) {
+            setSelectedCats(selectedCats.filter((id) => id !== catId));
+            setSubsByCat((prev) => {
+                const next = { ...prev };
+                delete next[catId];
+                return next;
+            });
+            setExtrasByCat((prev) => {
+                const next = { ...prev };
+                delete next[catId];
+                return next;
+            });
+            return;
+        }
+        if (selectedCats.length >= MAX_CATS) {
+            showToast(`분야는 최대 ${MAX_CATS}개까지 선택할 수 있습니다.`);
+            return;
+        }
+        setSelectedCats([...selectedCats, catId]);
     };
 
-    // ─── step 2 handlers ───
-    const toggleSub = (sub) => {
-        setSelectedSubs((prev) =>
-            prev.includes(sub) ? prev.filter((s) => s !== sub) : [...prev, sub]
-        );
+    // ─── step 2 handlers (카테고리별) ───
+    const toggleSub = (catId, sub) => {
+        setSubsByCat((prev) => {
+            const arr = prev[catId] || [];
+            return {
+                ...prev,
+                [catId]: arr.includes(sub) ? arr.filter((s) => s !== sub) : [...arr, sub],
+            };
+        });
     };
 
-    const updateExtra = (key, value) => setExtraFields((prev) => ({ ...prev, [key]: value }));
-    const toggleExtraChip = (key, value) => {
-        setExtraFields((prev) => {
-            const arr = prev[key] || [];
-            return { ...prev, [key]: arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value] };
+    const updateExtra = (catId, key, value) => {
+        setExtrasByCat((prev) => ({ ...prev, [catId]: { ...(prev[catId] || {}), [key]: value } }));
+    };
+
+    const toggleExtraChip = (catId, key, value) => {
+        setExtrasByCat((prev) => {
+            const cur = prev[catId] || {};
+            const arr = cur[key] || [];
+            return {
+                ...prev,
+                [catId]: {
+                    ...cur,
+                    [key]: arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value],
+                },
+            };
         });
     };
 
@@ -190,28 +241,52 @@ const ProCategoryRegisterPage = () => {
     };
 
     const handleSubmit = async () => {
-        if (!selectedCat || !imageFile || submitting) return;
+        if (!canSubmit) return;
         if (!uid) {
             alert("로그인이 필요합니다.");
             return;
         }
         setSubmitting(true);
+        const registered = [];
         try {
-            const licenseUrl = await uploadBusinessLicense(uid, selectedCat, imageFile);
+            // 공통 서류·사진은 한 번만 업로드해서 카테고리별 문서가 같은 URL을 공유
+            const licenseUrl = await uploadBusinessLicense(uid, selectedCats[0], imageFile);
             const photoUrls = activityPhotos.length > 0
-                ? await uploadActivityPhotos(uid, selectedCat, activityPhotos.map((p) => p.file))
+                ? await uploadActivityPhotos(uid, selectedCats[0], activityPhotos.map((p) => p.file))
                 : [];
-            await registerProCategory(uid, selectedCat, licenseUrl, photoUrls, {
-                subcategories: selectedSubs,
-                experience,
-                intro,
-                ...extraFields,
-            }, region);
-            setProCategories([...proCategories, selectedCat]);
-            alert("전문분야가 등록되었습니다.");
+            const certList = await uploadCertLicenses(uid, certs);
+
+            for (const catId of selectedCats) {
+                await registerProCategory(uid, catId, licenseUrl, photoUrls, {
+                    subcategories: subsByCat[catId] || [],
+                    experience,
+                    intro,
+                    // certs: 상세/수정 화면이 읽는 기존 스키마, certLicenses: 사진 URL 포함 명세 스키마
+                    certs: certList,
+                    certLicenses: certList.map((c) => ({ name: c.certName, url: c.url || "" })),
+                    ...(extrasByCat[catId] || {}),
+                }, region);
+                registered.push(catId);
+            }
+
+            setProCategories([...proCategories, ...registered]);
+
+            // 비즈프로필 작성 완료 2,000P (1회, 조건 판정은 함수 내부 — 대표 지시 7/29)
+            try {
+                const { grantProfileCompleteBonus } = await import("../../service/PointService");
+                await grantProfileCompleteBonus(uid, userData?.nickname || userData?.name || "");
+            } catch (e) { /* 보너스 실패가 등록을 막지 않게 */ }
+
+            const pendingCats = registered
+                .filter((id) => isApprovalRequiredCategory(id))
+                .map((id) => CATEGORIES.find((c) => c.id === id)?.shortName || id);
+            const msg = `${registered.length}개 전문분야가 등록되었습니다.`
+                + (pendingCats.length > 0 ? `\n${pendingCats.join(", ")}는 관리자 승인 후 노출됩니다.` : "");
+            alert(msg);
             navigate(-1);
         } catch (err) {
             console.error("register error:", err);
+            if (registered.length > 0) setProCategories([...proCategories, ...registered]);
             alert("등록 중 오류가 발생했습니다. 다시 시도해주세요.");
         } finally {
             setSubmitting(false);
@@ -219,7 +294,10 @@ const ProCategoryRegisterPage = () => {
     };
 
     // ─── step navigation ───
-    const goNext = () => setStep(2);
+    const goNext = () => {
+        if (!canStep1) return;
+        setStep(2);
+    };
     const goPrev = () => {
         if (step === 1) {
             navigate(-1);
@@ -229,8 +307,18 @@ const ProCategoryRegisterPage = () => {
     };
 
     // ─── validation ───
-    const canStep1 = !!selectedCat;
-    const canSubmit = experience.trim() !== "" && intro.trim() !== "" && !!imageFile && !submitting;
+    const canStep1 = selectedCats.length > 0;
+    // 세부분야가 있는 카테고리는 1개 이상 선택해야 등록 가능
+    const missingSubCat = selectedCatObjs.find(
+        (c) => c.subcategories?.length > 0 && !(subsByCat[c.id]?.length > 0)
+    );
+    const canSubmit =
+        selectedCats.length > 0 &&
+        !missingSubCat &&
+        experience.trim() !== "" &&
+        intro.trim() !== "" &&
+        !!imageFile &&
+        !submitting;
 
     const handleBack = () => goPrev();
 
@@ -265,21 +353,28 @@ const ProCategoryRegisterPage = () => {
                 {step === 1 && (
                     <>
                         <Section>
-                            <SectionTitle>등록할 분야를 선택하세요</SectionTitle>
-                            {CATEGORY_GROUPS.map((group) => (
+                            <SectionTitleRow>
+                                <SectionTitle $noGap>등록할 분야를 선택하세요</SectionTitle>
+                                <SelectCount $full={selectedCats.length >= MAX_CATS}>
+                                    {selectedCats.length}/{MAX_CATS} 선택
+                                </SelectCount>
+                            </SectionTitleRow>
+                            <HelpText>최대 {MAX_CATS}개까지 함께 선택해 한 번에 등록할 수 있습니다.</HelpText>
+                            {/* 소비자용 그룹 + 전문분야 등록 전용 그룹(공동중개) */}
+                            {[...CATEGORY_GROUPS, ...PRO_ONLY_CATEGORY_GROUPS].map((group) => (
                                 <div key={group.id}>
                                     <CatGroupLabel>{group.label}</CatGroupLabel>
                                     <CatGrid>
                                         {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
                                             const isRegistered = proCategories.includes(cat.id);
-                                            const isSelected = selectedCat === cat.id;
+                                            const isSelected = selectedCats.includes(cat.id);
                                             const Icon = DETAIL_ICONS[cat.id];
                                             return (
                                                 <CatGridItem
                                                     key={cat.id}
                                                     $selected={isSelected}
                                                     $disabled={isRegistered}
-                                                    onClick={() => handleSelectCat(cat.id)}
+                                                    onClick={() => handleToggleCat(cat.id)}
                                                 >
                                                     <CatGridIcon $selected={isSelected} $disabled={isRegistered}>
                                                         {Icon ? <Icon /> : <CatFallbackChar>{cat.shortName.charAt(0)}</CatFallbackChar>}
@@ -306,106 +401,87 @@ const ProCategoryRegisterPage = () => {
                 {/* ══════ Step 2: 상세 정보 + 서류 + 사진 ══════ */}
                 {step === 2 && (
                     <>
-                        {hasSubcategories && (
-                            <Section>
-                                <SectionTitle>전문분야 선택 (복수 선택 가능)</SectionTitle>
-                                <ChipWrap>
-                                    {catObj.subcategories.map((sub) => {
-                                        const active = selectedSubs.includes(sub);
-                                        return (
-                                            <Chip key={sub} $active={active} onClick={() => toggleSub(sub)}>
-                                                {sub}
-                                            </Chip>
-                                        );
-                                    })}
-                                </ChipWrap>
-                            </Section>
-                        )}
-
-                        {catDetailFields.map((field) => {
-                            const isCertField = ["certifications", "licenseNumber", "permits"].includes(field.key);
+                        {/* 선택한 카테고리별 세부분야 + 상세 필드 */}
+                        {selectedCatObjs.map((cat, idx) => {
+                            const catSubs = subsByCat[cat.id] || [];
+                            const catExtras = extrasByCat[cat.id] || {};
+                            const fields = PRO_DETAIL_FIELDS[cat.id] || [];
+                            const hasSubs = cat.subcategories?.length > 0;
                             return (
-                            <Section key={field.key}>
-                                <SectionTitle>{field.label}</SectionTitle>
-                                {field.type === "text" && !isCertField && (
-                                    <StyledInput
-                                        type="text"
-                                        placeholder={field.placeholder}
-                                        value={extraFields[field.key] || ""}
-                                        onChange={(e) => updateExtra(field.key, e.target.value)}
-                                    />
-                                )}
-                                {field.type === "number" && (
-                                    <StyledInput
-                                        type="number"
-                                        placeholder={field.placeholder}
-                                        value={extraFields[field.key] || ""}
-                                        onChange={(e) => updateExtra(field.key, e.target.value)}
-                                        min="0"
-                                        inputMode="numeric"
-                                    />
-                                )}
-                                {field.type === "textarea" && (
-                                    <StyledTextarea
-                                        placeholder={field.placeholder}
-                                        value={extraFields[field.key] || ""}
-                                        onChange={(e) => updateExtra(field.key, e.target.value)}
-                                        rows={3}
-                                    />
-                                )}
-                                {field.type === "chips" && (
-                                    <ChipWrap>
-                                        {field.options.map((opt) => {
-                                            const active = (extraFields[field.key] || []).includes(opt);
-                                            return (
-                                                <Chip key={opt} $active={active} onClick={() => toggleExtraChip(field.key, opt)}>
-                                                    {opt}
-                                                </Chip>
-                                            );
-                                        })}
-                                    </ChipWrap>
-                                )}
-                                {/* 자격증/면허 필드일 경우 자격증 페어 */}
-                                {isCertField && (
-                                    <CertSection>
-                                        {certs.map((cert) => (
-                                            <CertCard key={cert.id}>
-                                                <CertCardHeader>
-                                                    <CertNameInput
-                                                        type="text"
-                                                        placeholder={field.placeholder || "자격증명"}
-                                                        value={cert.certName}
-                                                        onChange={(e) => updateCertName(cert.id, e.target.value)}
-                                                    />
-                                                    <CertRemoveBtn onClick={() => removeCert(cert.id)}>
-                                                        <IoCloseCircle size={22} color="#fff" />
-                                                    </CertRemoveBtn>
-                                                </CertCardHeader>
-                                                <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
-                                                    {cert.preview ? (
-                                                        <CertPhotoPreview src={cert.preview} alt={cert.certName} />
-                                                    ) : (
-                                                        <CertPhotoPlaceholder>
-                                                            <IoCameraOutline size={28} color={THEME.muted} />
-                                                            <CertPhotoText>사진 첨부</CertPhotoText>
-                                                        </CertPhotoPlaceholder>
-                                                    )}
-                                                </CertPhotoArea>
-                                                <HiddenInput
-                                                    ref={(el) => (certFileRefs.current[cert.id] = el)}
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    onChange={(e) => handleCertPhoto(cert.id, e)}
+                                <Section key={cat.id}>
+                                    <CatSectionHeader>
+                                        <CatSectionIndex>분야 {idx + 1}</CatSectionIndex>
+                                        <CatSectionName>{cat.name}</CatSectionName>
+                                    </CatSectionHeader>
+
+                                    {hasSubs && (
+                                        <FieldBlock>
+                                            <FieldLabel>세부 전문분야 (복수 선택 가능)</FieldLabel>
+                                            <ChipWrap>
+                                                {cat.subcategories.map((sub) => (
+                                                    <Chip
+                                                        key={sub}
+                                                        $active={catSubs.includes(sub)}
+                                                        onClick={() => toggleSub(cat.id, sub)}
+                                                    >
+                                                        {sub}
+                                                    </Chip>
+                                                ))}
+                                            </ChipWrap>
+                                            {catSubs.length === 0 && (
+                                                <FieldHint>1개 이상 선택해주세요</FieldHint>
+                                            )}
+                                        </FieldBlock>
+                                    )}
+
+                                    {fields.map((field) => (
+                                        <FieldBlock key={field.key}>
+                                            <FieldLabel>{field.label}</FieldLabel>
+                                            {field.type === "text" && (
+                                                <StyledInput
+                                                    type="text"
+                                                    placeholder={field.placeholder}
+                                                    value={catExtras[field.key] || ""}
+                                                    onChange={(e) => updateExtra(cat.id, field.key, e.target.value)}
                                                 />
-                                            </CertCard>
-                                        ))}
-                                        <CertAddBtn onClick={addCert}>
-                                            <IoDocumentOutline size={20} color={THEME.primary} />
-                                            <CertAddText>자격증 추가하기</CertAddText>
-                                        </CertAddBtn>
-                                    </CertSection>
-                                )}
-                            </Section>
+                                            )}
+                                            {field.type === "number" && (
+                                                <StyledInput
+                                                    type="number"
+                                                    placeholder={field.placeholder}
+                                                    value={catExtras[field.key] || ""}
+                                                    onChange={(e) => updateExtra(cat.id, field.key, e.target.value)}
+                                                    min="0"
+                                                    inputMode="numeric"
+                                                />
+                                            )}
+                                            {field.type === "textarea" && (
+                                                <StyledTextarea
+                                                    placeholder={field.placeholder}
+                                                    value={catExtras[field.key] || ""}
+                                                    onChange={(e) => updateExtra(cat.id, field.key, e.target.value)}
+                                                    rows={3}
+                                                />
+                                            )}
+                                            {field.type === "chips" && (
+                                                <ChipWrap>
+                                                    {field.options.map((opt) => (
+                                                        <Chip
+                                                            key={opt}
+                                                            $active={(catExtras[field.key] || []).includes(opt)}
+                                                            onClick={() => toggleExtraChip(cat.id, field.key, opt)}
+                                                        >
+                                                            {opt}
+                                                        </Chip>
+                                                    ))}
+                                                </ChipWrap>
+                                            )}
+                                            {CERT_TEXT_KEYS.includes(field.key) && (
+                                                <FieldHint>자격증 사진은 아래 자격증·면허 항목에서 함께 첨부합니다</FieldHint>
+                                            )}
+                                        </FieldBlock>
+                                    ))}
+                                </Section>
                             );
                         })}
 
@@ -470,6 +546,49 @@ const ProCategoryRegisterPage = () => {
                             />
                         </Section>
 
+                        {/* 자격증·면허 (공통 — 선택한 분야 전체에 함께 저장) */}
+                        <Section>
+                            <SectionTitle>자격증·면허</SectionTitle>
+                            <HelpText>보유한 자격증·면허를 이름과 사진으로 등록하세요. (선택)</HelpText>
+                            <CertSection>
+                                {certs.map((cert) => (
+                                    <CertCard key={cert.id}>
+                                        <CertCardHeader>
+                                            <CertNameInput
+                                                type="text"
+                                                placeholder="자격증명 (예: 전기기능사)"
+                                                value={cert.certName}
+                                                onChange={(e) => updateCertName(cert.id, e.target.value)}
+                                            />
+                                            <CertRemoveBtn onClick={() => removeCert(cert.id)}>
+                                                <IoCloseCircle size={22} color="#fff" />
+                                            </CertRemoveBtn>
+                                        </CertCardHeader>
+                                        <CertPhotoArea onClick={() => certFileRefs.current[cert.id]?.click()}>
+                                            {cert.preview ? (
+                                                <CertPhotoPreview src={cert.preview} alt={cert.certName} />
+                                            ) : (
+                                                <CertPhotoPlaceholder>
+                                                    <IoCameraOutline size={28} color={THEME.muted} />
+                                                    <CertPhotoText>사진 첨부</CertPhotoText>
+                                                </CertPhotoPlaceholder>
+                                            )}
+                                        </CertPhotoArea>
+                                        <HiddenInput
+                                            ref={(el) => (certFileRefs.current[cert.id] = el)}
+                                            type="file"
+                                            accept="image/*,.pdf"
+                                            onChange={(e) => handleCertPhoto(cert.id, e)}
+                                        />
+                                    </CertCard>
+                                ))}
+                                <CertAddBtn onClick={addCert}>
+                                    <IoDocumentOutline size={20} color={THEME.primary} />
+                                    <CertAddText>자격증 추가하기</CertAddText>
+                                </CertAddBtn>
+                            </CertSection>
+                        </Section>
+
                         {/* 활동 사진 */}
                         <Section>
                             <SectionTitle>활동 사진 ({activityPhotos.length}/10)</SectionTitle>
@@ -500,10 +619,14 @@ const ProCategoryRegisterPage = () => {
                         </Section>
 
                         <ActionBtn disabled={!canSubmit} $active={canSubmit} onClick={handleSubmit}>
-                            {submitting ? "신청 중..." : "신청하기"}
+                            {submitting
+                                ? "등록 중..."
+                                : `${selectedCats.length}개 분야 등록하기`}
                         </ActionBtn>
                     </>
                 )}
+
+                {toast && <Toast>{toast}</Toast>}
             </PageWrap>
         </SimpleBackLayout>
     );
@@ -581,7 +704,84 @@ const SectionTitle = styled.div`
     font-weight: 700;
     color: ${THEME.text};
     letter-spacing: -0.03em;
-    margin-bottom: 14px;
+    margin-bottom: ${({ $noGap }) => ($noGap ? "0" : "14px")};
+`;
+
+const SectionTitleRow = styled.div`
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+`;
+
+const SelectCount = styled.div`
+    font-size: 15px;
+    font-weight: 700;
+    color: ${({ $full }) => ($full ? THEME.primaryDark : THEME.textSecondary)};
+    flex-shrink: 0;
+`;
+
+const HelpText = styled.div`
+    font-size: 14px;
+    color: ${THEME.muted};
+    margin-top: 6px;
+`;
+
+/* ─── Step 2: 카테고리별 섹션 ─── */
+const CatSectionHeader = styled.div`
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid ${THEME.border};
+`;
+
+const CatSectionIndex = styled.div`
+    font-size: 14px;
+    font-weight: 400;
+    color: ${THEME.muted};
+    flex-shrink: 0;
+`;
+
+const CatSectionName = styled.div`
+    font-size: 19px;
+    font-weight: 700;
+    color: ${THEME.text};
+    letter-spacing: -0.03em;
+`;
+
+const FieldBlock = styled.div`
+    margin-top: 18px;
+`;
+
+const FieldLabel = styled.div`
+    font-size: 16px;
+    font-weight: 700;
+    color: ${THEME.textSecondary};
+    margin-bottom: 10px;
+`;
+
+const FieldHint = styled.div`
+    font-size: 13px;
+    color: ${THEME.muted};
+    margin-top: 8px;
+`;
+
+const Toast = styled.div`
+    position: fixed;
+    left: 50%;
+    bottom: 90px;
+    transform: translateX(-50%);
+    max-width: 340px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    background: rgba(20, 24, 31, 0.92);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 400;
+    text-align: center;
+    z-index: 1000;
 `;
 
 const CatGroupLabel = styled.div`

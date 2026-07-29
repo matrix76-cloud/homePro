@@ -5,6 +5,7 @@ import styled from "styled-components";
 import { collection, getDocs, doc, addDoc, getDoc, setDoc, query, orderBy, where, Timestamp } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import { DEFAULT_RULES, POINT_RULE_ORDER } from "../../service/PointService";
 
 // ─── Styled Components ───
 
@@ -527,13 +528,18 @@ const AdminPointsPage = () => {
         setRulesLoading(true);
         try {
             const snap = await getDoc(doc(db, "settings", "point_rules"));
+            let stored = {};
+            let storedPolicy = {};
             if (snap.exists()) {
-                const data = snap.data();
                 // _policy 필드 분리, 나머지는 규칙
-                const { _policy, ...ruleData } = data;
-                setRules(ruleData);
-                setPolicy({ ...DEFAULT_POLICY, ...(_policy || {}) });
+                const { _policy, ...ruleData } = snap.data();
+                stored = ruleData;
+                storedPolicy = _policy || {};
             }
+            // 코드에 새로 추가된 규칙 키가 Firestore 문서에 아직 없어도 표에 보이도록 기본값과 병합
+            // (저장하면 문서에 반영됨. 저장된 값이 항상 우선)
+            setRules({ ...DEFAULT_RULES, ...stored });
+            setPolicy({ ...DEFAULT_POLICY, ...storedPolicy });
         } catch (e) {
             console.error("rules fetch error:", e);
         }
@@ -590,7 +596,8 @@ const AdminPointsPage = () => {
     const handleSaveRules = async () => {
         setRulesSaving(true);
         try {
-            await setDoc(doc(db, "settings", "point_rules"), rules);
+            // merge: true — 규칙만 저장하고 같은 문서의 _policy(토큰 정책)를 지우지 않도록
+            await setDoc(doc(db, "settings", "point_rules"), rules, { merge: true });
             alert("규칙이 저장되었습니다.");
         } catch (e) {
             console.error("rules save error:", e);
@@ -815,7 +822,13 @@ const AdminPointsPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {Object.entries(rules).map(([key, rule]) => (
+                                        {Object.entries(rules)
+                                            .sort((a, b) => {
+                                                const ai = POINT_RULE_ORDER.indexOf(a[0]);
+                                                const bi = POINT_RULE_ORDER.indexOf(b[0]);
+                                                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                                            })
+                                            .map(([key, rule]) => (
                                             <Tr key={key}>
                                                 <Td><RuleKey>{key}</RuleKey></Td>
                                                 <Td>

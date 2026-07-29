@@ -147,6 +147,17 @@ export const CATEGORY_GROUPS = [
     { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer", "fortune"] },
 ];
 
+// ─── 전문분야 등록 전용 카테고리 그룹 (proOnly) ───
+// CATEGORY_GROUPS 에 넣지 않는 이유: 메인 카테고리 그리드·오더 필터가 CATEGORY_GROUPS 를 그대로 순회하므로,
+// 여기 분리해두면 소비자용 화면에는 자동으로 안 뜨고 전문분야 등록 화면만 이 배열을 덧붙여 렌더한다.
+export const PRO_ONLY_CATEGORY_GROUPS = [
+    { id: "brokerage", label: "공동중개", categoryIds: ["brokerage"], proOnly: true },
+];
+
+// ─── 전문분야 등록 시 관리자 승인이 필요한 카테고리 ───
+// (그 외 카테고리는 등록 즉시 승인완료 — 대표 지시 7/30)
+export const PRO_APPROVAL_REQUIRED_CATEGORIES = ["brokerage"];
+
 // ─── 카테고리 ───
 export const CATEGORIES = [
     // 대표 확정 최종본 7/28 — 25개. 이 배열 순서가 곧 화면 표기 순서.
@@ -352,6 +363,18 @@ export const CATEGORIES = [
         description: "사주, 작명, 운세, 상담",
         subcategories: ["승.패 분석", "작명.개명", "진로.적성", "상호.브랜드", "기타"],
     },
+    {
+        // 공동중개(부동산) — 프로 전문분야 등록 전용(proOnly).
+        // 오더 접수·AI견적·메인 카테고리 브라우징에는 노출하지 않는다.
+        // 등록 시 유일하게 관리자 승인이 필요한 카테고리(PRO_APPROVAL_REQUIRED_CATEGORIES).
+        id: "brokerage",
+        name: "공동중개(부동산)",
+        shortName: "공동중개",
+        group: "brokerage",
+        proOnly: true,
+        description: "공인중개사 간 공동중개 — 손님/매물 공유",
+        subcategories: ["아파트 매매", "아파트 전월세", "빌라.다세대", "오피스텔", "상가.사무실", "토지.건물", "경매.공매", "기타"],
+    },
 ];
 
 // ─── 공간유형 ───
@@ -364,19 +387,15 @@ export const HOUSING_TYPES = ["아파트", "빌라 연립 다세대", "단독주
 export const PRO_DETAIL_FIELDS = {
     // 새 카테고리
     regular_cleaning: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["스팀청소기", "업소용 진공청소기", "고압세척기", "바닥광택기"] },
         { key: "crewSize", type: "number", label: "작업 인원 수", placeholder: "예: 3" },
     ],
     special_cleaning: [
         { key: "certifications", type: "text", label: "관련 자격증/면허", placeholder: "예: 특수청소업 등록" },
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["방역장비", "소독장비", "오존발생기", "UV살균기", "고압세척기"] },
     ],
     business_cleaning: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["스팀청소기", "업소용 진공청소기", "고압세척기", "바닥광택기"] },
         { key: "crewSize", type: "number", label: "작업 인원 수", placeholder: "예: 5" },
     ],
     leak_detection: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["열화상카메라", "음향탐지기", "배관카메라", "가압테스트기"] },
         { key: "certifications", type: "text", label: "관련 자격증", placeholder: "보유 자격증이 있으면 입력" },
     ],
     leak_construction: [
@@ -388,16 +407,13 @@ export const PRO_DETAIL_FIELDS = {
         { key: "products", type: "chips", label: "취급 품목", options: ["정수기", "공기청정기", "비데", "안마의자", "세탁기/건조기"] },
     ],
     move_cleaning: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["스팀청소기", "업소용 진공청소기", "고압세척기", "바닥광택기", "오존발생기"] },
         { key: "crewSize", type: "number", label: "작업 인원 수", placeholder: "예: 2" },
     ],
     drain_pipe: [
         { key: "certifications", type: "text", label: "관련 자격증", placeholder: "예: 배관기능사" },
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["누수탐지기", "배관카메라", "고압세척기", "동파해빙기"] },
         { key: "emergencyAvail", type: "chips", label: "긴급출동", options: ["당일출동 가능", "24시간 긴급출동", "예약제만 가능"] },
     ],
     appliance_cleaning: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["고압세척기", "스팀청소기", "분해공구 세트", "전용 세정제"] },
         { key: "certifications", type: "text", label: "관련 자격증", placeholder: "보유 자격증이 있으면 입력" },
     ],
     home_repair: [
@@ -407,9 +423,6 @@ export const PRO_DETAIL_FIELDS = {
     electrical: [
         { key: "certifications", type: "text", label: "전기 관련 자격증", placeholder: "예: 전기기능사, 전기산업기사" },
         { key: "emergencyAvail", type: "chips", label: "긴급출동", options: ["당일출동 가능", "24시간 긴급출동", "예약제만 가능"] },
-    ],
-    mattress_care: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["UV살균기", "스팀청소기", "진드기제거기", "탈취기"] },
     ],
     aircon_install: [
         { key: "certifications", type: "text", label: "관련 자격증", placeholder: "예: 냉동기계기능사" },
@@ -437,7 +450,6 @@ export const PRO_DETAIL_FIELDS = {
         { key: "designService", type: "chips", label: "디자인 서비스", options: ["3D 설계 가능", "도면 제공", "디자인 컨설팅"] },
     ],
     heavy_equipment: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["스카이차", "고소작업차", "크레인", "비계", "굴삭기"] },
         { key: "certifications", type: "text", label: "관련 자격증", placeholder: "예: 고소작업차 운전면허" },
     ],
     waste: [
@@ -445,7 +457,6 @@ export const PRO_DETAIL_FIELDS = {
         { key: "vehicles", type: "chips", label: "보유 차량", options: ["1톤", "2.5톤", "5톤", "암롤차"] },
     ],
     demolition: [
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["굴삭기", "브레이커", "집게차", "덤프트럭"] },
         { key: "crewSize", type: "number", label: "작업 인원 수", placeholder: "예: 4" },
     ],
     pest_control: [
@@ -458,7 +469,6 @@ export const PRO_DETAIL_FIELDS = {
     ],
     auto: [
         { key: "services", type: "chips", label: "서비스 종류", options: ["출장세차", "광택", "코팅", "덴트", "출장정비", "타이어"] },
-        { key: "equipment", type: "chips", label: "보유 장비", options: ["고압세척기", "폴리셔", "스팀기", "공구세트"] },
     ],
     moving: [
         { key: "vehicles", type: "chips", label: "보유 차량", options: ["다마스", "라보", "1톤", "2.5톤", "5톤", "8톤 이상"] },
@@ -496,6 +506,12 @@ export const PRO_DETAIL_FIELDS = {
     fortune: [
         { key: "services", type: "chips", label: "상담 종류", options: ["사주", "작명", "택일", "풍수", "궁합"] },
         { key: "experience", type: "text", label: "상담 경력", placeholder: "상담 경력을 입력해주세요" },
+    ],
+    brokerage: [
+        { key: "officeName", type: "text", label: "중개사무소명", placeholder: "예: ○○공인중개사사무소" },
+        { key: "registrationNumber", type: "text", label: "개설등록번호", placeholder: "중개사무소 개설등록번호" },
+        { key: "mainProperties", type: "chips", label: "주력 매물", options: ["아파트", "빌라", "오피스텔", "상가", "토지"] },
+        { key: "certifications", type: "text", label: "관련 자격증", placeholder: "예: 공인중개사 자격증번호" },
     ],
 };
 

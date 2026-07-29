@@ -22,6 +22,9 @@ import { COLLECTIONS, ORDER_STATUS } from "../config/homeproConfig";
 
 const ordersRef = collection(db, COLLECTIONS.ORDERS);
 
+/** 리뷰 포인트 지급 최소 글자수 (대표 확정 2026-07-30: 15자 이상 + 별점 등록) */
+export const REVIEW_MIN_LENGTH = 15;
+
 /** 오더 생성 */
 export async function createOrder(data) {
   const docRef = await addDoc(ordersRef, {
@@ -40,16 +43,9 @@ export async function createOrder(data) {
     byRole: "접수자",
   });
 
-  // 포인트 지급: 오더 작성 보상
-  if (data.createdBy) {
-    try {
-      const { grantPoints } = await import("./PointService");
-      const userName = data.writer || data.customerName || data.nickname || "사용자";
-      await grantPoints(data.createdBy, userName, "order_create", { relatedDocId: docRef.id });
-    } catch (e) {
-      console.warn("오더 작성 포인트 지급 실패:", e.message);
-    }
-  }
+  // 포인트 지급 없음 — 대표 확정 2026-07-30: 오더 보상은 접수 시점이 아니라
+  // "완료처리 시점"에만 지급한다(접수자 order_complete 300P / 수행 홈프로 order_perform 300P).
+  // 지급 로직은 grantOrderCompletionPoints() 참고.
 
   return docRef.id;
 }
@@ -218,6 +214,72 @@ export function formatOrderTime(timestamp) {
   return `${mm}.${dd}.`;
 }
 
+/**
+ * 오더 완료 포인트 일괄 지급 (대표 확정 2026-07-30)
+ *  · 접수자(createdBy)      → order_complete            300P
+ *  · 수행 홈프로(matchedProUid) → order_perform         300P
+ *  · 각 수령자의 추천인(users.referredBy) → referral_order_complete / referral_perform_complete 100P
+ *
+ * 오더 문서의 pointsGrantedAt 으로 중복 지급을 막는다(취소 후 재완료 등 엣지도 자연 방어).
+ * PointService 쪽에도 원장 기반 중복 가드(relatedDocId + category)가 있어 이중 안전.
+ * 완료 전환 경로 어디서든 호출해도 안전하다(멱등).
+ * @param {string} orderId
+ */
+export async function grantOrderCompletionPoints(orderId) {
+  if (!orderId) return;
+  try {
+    const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+    const snap = await getDoc(orderRef);
+    if (!snap.exists()) return;
+    const order = snap.data() || {};
+    if (order.pointsGrantedAt) return; // 이미 지급
+
+    const { grantPoints } = await import("./PointService");
+
+    // 지급 대상: [uid, 자기 보상 카테고리, 추천인 보상 카테고리]
+    const targets = [
+      [order.createdBy, "order_complete", "referral_order_complete"],
+      [order.matchedProUid, "order_perform", "referral_perform_complete"],
+    ];
+
+    for (const [uid, ownCategory, referrerCategory] of targets) {
+      if (!uid) continue;
+      let userData = {};
+      try {
+        const uSnap = await getDoc(doc(db, COLLECTIONS.USERS, uid));
+        userData = uSnap.exists() ? uSnap.data() || {} : {};
+      } catch (e) {}
+      const userName = userData.nickname || userData.companyName || userData.name || "사용자";
+
+      try {
+        await grantPoints(uid, userName, ownCategory, { relatedDocId: orderId });
+      } catch (e) {
+        console.warn(`오더 완료 포인트 지급 실패(${ownCategory}):`, e.message);
+      }
+
+      // 피추천인이 오더를 완료하면 추천인에게 100P
+      const referrerUid = userData.referredBy;
+      if (referrerUid && referrerUid !== uid) {
+        try {
+          const rSnap = await getDoc(doc(db, COLLECTIONS.USERS, referrerUid));
+          const rData = rSnap.exists() ? rSnap.data() || {} : {};
+          const referrerName = rData.nickname || rData.companyName || rData.name || "사용자";
+          await grantPoints(referrerUid, referrerName, referrerCategory, {
+            relatedUid: uid,
+            relatedDocId: orderId,
+          });
+        } catch (e) {
+          console.warn(`추천인 포인트 지급 실패(${referrerCategory}):`, e.message);
+        }
+      }
+    }
+
+    await updateDoc(orderRef, { pointsGrantedAt: serverTimestamp() });
+  } catch (e) {
+    console.warn("오더 완료 포인트 처리 실패:", e.message);
+  }
+}
+
 /** 오더 상태 변경 */
 export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
@@ -225,6 +287,10 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
     updatedAt: serverTimestamp(),
     ...extra,
   });
+  // 완료 전환 시 포인트 지급 (레거시 표기 '리뷰'/'정산'도 완료로 취급 — normalizeStatus 와 동일 기준)
+  if (newStatus === ORDER_STATUS.COMPLETED || newStatus === "리뷰" || newStatus === "정산") {
+    await grantOrderCompletionPoints(orderId);
+  }
 }
 
 /** 오더 내용 수정 (접수자 편집) — 상태값은 건드리지 않고 내용 필드만 갱신 */
@@ -383,7 +449,8 @@ export const directAssign = async (orderId, targetPhone) => {
   });
 };
 
-/** 리뷰 작성 + 상태 변경 */
+/** 리뷰 작성 + 상태 변경
+ *  ※ 현재 호출처 없음(리뷰는 ChatService.submitReview 경로를 사용). 유지만 하되 지급 규칙은 동일하게 맞춘다. */
 export async function submitOrderReview(orderId, reviewData) {
   await addDoc(collection(db, COLLECTIONS.ORDERS, orderId, "reviews"), {
     ...reviewData,
@@ -395,4 +462,19 @@ export async function submitOrderReview(orderId, reviewData) {
     reviewed: true,
     updatedAt: serverTimestamp(),
   });
+  // 완료 보상 (멱등 — pointsGrantedAt 가드)
+  await grantOrderCompletionPoints(orderId);
+  // 리뷰 작성 보상 300P — 별점 + 15자 이상 조건 충족 시에만
+  const rating = Number(reviewData?.rating) || 0;
+  const text = (reviewData?.text || reviewData?.content || "").trim();
+  if (rating > 0 && text.length >= REVIEW_MIN_LENGTH && reviewData?.writerUid) {
+    try {
+      const { grantPoints } = await import("./PointService");
+      await grantPoints(reviewData.writerUid, reviewData.writerName || "사용자", "review", {
+        relatedDocId: orderId,
+      });
+    } catch (e) {
+      console.warn("리뷰 포인트 지급 실패:", e.message);
+    }
+  }
 }

@@ -11,7 +11,10 @@ export default function ReferralInputPage() {
     const { userData } = useAuth();
     const uid = userData?.uid || "";
 
-    const [code, setCode] = useState("");
+    // 초대 딥링크(/?code=)로 들어온 경우 자동 입력 (대표 지시 7/29)
+    const [code, setCode] = useState(() => {
+        try { return localStorage.getItem("homepro.pendingReferralCode") || ""; } catch (e) { return ""; }
+    });
     const [busy, setBusy] = useState(false);
     const [resultMsg, setResultMsg] = useState("");
     const [isError, setIsError] = useState(false);
@@ -23,6 +26,7 @@ export default function ReferralInputPage() {
         try {
             const res = await applyReferralCode(uid, code.trim());
             if (res.success) {
+                try { localStorage.removeItem("homepro.pendingReferralCode"); } catch (e) { /* ignore */ }
                 setResultMsg(res.message);
                 setIsError(false);
                 // 1.5초 후 닉네임 설정으로 이동
@@ -53,15 +57,13 @@ export default function ReferralInputPage() {
                 <BenefitBox>
                     <BenefitTitle>추천코드 혜택</BenefitTitle>
                     <BenefitRow>
-                        <BenefitIcon>🎁</BenefitIcon>
                         <BenefitText>
-                            <strong>나</strong> — 가입 축하 <Point>+100P</Point>
+                            <strong>나</strong> — 추천코드 사용 보상 <Point>+3,000P</Point>
                         </BenefitText>
                     </BenefitRow>
                     <BenefitRow>
-                        <BenefitIcon>🎉</BenefitIcon>
                         <BenefitText>
-                            <strong>추천인</strong> — 추천 보상 <Point>+100P</Point>
+                            <strong>추천인</strong> — 친구초대 보상 <Point>+3,000P</Point>
                         </BenefitText>
                     </BenefitRow>
                 </BenefitBox>
@@ -149,10 +151,6 @@ const BenefitRow = styled.div`
   gap: 10px;
   margin-bottom: 8px;
   &:last-child { margin-bottom: 0; }
-`;
-
-const BenefitIcon = styled.span`
-  font-size: 22px;
 `;
 
 const BenefitText = styled.div`

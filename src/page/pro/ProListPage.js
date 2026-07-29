@@ -124,7 +124,7 @@ const ProListPage = () => {
   const getCatName = (catId) => CATEGORIES.find((c) => c.id === catId)?.shortName || catId;
 
   return (
-    <MainListLayout NAME="전문가 리스트" hideFooter>
+    <MainListLayout NAME="홈프로 리스트" hideFooter>
       <PageWrap>
         {/* 그룹 필터 탭 (밑줄 인디케이터 + 가로 스크롤) */}
         <TabScroll>

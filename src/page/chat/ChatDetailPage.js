@@ -22,7 +22,7 @@ import {
   deleteMessage, editMessage, setTyping, clearTyping, updateQuoteStatus,
   processPayment, completeWork, submitReview, cancelOrder, sendSystemMessage,
 } from "../../service/ChatService";
-import { updateOrderStatus } from "../../service/OrderService";
+import { updateOrderStatus, REVIEW_MIN_LENGTH } from "../../service/OrderService";
 
 const formatMsgTime = (timestamp) => {
   if (!timestamp) return "";
@@ -599,6 +599,12 @@ const ChatDetailPage = () => {
     if (!window.confirm("작업이 완료되었나요? 완료 처리하면 되돌릴 수 없습니다.")) return;
     try {
       await completeWork(roomId, room?.orderId);
+      // 완료 보상 지급 (접수자 300P / 수행 홈프로 300P + 각 추천인 100P)
+      // completeWork 가 updateOrderStatus 를 거치지 않고 직접 문서를 갱신하므로 여기서 호출한다.
+      try {
+        const { grantOrderCompletionPoints } = await import("../../service/OrderService");
+        await grantOrderCompletionPoints(room?.orderId);
+      } catch (e) { console.warn("완료 포인트 지급 실패:", e?.message); }
       try {
         const { addDoc, collection: col, serverTimestamp: ts } = await import("firebase/firestore");
         if (otherUid) {
@@ -620,6 +626,9 @@ const ChatDetailPage = () => {
     setShowReviewSheet(true);
   };
 
+  // 리뷰 포인트 적립 조건: 별점 등록 + 본문 15자 이상 (대표 확정 2026-07-30)
+  const reviewPointEligible = reviewRating > 0 && reviewText.trim().length >= REVIEW_MIN_LENGTH;
+
   const handleSubmitReview = async () => {
     if (reviewSending) return;
     setReviewSending(true);
@@ -636,11 +645,19 @@ const ChatDetailPage = () => {
         rating: reviewRating,
         text: reviewText.trim(),
       });
-      // 포인트 지급
+      // 리뷰 등록도 오더를 '완료'로 확정하는 경로라, 완료 보상 누락 방지로 한번 더 호출(멱등)
       try {
-        const { grantPoints } = await import("../../service/PointService");
-        await grantPoints(myUid, userData?.nickname || "", "review", { relatedDocId: roomId });
+        const { grantOrderCompletionPoints } = await import("../../service/OrderService");
+        await grantOrderCompletionPoints(room?.orderId);
       } catch {}
+      // 포인트 지급 — 대표 확정 2026-07-30: 별점 등록 + 리뷰 15자 이상일 때만 300P.
+      // 조건 미달이면 리뷰 저장은 그대로 되고 적립만 건너뛴다.
+      if (reviewPointEligible) {
+        try {
+          const { grantPoints } = await import("../../service/PointService");
+          await grantPoints(myUid, userData?.nickname || "", "review", { relatedDocId: roomId });
+        } catch {}
+      }
       // 프로에게 푸시
       try {
         const { addDoc, collection: col, serverTimestamp: ts } = await import("firebase/firestore");
@@ -1270,6 +1287,11 @@ const ChatDetailPage = () => {
               rows={4}
             />
             <ReviewCharCount>{reviewText.length}/300</ReviewCharCount>
+            <ReviewPointHint $ok={reviewPointEligible}>
+              {reviewPointEligible
+                ? "적립 조건 충족 — 등록하면 300P가 적립됩니다"
+                : `${REVIEW_MIN_LENGTH}자 이상 작성 + 별점 등록 시 300P 적립`}
+            </ReviewPointHint>
             <PaySubmitBtn onClick={handleSubmitReview} disabled={reviewSending}>
               {reviewSending ? "등록 중..." : "등록"}
             </PaySubmitBtn>
@@ -3042,6 +3064,13 @@ const ReviewCharCount = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   margin-top: 4px;
+`;
+
+const ReviewPointHint = styled.div`
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 2px 0 12px;
+  color: ${({ $ok }) => ($ok ? THEME.primaryDark : THEME.muted)};
 `;
 
 const CancelModalOverlay = styled.div`

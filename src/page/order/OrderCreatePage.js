@@ -1007,7 +1007,7 @@ export const OrderCreateContent = () => {
         <Section>
           <Label>카테고리 선택</Label>
           {!selectedCategory ? (
-            CATEGORIES.map((cat) => (
+            CATEGORIES.filter((cat) => !cat.proOnly).map((cat) => (
               <CatAccordion key={cat.id}>
                 <CatAccordionHeader onClick={() => {
                   // (기존: worker_call 은 작업자요청 탭으로 리다이렉트했으나,

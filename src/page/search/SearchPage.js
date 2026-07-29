@@ -81,8 +81,9 @@ const SearchPage = () => {
   const q = query.trim().toLowerCase();
   const hasQuery = q.length > 0;
 
+  // proOnly(공동중개 등 전문분야 등록 전용) 카테고리는 오더 진입 검색결과에서 제외
   const categoryResults = hasQuery
-    ? CATEGORIES.filter(
+    ? CATEGORIES.filter((cat) => !cat.proOnly).filter(
         (cat) =>
           cat.name.toLowerCase().includes(q) ||
           cat.shortName.toLowerCase().includes(q) ||
@@ -105,7 +106,7 @@ const SearchPage = () => {
     : [];
 
   const etcResults = hasQuery
-    ? CATEGORIES.flatMap((cat) =>
+    ? CATEGORIES.filter((cat) => !cat.proOnly).flatMap((cat) =>
         (cat.subcategories || [])
           .filter((sub) => sub.toLowerCase().includes(q))
           .map((sub) => ({ sub, category: cat }))

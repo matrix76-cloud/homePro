@@ -16,18 +16,36 @@ import { compressProfileImage } from "../../utility/imageUtils";
 import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade } from "../../utility/gradeUtils";
 import { IoHelpCircleOutline, IoCloseOutline } from "react-icons/io5";
 
-/* ─── 프로필 카드 ─── */
+/* ─── 프로필 카드 ─── (기본 프로필 + 비즈프로필 진입을 한 박스로 — 형 리뷰 7/29) */
 const ProfileCard = styled.div`
   margin: 12px 12px 0;
   background: ${THEME.surface};
   border-radius: 16px;
-  padding: 24px 20px;
+  padding: 24px 20px 16px;
+  box-shadow: ${THEME.cardShadow};
+`;
+
+const ProfileTopRow = styled.div`
   display: flex;
   align-items: center;
   gap: 16px;
   cursor: pointer;
-  box-shadow: ${THEME.cardShadow};
-  &:active { background: #FAFBFC; }
+  &:active { opacity: 0.7; }
+`;
+
+const ProfileDivider = styled.div`
+  height: 1px;
+  background: ${THEME.border};
+  margin: 18px 0 4px;
+`;
+
+const ProfileBizRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 4px;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
 `;
 
 const ProfileImgWrap = styled.div`
@@ -779,31 +797,38 @@ const MobileConfigpage = () => {
 
   return (
     <MyPageLayout name="마이페이지">
-      {/* 프로필 */}
-      <ProfileCard onClick={handleOpenEdit}>
-        <ProfileImgWrap>
-          {userimg ? (
-            <ProfileImg src={userimg} alt="profile" />
-          ) : (
-            <ProfilePlaceholder>
-              <IoPersonCircleOutline size={60} color={THEME.border} />
-            </ProfilePlaceholder>
-          )}
-        </ProfileImgWrap>
-        <ProfileInfo>
-          <ProfileNameRow>
-            <ProfileName>{nickname}</ProfileName>
-            <GradeBadge grade={userData?.grade} size="sm" />
-            <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }}>
-              <IoHelpCircleOutline size={16} color={THEME.muted} />
-            </GradeHelpBtn>
-          </ProfileNameRow>
-          <ProfileSub>
-            {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
-          </ProfileSub>
-          {intro && <ProfileIntro>{intro}</ProfileIntro>}
-        </ProfileInfo>
-        <ProfileEditLabel>편집</ProfileEditLabel>
+      {/* 프로필 (기본 프로필 + 비즈프로필을 한 박스로 — 형 리뷰 7/29) */}
+      <ProfileCard>
+        <ProfileTopRow onClick={handleOpenEdit}>
+          <ProfileImgWrap>
+            {userimg ? (
+              <ProfileImg src={userimg} alt="profile" />
+            ) : (
+              <ProfilePlaceholder>
+                <IoPersonCircleOutline size={60} color={THEME.border} />
+              </ProfilePlaceholder>
+            )}
+          </ProfileImgWrap>
+          <ProfileInfo>
+            <ProfileNameRow>
+              <ProfileName>{nickname}</ProfileName>
+              <GradeBadge grade={userData?.grade} size="sm" />
+              <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }}>
+                <IoHelpCircleOutline size={16} color={THEME.muted} />
+              </GradeHelpBtn>
+            </ProfileNameRow>
+            <ProfileSub>
+              {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
+            </ProfileSub>
+            {intro && <ProfileIntro>{intro}</ProfileIntro>}
+          </ProfileInfo>
+          <ProfileEditLabel>편집</ProfileEditLabel>
+        </ProfileTopRow>
+        <ProfileDivider />
+        <ProfileBizRow onClick={() => navigate("/biz-profile")}>
+          <CardTitle>비즈프로필</CardTitle>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </ProfileBizRow>
       </ProfileCard>
 
       {/* 프로필 편집 모달 */}
@@ -907,29 +932,10 @@ const MobileConfigpage = () => {
         </ContentCard>
       )}
 
-      {/* 비즈프로필 */}
-      <ContentCard onClick={() => navigate("/biz-profile")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div><CardTitle>비즈프로필</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-
-      {/* 지갑주소 등록 (토큰화 대비) */}
-      <ContentCard onClick={() => navigate("/mypage/wallet")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div>
-            <CardTitle>지갑주소 등록</CardTitle>
-            <CardDesc>{userData?.walletAddress ? `${userData.walletAddress.slice(0, 6)}…${userData.walletAddress.slice(-4)}` : "토큰 발행 시 사용될 지갑주소를 미리 등록"}</CardDesc>
-          </div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-
-      {/* 전문가 리스트 */}
+      {/* 홈프로 리스트 */}
       <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
         <CardHeader>
-          <div><CardTitle>전문가 리스트</CardTitle></div>
+          <div><CardTitle>홈프로 리스트</CardTitle></div>
           <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
       </ContentCard>

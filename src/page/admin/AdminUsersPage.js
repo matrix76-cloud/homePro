@@ -5,6 +5,7 @@ import styled from "styled-components";
 import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import { getAccessTier, TIER_LABEL, ACCEPT_DELAY_SEC } from "../../utility/tierUtils";
 import { IoSearchOutline, IoCloseOutline } from "react-icons/io5";
 
 // ─── Helpers ───
@@ -218,6 +219,24 @@ const AdminUsersPage = () => {
         }
     };
 
+    // 차수(등급) 수동 전환 — 1차수: 즉시 수락 / 2차수: 오더 등록 5분 후 수락 (대표 지시 7/29)
+    // 구독·포인트 결제 연동 전까지는 관리자가 여기서 직접 올려준다.
+    const handleToggleTier = async (e, user) => {
+        e.stopPropagation();
+        const next = getAccessTier(user) === "tier1" ? "tier2" : "tier1";
+        const msg = next === "tier1"
+            ? `"${user.name || user.id}" 회원을 1차수(오더 즉시 수락)로 전환하시겠습니까?`
+            : `"${user.name || user.id}" 회원을 2차수(오더 등록 ${Math.round(ACCEPT_DELAY_SEC / 60)}분 후 수락)로 전환하시겠습니까?`;
+        if (!window.confirm(msg)) return;
+        try {
+            await updateDoc(doc(db, "users", user.id), { accessTier: next });
+            setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, accessTier: next } : u)));
+            setSelectedUser((prev) => (prev && prev.id === user.id ? { ...prev, accessTier: next } : prev));
+        } catch (err) {
+            alert("차수 전환 중 오류가 발생했습니다.");
+        }
+    };
+
     const handleDelete = async (e, user) => {
         e.stopPropagation();
         if (!window.confirm(`"${user.name || user.id}" 회원을 삭제하시겠습니까?`)) return;
@@ -259,6 +278,11 @@ const AdminUsersPage = () => {
         const info = statusMap[status] || statusMap.active;
         return <Badge $bg={info.bg} $color={info.color}>{info.label}</Badge>;
     };
+    // 차수 표시 — 뱃지 없이 텍스트+색만 (1차수 초록/굵게, 2차수 회색)
+    const renderTier = (user) => {
+        const tier = getAccessTier(user);
+        return <TierText $tier1={tier === "tier1"}>{TIER_LABEL[tier]}</TierText>;
+    };
 
     // visible tabs (프로 전용 탭은 프로만)
     const visibleTabs = useMemo(() => {
@@ -283,6 +307,20 @@ const AdminUsersPage = () => {
             <FieldRow><FL>가입형태</FL><FV>{renderProvider(selectedUser.provider)}</FV></FieldRow>
             <FieldRow><FL>역할</FL><FV>{renderRole(selectedUser.role)}</FV></FieldRow>
             <FieldRow><FL>상태</FL><FV>{renderStatus(selectedUser.status)}</FV></FieldRow>
+            <FieldRow>
+                <FL>차수</FL>
+                <FV style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {renderTier(selectedUser)}
+                    <TierHint>
+                        {getAccessTier(selectedUser) === "tier1"
+                            ? "오더 접수 즉시 수락 가능"
+                            : `오더 등록 ${Math.round(ACCEPT_DELAY_SEC / 60)}분 후부터 수락 가능`}
+                    </TierHint>
+                    <ActionBtn $outline onClick={(e) => handleToggleTier(e, selectedUser)}>
+                        {getAccessTier(selectedUser) === "tier1" ? "2차수 전환" : "1차수 전환"}
+                    </ActionBtn>
+                </FV>
+            </FieldRow>
             <FieldRow><FL>지역</FL><FV>{selectedUser.region || "-"}</FV></FieldRow>
             <FieldRow><FL>가입일</FL><FV>{formatDateTime(selectedUser.createdAt)}</FV></FieldRow>
             {selectedUser.linkedSocialUids?.length > 0 && (
@@ -537,18 +575,19 @@ const AdminUsersPage = () => {
                             <thead>
                                 <tr>
                                     <Th>이름</Th><Th>전화번호</Th><Th>가입형태</Th>
-                                    <Th>역할</Th><Th>가입일</Th><Th>상태</Th><Th>관리</Th>
+                                    <Th>역할</Th><Th>차수</Th><Th>가입일</Th><Th>상태</Th><Th>관리</Th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paged.length === 0 ? (
-                                    <tr><Td colSpan={7}><EmptyRow>해당 조건의 회원이 없습니다.</EmptyRow></Td></tr>
+                                    <tr><Td colSpan={8}><EmptyRow>해당 조건의 회원이 없습니다.</EmptyRow></Td></tr>
                                 ) : paged.map((u) => (
                                     <Tr key={u.id} onClick={() => openDetail(u)}>
                                         <Td>{u.name || "-"}</Td>
                                         <Td>{u.phone || "-"}</Td>
                                         <Td>{renderProvider(u.provider)}</Td>
                                         <Td>{renderRole(u.role)}</Td>
+                                        <Td>{renderTier(u)}</Td>
                                         <Td>{formatDate(u.createdAt)}</Td>
                                         <Td>{renderStatus(u.status)}</Td>
                                         <Td onClick={(e) => e.stopPropagation()}>
@@ -558,6 +597,9 @@ const AdminUsersPage = () => {
                                                     <ActionBtn $bg={THEME.danger} onClick={(e) => handleReject(e, u)}>거절</ActionBtn>
                                                 </>
                                             )}
+                                            <ActionBtn $outline onClick={(e) => handleToggleTier(e, u)}>
+                                                {getAccessTier(u) === "tier1" ? "2차수 전환" : "1차수 전환"}
+                                            </ActionBtn>
                                             <ActionBtn $bg={THEME.danger} onClick={(e) => handleDelete(e, u)}>삭제</ActionBtn>
                                         </Td>
                                     </Tr>
@@ -620,13 +662,23 @@ const SearchIcon = styled.span`position: absolute; left: 12px; top: 50%; transfo
 const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
 
 const TableWrap = styled.div`background: #fff; border-radius: 4px; overflow-x: auto; box-shadow: ${THEME.cardShadow};`;
-const Table = styled.table`width: 100%; border-collapse: collapse; min-width: 780px;`;
+const Table = styled.table`width: 100%; border-collapse: collapse; min-width: 900px;`;
 const Th = styled.th`text-align: left; padding: 10px 14px; font-size: 14px; font-weight: 600; color: ${THEME.textSecondary}; background: ${THEME.background}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
 const Td = styled.td`padding: 10px 14px; font-size: 15px; color: ${THEME.text}; border-bottom: 1px solid ${THEME.border}; white-space: nowrap;`;
 const Tr = styled.tr`cursor: pointer; transition: background 0.12s; &:hover { background: ${THEME.background}; }`;
 
 const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: ${({ $color }) => $color || "#fff"}; background: ${({ $bg }) => $bg || THEME.muted};`;
-const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${({ $bg }) => $bg || THEME.primary}; &:hover { opacity: 0.85; }`;
+const ActionBtn = styled.button`
+    padding: 4px 10px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; margin-right: 4px; white-space: nowrap;
+    border: ${({ $outline }) => ($outline ? `1px solid ${THEME.muted}` : "none")};
+    color: ${({ $outline }) => ($outline ? THEME.textSecondary : "#fff")};
+    background: ${({ $outline, $bg }) => ($outline ? "#fff" : $bg || THEME.primary)};
+    &:hover { opacity: 0.85; }
+`;
+
+/* 차수 표시 — 뱃지 없이 텍스트+색 (대표 지시 7/29) */
+const TierText = styled.span`font-size: 15px; font-weight: ${({ $tier1 }) => ($tier1 ? 700 : 500)}; color: ${({ $tier1 }) => ($tier1 ? THEME.primaryDark : THEME.muted)};`;
+const TierHint = styled.span`font-size: 13px; color: ${THEME.muted};`;
 
 const PaginationRow = styled.div`display: flex; justify-content: center; align-items: center; gap: 12px; padding: 16px 0;`;
 const PageBtn = styled.button`padding: 6px 14px; font-size: 15px; font-weight: 600; border: 1px solid ${THEME.border}; border-radius: 4px; background: #fff; color: ${THEME.text}; cursor: pointer; &:disabled { opacity: 0.4; cursor: default; } &:hover:not(:disabled) { background: ${THEME.background}; }`;

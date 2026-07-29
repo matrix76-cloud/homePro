@@ -67,7 +67,7 @@ export const AIEstimateContent = () => {
         <Section>
           <Label>카테고리 선택</Label>
           {!selectedCat ? (
-            CATEGORIES.map((cat) => (
+            CATEGORIES.filter((cat) => !cat.proOnly).map((cat) => (
               <CatAccordion key={cat.id}>
                 <CatAccordionHeader onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}>
                   <CatAccordionLabel>{cat.name}</CatAccordionLabel>

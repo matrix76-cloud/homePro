@@ -5,6 +5,7 @@ import styled from "styled-components";
 import { IoPersonCircleOutline, IoCloseOutline, IoStar } from "react-icons/io5";
 import { THEME } from "../config/homeproConfig";
 import { getUserProfileByUid } from "../service/UserProfileService";
+import { hasBusinessLicense, getCompletedOrderCount } from "../service/CertificateService";
 
 const GRADE_LABEL = { rookie: "루키", bronze: "브론즈", silver: "실버", gold: "골드", diamond: "다이아", master: "마스터" };
 
@@ -12,12 +13,18 @@ const GRADE_LABEL = { rookie: "루키", bronze: "브론즈", silver: "실버", g
 const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(!!uid);
+  // 신뢰요소 — 홈프로 누적 오더 완료 건수 (대표 지시 7/30)
+  const [completedCount, setCompletedCount] = useState(null);
 
   useEffect(() => {
     let alive = true;
     if (!uid) { setLoading(false); return; }
     getUserProfileByUid(uid)
-      .then((p) => { if (alive) setProfile(p); })
+      .then((p) => {
+        if (!alive) return;
+        setProfile(p);
+        return getCompletedOrderCount(p?.uid || uid).then((n) => { if (alive) setCompletedCount(n); });
+      })
       .catch(() => {})
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -30,9 +37,18 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
   const grade = p.grade;
   const rating = Number(p.rating || p.avgRating || 0);
   const reviewCount = Number(p.reviewCount || p.reviewsCount || 0);
-  const region = p.region || (Array.isArray(p.regions) ? p.regions.join(", ") : p.regions) || p.address || "";
+  // region 은 문자열 / {sido,gu} 객체 / 배열이 혼재 — 객체를 그대로 렌더하면 크래시하므로 문자열로 정규화
+  const toRegionText = (v) => {
+    if (!v) return "";
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return v.map(toRegionText).filter(Boolean).join(", ");
+    if (typeof v === "object") return `${v.sido || ""} ${v.gu || v.gugun || ""}`.trim();
+    return String(v);
+  };
+  const region = toRegionText(p.region) || toRegionText(p.regions) || toRegionText(p.address);
   const intro = p.introduction || p.intro || p.bio || p.description || "";
   const career = p.career || p.experience || "";
+  const licenseVerified = hasBusinessLicense(p);
 
   return (
     <Overlay onClick={onClose}>
@@ -56,6 +72,16 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
           <Empty>불러오는 중...</Empty>
         ) : (
           <Body>
+            {/* 신뢰요소 한 줄 — 사업자등록증 인증 여부 + 누적 완료 건수 */}
+            <TrustLine>
+              <TrustCert $verified={licenseVerified}>
+                {licenseVerified ? "사업자등록증 인증" : "사업자등록증 미등록"}
+              </TrustCert>
+              <TrustDot>·</TrustDot>
+              <TrustCount>
+                {completedCount === null ? "완료 실적 집계 중" : `누적 오더 완료 ${completedCount}건`}
+              </TrustCount>
+            </TrustLine>
             {region && <Row><K>지역</K><V>{region}</V></Row>}
             {career && <Row><K>경력</K><V>{career}</V></Row>}
             {intro && <Row><K>소개</K><V>{intro}</V></Row>}
@@ -113,6 +139,17 @@ const RatingWrap = styled.span`
 `;
 const Rev = styled.span` color: ${THEME.muted}; font-weight: 400; `;
 const Body = styled.div` padding-top: 4px; `;
+const TrustLine = styled.div`
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 10px 0; border-bottom: 1px solid ${THEME.border};
+`;
+const TrustCert = styled.span`
+  font-size: 14px;
+  font-weight: ${({ $verified }) => ($verified ? 700 : 400)};
+  color: ${({ $verified }) => ($verified ? THEME.primaryDark : THEME.muted)};
+`;
+const TrustDot = styled.span` font-size: 14px; color: ${THEME.muted}; `;
+const TrustCount = styled.span` font-size: 14px; font-weight: 600; color: ${THEME.textSecondary}; `;
 const Row = styled.div` display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid ${THEME.border}; &:last-child { border-bottom: none; } `;
 const K = styled.div` flex: 0 0 48px; font-size: 15px; font-weight: 600; color: ${THEME.textSecondary}; `;
 const V = styled.div` flex: 1; font-size: 13.5px; color: ${THEME.text}; line-height: 1.55; word-break: break-word; white-space: pre-wrap; `;

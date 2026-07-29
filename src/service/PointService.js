@@ -17,19 +17,39 @@ const CASH_COL = "homepro_cash";
 const USERS_COL = "users";
 const RULES_DOC = "settings/point_rules";
 
-/** 기본 규칙 (Firestore 문서 없을 때 폴백) */
+/**
+ * 기본 규칙 (Firestore settings/point_rules 문서 없을 때 폴백)
+ * 2026-07-30 대표 확정 지급 조건표 반영.
+ *  - 오더 관련 보상은 모두 "완료처리 시점"에만 지급된다(접수 즉시 지급 폐지 → order_create 비활성).
+ *  - 실제 운영값은 Firestore 문서가 우선 — 문서 갱신은 scripts/update-point-rules.mjs 참고.
+ */
 const DEFAULT_RULES = {
-  referral_invite:    { amount: 100, label: "친구 초대 보상", active: true },
-  referral_signup:    { amount: 100, label: "추천코드 사용 보상", active: true },
-  order_create:       { amount: 50,  label: "오더 작성 보상", active: true },
-  order_complete:     { amount: 0,   label: "오더 완료 보상 (접수자)", active: false },
-  order_perform:      { amount: 0,   label: "오더 수행 보상 (홈프로)", active: false },
-  community_post:     { amount: 30,  label: "게시글 작성 보상", active: true },
-  community_like_10:  { amount: 50,  label: "게시물 하트 10개 달성", active: true },
-  community_like_50:  { amount: 100, label: "게시물 하트 50개 달성", active: true },
-  community_like_100: { amount: 200, label: "게시물 하트 100개 달성", active: true },
-  review:             { amount: 30,  label: "리뷰 작성 보상", active: true },
+  signup:                    { amount: 1000, label: "가입 환영 보상", active: true },
+  referral_invite:           { amount: 3000, label: "친구 초대 보상 (추천인)", active: true },
+  referral_signup:           { amount: 3000, label: "추천코드 사용 보상 (피추천인)", active: true },
+  profile_complete:          { amount: 2000, label: "비즈프로필 작성 완료 보상", active: true },
+  // 오더 접수 즉시 지급은 폐지 — 완료처리 시 order_complete 로 지급한다(대표 확정 2026-07-30)
+  order_create:              { amount: 0,    label: "오더 접수 보상 (폐지 — 완료 시 지급으로 대체)", active: false },
+  order_complete:            { amount: 300,  label: "오더 등록 완료 보상 (접수자)", active: true },
+  order_perform:             { amount: 300,  label: "오더 수행 완료 보상 (홈프로)", active: true },
+  review:                    { amount: 300,  label: "리뷰 작성 보상", active: true },
+  referral_order_complete:   { amount: 100,  label: "피추천인 오더 완료 보상 (접수)", active: true },
+  referral_perform_complete: { amount: 100,  label: "피추천인 오더 완료 보상 (수행)", active: true },
+  community_post:            { amount: 30,   label: "게시글 작성 보상", active: true },
+  community_like_10:         { amount: 50,   label: "게시물 하트 10개 달성", active: true },
+  community_like_50:         { amount: 100,  label: "게시물 하트 50개 달성", active: true },
+  community_like_100:        { amount: 200,  label: "게시물 하트 100개 달성", active: true },
 };
+
+/** 같은 대상(relatedDocId)에 한 번만 지급되는 카테고리 — 원장 조회로 중복 방지 */
+const ONCE_PER_DOC = [
+  "community_like_10", "community_like_50", "community_like_100",
+  "order_complete", "order_perform", "review",
+  "referral_order_complete", "referral_perform_complete",
+];
+
+/** 사용자당 평생 1회만 지급되는 카테고리 — 원장 조회로 중복 방지 */
+const ONCE_PER_USER = ["signup", "profile_complete"];
 
 /* ─── 시트8 사양: 토큰화 대비 변수 ─── */
 const DEFAULT_POLICY = {
@@ -45,18 +65,37 @@ export async function getPointPolicy() {
   return { ...DEFAULT_POLICY, ...(data._policy || {}) };
 }
 
-/** settings/point_rules에서 규칙 조회 (없으면 기본값) */
+/**
+ * settings/point_rules + DEFAULT_RULES 병합
+ * Firestore 값이 우선(관리자 편집 존중), 문서에 아직 없는 신규 키는 기본값으로 채운다.
+ * (신규 규칙을 추가할 때 Firestore 문서 갱신 전에도 동작하도록 — scripts/update-point-rules.mjs 로 문서 갱신 권장)
+ */
+async function loadRules() {
+  let stored = {};
+  try {
+    const snap = await getDoc(doc(db, RULES_DOC));
+    if (snap.exists()) {
+      const { _policy, ...rest } = snap.data() || {};
+      stored = rest;
+    }
+  } catch (e) {
+    console.warn("포인트 규칙 조회 실패 — 기본값 사용:", e.message);
+  }
+  return { ...DEFAULT_RULES, ...stored };
+}
+
 async function getRule(category) {
-  const snap = await getDoc(doc(db, RULES_DOC));
-  const rules = snap.exists() ? snap.data() : DEFAULT_RULES;
+  const rules = await loadRules();
   return rules[category] || null;
 }
 
-/** 모든 활성 규칙 조회 (없으면 기본값) */
+/** 모든 규칙 조회 (기본값 + Firestore 병합) */
 export async function getAllPointRules() {
-  const snap = await getDoc(doc(db, RULES_DOC));
-  return snap.exists() ? snap.data() : DEFAULT_RULES;
+  return loadRules();
 }
+
+/** 기본 규칙 테이블 노출 (관리자 화면에서 신규 키 채우기용) */
+export { DEFAULT_RULES };
 
 /**
  * 포인트 지급
@@ -70,16 +109,24 @@ export async function grantPoints(uid, userName, category, options = {}) {
   if (!rule) return null;
   if (!rule.active || rule.amount <= 0) return null;
 
-  // 하트 달성 카테고리 중복 체크 (relatedDocId + category)
-  const likeMilestones = [
-    "community_like_10", "community_like_50", "community_like_100",
-  ];
-  if (likeMilestones.includes(category) && options.relatedDocId) {
+  // 중복 지급 방지 ① 같은 대상(오더/게시글/리뷰)에 1회만 — relatedDocId + category
+  if (ONCE_PER_DOC.includes(category) && options.relatedDocId) {
     const q = query(
       collection(db, CASH_COL),
       where("uid", "==", uid),
       where("category", "==", category),
       where("relatedDocId", "==", options.relatedDocId)
+    );
+    const existing = await getDocs(q);
+    if (!existing.empty) return null; // 이미 지급됨
+  }
+
+  // 중복 지급 방지 ② 사용자당 평생 1회 (가입 환영 / 비즈프로필 완료)
+  if (ONCE_PER_USER.includes(category)) {
+    const q = query(
+      collection(db, CASH_COL),
+      where("uid", "==", uid),
+      where("category", "==", category)
     );
     const existing = await getDocs(q);
     if (!existing.empty) return null; // 이미 지급됨
@@ -256,26 +303,91 @@ export async function applyPointPayment(payerUid, payerName, amount, reason) {
 }
 
 /**
- * 지갑 주소 등록 (토큰화 대비 — 사양 R46)
+ * 가입 환영 보상 (누구나 1회 1,000P) — 온보딩 완료 직후 호출
+ * users.signupBonusAt 플래그 + 원장 조회(ONCE_PER_USER) 이중 가드.
+ * @param {string} uid
+ * @param {string} userName
  */
-export async function setWalletAddress(uid, walletAddress) {
-  await updateDoc(doc(db, USERS_COL, uid), {
-    walletAddress: walletAddress || null,
-    walletUpdatedAt: serverTimestamp(),
-  });
+export async function grantSignupBonus(uid, userName) {
+  if (!uid) return null;
+  try {
+    const snap = await getDoc(doc(db, USERS_COL, uid));
+    const data = snap.exists() ? snap.data() : {};
+    if (data.signupBonusAt) return null; // 이미 지급
+
+    const result = await grantPoints(uid, userName || data.nickname || data.name || "사용자", "signup");
+    // 규칙이 비활성이어도 재시도 폭주를 막기 위해 플래그는 남긴다
+    await updateDoc(doc(db, USERS_COL, uid), { signupBonusAt: serverTimestamp() });
+    return result;
+  } catch (e) {
+    console.warn("가입 환영 포인트 지급 실패:", e.message);
+    return null;
+  }
 }
 
-/** 규칙 정렬 순서 (관리자 페이지용) */
+/**
+ * 비즈프로필 작성 완료 보상 (최초 1회 2,000P)
+ * 조건: 휴대폰 인증 완료 + 비즈프로필(업체명/상호) 작성 + 사업자등록증 업로드 완료
+ *  - 사업자등록증은 homepro_pros 문서의 licenseUrl 로 판정 (users.businessLicense 도 허용)
+ *  - OCR 자동검증 연동은 범위 외 (별도 결정 대기)
+ *
+ * 호출(wiring) 필요 지점: 전문분야 등록 완료 시 / 사업자등록증 업로드 완료 시
+ * @param {string} uid
+ * @param {string} userName
+ * @returns {Promise<null | {id, amount, label}>} 조건 미달이면 null
+ */
+export async function grantProfileCompleteBonus(uid, userName) {
+  if (!uid) return null;
+  try {
+    const snap = await getDoc(doc(db, USERS_COL, uid));
+    if (!snap.exists()) return null;
+    const data = snap.data() || {};
+    if (data.profileBonusAt) return null;        // 이미 지급
+    if (!data.phoneVerified) return null;        // 휴대폰 인증 미완료
+
+    // 비즈프로필 작성 여부 (업체명 또는 상호)
+    const hasBizProfile = !!(data.companyName || data.businessName || data.bizName);
+    if (!hasBizProfile) return null;
+
+    // 사업자등록증 업로드 여부
+    let hasLicense = !!data.businessLicense;
+    if (!hasLicense) {
+      const prosSnap = await getDocs(
+        query(collection(db, "homepro_pros"), where("uid", "==", uid))
+      );
+      hasLicense = prosSnap.docs.some((d) => !!d.data()?.licenseUrl);
+    }
+    if (!hasLicense) return null;
+
+    const result = await grantPoints(
+      uid,
+      userName || data.companyName || data.nickname || data.name || "사용자",
+      "profile_complete"
+    );
+    await updateDoc(doc(db, USERS_COL, uid), { profileBonusAt: serverTimestamp() });
+    return result;
+  } catch (e) {
+    console.warn("비즈프로필 완료 포인트 지급 실패:", e.message);
+    return null;
+  }
+}
+
+/** 규칙 정렬 순서 (관리자 페이지 / 적립 안내 카드용) */
 export const POINT_RULE_ORDER = [
+  "signup",
   "referral_invite",
   "referral_signup",
-  "order_create",
+  "profile_complete",
   "order_complete",
+  "order_perform",
+  "review",
+  "referral_order_complete",
+  "referral_perform_complete",
+  "order_create",
   "community_post",
   "community_like_10",
   "community_like_50",
   "community_like_100",
-  "review",
   // Firestore 호환 (review_like_* 통합 전 데이터)
   "review_like_10",
   "review_like_50",

@@ -306,7 +306,7 @@ export const DOMAINS = [
       'location.state.viewUid로 타인 프로필 조회 시 승인된 전문분야만 노출',
       '★ 타인 프로필에서 블랙리스트 신고(사유 입력) 가능',
     ] },
-    { no: 'PR-02', id: 'pro-list', name: '전문가 리스트', path: '/pro/list', spec: [
+    { no: 'PR-02', id: 'pro-list', name: '홈프로 리스트', path: '/pro/list', spec: [
       'status가 approved인 프로 전체 조회, 본인 제외하고 users 프로필과 매칭해 표시',
       '카테고리 그룹(CATEGORY_GROUPS) 칩으로 분야 필터링',
       '★ 내 지역 좌표 기준 거리(10/20/30/50/100km) 바텀시트 필터(Haversine 계산)',
@@ -452,7 +452,7 @@ export const DOMAINS = [
     ] },
   ] },
   { key: 'my', label: '마이·기타', screens: [
-    { no: 'MY-01', id: 'wallet', name: '지갑주소 등록', path: '/mypage/wallet', spec: [
+    { no: 'MY-01', id: 'wallet', name: '지갑주소 등록 (삭제됨 7/30)', path: '/mypage/wallet', spec: [
       '포인트의 토큰화 전환 대비 지갑주소를 미리 등록하는 화면(시트8 대비)',
       'users 문서의 walletAddress·walletUpdatedAt를 조회해 현재 등록 주소와 마지막 업데이트 시각 표시',
       '★ 입력값 형식 검증: EVM 0x+40hex 또는 영숫자 26~64자만 허용, 미충족 시 저장 차단',

@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import styled, { keyframes, css } from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -13,6 +13,7 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
 import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
+import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
@@ -348,13 +349,22 @@ const WorkerRequestList = ({ navigate }) => {
 /* ================================================================
    초대코드 탭 콘텐츠
    ================================================================ */
+/* 초대 공유 (커뮤니티·SNS 공유 명세 — 대표 지시 7/29)
+   딥링크: /?code=초대코드 → 가입 시 추천코드 자동 입력 (App.js에서 캡처) */
+const SHARE_BASE_URL = "https://homepro-43f7f.web.app";
+const buildInviteText = (code) =>
+  `집(Home) 관련 특화된 모든 분야 사장님들이 뭉쳐,\n오더를 공유하고 다양한 수익을 창출하는 대한민국 1등 B2B 플랫폼에 사장님을 초대합니다.\n지금 초대코드 ${code}를 입력하고, 홈프로만의 특별한 생태계에 합류하세요!`;
+
 const InviteTabContent = () => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const uid = user?.USERS_ID || userData?.uid;
   const [myCode, setMyCode] = useState("");
-  const [inputCode, setInputCode] = useState("");
+  // 초대 딥링크(/?code=)로 들어온 경우 자동 입력 (대표 지시 7/29)
+  const [inputCode, setInputCode] = useState(() => {
+    try { return localStorage.getItem("homepro.pendingReferralCode") || ""; } catch (e) { return ""; }
+  });
   const [stats, setStats] = useState({ referralCount: 0, referralPoints: 0 });
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
@@ -385,6 +395,32 @@ const InviteTabContent = () => {
     showToast("복사되었습니다!");
   };
 
+  const inviteUrl = `${SHARE_BASE_URL}/?code=${myCode}`;
+
+  const handleCopyInvite = () => {
+    if (!myCode) return;
+    navigator.clipboard?.writeText(`${buildInviteText(myCode)}\n${inviteUrl}`);
+    showToast("초대 문구와 링크가 복사되었습니다");
+  };
+
+  // OS 공유 시트 (카카오톡·단톡방·문자 등) — 미지원 브라우저는 복사로 폴백
+  const handleWebShare = async () => {
+    if (!myCode) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "홈프로 초대", text: buildInviteText(myCode), url: inviteUrl });
+      } catch (e) { /* 사용자가 취소한 경우 무시 */ }
+    } else {
+      handleCopyInvite();
+    }
+  };
+
+  const handleBandShare = () => {
+    if (!myCode) return;
+    const body = encodeURIComponent(`${buildInviteText(myCode)}\n${inviteUrl}`);
+    window.open(`https://band.us/plugin/share?body=${body}&route=${encodeURIComponent(inviteUrl)}`, "_blank");
+  };
+
   const handleRegenerate = async () => {
     if (!uid || !myCode) return;
     if (!window.confirm("기존 코드가 무효화됩니다. 재발행하시겠습니까?")) return;
@@ -406,9 +442,10 @@ const InviteTabContent = () => {
       const { applyReferralCode } = await import("../../service/ReferralService");
       const res = await applyReferralCode(uid, inputCode.trim());
       if (res.success) {
+        try { localStorage.removeItem("homepro.pendingReferralCode"); } catch (e) { /* ignore */ }
         setInputCode("");
         setAlreadyReferred(true);
-        showToast("추천코드가 적용되었습니다! 포인트가 충전되었습니다 🎉");
+        showToast("추천코드가 적용되었습니다! 포인트가 충전되었습니다");
       } else {
         showToast(res.message);
       }
@@ -427,6 +464,17 @@ const InviteTabContent = () => {
           <InviteCode>{myCode || "..."}</InviteCode>
           <InviteCopyBtn onClick={handleCopy}>복사</InviteCopyBtn>
         </InviteCodeBox>
+      </InviteCard>
+
+      {/* 초대 공유 (대표 지시 7/29 — 카카오/밴드/단톡방 공유, 링크 타면 코드 자동입력) */}
+      <InviteCard>
+        <InviteCardTitle>초대 공유</InviteCardTitle>
+        <InviteCardDesc>초대 링크로 가입하면 추천코드가 자동으로 입력됩니다</InviteCardDesc>
+        <ShareBtnRow>
+          <ShareBtn onClick={handleCopyInvite}>초대문구 복사</ShareBtn>
+          <ShareBtn onClick={handleBandShare}>밴드 공유</ShareBtn>
+          <ShareBtn $primary onClick={handleWebShare}>공유하기</ShareBtn>
+        </ShareBtnRow>
       </InviteCard>
 
       {/* 통계 */}
@@ -689,8 +737,11 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
 
   return (
     <PageWrap>
-      {/* ── 상단 포인트 ── */}
+      {/* ── 상단 차수·포인트 ── (차수 상단 표시 = 대표 지시 7/29 "매우중요") */}
       <PointHeader>
+        <TierValue $tier1={getAccessTier(userData) === "tier1"}>
+          {TIER_LABEL[getAccessTier(userData)]} 회원
+        </TierValue>
         <PointValue>{userPoints.toLocaleString()}P</PointValue>
       </PointHeader>
 
@@ -792,39 +843,38 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const dateLabel = formatOrderScheduleShort(order);
                 const status = mapStatus(order.orderStatus);
                 const statusColor = STATUS_COLOR[status] || STATUS_COLOR["접수"];
-                const isNewOrder = status === "접수"; // 진한 보라 배경 + 흰 글씨 강조 행
                 const isUrgent = order.workDate === "긴급";
                 const regionLabel = formatRegionLabel(order.location);
                 const priceLabel = formatPriceType(order);
                 const matchLabel = formatMatchType(order);
                 return (
-                  <TableRow key={order.id} $newOrder={isNewOrder} onClick={() => {
+                  <TableRow key={order.id} onClick={() => {
                     if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
                     if (status === "대기" && order.createdBy !== uid) { showToast("접수자가 수정 중인 오더입니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
                   }}>
                     <TdCell $flex={0.9} style={{alignItems:"center"}}>
-                      <TdDate $urgent={isUrgent} $accent={isNewOrder}>{dateLabel}</TdDate>
+                      <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
-                      <TdStatus style={{color: isNewOrder ? "#fff" : statusColor}}>
-                        <StatusDot style={{background: isNewOrder ? "#fff" : statusColor}} />
+                      {/* 행 띠 배경 없이 "접수" 등 상태 글자에만 색 (형 리뷰 7/29) */}
+                      <TdStatus style={{color: statusColor}}>
+                        <StatusDot style={{background: statusColor}} />
                         {status}
                       </TdStatus>
                     </TdCell>
                     {/* 서비스 = 종목명만 표기 (대분류 카테고리명 미표시 — 대표 지시 7/24) */}
-                    {/* 접수 행은 텍스트도 보라로 ($accent) — 날짜는 긴급 빨강 유지 (형 지시 7/28) */}
                     <TdCell $flex={1.2} style={{alignItems:"center"}}>
-                      <TdCatName $accent={isNewOrder}>{order.subcategory || order.subcategories?.[0] || order.categoryName}</TdCatName>
+                      <TdCatName>{order.subcategory || order.subcategories?.[0] || order.categoryName}</TdCatName>
                     </TdCell>
                     <TdCell $flex={1.0} style={{alignItems:"center"}}>
-                      <TdLocation $accent={isNewOrder}>{regionLabel}</TdLocation>
+                      <TdLocation>{regionLabel}</TdLocation>
                     </TdCell>
                     <TdCell $flex={1.1} style={{alignItems:"center"}}>
-                      <TdLocation $accent={isNewOrder}>{priceLabel}</TdLocation>
+                      <TdLocation>{priceLabel}</TdLocation>
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
-                      <TdLocation $accent={isNewOrder}>{matchLabel}</TdLocation>
+                      <TdLocation>{matchLabel}</TdLocation>
                     </TdCell>
                   </TableRow>
                 );
@@ -1264,9 +1314,16 @@ const PageWrap = styled.div`
 
 const PointHeader = styled.div`
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   padding: 8px 14px 10px;
+`;
+
+/* 차수(1차수/2차수) 표시 — 텍스트+색 (대표 지시 7/29) */
+const TierValue = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${({ $tier1 }) => ($tier1 ? THEME.primary : THEME.textSecondary)};
 `;
 
 const PointValue = styled.div`
@@ -1571,6 +1628,27 @@ const InviteCopyBtn = styled.button`
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  &:active { opacity: 0.8; }
+`;
+
+const ShareBtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+`;
+
+const ShareBtn = styled.button`
+  flex: 1;
+  padding: 12px 0;
+  border: 1px solid ${({ $primary }) => ($primary ? THEME.primary : THEME.border)};
+  border-radius: 10px;
+  background: ${({ $primary }) => ($primary ? THEME.primary : "#fff")};
+  color: ${({ $primary }) => ($primary ? "#fff" : THEME.text)};
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
   &:active { opacity: 0.8; }
 `;
 
@@ -2283,12 +2361,7 @@ const ThCell = styled.div`
   white-space: nowrap;
 `;
 
-/* 접수 상태 행 강조 — 진한 보라 배경이 깜빡이고 내용은 흰 글씨 (형 지시 7/28) */
-const newOrderPulse = keyframes`
-  0%, 100% { background: #6D3EE0; }
-  50%      { background: #4A1FA8; }
-`;
-
+/* 행 띠(배경) 강조 제거 — 상태 글자에만 색 (형 리뷰 7/29) */
 const TableRow = styled.div`
   display: flex;
   padding: 8px 12px;
@@ -2300,17 +2373,6 @@ const TableRow = styled.div`
   min-width: 600px;
   &:last-child { border-bottom: none; }
   &:active { background: ${THEME.background}; }
-
-  ${({ $newOrder }) => $newOrder && css`
-    animation: ${newOrderPulse} 1.8s ease-in-out infinite;
-    /* 접수 행이 연속으로 붙으면 큰 보라 덩어리로 보임 → 행마다 여백+라운드로
-       독립 카드 느낌 분리 (형 리뷰 7/29) */
-    margin: 4px 6px;
-    border-radius: 10px;
-    border-bottom: none;
-    &:active { background: #4A1FA8; }
-    @media (prefers-reduced-motion: reduce) { animation: none; background: #6D3EE0; }
-  `}
 `;
 
 const TdCell = styled.div`

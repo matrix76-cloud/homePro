@@ -2,7 +2,14 @@
 import { db, storage } from "../api/config";
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { COLLECTIONS } from "../config/homeproConfig";
+import { COLLECTIONS, PRO_APPROVAL_REQUIRED_CATEGORIES } from "../config/homeproConfig";
+
+/**
+ * 관리자 승인이 필요한 카테고리인지 (현재는 공동중개(부동산)만)
+ */
+export function isApprovalRequiredCategory(categoryId) {
+    return PRO_APPROVAL_REQUIRED_CATEGORIES.includes(categoryId);
+}
 
 /**
  * 사업자등록증 이미지를 Firebase Storage에 업로드
@@ -32,20 +39,53 @@ export async function uploadActivityPhotos(uid, categoryId, files) {
 }
 
 /**
- * 전문가 카테고리 신청 문서를 Firestore에 저장 (자동 승인)
- * @param {object} detailInfo - { subcategories, experience, intro, region }
+ * 자격증 사진을 Firebase Storage에 업로드
+ * @param {object[]} certList - [{ certName, file, url }]
+ * @returns {object[]} [{ certName, url }] — 사진이 없으면 url 생략
  */
-export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls = [], detailInfo = {}, region = null) {
+export async function uploadCertLicenses(uid, certList = []) {
+    const result = [];
+    for (let i = 0; i < certList.length; i++) {
+        const cert = certList[i];
+        const certName = (cert.certName || "").trim();
+        if (!certName && !cert.file && !cert.url) continue;
+        let url = cert.url || "";
+        if (cert.file) {
+            const timestamp = Date.now();
+            const storageRef = ref(storage, `homepro/certs/${uid}/${timestamp}_${i}`);
+            await uploadBytes(storageRef, cert.file);
+            url = await getDownloadURL(storageRef);
+        }
+        result.push(url ? { certName, url } : { certName });
+    }
+    return result;
+}
+
+/**
+ * 전문가 카테고리 등록 문서를 Firestore에 저장
+ * - 기본은 등록 즉시 승인완료(status: "approved" + approvedAt)
+ * - 공동중개(부동산)만 관리자 승인 대기(status: "pending") — 대표 지시 7/30
+ * @param {object} detailInfo - { subcategories, experience, intro, certs, ... }
+ * @param {object} opts - { existingStatus } 수정 시 기존 상태 유지용
+ */
+export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls = [], detailInfo = {}, region = null, opts = {}) {
     const docId = `${uid}_${categoryId}`;
+    const needsApproval = isApprovalRequiredCategory(categoryId);
+    // 승인 필요 카테고리를 이미 승인받은 뒤 수정하는 경우엔 승인 상태를 유지
+    const keepApproved = needsApproval && opts.existingStatus === "approved";
+    const status = !needsApproval || keepApproved ? "approved" : "pending";
     const data = {
         uid,
         categoryId,
         licenseUrl,
         photoUrls,
         detail: detailInfo,
-        status: "pending",
+        status,
         appliedAt: serverTimestamp(),
     };
+    if (status === "approved") {
+        data.approvedAt = serverTimestamp();
+    }
     if (region?.sido) {
         data.region = { sido: region.sido, gu: region.gu || "전체" };
     }
