@@ -70,7 +70,11 @@ const normalizeSido = (raw) => (raw || "").replace(SIDO_NORMALIZE_RE, "");
 
 const extractRegionFromLocation = (location) => {
   if (!location) return null;
-  const parts = location.trim().split(/\s+/);
+  // 구버전 문서는 location 이 {sido, gu} 객체 — 그대로 사용 (심화점검 11 발견)
+  if (typeof location === "object") {
+    return location.sido ? { sido: normalizeSido(location.sido), gu: location.gu || "" } : null;
+  }
+  const parts = String(location).trim().split(/\s+/);
   if (parts.length === 0) return null;
   return { sido: normalizeSido(parts[0]), gu: parts[1] || "" };
 };
@@ -100,7 +104,10 @@ const PROVINCE_SHORTS = new Set(["충북","충남","경기","경남","경북","�
 
 const formatRegionLabel = (location) => {
   if (!location) return "-";
-  const parts = location.trim().split(/\s+/);
+  if (typeof location === "object") {
+    return [location.sido, location.gu].filter(Boolean).join(" ") || "-";
+  }
+  const parts = String(location).trim().split(/\s+/);
   if (parts.length === 0) return "-";
   const [first = "", second = "", third = ""] = parts;
 

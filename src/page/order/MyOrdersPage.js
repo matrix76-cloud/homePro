@@ -431,7 +431,9 @@ export const MyOrdersContent = () => {
                 <CardTitle>{order.title}</CardTitle>
                 <CardBottom>
                   <BottomLeft>
-                    <BottomText>{order.location}</BottomText>
+                    {/* location 이 구버전(객체 {sido,gu}) 문서면 그대로 렌더 시
+                        리스트 전체가 크래시 — 문자열로 정규화 (심화점검 11 발견) */}
+                    <BottomText>{typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" ")}</BottomText>
                     <BottomText>{order.writer}</BottomText>
                     <BottomText>{MATCH_TYPE_LABEL[order.matchType] || ""}</BottomText>
                     {workDateText(order) && <BottomText>작업일 {workDateText(order)}</BottomText>}
