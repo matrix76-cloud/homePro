@@ -1,0 +1,11 @@
+[
+  { "id": "a01", "name": "가입 회원유형 분기", "action": "/MobileSignup 사업자회원·일반고객 전환", "ok": true, "note": "분기 버튼·안내문구·사업자 상호명 placeholder 전환 정상", "shot": "a01.png" },
+  { "id": "a02", "name": "가입 필드 검증", "action": "빈값 제출·비밀번호 불일치 제출", "ok": true, "note": "필수값 미입력 시 가입 버튼 비활성, 비밀번호 불일치 시 '일치하지 않아요' 토스트", "shot": "a02.png" },
+  { "id": "a03", "name": "중복 아이디 가드", "action": "이미 존재하는 아이디로 가입 시도", "ok": true, "note": "가입 차단·화면 잔류 확인(계정 미생성 Firestore 교차). 토스트 문구는 2.5초 수명이라 캡처 미포함", "shot": "a03.png" },
+  { "id": "a04", "name": "가입 → 온보딩 진입", "action": "가입 완료 → 대화명 설정 화면", "ok": true, "note": "버그 발견·수정 — 가입 직후 프로필 로딩 찰나를 RequireAuth가 로그아웃으로 오판해 /MobileLogin으로 튕김(2/2 재현). 가드에 로딩 분기 추가 후 안착 확인. 재로그인 시 온보딩 재개도 정상", "shot": "a04.png" },
+  { "id": "a05", "name": "대화명 → 전화 등록", "action": "대화명 자동생성·완료 → 전화번호 입력 → 인증번호 전송", "ok": true, "note": "전송 성공 alert + 재전송 26초 카운트다운(쿨다운) 동작 — SMS 게이트웨이 응답 정상", "shot": "a05a.png" },
+  { "id": "a06", "name": "인증번호 오입력 제한", "action": "000000 입력 → 확인", "ok": true, "note": "'인증번호가 올바르지 않습니다. (남은 시도 4회)' — 서버측 시도 카운터 동작", "shot": "a06.png" },
+  { "id": "a07", "name": "아이디·비밀번호 찾기", "action": "/MobileFindAccount 탭 2종 + 인증번호 발송", "ok": true, "note": "아이디 찾기/비밀번호 찾기 탭·발송·재전송 카운트다운 정상. 결과 표시는 실코드 수신 필요(보류)", "shot": "a07.png" },
+  { "id": "a08", "name": "인증정보 서버 잠금", "action": "클라이언트에서 phone_verifications 직접 read", "ok": true, "note": "permission-denied — 인증코드 컬렉션 서버(Admin) 전용 잠금 확인(보안 통과)", "shot": "a08 없음(콘솔 검증)" },
+  { "id": "a09", "name": "로그아웃", "action": "마이 → 로그아웃", "ok": true, "note": "세션 종료 후 /MobileLogin 복귀", "shot": "a09.png" }
+]

@@ -5,10 +5,15 @@ import { useAuth } from "../../context/AuthContext";
 const ONBOARDING_PATHS = ["/MobileLinkPhone", "/MobileSetNickname"];
 
 const RequireAuth = () => {
-    const { isLoggedIn, loading, userData } = useAuth();
+    const { isLoggedIn, loading, userData, currentUser } = useAuth();
     const location = useLocation();
 
     if (loading) return null;
+
+    // 가입/로그인 직후 currentUser 는 잡혔지만 프로필(userData) 조회가 아직
+    // 안 끝난 찰나 — 이때 로그아웃으로 오판해 /MobileLogin 으로 보내면
+    // 신규가입 온보딩 퍼널이 끊긴다 (심화점검 5 발견). 로딩으로 취급.
+    if (currentUser && !userData) return null;
 
     if (!isLoggedIn) {
         return <Navigate to="/MobileLogin" state={{ from: location.pathname }} replace />;

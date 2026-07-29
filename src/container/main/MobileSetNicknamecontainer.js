@@ -57,7 +57,12 @@ export default function MobileSetNicknamecontainer() {
     useEffect(() => {
         const unsub = watchAuthState((user) => {
             if (!user?.uid) {
-                nav("/MobileLogin", { replace: true });
+                // 가입 직후엔 첫 emission 이 잠깐 null 로 올 수 있어 바로 로그인으로
+                // 보내면 신규가입 퍼널이 끊긴다 (심화점검 5 발견) — AuthContext 와
+                // 같은 딜레이 재확인 패턴으로 진짜 로그아웃일 때만 이동.
+                setTimeout(() => {
+                    if (!getAuth().currentUser) nav("/MobileLogin", { replace: true });
+                }, 800);
                 return;
             }
             setUid(user.uid);
