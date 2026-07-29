@@ -5,6 +5,7 @@ import styled from "styled-components";
 import { IoHeartOutline, IoHeart, IoSendOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import { getPostById, toggleLike, checkLiked, getComments, addComment } from "../../service/CommunityService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 
@@ -12,8 +13,11 @@ const CommunityDetailPage = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
-  const uid = user?.USERS_ID;
-  const nickname = user?.USERINFO?.nickname || "익명";
+  const { userData } = useAuth();
+  // 새로고침·직접 진입 시 UserContext 가 비어 좋아요·댓글이 조용히 무시되던
+  // 문제 — 글쓰기와 동일하게 AuthContext 폴백 (심화점검 10 발견)
+  const uid = userData?.uid || user?.USERS_ID;
+  const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
 
   const [post, setPost] = useState(null);
   const [liked, setLiked] = useState(false);
