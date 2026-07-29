@@ -1,0 +1,8 @@
+[
+  { "id": "m01", "name": "매칭 상태변경 → 오더", "action": "관리자 매칭관리 상세에서 상태를 완료로 변경", "ok": true, "note": "orderStatus(한글)·status(영문) 동시 갱신(7/29 수정 회귀 통과) + 접수자 나의오더현황 완료 카드 반영", "shot": "m01a.png" },
+  { "id": "m02", "name": "포인트 지급 → 잔액", "action": "카테고리 7 g05에서 실측", "ok": true, "note": "원장 기록 + 잔액 실증감 (7/29 수정 회귀 통과 — 중복 실행 대신 g05 결과 참조)", "shot": "m01.png" },
+  { "id": "m03", "name": "공지 등록 → /notice", "action": "관리자 공지 등록 → 앱 공지 목록", "ok": true, "note": "등록 즉시 앱 /notice에 노출", "shot": "m03.png" },
+  { "id": "m04", "name": "프로 승인 → 권한", "action": "pending 신청을 관리자에서 [승인]", "ok": true, "note": "status approved + approvedAt + 승인 알림 발행. 미승인 시 견적 차단 가드('전문분야 승인 대기 중') 코드 확인", "shot": "m04a.png" },
+  { "id": "m05", "name": "버전 등록 → 자동 새로고침", "action": "app_updates 등록 → 구버전 앱 로드", "ok": true, "note": "버전 차이 감지 → localStorage 갱신 + 1.5초 후 자동 새로고침 동작(토스트는 리로드로 캡처 미포함)", "shot": "m05.png" },
+  { "id": "m06", "name": "미연동 한계", "action": "광고·약관·AI설정 연동 여부 코드 확인", "ok": true, "note": "관리자 광고/약관/AI설정 화면은 앱 미연동 확정 상태 — 설계 필요 백로그 유지", "shot": "m04.png" }
+]
