@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, CATEGORY_GROUPS, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import { uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
@@ -95,7 +96,8 @@ const ProCategoryRegisterPage = () => {
     const fileRef = useRef(null);
     const activityFileRef = useRef(null);
 
-    const uid = user?.USERS_ID;
+    const { userData } = useAuth();
+    const uid = user?.USERS_ID || userData?.uid;
 
     const catObj = useMemo(
         () => CATEGORIES.find((c) => c.id === selectedCat),

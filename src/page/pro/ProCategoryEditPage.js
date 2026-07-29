@@ -3,6 +3,7 @@ import React, { useContext, useState, useRef, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, registerProCategory } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -33,7 +34,8 @@ const ProCategoryEditPage = () => {
     const fileRef = useRef(null);
     const activityFileRef = useRef(null);
 
-    const uid = user?.USERS_ID;
+    const { userData } = useAuth();
+    const uid = user?.USERS_ID || userData?.uid;
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 
     const catDetailFields = useMemo(

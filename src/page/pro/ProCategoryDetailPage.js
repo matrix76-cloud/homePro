@@ -4,6 +4,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import { getProCategoryDoc, deleteProCategory } from "../../service/ProService";
@@ -24,7 +25,8 @@ const ProCategoryDetailPage = () => {
     const [slideIdx, setSlideIdx] = useState(0);
     const slideRef = useRef(null);
 
-    const uid = viewUid || user?.USERS_ID;
+    const { userData } = useAuth();
+    const uid = viewUid || user?.USERS_ID || userData?.uid;
     const isViewingOther = !!viewUid;
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 

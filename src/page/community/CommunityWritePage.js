@@ -5,14 +5,19 @@ import styled from "styled-components";
 import { IoImageOutline, IoCloseCircle } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
+import { useAuth } from "../../context/AuthContext";
 import { createPost, uploadCommunityImages } from "../../service/CommunityService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 
 const CommunityWritePage = () => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
-  const uid = user?.USERS_ID;
-  const nickname = user?.USERINFO?.nickname || "익명";
+  const { userData } = useAuth();
+  // UserContext(USERS_ID)는 스플래시를 거쳐야만 채워짐 — 새로고침·직접 진입 시
+  // 비어 있어 글이 '익명/uid 없음'으로 저장되고 포인트도 안 붙는다 (심화점검 7 발견).
+  // OrderCreatePage 와 동일하게 AuthContext 를 우선 사용.
+  const uid = userData?.uid || user?.USERS_ID;
+  const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");

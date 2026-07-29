@@ -1,0 +1,9 @@
+[
+  { "id": "g01", "name": "오더작성 적립", "action": "오더 등록 → 잔액·원장 확인", "ok": true, "note": "+50P (1225→1275) + homepro_cash order_create 기록 — 잔액·원장·등급재계산 3중 정합", "shot": "g01.png" },
+  { "id": "g02", "name": "커뮤니티 적립", "action": "게시글 등록 → 잔액·원장 확인", "ok": true, "note": "버그 발견·수정 — 새로고침·직접 진입 시 글이 '익명·uid 없음'으로 저장되고 30P 미지급(UserContext 미하이드레이션). AuthContext 폴백 추가 후 +30P·작성자 정상. 같은 패턴의 프로 카테고리 3개 페이지도 함께 수정", "shot": "g02.png" },
+  { "id": "g03", "name": "추천코드 보상", "action": "든든한기술자가 성실한청소부 코드 입력", "ok": true, "note": "입력자 +100P(referral_signup)·추천인 +100P(referral_invite)·referredBy 기록 — 3자 정합", "shot": "g03.png" },
+  { "id": "g04", "name": "추천코드 대소문자", "action": "코드 SQ763016을 'sq763016' 소문자로 입력", "ok": true, "note": "소문자 입력 정상 인식(7/29 수정 회귀 통과)", "shot": "g03a.png" },
+  { "id": "g05", "name": "관리자 지급 실증감", "action": "관리자 포인트 지급/차감 1,000P 적립", "ok": true, "note": "원장 기록 + 사용자 잔액 실증감 1405→2405 (7/29 수정 회귀 통과)", "shot": "g05a.png" },
+  { "id": "g06", "name": "등급 재계산", "action": "적립 시 등급 갱신 로직 확인", "ok": true, "note": "grantPoints 경로에서 totalEarned 기준 재계산 동작(임계 미달로 bronze 유지 — 정합). 단 관리자 수동 지급은 잔액만 증감하고 totalEarned·등급 누적엔 미반영(보고)", "shot": "g05.png" },
+  { "id": "g07", "name": "H-포인트 한계", "action": "H-포인트(현금성) 이관·출금 여부 코드 확인", "ok": true, "note": "미구현 확정 — 케이스4 H-포인트 이관/출금은 설계 필요 백로그로 유지", "shot": "g01.png" }
+]
