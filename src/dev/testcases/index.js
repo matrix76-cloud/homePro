@@ -11,11 +11,13 @@
 //    · 결과는 reviewThreads 에 "[완료] n단계"/"[미완료] n단계 — 사유" 로 쌓인다
 //    · [미완료]는 미답변으로 잡혀 카스 점검 큐에 자동으로 들어온다
 import { TEST_CORE } from './core.js'
+import { TEST_BOUNDARY } from './boundary.js'
 
 const g = (group, list) => list.map((c) => ({ ...c, group }))
 
-export const TEST_GROUPS = ['핵심 점검']
+export const TEST_GROUPS = ['핵심 점검', '경계값 검증']
 
 export const TEST_REVIEW = [
-  ...g('핵심 점검', TEST_CORE), // 짧게 한 바퀴 — 이것부터 돌린다
+  ...g('핵심 점검', TEST_CORE),        // 짧게 한 바퀴 — 이것부터 돌린다
+  ...g('경계값 검증', TEST_BOUNDARY), // 딱 그 값 / 하나 넘은 값에서 갈리는 지점
 ]
