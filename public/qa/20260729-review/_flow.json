@@ -1,0 +1,7 @@
+[
+  { "id": "r01", "name": "작업완료 전환", "action": "배정 3시간 경과 오더에서 프로 [작업완료]", "ok": true, "note": "2시간 게이트 통과 후 버튼 활성 → 확인 팝업 → 완료 전환", "shot": "r01.png" },
+  { "id": "r02", "name": "리뷰 작성 진입", "action": "접수자 채팅 상단 확인", "ok": true, "note": "완료 상태에서 오더바에 [리뷰 작성] 버튼 노출(7/29 복원 회귀 통과)", "shot": "r02.png" },
+  { "id": "r03", "name": "리뷰 등록", "action": "별점·내용 입력 → 등록", "ok": true, "note": "homepro_reviews 저장 — rating·writerUid·proUid·orderId·roomId 정합", "shot": "r03b.png" },
+  { "id": "r04", "name": "리뷰 포인트", "action": "등록 직후 잔액·원장", "ok": true, "note": "+30P (1225→1255) + homepro_cash review 기록", "shot": "r03.png" },
+  { "id": "r05", "name": "프로필 평점 반영", "action": "프로 비즈프로필 확인", "ok": true, "note": "리뷰 카운트 반영·목록 펼침 시 평균 즉석 계산. 단 users 문서 평점 필드(avgRating)는 미저장 — 프로필 팝업 등 별점 표시는 미구현 확정(보고)", "shot": "r05.png" }
+]
