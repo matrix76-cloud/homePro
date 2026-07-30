@@ -41,6 +41,18 @@ const RULES = {
   referral_perform_complete: { amount: 100,  label: "피추천인 오더 완료 보상 (수행)", active: true },
 };
 
+/**
+ * 운영 정책 변수 (_policy) — 구독료·수수료율 등 "결제에 쓰는 값"도 전부 변수 관리
+ *   런칭 후 가입자 수·기간에 따라 여기 숫자만 바꿔 재실행하면 앱에 즉시 반영된다.
+ *   ※ src/service/PointService.js 의 DEFAULT_POLICY 와 동일하게 유지할 것 (앱 폴백값).
+ */
+const POLICY = {
+  networkFeeRate: 0.05,            // 포인트 결제 네트워크 수수료 5%
+  referralRewardRate: 0.03,        // 결제액 대비 추천인 보상 3%
+  swapRate: 1,                     // 1포인트 -> 토큰 스왑 비율
+  monthlySubscriptionPoint: 16500, // 월 구독료 (포인트 결제 기준)
+};
+
 const dryRun = process.argv.includes("--dry-run");
 
 const app = initializeApp(firebaseConfig);
@@ -60,7 +72,15 @@ for (const [key, next] of Object.entries(RULES)) {
   console.log(`${changed ? "*" : " "} ${key.padEnd(26)} ${prevStr.padEnd(14)} -> ${nextStr}`);
 }
 
-const preserved = Object.keys(before).filter((k) => !(k in RULES));
+console.log("\n--- _policy 변경 내역 ---");
+const prevPolicy = before._policy || {};
+for (const [key, next] of Object.entries(POLICY)) {
+  const prev = prevPolicy[key];
+  const changed = prev !== next;
+  console.log(`${changed ? "*" : " "} ${key.padEnd(26)} ${String(prev ?? "(없음)").padEnd(14)} -> ${next}`);
+}
+
+const preserved = Object.keys(before).filter((k) => !(k in RULES) && k !== "_policy");
 console.log(`\n보존되는 기존 키: ${preserved.length ? preserved.join(", ") : "(없음)"}`);
 
 if (dryRun) {
@@ -68,6 +88,6 @@ if (dryRun) {
   process.exit(0);
 }
 
-await setDoc(ref, RULES, { merge: true });
-console.log("\n완료 — settings/point_rules 갱신됨 (merge)");
+await setDoc(ref, { ...RULES, _policy: POLICY }, { merge: true });
+console.log("\n완료 — settings/point_rules 갱신됨 (merge, _policy 포함)");
 process.exit(0);

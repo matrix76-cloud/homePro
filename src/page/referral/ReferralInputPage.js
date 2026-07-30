@@ -1,15 +1,24 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { applyReferralCode } from "../../service/ReferralService";
+import { getAllPointRules, DEFAULT_RULES } from "../../service/PointService";
 import { THEME } from "../../config/homeproConfig";
 
 export default function ReferralInputPage() {
     const nav = useNavigate();
     const { userData } = useAuth();
     const uid = userData?.uid || "";
+
+    // 보상 금액은 settings/point_rules 기준 (런칭 후 운영값 조정 대응 — 하드코딩 금지)
+    const [rules, setRules] = useState(DEFAULT_RULES);
+    useEffect(() => {
+        getAllPointRules().then(setRules).catch(() => {});
+    }, []);
+    const signupReward = rules.referral_signup?.amount ?? DEFAULT_RULES.referral_signup.amount;
+    const inviteReward = rules.referral_invite?.amount ?? DEFAULT_RULES.referral_invite.amount;
 
     // 초대 딥링크(/?code=)로 들어온 경우 자동 입력 (대표 지시 7/29)
     const [code, setCode] = useState(() => {
@@ -58,12 +67,12 @@ export default function ReferralInputPage() {
                     <BenefitTitle>추천코드 혜택</BenefitTitle>
                     <BenefitRow>
                         <BenefitText>
-                            <strong>나</strong> — 추천코드 사용 보상 <Point>+3,000P</Point>
+                            <strong>나</strong> — 추천코드 사용 보상 <Point>+{signupReward.toLocaleString()}P</Point>
                         </BenefitText>
                     </BenefitRow>
                     <BenefitRow>
                         <BenefitText>
-                            <strong>추천인</strong> — 친구초대 보상 <Point>+3,000P</Point>
+                            <strong>추천인</strong> — 친구초대 보상 <Point>+{inviteReward.toLocaleString()}P</Point>
                         </BenefitText>
                     </BenefitRow>
                 </BenefitBox>

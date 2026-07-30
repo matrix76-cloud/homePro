@@ -68,7 +68,7 @@ const SubscriptionPage = () => {
       <Wrap>
         <HeroBox>
           <HeroTitle>홈프로 월 구독</HeroTitle>
-          <HeroPrice>월 16,500원 <Small>(부가세 포함)</Small></HeroPrice>
+          <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함)</Small></HeroPrice>
           <HeroDesc>도급·양도·매매 게시판, 기술전수교육 등록, 프리미엄 알림 등</HeroDesc>
         </HeroBox>
 

@@ -21,7 +21,7 @@ const Container = styled.div`
 `;
 
 const Logo = styled.div`
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
   color: ${THEME.primary};
   margin-bottom: 8px;
@@ -30,7 +30,7 @@ const Logo = styled.div`
 `;
 
 const Desc = styled.div`
-  font-size: 16px;
+  font-size: 15px;
   color: ${THEME.muted};
   margin-bottom: 40px;
 `;
@@ -42,7 +42,7 @@ const Input = styled.input`
   margin-bottom: 12px;
   border: 1px solid ${THEME.border};
   border-radius: 10px;
-  font-size: 17px;
+  font-size: 16px;
   outline: none;
   font-family: inherit;
   &:focus {
@@ -58,7 +58,7 @@ const LoginButton = styled.button`
   color: #fff;
   border: none;
   border-radius: 10px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
@@ -100,7 +100,7 @@ const FindRow = styled.div`
 `;
 
 const FindLink = styled.span`
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
   cursor: pointer;
@@ -120,7 +120,7 @@ const Divider = styled.div`
   max-width: 340px;
   margin: 20px 0;
   color: ${THEME.muted};
-  font-size: 15px;
+  font-size: 14px;
   &::before, &::after {
     content: "";
     flex: 1;
@@ -140,7 +140,7 @@ const ErrorText = styled.div`
 
 const SignupRow = styled.div`
   margin-top: 24px;
-  font-size: 16px;
+  font-size: 15px;
   color: ${THEME.muted};
 `;
 

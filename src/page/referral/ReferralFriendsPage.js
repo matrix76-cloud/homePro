@@ -8,6 +8,7 @@ import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { getAllPointRules, DEFAULT_RULES } from "../../service/PointService";
 import { IoPersonCircleOutline } from "react-icons/io5";
 
 const ReferralFriendsPage = () => {
@@ -17,6 +18,12 @@ const ReferralFriendsPage = () => {
   const uid = user?.USERS_ID || userData?.uid;
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
+  // 보상 금액은 settings/point_rules 운영값 기준 (하드코딩 금지)
+  const [rules, setRules] = useState(DEFAULT_RULES);
+
+  useEffect(() => {
+    getAllPointRules().then(setRules).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!uid) return;
@@ -54,6 +61,29 @@ const ReferralFriendsPage = () => {
         <SummaryCard>
           <SummaryText>초대한 친구 <SummaryNum>{friends.length}명</SummaryNum></SummaryText>
         </SummaryCard>
+
+        <GuideCard>
+          <GuideTitle>초대 보상 안내</GuideTitle>
+          {rules.referral_invite?.active && (
+            <GuideRow>
+              <GuideLabel>친구가 내 코드로 가입하면</GuideLabel>
+              <GuideAmount>+{(rules.referral_invite?.amount ?? 0).toLocaleString()}P</GuideAmount>
+            </GuideRow>
+          )}
+          {rules.referral_order_complete?.active && (
+            <GuideRow>
+              <GuideLabel>친구가 접수한 오더가 완료되면</GuideLabel>
+              <GuideAmount>+{(rules.referral_order_complete?.amount ?? 0).toLocaleString()}P</GuideAmount>
+            </GuideRow>
+          )}
+          {rules.referral_perform_complete?.active && (
+            <GuideRow>
+              <GuideLabel>친구가 수락한 오더가 완료되면</GuideLabel>
+              <GuideAmount>+{(rules.referral_perform_complete?.amount ?? 0).toLocaleString()}P</GuideAmount>
+            </GuideRow>
+          )}
+          <GuideNote>오더 완료 보상은 오더 1건당 1회 지급됩니다</GuideNote>
+        </GuideCard>
 
         {loading ? (
           <EmptyWrap><EmptyText>불러오는 중...</EmptyText></EmptyWrap>
@@ -109,6 +139,47 @@ const SummaryText = styled.div`
 
 const SummaryNum = styled.span`
   color: ${THEME.primary};
+`;
+
+const GuideCard = styled.div`
+  background: ${THEME.surface};
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 12px;
+  box-shadow: ${THEME.cardShadow};
+`;
+
+const GuideTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 12px;
+`;
+
+const GuideRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+`;
+
+const GuideLabel = styled.div`
+  font-size: 15px;
+  color: ${THEME.textSecondary};
+`;
+
+const GuideAmount = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  flex-shrink: 0;
+`;
+
+const GuideNote = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  margin-top: 10px;
 `;
 
 const FriendList = styled.div`

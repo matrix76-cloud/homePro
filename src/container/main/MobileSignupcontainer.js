@@ -42,9 +42,10 @@ export default function MobileSignupcontainer() {
         };
     }, [nav]);
 
+    // 일반고객은 이름 입력 없이 가입 (대화명 설정 단계에서 자동추천 대화명 사용 — 리뷰 7/31)
     const canSubmit = useMemo(() => {
-        return !!(safeTrim(loginId) && safeTrim(pw) && safeTrim(name));
-    }, [loginId, pw, name]);
+        return !!(safeTrim(loginId) && safeTrim(pw) && (isBiz ? safeTrim(name) : true));
+    }, [loginId, pw, name, isBiz]);
 
     const handleSubmit = useCallback(async () => {
         if (busy) return;
@@ -55,7 +56,7 @@ export default function MobileSignupcontainer() {
         const n = safeTrim(name);
 
         if (!id) return showToast("아이디를 입력해주세요.");
-        if (!n) return showToast(isBiz ? "업체명을 입력해주세요." : "이름을 입력해주세요.");
+        if (isBiz && !n) return showToast("업체명을 입력해주세요.");
         if (!p) return showToast("비밀번호를 입력해주세요.");
         if (p.length < 6) return showToast("비밀번호는 6자 이상으로 해주세요.");
         if (p !== p2) return showToast("비밀번호가 일치하지 않아요.");
@@ -95,7 +96,7 @@ export default function MobileSignupcontainer() {
         } finally {
             setBusy(false);
         }
-    }, [busy, loginId, pw, pw2, name]);
+    }, [busy, loginId, pw, pw2, name, userType, isBiz]);
 
     return (
         <Wrap>
@@ -156,15 +157,18 @@ export default function MobileSignupcontainer() {
                     />
                 </Field>
 
-                <Field>
-                    <Label>{isBiz ? "업체명 (필수)" : "이름"}</Label>
-                    <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder={isBiz ? "사업자등록증 상호명" : "홍길동"}
-                        autoComplete={isBiz ? "organization" : "name"}
-                    />
-                </Field>
+                {/* 일반고객은 이름 입력 없음 — 다음 단계에서 자동추천 대화명 사용 (리뷰 7/31) */}
+                {isBiz && (
+                    <Field>
+                        <Label>업체명 (필수)</Label>
+                        <Input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="사업자등록증 상호명"
+                            autoComplete="organization"
+                        />
+                    </Field>
+                )}
 
                 <BtnRow>
                     <PrimaryBtn type="button" disabled={!canSubmit || busy || checkingAuth} onClick={handleSubmit}>

@@ -831,12 +831,13 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
           ) : (
             <ScrollHintTable>
               <TableHeader>
+                {/* 컬럼 순서: 날짜-상태-요청방식-서비스-지역-단가유형 (형 리뷰 7/31 — 요청방식 앞쪽 배치) */}
                 <ThCell $flex={0.9} style={{textAlign:"center"}}>날짜</ThCell>
                 <ThCell $flex={0.7} style={{textAlign:"center"}}>상태</ThCell>
+                <ThCell $flex={0.7} style={{textAlign:"center"}}>요청방식</ThCell>
                 <ThCell $flex={1.2} style={{textAlign:"center"}}>서비스</ThCell>
                 <ThCell $flex={1.0} style={{textAlign:"center"}}>지역</ThCell>
                 <ThCell $flex={1.1} style={{textAlign:"center"}}>단가유형</ThCell>
-                <ThCell $flex={0.7} style={{textAlign:"center"}}>요청방식</ThCell>
               </TableHeader>
               {sortedOrders.map((order) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
@@ -863,6 +864,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                         {status}
                       </TdStatus>
                     </TdCell>
+                    <TdCell $flex={0.7} style={{alignItems:"center"}}>
+                      <TdLocation>{matchLabel}</TdLocation>
+                    </TdCell>
                     {/* 서비스 = 종목명만 표기 (대분류 카테고리명 미표시 — 대표 지시 7/24) */}
                     <TdCell $flex={1.2} style={{alignItems:"center"}}>
                       <TdCatName>{order.subcategory || order.subcategories?.[0] || order.categoryName}</TdCatName>
@@ -872,9 +876,6 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                     </TdCell>
                     <TdCell $flex={1.1} style={{alignItems:"center"}}>
                       <TdLocation>{priceLabel}</TdLocation>
-                    </TdCell>
-                    <TdCell $flex={0.7} style={{alignItems:"center"}}>
-                      <TdLocation>{matchLabel}</TdLocation>
                     </TdCell>
                   </TableRow>
                 );

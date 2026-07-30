@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { watchAuthState, getLastSocialProvider } from "../../service/AuthService";
 import { getUserProfileByUid, upsertUserProfile, isNicknameTaken } from "../../service/UserProfileService";
 import { UserContext } from "../../context/User";
+import { getAllPointRules, DEFAULT_RULES } from "../../service/PointService";
 import { THEME } from "../../config/homeproConfig";
 import localforage from "localforage";
 import { getAuth } from "firebase/auth";
@@ -46,6 +47,13 @@ export default function MobileSetNicknamecontainer() {
     const [userType, setUserType] = useState("customer"); // "customer" | "business"
     const [companyName, setCompanyName] = useState("");
     const isBiz = userType === "business";
+
+    // 추천코드 보상액은 settings/point_rules 운영값 표시 (하드코딩 금지 — 리뷰 7/30)
+    const [pointRules, setPointRules] = useState(DEFAULT_RULES);
+    useEffect(() => {
+        getAllPointRules().then(setPointRules).catch(() => { });
+    }, []);
+    const referralSignupReward = pointRules.referral_signup?.amount ?? DEFAULT_RULES.referral_signup.amount;
 
     // 가입 단계에서 넘어온 회원유형/업체명 반영 (소셜은 여기서 선택)
     useEffect(() => {
@@ -192,13 +200,17 @@ export default function MobileSetNicknamecontainer() {
             });
 
             // 가입 환영 포인트 1,000P (누구나 최초 1회 — 대표 확정 2026-07-30)
-            // 이 컨테이너는 기존 회원이 재진입할 수도 있어, users.signupBonusAt +
-            // 원장 조회 이중 가드가 들어간 grantSignupBonus 로만 지급한다.
-            try {
-                const { grantSignupBonus } = await import("../../service/PointService");
-                await grantSignupBonus(targetUid, displayValue);
-            } catch (e) {
-                console.warn("가입 환영 포인트 지급 실패:", e.message);
+            // 리뷰 7/31: 전화번호 미인증 상태에서 지급하면, 다음 단계에서 기존 계정으로
+            // 통합되는 재가입에도 새 uid 원장에 1,000P 가 또 쌓인다(사람 기준 중복).
+            // → 전화번호가 이미 연결된 계정(LinkPhone 을 거치지 않는 재진입)만 여기서 지급하고,
+            //   신규 가입은 전화번호 인증으로 대표 uid 가 확정된 뒤 LinkPhone 단계에서 지급한다.
+            if (phoneE164) {
+                try {
+                    const { grantSignupBonus } = await import("../../service/PointService");
+                    await grantSignupBonus(targetUid, displayValue);
+                } catch (e) {
+                    console.warn("가입 환영 포인트 지급 실패:", e.message);
+                }
             }
 
             // 추천인 코드 적용 (선택사항 — 실패해도 진행)
@@ -312,7 +324,7 @@ export default function MobileSetNicknamecontainer() {
                         onChange={(e) => setReferralInput(e.target.value)}
                         disabled={busy}
                     />
-                    <HelperText>선택사항입니다. 코드를 입력하면 추천인과 회원님 모두 3,000P가 적립됩니다</HelperText>
+                    <HelperText>선택사항입니다. 코드를 입력하면 추천인과 회원님 모두 {referralSignupReward.toLocaleString()}P가 적립됩니다</HelperText>
                 </Field>
 
                 <BtnRow>

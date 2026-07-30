@@ -166,6 +166,18 @@ export default function MobileLinkPhonecontainer() {
             dispatch({ primaryUid: resolvedPrimaryUid });
             try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
 
+            // 가입 환영 포인트 1,000P (누구나 최초 1회 — 대표 확정 2026-07-30)
+            // 리뷰 7/31: 닉네임 단계 지급을 이 시점으로 이동 — 전화번호 인증으로
+            // 대표 uid 가 확정된 뒤 대표 uid 기준으로만 지급한다. 기존 계정으로
+            // 통합된 재가입은 grantSignupBonus 의 signupBonusAt + 원장 이중 가드에
+            // 걸려 중복 지급되지 않는다.
+            try {
+                const { grantSignupBonus } = await import("../../service/PointService");
+                await grantSignupBonus(resolvedPrimaryUid);
+            } catch (e) {
+                console.warn("가입 환영 포인트 지급 실패:", e?.message);
+            }
+
             await refreshUser();
             if (result?.merged) {
                 window.alert("같은 번호로 가입된 계정이 있어 하나로 연결했습니다.");
@@ -210,7 +222,7 @@ export default function MobileLinkPhonecontainer() {
                                 : codeSent ? "재전송" : "인증번호 전송"}
                         </SmallBtn>
                     </InlineRow>
-                    <HelperText>본인 명의의 휴대폰 번호를 입력해주세요.</HelperText>
+                    <HelperText>본인의 휴대폰 번호를 입력해주세요.</HelperText>
                 </Field>
 
                 {/* 인증번호 입력 — 서버가 발급하고 서버가 대조한다 */}
@@ -250,6 +262,22 @@ export default function MobileLinkPhonecontainer() {
                     {/* (검수 7/28 제거) "나중에 하기" — RequirePhone 가드가 /MobileMain 진입을
                         다시 이 화면으로 돌려보내 아무 일도 안 하는 죽은 버튼이었음.
                         전화번호는 계정 통합 기준키라 건너뛰기 자체를 허용하지 않는다. */}
+
+                    {/* 탈출 수단 (리뷰 7/31) — 인증 필수 게이트는 유지하되, 이 화면에
+                        갇히지 않도록 로그아웃 후 로그인 화면으로 돌아갈 길만 열어둔다. */}
+                    <EscapeLink
+                        type="button"
+                        disabled={busy || otpBusy}
+                        onClick={async () => {
+                            try {
+                                const { signOutUser } = await import("../../service/AuthService");
+                                await signOutUser();
+                            } catch (e) { /* 로그아웃 실패해도 로그인 화면으로 이동 */ }
+                            nav("/MobileLogin", { replace: true });
+                        }}
+                    >
+                        다른 계정으로 로그인
+                    </EscapeLink>
                 </BtnRow>
             </Card>
         </Wrap>
@@ -444,4 +472,21 @@ const SecondaryBtn = styled(BaseWideBtn)`
   background: ${THEME.surface};
   color: ${THEME.text};
   font-weight: 400;
+`;
+
+const EscapeLink = styled.button`
+  margin: 4px auto 0;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: rgba(17, 24, 39, 0.55);
+  font-size: 15px !important;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:active { color: rgba(17, 24, 39, 0.8); }
 `;
