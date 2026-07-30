@@ -1,0 +1,98 @@
+[
+  {
+    "id": "dp01",
+    "name": "남의 오더 상세 접근",
+    "action": "A1이 A2 소유 오더 URL 직접 진입",
+    "ok": true,
+    "shot": "dp01.png",
+    "note": "열람/지원만 가능 — 소유자 관리액션 미노출"
+  },
+  {
+    "id": "dp02",
+    "name": "남의 채팅방 접근",
+    "action": "A2가 미참여 방 URL 직접 진입",
+    "ok": true,
+    "shot": "dp02.png",
+    "note": "미참여 방 차단/빈 화면"
+  },
+  {
+    "id": "dp03",
+    "name": "관리자 페이지 접근 통제",
+    "action": "일반 계정 /admin 직접 진입",
+    "ok": true,
+    "shot": "dp03.png",
+    "note": "관리자 로그인/차단으로 리다이렉트"
+  },
+  {
+    "id": "dp04",
+    "name": "프로전용 공동중개 등록 통제",
+    "action": "의뢰자 /brokerage/create",
+    "ok": true,
+    "shot": "dp04.png",
+    "note": "비프로 차단"
+  },
+  {
+    "id": "dp05",
+    "name": "비로그인 보호화면 가드",
+    "action": "로그아웃 상태 /biz-profile 진입",
+    "ok": true,
+    "shot": "dp05.png",
+    "note": "비로그인 시 로그인 유도/차단"
+  },
+  {
+    "id": "dp10",
+    "name": "상태·역할 전이 가드(의뢰자 화면)",
+    "action": "배정 오더 상세에서 프로 전용 액션 노출 여부",
+    "ok": true,
+    "shot": "dp10.png",
+    "note": "역할에 맞는 액션만 노출"
+  },
+  {
+    "id": "dp14",
+    "name": "포인트 내역 화면 정합",
+    "action": "/referral/points 잔액·내역 렌더",
+    "ok": true,
+    "shot": "dp14.png",
+    "note": "잔액/내역 표시 확인(시드 포인트는 원장과 무관 — 실지급 경로만 원장 반영)"
+  },
+  {
+    "id": "dp15",
+    "name": "내 요청 수 정합",
+    "action": "화면 목록 vs createdBy 쿼리 수",
+    "ok": true,
+    "shot": "dp15.png",
+    "note": "Firestore createdBy=seed_A1 오더 14건 — 화면 목록과 대조(캡처)"
+  },
+  {
+    "id": "dp20",
+    "name": "커뮤니티 입력 XSS 방어",
+    "action": "글쓰기 폼에 onerror 페이로드 입력",
+    "ok": true,
+    "shot": "dp20.png",
+    "note": "입력 단계 미실행(등록은 안 함)"
+  },
+  {
+    "id": "dp24",
+    "name": "회귀: 커뮤니티 익명/좋아요",
+    "action": "/community 진입·크래시 여부",
+    "ok": true,
+    "shot": "dp24.png",
+    "note": "커뮤니티 정상 렌더(크래시 없음)"
+  },
+  {
+    "id": "dp25",
+    "name": "회귀: location 크래시",
+    "action": "/legal/location 진입",
+    "ok": true,
+    "shot": "dp25.png",
+    "note": "정상 렌더(크래시 없음)"
+  },
+  {
+    "id": "dp23",
+    "name": "회귀: 가입 온보딩 안정성",
+    "action": "/MobileSignup 진입",
+    "ok": true,
+    "shot": "dp23.png",
+    "note": "가입 진입 정상(튕김 없음)"
+  }
+]

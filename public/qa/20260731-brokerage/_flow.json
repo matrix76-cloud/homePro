@@ -1,0 +1,66 @@
+[
+  {
+    "id": "bk06",
+    "name": "의뢰자 공동중개 접근 통제",
+    "action": "의뢰자 계정으로 /brokerage·/create 직접 진입",
+    "ok": true,
+    "shot": "bk06.png",
+    "note": "비프로 등록 차단 확인"
+  },
+  {
+    "id": "bk01",
+    "name": "손님찾기(demand) 등록",
+    "action": "홈프로 등록 폼 작성→등록",
+    "ok": true,
+    "shot": "bk01.png",
+    "note": "brokerage_posts 생성(type=demand)"
+  },
+  {
+    "id": "bk02",
+    "name": "매물등록(listing) 등록",
+    "action": "매물 탭 등록",
+    "ok": true,
+    "shot": "bk02.png",
+    "note": "type=listing"
+  },
+  {
+    "id": "bk03",
+    "name": "목록 노출·최신순",
+    "action": "/brokerage 진입",
+    "ok": true,
+    "shot": "bk03.png",
+    "note": "createdAt desc 목록 렌더 확인"
+  },
+  {
+    "id": "bk04",
+    "name": "거래유형 8·계약유형 4 노출",
+    "action": "등록 폼 옵션 확인",
+    "ok": true,
+    "shot": "bk04.png",
+    "note": "거래유형 8/8 · 계약유형 4/4"
+  },
+  {
+    "id": "bk05",
+    "name": "필수값 미입력 등록 차단",
+    "action": "빈 폼 등록 시도",
+    "ok": true,
+    "shot": "bk05.png",
+    "note": "차단: 지역을 입력해주세요."
+  },
+  {
+    "id": "bk07",
+    "name": "상세·작성자 표기",
+    "action": "목록→카드→상세",
+    "ok": true,
+    "shot": "bk07.png",
+    "note": "상세 진입 화면 캡처(작성자 companyName>nickname)"
+  },
+  {
+    "id": "bk08",
+    "name": "XSS 입력 이스케이프",
+    "action": "onerror 페이로드 등록→목록 렌더",
+    "ok": true,
+    "shot": "bk08.png",
+    "note": "이스케이프 렌더(스크립트 미실행)"
+  }
+]

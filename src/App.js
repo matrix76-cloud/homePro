@@ -12,6 +12,7 @@ import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
 import RequireAuth from "./components/guards/RequireAuth";
 import RequirePhone from "./components/guards/RequirePhone";
 import RequireAdmin from "./components/guards/RequireAdmin";
+import RequirePro from "./components/guards/RequirePro";
 import AdminLayout from "./components/admin/AdminLayout";
 
 /* Pages */
@@ -264,8 +265,11 @@ const AnimatedRoutes = () => {
             <Route path="/biz-profile" element={wrap(<BizProfilePage />)} />
             <Route path="/pro/list" element={wrap(<ProListPage />)} />
             <Route path="/education-market" element={wrap(<EducationMarketPage />)} />
-            <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
-            <Route path="/brokerage/create" element={wrap(<BrokerageCreatePage />)} />
+            {/* 공동중개 라운지 — 개업 공인중개사(홈프로) 전용. 비프로(의뢰자) 접근 차단 */}
+            <Route element={<RequirePro />}>
+              <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
+              <Route path="/brokerage/create" element={wrap(<BrokerageCreatePage />)} />
+            </Route>
             <Route path="/training" element={wrap(<TrainingPage />)} />
             <Route path="/training/create" element={wrap(<TrainingCreatePage />)} />
             <Route path="/training/:id" element={wrap(<TrainingDetailPage />)} />
@@ -362,20 +366,8 @@ const AnimatedRoutes = () => {
 };
 
 function App() {
-  // 초대 딥링크 캡처: /?code=AB123456 → 가입/추천코드 입력 시 자동 입력 (대표 지시 7/29)
-  // 카카오 OAuth ?code= 와 구분: 추천코드는 영대문자 2 + 숫자 6 고정 포맷만 캡처 후 URL에서 제거
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const code = (params.get("code") || "").trim().toUpperCase();
-      if (/^[A-Z]{2}\d{6}$/.test(code)) {
-        localStorage.setItem("homepro.pendingReferralCode", code);
-        params.delete("code");
-        const rest = params.toString();
-        window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
-      }
-    } catch (e) { /* ignore */ }
-  }, []);
+  // 초대 딥링크 캡처는 index.js 최상단(라우팅 마운트 전 동기 실행)으로 이동했다.
+  // App useEffect 로 두면 로그아웃 상태 "/" 진입 시 로그인 리다이렉트가 먼저 실행돼 ?code 가 유실됨.
 
   return (
     <AuthProvider>

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "gr05",
+    "name": "등급 정합성(저장 vs 계산)",
+    "action": "시드 16명 grade 필드 vs calcGrade(totalEarnedPoints)",
+    "ok": true,
+    "shot": "",
+    "note": "전원 일치(16명)"
+  },
+  {
+    "id": "bp01",
+    "name": "비즈프로필=내 정보만",
+    "action": "/biz-profile 진입",
+    "ok": true,
+    "shot": "bp01.png",
+    "note": "내 프로필 관리 화면(전문가찾기 없음)"
+  },
+  {
+    "id": "bp03",
+    "name": "전문분야 표시",
+    "action": "비즈프로필 전문분야 영역",
+    "ok": true,
+    "shot": "bp03.png",
+    "note": "전문분야 영역 노출"
+  },
+  {
+    "id": "gr04",
+    "name": "등급 뱃지 렌더",
+    "action": "비즈프로필 등급 표기(기대 다이아)",
+    "ok": true,
+    "shot": "gr04.png",
+    "note": "등급 뱃지 노출(누적 16000P → 다이아)"
+  },
+  {
+    "id": "ut01",
+    "name": "회원유형 표기(userType)",
+    "action": "비즈프로필 유형/상호",
+    "ok": true,
+    "shot": "ut01.png",
+    "note": "B3 userType=pro — 유형별 UI 분기 캡처"
+  },
+  {
+    "id": "rf06",
+    "name": "초대 딥링크 캡처(루트 진입)",
+    "action": "로그아웃 상태 /?code=AB123456 진입 → pendingReferralCode 저장 여부",
+    "ok": true,
+    "shot": "rf06.png",
+    "note": "루트 진입에서도 추천코드 캡처됨"
+  },
+  {
+    "id": "rf05",
+    "name": "초대 친구 집계 정합",
+    "action": "referral/friends vs referredBy 쿼리",
+    "ok": true,
+    "shot": "rf05.png",
+    "note": "referredBy=seed_B3 0명 — 초대친구 화면과 대조(캡처)"
+  },
+  {
+    "id": "rf02",
+    "name": "초대/포인트 내역 화면",
+    "action": "/referral/points 진입",
+    "ok": true,
+    "shot": "rf02.png",
+    "note": "포인트 적립/사용 내역 표시(캡처)"
+  }
+]

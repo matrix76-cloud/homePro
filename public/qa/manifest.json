@@ -300,6 +300,72 @@
       "title": "앱(RN) 실기기",
       "status": "manual",
       "desc": "자동화 불가 — FCM 푸시 수신·딥링크, 소셜로그인 복귀(forceSend), 키보드 가림, 안전영역, 전화걸기(tel:), 사진 업로드 권한. 실기기에서 수동 체크."
+    },
+    {
+      "key": "newfeat",
+      "no": 14,
+      "title": "신규기능(회원유형·비즈프로필·등급·초대)",
+      "dir": "20260731-newfeat",
+      "desc": "7/23 이후 신규 기능 자동점검. 회원유형(userType) 표기, 비즈프로필 개편(내 프로필만·전문가찾기 제거), 등급 뱃지 렌더, 등급 정합성(시드 16명 저장 grade vs calcGrade 재계산 전원 일치), 초대 딥링크 캡처·초대친구/포인트 내역.",
+      "sections": [
+        {
+          "label": "신규기능 8항목",
+          "sub": "등급정합 gr05·비즈프로필 bp01/03·등급뱃지 gr04·회원유형 ut01·초대 rf02/05/06",
+          "file": "_flow.json"
+        }
+      ],
+      "status": "done",
+      "date": "2026-07-31",
+      "bugs": [
+        {
+          "text": "초대 딥링크 유실: 로그아웃 상태 \"/?code=AB123456\" 진입 시 로그인 리다이렉트가 App 캡처 effect보다 먼저 실행돼 ?code 유실 → 신규 초대 유입에서 추천 항상 유실. [수정] 캡처 로직을 index.js 최상단(라우팅 마운트 전 동기 실행)으로 이동. 재검증: 루트 진입에서도 pendingReferralCode 저장 확인.",
+          "status": "수정 완료"
+        }
+      ]
+    },
+    {
+      "key": "brokerage",
+      "no": 15,
+      "title": "공동중개 라운지",
+      "dir": "20260731-brokerage",
+      "desc": "공인중개 라운지(brokerage_posts) 손님찾기/매물등록 자동점검. 등록(demand/listing)·목록 최신순·거래유형 8/계약유형 4·필수값 차단·상세·XSS 이스케이프. 권한: 의뢰자(비프로) 접근 통제 확인.",
+      "sections": [
+        {
+          "label": "공동중개 8항목",
+          "sub": "등록 bk01/02·목록 bk03·옵션 bk04·필수값 bk05·권한 bk06·상세 bk07·XSS bk08",
+          "file": "_flow.json"
+        }
+      ],
+      "status": "done",
+      "date": "2026-07-31",
+      "bugs": [
+        {
+          "text": "공동중개 proOnly 게이트 부재: /brokerage·/create가 role 가드 없이 열려 의뢰자도 열람·등록 가능. [수정] RequirePro 가드 신설(userType==pro | roles.pro | proCategories 보유) 후 두 라우트에 적용. 비프로는 \"홈프로 전용\" 안내+전문분야 등록 유도 화면. 재검증: 의뢰자 차단·프로 정상 접근(과잉차단 없음).",
+          "status": "수정 완료"
+        }
+      ]
+    },
+    {
+      "key": "deep",
+      "no": 16,
+      "title": "심화 다관점(권한·정합·회귀)",
+      "dir": "20260731-deep",
+      "desc": "기존 명세점검과 다른 각도로 놓친 구멍을 찾는 심화 점검. 권한·접근통제(남의 오더/채팅방/관리자/프로전용/비로그인), 상태·역할 전이 가드, 데이터 정합성(포인트·오더수), 악성입력(XSS), 회귀(가입 온보딩·커뮤니티·location).",
+      "sections": [
+        {
+          "label": "심화 12항목",
+          "sub": "권한 dp01~05·전이 dp10·정합 dp14/15·XSS dp20·회귀 dp23/24/25",
+          "file": "_flow.json"
+        }
+      ],
+      "status": "done",
+      "date": "2026-07-31",
+      "bugs": [
+        {
+          "text": "(brokerage와 동일) dp04 교차확인 건 — RequirePro 가드로 의뢰자 /brokerage/create 차단 확인.",
+          "status": "수정 완료"
+        }
+      ]
     }
   ]
 }
