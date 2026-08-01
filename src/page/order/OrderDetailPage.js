@@ -210,6 +210,8 @@ const OrderDetailPage = () => {
 
   const handleAcceptOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 수락 불가 (형 지시 7/31)
+    if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
     // 차수 게이트 방어 (버튼 우회 대비) — 2차수는 오더 등록 후 5분 경과 전 수락 불가
     if (getAccessTier(userData) === "tier2") {
       const remain = getAcceptRemainSec(order, Date.now());
@@ -232,6 +234,8 @@ const OrderDetailPage = () => {
 
   const handleApplyOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 지원 불가 (형 지시 7/31)
+    if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
     if (!window.confirm("해당 오더에 지원 하시겠습니까?")) return; // 팝업 확인
     try {
       if (!applyToOrder) throw new Error("applyToOrder 함수 없음");

@@ -7,7 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoTrashOutline } from "react-icons/io5";
-import { getMyBlacklist, removeFromBlacklist } from "../../service/BlacklistService";
+import { getMyBlacklist, removeFromBlacklist, BLACKLIST_STATUS_LABEL } from "../../service/BlacklistService";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../api/config";
 
@@ -28,7 +28,7 @@ const BlacklistPage = () => {
         const enriched = await Promise.all(raw.map(async (item) => {
           try {
             const userDoc = await getDoc(doc(db, "users", item.targetUid));
-            const name = userDoc.exists() ? (userDoc.data().nickname || userDoc.data().name || item.targetUid) : item.targetUid;
+            const name = userDoc.exists() ? (userDoc.data().companyName || userDoc.data().nickname || userDoc.data().name || item.targetUid) : item.targetUid;
             return { ...item, targetName: name };
           } catch {
             return { ...item, targetName: item.targetUid };
@@ -49,18 +49,19 @@ const BlacklistPage = () => {
   };
 
   return (
-    <SimpleBackLayout title="블랙리스트" onBack={() => navigate(-1)}>
+    <SimpleBackLayout NAME="나의 블랙리스트 신고" onBack={() => navigate(-1)}>
       <PageWrap>
         {loading ? (
           <EmptyText>불러오는 중...</EmptyText>
         ) : list.length === 0 ? (
-          <EmptyText>블랙리스트에 등록된 사용자가 없습니다.</EmptyText>
+          <EmptyText>블랙리스트에 신고한 사용자가 없습니다.</EmptyText>
         ) : (
           list.map(item => (
             <Card key={item.id}>
               <CardInfo>
                 <CardName>{item.targetName}</CardName>
-                {item.reason && <CardReason>{item.reason}</CardReason>}
+                {(item.reasonType || item.reason) && <CardReason>{item.reasonType || item.reason}{item.content ? ` — ${item.content}` : ""}</CardReason>}
+                {item.status && <CardStatus $confirmed={item.status === "confirmed"}>{BLACKLIST_STATUS_LABEL[item.status] || ""}</CardStatus>}
                 <CardDate>
                   {item.createdAt?.toDate?.()
                     ? item.createdAt.toDate().toLocaleDateString()
@@ -104,6 +105,10 @@ const CardReason = styled.div`
 `;
 const CardDate = styled.div`
   font-size: 14px; color: #555; margin-top: 2px;
+`;
+const CardStatus = styled.div`
+  font-size: 14px; font-weight: 600; margin-top: 3px;
+  color: ${({ $confirmed }) => ($confirmed ? "#EF4444" : "#8A8F98")};
 `;
 const RemoveBtn = styled.button`
   display: flex; align-items: center; gap: 4px;

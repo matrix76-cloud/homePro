@@ -1038,12 +1038,16 @@ const MobileConfigpage = () => {
       <ContentCard>
         <CardTitle>차단 관리</CardTitle>
         <SupportList>
+          <SupportItem onClick={() => navigate("/blacklist-board")}>
+            <SupportLabel>블랙리스트 게시판</SupportLabel>
+            <IoChevronForward size={18} color={THEME.muted} />
+          </SupportItem>
           <SupportItem onClick={() => navigate("/mypage/blacklist")}>
-            <SupportLabel>블랙리스트</SupportLabel>
+            <SupportLabel>나의 블랙리스트 신고</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
           <SupportItem onClick={() => navigate("/mypage/blocks")} style={{ borderBottom: "none" }}>
-            <SupportLabel>거부 목록</SupportLabel>
+            <SupportLabel>나의 거부 목록</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
         </SupportList>

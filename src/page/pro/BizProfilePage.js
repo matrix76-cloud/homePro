@@ -23,8 +23,9 @@ import { upsertUserProfile } from "../../service/UserProfileService";
 import { createChatRoom } from "../../service/ChatService";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { GradeBadge, GradeProgressBar } from "../../utility/gradeUtils";
-import { addToBlacklist } from "../../service/BlacklistService";
-import { IoShieldOutline } from "react-icons/io5";
+import { reportToBlacklist, BLACKLIST_REASONS } from "../../service/BlacklistService";
+import { blockUser, unblockUser, isBlocked as isBlockedCheck } from "../../service/BlockService";
+import { IoShieldOutline, IoBanOutline, IoImageOutline } from "react-icons/io5";
 import {
   MAX_CERTIFICATES, saveBusinessLicense, removeBusinessLicense,
   addCertificate, removeCertificate, hasBusinessLicense,
@@ -88,6 +89,15 @@ const BizProfilePage = () => {
   // 신뢰지표 — 홈프로 누적 오더 완료 건수
   const [completedCount, setCompletedCount] = useState(null);
 
+  // 거부 등록 / 블랙리스트 신고 (형 지시 7/31)
+  const [iBlocked, setIBlocked] = useState(false); // 내가 이 사용자를 거부 등록했는지
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportContent, setReportContent] = useState("");
+  const [reportImgs, setReportImgs] = useState([]); // 증빙 캡처 dataURL[]
+  const [reportBusy, setReportBusy] = useState(false);
+  const reportFileRef = useRef(null);
+
   // Firestore에서 프로필 조회 (본인 또는 다른 프로)
   const targetUid = viewUid || myUid;
   useEffect(() => {
@@ -113,6 +123,74 @@ const BizProfilePage = () => {
     getCompletedOrderCount(targetUid).then((n) => { if (alive) setCompletedCount(n); }).catch(() => {});
     return () => { alive = false; };
   }, [targetUid]);
+
+  // 내가 이 사용자를 거부 등록했는지 확인
+  useEffect(() => {
+    if (!isViewingOther || !myUid) return;
+    let alive = true;
+    isBlockedCheck(myUid, viewUid).then((b) => { if (alive) setIBlocked(b); }).catch(() => {});
+    return () => { alive = false; };
+  }, [isViewingOther, myUid, viewUid]);
+
+  // 개인 거부 등록 — 즉시 내 거부목록 반영, 언제든 해제 가능
+  const handleBlockToggle = async () => {
+    if (!myUid) return;
+    if (iBlocked) {
+      if (!window.confirm("거부 등록을 해제하시겠습니까?")) return;
+      try {
+        await unblockUser(myUid, viewUid);
+        setIBlocked(false);
+        alert("거부 등록이 해제되었습니다");
+      } catch (e) { alert(e.message || "해제 실패"); }
+      return;
+    }
+    if (!window.confirm("이 사용자를 거부 등록하시겠습니까?\n\n거부 등록하면 이 사용자와 오더 공유 및 수락이 거부됩니다.\n나의 거부 목록에서 언제든 해제할 수 있습니다.")) return;
+    try {
+      await blockUser(myUid, viewUid, "프로필에서 직접 등록");
+      setIBlocked(true);
+      alert("거부 등록되었습니다.\n마이페이지 > 차단 관리 > 거부 목록에서 관리할 수 있습니다.");
+    } catch (e) { alert(e.message || "거부 등록 실패"); }
+  };
+
+  // 증빙 캡처 첨부 — 긴 변 1000px 이하로 압축한 dataURL 저장
+  const handleReportImgAdd = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    files.slice(0, 3 - reportImgs.length).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          setReportImgs((prev) => prev.length >= 3 ? prev : [...prev, canvas.toDataURL("image/jpeg", 0.75)]);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 블랙리스트 신고 제출 — 신고 대상은 자동으로 내 거부목록에도 등록 (형 지시 7/31)
+  const handleReportSubmit = async () => {
+    if (!myUid || reportBusy) return;
+    if (!reportReason) { alert("신고 사유를 선택해주세요"); return; }
+    if (!reportContent.trim()) { alert("구체적인 상황을 입력해주세요"); return; }
+    setReportBusy(true);
+    try {
+      await reportToBlacklist(myUid, viewUid, { reasonType: reportReason, content: reportContent.trim(), imgs: reportImgs });
+      try { await blockUser(myUid, viewUid, `블랙리스트 신고 (${reportReason})`); setIBlocked(true); } catch (e) { /* 이미 거부 등록된 경우 무시 */ }
+      setReportOpen(false);
+      setReportReason(""); setReportContent(""); setReportImgs([]);
+      alert("블랙리스트 신고가 접수되었습니다.\n\n업체명·전화번호 일부가 마스킹된 상태로 블랙리스트 게시판에 등록되며, 관리자가 확인하여 중대 사안으로 판단되면 해당 사용자의 오더 작성 및 수락 권한이 차단됩니다.\n\n신고 대상은 나의 거부 목록에도 자동 등록되었습니다.");
+    } catch (e) {
+      alert(e.message || "신고 접수 실패");
+    }
+    setReportBusy(false);
+  };
 
   const handleSaveSns = async () => {
     if (!myUid) return;
@@ -829,19 +907,69 @@ const BizProfilePage = () => {
 
         {isViewingOther && (
           <BlacklistBtnWrap>
-            <BlacklistBtn onClick={async () => {
-              const reason = window.prompt("블랙리스트 사유를 입력해주세요 (선택)");
-              if (reason === null) return; // 취소
-              try {
-                await addToBlacklist(myUid, viewUid, reason);
-                alert("블랙리스트에 등록되었습니다");
-              } catch (e) {
-                alert(e.message || "등록 실패");
-              }
-            }}>
+            <BlockBtn onClick={handleBlockToggle}>
+              <IoBanOutline size={16} /> {iBlocked ? "거부 등록 해제" : "거부 등록하기"}
+            </BlockBtn>
+            <BlockDesc>
+              나에게만 적용되는 개인 거부등록 — 이 사용자와 오더 공유 및 수락을 거부합니다. 언제든 해제할 수 있습니다.
+            </BlockDesc>
+            <BlacklistBtn onClick={() => setReportOpen(true)}>
               <IoShieldOutline size={16} /> 블랙리스트 신고
             </BlacklistBtn>
+            <BlockDesc>
+              플랫폼 블랙리스트 등록 요청 — 일부 마스킹된 정보와 신고 사유가 모든 사용자에게 공개되며, 관리자 확인 후 중대 사안은 오더 작성·수락 권한이 차단됩니다.
+            </BlockDesc>
+            <BoardLinkBtn onClick={() => navigate("/blacklist-board")}>
+              블랙리스트 게시판 보기 <IoChevronForward size={14} />
+            </BoardLinkBtn>
           </BlacklistBtnWrap>
+        )}
+
+        {/* 블랙리스트 신고 모달 */}
+        {reportOpen && (
+          <ReportOverlay onClick={() => !reportBusy && setReportOpen(false)}>
+            <ReportSheet onClick={(e) => e.stopPropagation()}>
+              <ReportTitle>블랙리스트 신고</ReportTitle>
+              <ReportLabel>사유 선택</ReportLabel>
+              <ReasonRow>
+                {BLACKLIST_REASONS.map((r) => (
+                  <ReasonChip key={r} $active={reportReason === r} onClick={() => setReportReason(r)}>
+                    {r}
+                  </ReasonChip>
+                ))}
+              </ReasonRow>
+              <ReportLabel>내용 입력</ReportLabel>
+              <ReportTextarea
+                value={reportContent}
+                onChange={(e) => setReportContent(e.target.value)}
+                placeholder="구체적인 상황을 기술해주세요 (증빙 캡처 첨부 가능)"
+              />
+              <ReportLabel>증빙 캡처 첨부 (최대 3장)</ReportLabel>
+              <ReportImgRow>
+                {reportImgs.map((src, i) => (
+                  <ReportImgThumb key={i} onClick={() => setReportImgs((prev) => prev.filter((_, j) => j !== i))}>
+                    <img src={src} alt={`증빙 ${i + 1}`} />
+                    <ReportImgDel><IoCloseOutline size={14} /></ReportImgDel>
+                  </ReportImgThumb>
+                ))}
+                {reportImgs.length < 3 && (
+                  <ReportImgAdd onClick={() => reportFileRef.current?.click()}>
+                    <IoImageOutline size={22} color={THEME.muted} />
+                  </ReportImgAdd>
+                )}
+              </ReportImgRow>
+              <input ref={reportFileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleReportImgAdd} />
+              <ReportNote>
+                신고가 접수되면 업체명·전화번호 일부 마스킹 상태로 블랙리스트 게시판에 즉시 등록되고, 관리자가 확인하여 중대 사안으로 판단되면 오더 작성 및 수락 권한이 차단됩니다. 신고 대상은 나의 거부 목록에도 자동 등록됩니다.
+              </ReportNote>
+              <ReportBtnRow>
+                <ReportCancelBtn disabled={reportBusy} onClick={() => setReportOpen(false)}>취소</ReportCancelBtn>
+                <ReportSubmitBtn disabled={reportBusy} onClick={handleReportSubmit}>
+                  {reportBusy ? "접수 중..." : "신고 제출"}
+                </ReportSubmitBtn>
+              </ReportBtnRow>
+            </ReportSheet>
+          </ReportOverlay>
         )}
 
         {/* 인앱 브라우저 — SNS·포트폴리오 링크 열기 */}
@@ -1921,6 +2049,115 @@ const ViewBtn = styled.button`
 
 const BlacklistBtnWrap = styled.div`
   padding: 16px 20px;
+`;
+const BlockBtn = styled.button`
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid ${THEME.border || "#F0F0F4"};
+  background: #fff;
+  color: ${THEME.text || "#222"};
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
+`;
+const BlockDesc = styled.div`
+  font-size: 13px; color: ${THEME.muted || "#888"}; line-height: 1.5;
+  padding: 8px 4px 14px;
+`;
+const BoardLinkBtn = styled.button`
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+  width: 100%;
+  padding: 12px;
+  border: none; background: none;
+  color: ${THEME.muted || "#888"};
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+`;
+const ReportOverlay = styled.div`
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: flex-end; justify-content: center;
+`;
+const ReportSheet = styled.div`
+  width: 100%; max-width: 400px;
+  background: #fff; border-radius: 20px 20px 0 0;
+  padding: 24px 20px 28px;
+  max-height: 85vh; overflow-y: auto;
+`;
+const ReportTitle = styled.div`
+  font-size: 19px; font-weight: 700; color: ${THEME.text || "#222"};
+  margin-bottom: 16px;
+`;
+const ReportLabel = styled.div`
+  font-size: 14px; font-weight: 600; color: ${THEME.text || "#222"};
+  margin: 14px 0 8px;
+`;
+const ReasonRow = styled.div`
+  display: flex; flex-wrap: wrap; gap: 8px;
+`;
+const ReasonChip = styled.button`
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 1px solid ${({ $active }) => ($active ? (THEME.primary || "#2571e3") : (THEME.border || "#F0F0F4"))};
+  background: ${({ $active }) => ($active ? (THEME.primary || "#2571e3") : "#fff")};
+  color: ${({ $active }) => ($active ? "#fff" : (THEME.text || "#222"))};
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+`;
+const ReportTextarea = styled.textarea`
+  width: 100%; min-height: 110px;
+  border: 1px solid ${THEME.border || "#F0F0F4"};
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px; font-family: inherit; color: ${THEME.text || "#222"};
+  resize: none;
+  &:focus { outline: none; border-color: ${THEME.primary || "#2571e3"}; }
+`;
+const ReportImgRow = styled.div`
+  display: flex; gap: 8px;
+`;
+const ReportImgThumb = styled.div`
+  position: relative; width: 64px; height: 64px;
+  border-radius: 10px; overflow: hidden; cursor: pointer;
+  img { width: 100%; height: 100%; object-fit: cover; }
+`;
+const ReportImgDel = styled.div`
+  position: absolute; top: 2px; right: 2px;
+  width: 18px; height: 18px; border-radius: 9px;
+  background: rgba(0,0,0,0.55); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+`;
+const ReportImgAdd = styled.button`
+  width: 64px; height: 64px;
+  border: 1px dashed ${THEME.border || "#ccc"};
+  border-radius: 10px; background: ${THEME.background || "#F7F8FA"};
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+`;
+const ReportNote = styled.div`
+  font-size: 13px; color: ${THEME.muted || "#888"}; line-height: 1.55;
+  background: ${THEME.background || "#F7F8FA"};
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 14px;
+`;
+const ReportBtnRow = styled.div`
+  display: flex; gap: 8px; margin-top: 16px;
+`;
+const ReportCancelBtn = styled.button`
+  flex: 1; padding: 14px;
+  border: 1px solid ${THEME.border || "#F0F0F4"}; background: #fff;
+  color: ${THEME.text || "#222"};
+  font-size: 16px; font-weight: 600; border-radius: 10px; cursor: pointer;
+`;
+const ReportSubmitBtn = styled.button`
+  flex: 1.4; padding: 14px;
+  border: none; background: #EF4444; color: #fff;
+  font-size: 16px; font-weight: 600; border-radius: 10px; cursor: pointer;
+  &:disabled { opacity: 0.6; }
 `;
 const BlacklistBtn = styled.button`
   display: flex; align-items: center; justify-content: center; gap: 6px;

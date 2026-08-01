@@ -307,7 +307,10 @@ export const DOMAINS = [
       '본인일 때만 정산 계좌(은행/계좌번호/예금주) 입력·저장, 소개비·정산금 입금용',
       '등록한 전문분야 카드 목록(상태 뱃지·전문분야칩·자격증·지역), 카테고리 상세로 이동',
       'location.state.viewUid로 타인 프로필 조회 시 승인된 전문분야만 노출',
-      '★ 타인 프로필에서 블랙리스트 신고(사유 입력) 가능',
+      '★ 타인 프로필 하단 [거부 등록하기]: 나에게만 적용되는 개인 거부 — 즉시 반영, 다시 누르면 해제 (형 지시 7/31)',
+      '★ 타인 프로필 하단 [블랙리스트 신고]: 사유 선택(허위오더/대금미지급/비매너·욕설/노쇼/무단취소/기타)+내용+증빙 캡처 첨부 모달, 신고 시 거부목록 자동 등록',
+      '신고 접수 안내: 마스킹 상태로 게시판 즉시 등록·관리자 확인 후 중대 사안은 오더 작성·수락 권한 차단',
+      '블랙리스트 게시판 보기 링크(/blacklist-board)',
     ] },
     { no: 'PR-02', id: 'pro-list', name: '홈프로 리스트', path: '/pro/list', spec: [
       'status가 approved인 프로 전체 조회, 본인 제외하고 users 프로필과 매칭해 표시',
@@ -463,18 +466,25 @@ export const DOMAINS = [
       '동일 주소면 변경없음 토스트, 저장/삭제/실패는 토스트로 안내',
       '본인 소유·복구불가·변경 시 이전 주소 즉시 비활성화 주의 안내 노출',
     ] },
-    { no: 'MY-02', id: 'blocks', name: '거부 목록', path: '/mypage/blocks', spec: [
+    { no: 'MY-02', id: 'blocks', name: '나의 거부 목록', path: '/mypage/blocks', spec: [
       'BlockService.getMyBlocks로 내가 거부 등록한 사용자 목록을 조회해 표시',
-      '항목마다 상대 UID·거부 사유(reason)·등록일(createdAt) 노출',
-      '★ 해제 버튼: confirm 후 unblockUser 호출하고 목록에서 즉시 제거',
+      '★ 항목마다 상대 프로필 사진·이름/업체명·거부 사유(reason)·거부 등록일(createdAt) 노출 (형 지시 7/31)',
+      '★ 해제 버튼: confirm 후 unblockUser 호출하고 목록에서 즉시 제거 — 오해로 등록 시 언제든 해제 가능 안내',
       '거부 대상이 없으면 안내 문구, 로딩 중 문구 분기',
     ] },
-    { no: 'MY-03', id: 'blacklist', name: '블랙리스트', path: '/mypage/blacklist', spec: [
-      'BlacklistService.getMyBlacklist로 내 블랙리스트를 조회',
-      '★ targetUid로 users 문서를 조회해 nickname/name으로 실이름 보강(enrich) 후 표시',
-      '항목마다 상대 이름·사유(reason)·등록일 노출',
+    { no: 'MY-03', id: 'blacklist', name: '나의 블랙리스트 신고', path: '/mypage/blacklist', spec: [
+      'BlacklistService.getMyBlacklist로 내가 신고한 블랙리스트를 조회',
+      '★ targetUid로 users 문서를 조회해 업체명/닉네임으로 실이름 보강(enrich) 후 표시',
+      '항목마다 상대 이름·신고 사유(reasonType)·내용·처리 상태(확인중/권한차단/반려)·등록일 노출',
       '해제 버튼: confirm 후 removeFromBlacklist 호출하고 목록에서 즉시 제거',
       '대상 없음/로딩 중 문구 분기',
+    ] },
+    { no: 'MY-09', id: 'blacklist-board', name: '블랙리스트 게시판', path: '/blacklist-board', spec: [
+      '★ 공개 게시판: 블랙리스트 신고 건을 모든 사용자가 조회 가능 — 피해 예방·경각심 부여 (형 지시 7/31)',
+      '★ 개인정보 보호: 업체명 홍○동식·전화번호 010-****-1234식 일부 마스킹, 신고 사유·내용은 공개',
+      '상태 표기: 관리자 확인중 / 오더 작성·수락 권한 차단 (반려 건은 게시판에서 제외)',
+      '증빙 캡처 썸네일 → 탭하면 전체 화면 열람',
+      '진입점: 전문가 프로필 하단·마이페이지 차단 관리',
     ] },
     { no: 'MY-04', id: 'calendar', name: '나의 일정', path: '/calendar', spec: [
       'homepro_schedules에서 내 uid·해당 월(date >= 01, <= 31) 일정을 조회, source==="chat" 일정은 제외',

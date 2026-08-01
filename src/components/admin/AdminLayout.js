@@ -129,6 +129,14 @@ const MENUS = [
         ],
     },
     {
+        icon: IoShieldCheckmarkOutline, label: "블랙리스트 관리", groupKey: "blacklist",
+        sub: [
+            { to: "/admin/blacklist", label: "확인중", end: true },
+            { to: "/admin/blacklist/confirmed", label: "권한차단" },
+            { to: "/admin/blacklist/dismissed", label: "반려" },
+        ],
+    },
+    {
         icon: IoLinkOutline, label: "매칭관리", groupKey: "matching",
         sub: [
             { to: "/admin/matching", label: "전체 매칭 내역", end: true },

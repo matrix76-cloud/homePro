@@ -761,6 +761,11 @@ export const OrderCreateContent = () => {
 
   const handleSubmit = async (asWaiting = false) => {
     if (submitting) return;
+    // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 작성 불가 (형 지시 7/31)
+    if (userData?.orderBlocked) {
+      alert("블랙리스트 신고 확인 결과, 관리자에 의해 오더 작성 권한이 차단된 계정입니다.\n문의는 고객센터를 이용해주세요.");
+      return;
+    }
     if (!validateForm()) return;
     const confirmMsg = isEdit
       ? "수정한 내용을 저장하시겠습니까?"

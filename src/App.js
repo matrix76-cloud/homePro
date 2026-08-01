@@ -76,6 +76,7 @@ import ReferralPointsPage from "./page/referral/ReferralPointsPage";
 import ReferralInputPage from "./page/referral/ReferralInputPage";
 import BlockListPage from "./page/mypage/BlockListPage";
 import BlacklistPage from "./page/mypage/BlacklistPage";
+import BlacklistBoardPage from "./page/mypage/BlacklistBoardPage";
 
 /* Admin Pages */
 import AdminLoginPage from "./page/admin/AdminLoginPage";
@@ -90,6 +91,7 @@ import AdminUpdatesPage from "./page/admin/AdminUpdatesPage";
 import AdminSettingsPage from "./page/admin/AdminSettingsPage";
 import AdminSettlementPage from "./page/admin/AdminSettlementPage";
 import AdminProApprovalPage from "./page/admin/AdminProApprovalPage";
+import AdminBlacklistPage from "./page/admin/AdminBlacklistPage";
 
 /* Dev 전용 — 리뷰 허브 (프로덕션 빌드에서 라우트 게이트로 제외, lazy로 청크 분리) */
 const AuthReview = React.lazy(() => import("./dev/AuthReview"));
@@ -319,6 +321,7 @@ const AnimatedRoutes = () => {
             {/* Mypage */}
             <Route path="/mypage/blocks" element={wrap(<BlockListPage />)} />
             <Route path="/mypage/blacklist" element={wrap(<BlacklistPage />)} />
+            <Route path="/blacklist-board" element={wrap(<BlacklistBoardPage />)} />
 
             {/* Community */}
             <Route path="/community" element={wrap(<CommunityPage />)} />
@@ -342,6 +345,8 @@ const AnimatedRoutes = () => {
               <Route path="users/:filter" element={<AdminUsersPage />} />
               <Route path="pro-approval" element={<AdminProApprovalPage />} />
               <Route path="pro-approval/:filter" element={<AdminProApprovalPage />} />
+              <Route path="blacklist" element={<AdminBlacklistPage />} />
+              <Route path="blacklist/:filter" element={<AdminBlacklistPage />} />
               <Route path="matching" element={<AdminMatchingPage />} />
               <Route path="matching/:filter" element={<AdminMatchingPage />} />
               <Route path="chat" element={<AdminChatPage />} />

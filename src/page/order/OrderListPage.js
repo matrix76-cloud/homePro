@@ -25,6 +25,21 @@ const OrderListPage = () => {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 5000); };
 
+  // 내가 거부 등록한 사용자 — 거부등록된 상대의 오더 진입 차단 (형 지시 7/31)
+  const [blockedUids, setBlockedUids] = useState(new Set());
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getMyBlocks } = await import("../../service/BlockService");
+        const list = await getMyBlocks(uid);
+        if (!cancelled) setBlockedUids(new Set(list.map((b) => b.blockedUid)));
+      } catch (e) { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [uid]);
+
   const handleHideOrder = async (orderId) => {
     if (!uid || !orderId) return;
     try {
@@ -116,7 +131,10 @@ const OrderListPage = () => {
                   <CardActions>
                     <CardActionBtn onClick={() => handleHideOrder(order.id)}>삭제하기</CardActionBtn>
                     <CardActionSep />
-                    <CardActionBtn $primary onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>자세히 보기</CardActionBtn>
+                    <CardActionBtn $primary onClick={() => {
+                      if (order.createdBy !== uid && blockedUids.has(order.createdBy)) { showToast("거부등록된 오더입니다"); return; }
+                      navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
+                    }}>자세히 보기</CardActionBtn>
                   </CardActions>
                 </CardWrap>
               );

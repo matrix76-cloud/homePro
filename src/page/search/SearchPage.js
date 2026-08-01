@@ -129,7 +129,7 @@ const SearchPage = () => {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="서비스, 지역, 카테고리 검색"
+            placeholder="동네 홈프로 찾기"
           />
           {query && (
             <ClearBtn type="button" onClick={() => setQuery("")}>

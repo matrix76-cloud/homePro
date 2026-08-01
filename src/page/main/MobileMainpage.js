@@ -572,6 +572,21 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
 
+  // 내가 거부 등록한 사용자 — 거부등록된 상대의 오더 클릭 차단 (형 지시 7/31)
+  const [blockedUids, setBlockedUids] = useState(new Set());
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getMyBlocks } = await import("../../service/BlockService");
+        const list = await getMyBlocks(uid);
+        if (!cancelled) setBlockedUids(new Set(list.map((b) => b.blockedUid)));
+      } catch (e) { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [uid]);
+
   const handleHideOrder = async (orderId) => {
     if (!uid || !orderId) return;
     try {
@@ -737,11 +752,15 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
 
   return (
     <PageWrap>
-      {/* ── 상단 차수·포인트 ── (차수 상단 표시 = 대표 지시 7/29 "매우중요") */}
+      {/* ── 상단 차수·포인트 ── (차수 상단 표시 = 대표 지시 7/29 "매우중요" · 일반고객은 차수 미표기 = 형 지시 7/31) */}
       <PointHeader>
-        <TierValue $tier1={getAccessTier(userData) === "tier1"}>
-          {TIER_LABEL[getAccessTier(userData)]} 회원
-        </TierValue>
+        {userData?.userType === "customer" ? (
+          <span />
+        ) : (
+          <TierValue $tier1={getAccessTier(userData) === "tier1"}>
+            {TIER_LABEL[getAccessTier(userData)]} 회원
+          </TierValue>
+        )}
         <PointValue>{userPoints.toLocaleString()}P</PointValue>
       </PointHeader>
 
@@ -852,6 +871,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                   <TableRow key={order.id} onClick={() => {
                     if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
                     if (status === "대기" && order.createdBy !== uid) { showToast("접수자가 수정 중인 오더입니다"); return; }
+                    if (order.createdBy !== uid && blockedUids.has(order.createdBy)) { showToast("거부등록된 오더입니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
                   }}>
                     <TdCell $flex={0.9} style={{alignItems:"center"}}>
