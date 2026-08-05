@@ -29,6 +29,7 @@ import MobileFindAccountpage from "./page/main/MobileFindAccountpage";
 import OrderCreatePage from "./page/order/OrderCreatePage";
 import OrderListPage from "./page/order/OrderListPage";
 import OrderDetailPage from "./page/order/OrderDetailPage";
+import WorkLogPage from "./page/order/WorkLogPage";
 import AIEstimatePage from "./page/order/AIEstimatePage";
 import MyOrdersPage, { MyOrdersFooterPage } from "./page/order/MyOrdersPage";
 import WorkerRequestCreatePage from "./page/order/WorkerRequestCreatePage";
@@ -38,6 +39,7 @@ import MarketplaceCreatePage from "./page/order/MarketplaceCreatePage";
 import MarketplaceDetailPage from "./page/order/MarketplaceDetailPage";
 import SubscriptionPage from "./page/mypage/SubscriptionPage";
 import EducationMarketPage from "./page/main/EducationMarketPage";
+import InsurancePage from "./page/insurance/InsurancePage";
 import BrokeragePage from "./page/main/BrokeragePage";
 import BrokerageCreatePage from "./page/main/BrokerageCreatePage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
@@ -267,6 +269,8 @@ const AnimatedRoutes = () => {
             <Route path="/biz-profile" element={wrap(<BizProfilePage />)} />
             <Route path="/pro/list" element={wrap(<ProListPage />)} />
             <Route path="/education-market" element={wrap(<EducationMarketPage />)} />
+            {/* 일일 미니보험 안심케어 — 하단탭 (교육.장터 자리 대체, 대표 지시 8/4) */}
+            <Route path="/insurance" element={wrap(<InsurancePage />)} />
             {/* 공동중개 라운지 — 개업 공인중개사(홈프로) 전용. 비프로(의뢰자) 접근 차단 */}
             <Route element={<RequirePro />}>
               <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
@@ -301,6 +305,8 @@ const AnimatedRoutes = () => {
             <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
             <Route path="/order/list" element={wrap(<OrderListPage />)} />
             <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
+            {/* 현장 작업기록 — 체크인(Before)/작업중/체크아웃(After) */}
+            <Route path="/order/worklog/:orderId" element={wrap(<WorkLogPage />)} />
             <Route path="/order/worker-request/create" element={wrap(<WorkerRequestCreatePage />)} />
             <Route path="/order/worker-request/detail/:requestId" element={wrap(<WorkerRequestDetailPage />)} />
             <Route path="/marketplace" element={wrap(<MarketplacePage />)} />

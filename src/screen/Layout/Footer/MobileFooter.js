@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct, IoSwapHorizontal, IoSwapHorizontalOutline, IoBusiness, IoBusinessOutline } from "react-icons/io5";
+import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct, IoSwapHorizontal, IoSwapHorizontalOutline, IoBusiness, IoBusinessOutline, IoShieldCheckmark, IoShieldCheckmarkOutline } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../../utility/constants";
 import { useAuth } from "../../../context/AuthContext";
@@ -31,11 +31,12 @@ const TAB_LIST = [
     InactiveIcon: IoChatbubbleEllipsesOutline,
   },
   {
-    key: "education",
-    label: "교육.장터",
-    path: "/education-market",
-    ActiveIcon: IoBook,
-    InactiveIcon: IoBookOutline,
+    // 대표 지시 8/4: 교육.장터는 마이 안으로 옮기고, 이 자리는 일일 미니보험(안심케어)에 배정
+    key: "insurance",
+    label: "안심케어",
+    path: "/insurance",
+    ActiveIcon: IoShieldCheckmark,
+    InactiveIcon: IoShieldCheckmarkOutline,
   },
   {
     key: MOBILEMAINMENU.CONFIG,

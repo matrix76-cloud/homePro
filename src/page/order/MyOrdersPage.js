@@ -483,6 +483,10 @@ export const MyOrdersContent = () => {
                 {/* 상태 변경 버튼 */}
                 {displayStatus === "배정" && (
                   <ActionRow>
+                    {/* 접수자도 현장 진행 상황(체크인 사진·위치)을 볼 수 있게 */}
+                    {order.createdBy === uid && order.checkInAt && (
+                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록</ActionBtn>
+                    )}
                     {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
                     {order.matchedProUid === uid && (
                       <>
@@ -492,7 +496,13 @@ export const MyOrdersContent = () => {
                             견적서 전송
                           </ActionBtn>
                         )}
-                        {(() => {
+                        {/* 현장 인증(대표 지시 8/4) — 체크인 전에는 체크인부터, 체크아웃은 After 사진과 함께 현장기록 화면에서 처리 */}
+                        {!order.checkInAt ? (
+                          <ActionBtn
+                            $variant="primary"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkin`); }}
+                          >작업시작(체크인)</ActionBtn>
+                        ) : (() => {
                           const assignedMs = order.assignedAt?.toMillis?.() || (order.assignedAt ? new Date(order.assignedAt).getTime() : 0);
                           const canComplete = assignedMs > 0 && (nowMs - assignedMs >= 2 * 3600 * 1000);
                           return (
@@ -500,13 +510,19 @@ export const MyOrdersContent = () => {
                               $variant="success"
                               disabled={!canComplete}
                               style={!canComplete ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
-                              onClick={(e) => { if (!canComplete) { e.stopPropagation(); window.alert("배정 후 2시간이 지나야 작업완료가 가능합니다."); return; } handleStatusChange(e, order.id, "완료"); }}
-                            >작업완료</ActionBtn>
+                              onClick={(e) => { e.stopPropagation(); if (!canComplete) { window.alert("배정 후 2시간이 지나야 작업완료가 가능합니다."); return; } navigate(`/order/worklog/${order.id}?open=checkout`); }}
+                            >작업완료(체크아웃)</ActionBtn>
                           );
                         })()}
                         <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
                       </>
                     )}
+                  </ActionRow>
+                )}
+                {/* 완료 후에도 증빙(Before/After)은 양쪽 모두 열람 가능 — 보험·분쟁 대응용 */}
+                {displayStatus === "완료" && order.checkInAt && (order.createdBy === uid || order.matchedProUid === uid) && (
+                  <ActionRow>
+                    <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록 보기</ActionBtn>
                   </ActionRow>
                 )}
                 {displayStatus === "선정대기" && order.createdBy === uid && (

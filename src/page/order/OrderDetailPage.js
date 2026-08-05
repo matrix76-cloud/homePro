@@ -908,15 +908,22 @@ const OrderDetailPage = () => {
             <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
           </ActionRow>
         ) : isMatchedPro ? (
-          /* 이미 배정받은 오더 — 접수자에게 전화/채팅 (작업완료·취소는 나의오더현황 카드) */
-          <ActionRow>
-            <OutlinedBtn onClick={() => handlePhoneCall(order.ordererPhone || order.contactPhone)}>
-              <IoCallOutline size={18} /> 전화
-            </OutlinedBtn>
-            <PrimaryCTA onClick={() => handleStartChat(order.createdBy, order.writer, order.writerPhoto)}>
-              <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
-            </PrimaryCTA>
-          </ActionRow>
+          /* 이미 배정받은 오더 — 접수자에게 전화/채팅 + 현장기록 (작업완료·취소는 나의오더현황 카드) */
+          <>
+            <ActionRow>
+              <OutlinedBtn onClick={() => handlePhoneCall(order.ordererPhone || order.contactPhone)}>
+                <IoCallOutline size={18} /> 전화
+              </OutlinedBtn>
+              <PrimaryCTA onClick={() => handleStartChat(order.createdBy, order.writer, order.writerPhoto)}>
+                <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
+              </PrimaryCTA>
+            </ActionRow>
+            <ActionRow>
+              <OutlinedBtn onClick={() => navigate(`/order/worklog/${order.id}`)}>
+                {order.checkInAt ? "현장기록" : "현장 체크인"}
+              </OutlinedBtn>
+            </ActionRow>
+          </>
         ) : isPendingApplicant ? (
           /* 비교선정 지원 완료(선정 전) — 상태 선정대기 + 접수자와 전화/채팅 */
           <>

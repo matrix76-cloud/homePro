@@ -940,6 +940,17 @@ const MobileConfigpage = () => {
         </CardHeader>
       </ContentCard>
 
+      {/* 교육.장터 — 하단탭에서 마이로 이동 (대표 지시 8/4, 탭 자리는 안심케어가 사용) */}
+      <ContentCard onClick={() => navigate("/education-market")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>교육.장터</CardTitle>
+            <CardDesc>교육 과정과 자재·장비 장터를 확인하세요</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
       {/* 커뮤니티 */}
       <ContentCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
         <CardHeader>
