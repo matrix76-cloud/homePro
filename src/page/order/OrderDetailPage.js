@@ -61,6 +61,8 @@ const STATUS_BADGE = {
 const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 const HP_ASSIGNED_STATUSES = new Set(["배정", "선정대기", "업체선택대기", "완료", "마감"]);
+// 종료된 오더 — 되돌릴 수 없으므로 접수자의 대기·재접수·취소를 모두 막는다 (대표 지시 8/5)
+const CLOSED_STATUSES = new Set(["완료", "취소", "거부", "마감", "리뷰"]);
 
 const OrderDetailPage = () => {
   const { state } = useLocation();
@@ -903,9 +905,18 @@ const OrderDetailPage = () => {
             {order.orderStatus === "대기" ? (
               <OutlinedBtn onClick={handleOwnerReregister}>재접수</OutlinedBtn>
             ) : (
-              <OutlinedBtn onClick={handleOwnerWaiting}>대기</OutlinedBtn>
+              <OutlinedBtn
+                onClick={() => { if (!CLOSED_STATUSES.has(order.orderStatus)) handleOwnerWaiting(); }}
+                disabled={CLOSED_STATUSES.has(order.orderStatus)}
+                style={CLOSED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+              >대기</OutlinedBtn>
             )}
-            <OutlinedBtn $danger onClick={() => setShowCancelModal(true)}>취소</OutlinedBtn>
+            <OutlinedBtn
+              $danger
+              onClick={() => { if (!CLOSED_STATUSES.has(order.orderStatus)) setShowCancelModal(true); }}
+              disabled={CLOSED_STATUSES.has(order.orderStatus)}
+              style={CLOSED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+            >취소</OutlinedBtn>
           </ActionRow>
         ) : isMatchedPro ? (
           /* 이미 배정받은 오더 — 접수자에게 전화/채팅 + 현장기록 (작업완료·취소는 나의오더현황 카드) */
