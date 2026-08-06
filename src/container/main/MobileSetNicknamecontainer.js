@@ -44,7 +44,7 @@ export default function MobileSetNicknamecontainer() {
     const [busy, setBusy] = useState(false);
     const [generating, setGenerating] = useState(false);
     const triedNames = useRef(new Set());
-    const [userType, setUserType] = useState("customer"); // "customer" | "business"
+    const [userType, setUserType] = useState("business"); // "customer" | "business" (기본 사업자회원 — 대표 지시 8/5)
     const [companyName, setCompanyName] = useState("");
     const isBiz = userType === "business";
 

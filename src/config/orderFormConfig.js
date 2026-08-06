@@ -23,7 +23,8 @@ const ORDER_FORM_CONFIG = {
       { label: "기타", items: ["입력"] }
     ],
     attrSections: [
-      { key: "cleanOptions", label: "옵션선택", services: ["홈클리닝"], multi: true, options: ["새집증후군", "헌집증후군", "스티커제거", "욕실실리콘재시공", "냉장고내부", "에어컨내부", "물때제거", "주방실리콘재시공", "주방후드", "고온스팀살균", "줄눈시공", "피톤치드", "붙박이장 내부", "UV살균", "나노코팅"] },
+      // 기타는 칩 선택 시 아래 inputSections.cleanOptionEtc 로 입력칸이 열린다 (대표 지시 8/5)
+      { key: "cleanOptions", label: "옵션선택", services: ["홈클리닝"], multi: true, options: ["새집증후군", "헌집증후군", "스티커제거", "욕실실리콘재시공", "냉장고내부", "에어컨내부", "물때제거", "주방실리콘재시공", "주방후드", "고온스팀살균", "줄눈시공", "피톤치드", "붙박이장 내부", "UV살균", "나노코팅", "기타"] },
       { key: "commercialType", label: "상업/청소유형", services: ["상업.매장청소"], options: ["일반 매장청소", "오픈/입점 전 청소", "폐업 정리청소", "특수오염청소"] },
       { key: "floorMaterial", label: "바닥재질", services: ["바닥 전문청소"], options: ["타일", "대리석", "마루/강마루", "데코타일", "에폭시", "콘크리트", "기타"] },
       { key: "soilType", label: "오염유형", services: ["특수청소"], multi: true, options: ["혈흔/체액", "부패/악취", "쓰레기", "화재/그을음", "분변/하수", "해충/사체"] },
@@ -33,8 +34,30 @@ const ORDER_FORM_CONFIG = {
       { key: "fireDamage", label: "피해정도", services: ["화재청소"], options: ["경미", "보통", "심각"] },
       { key: "buildingHeight", label: "건물 높이/층수", services: ["외벽.고소청소"], options: ["2층이하", "3~5층", "6층이상"] }
     ],
-    buildingTypes: ["아파트", "빌라/다가구", "단독주택", "오피스텔", "원룸", "투룸", "상가", "사무실", "공장", "창고", "주택", "기타"],
+    inputSections: [
+      // 부분청소는 구분(욕실·주방·창호·베란다)별 '개소'를 받는다 (대표 지시 8/5, 엑셀표)
+      {
+        key: "partialClean",
+        label: "부분청소 개소",
+        whenItems: ["부분청소(욕실/주방/창호/베란다)"],
+        fields: [
+          { key: "bath", label: "욕실", type: "number", unit: "개소", placeholder: "0" },
+          { key: "kitchen", label: "주방", type: "number", unit: "개소", placeholder: "0" },
+          { key: "window", label: "창호", type: "number", unit: "개소", placeholder: "0" },
+          { key: "veranda", label: "베란다", type: "number", unit: "개소", placeholder: "0" },
+        ],
+      },
+      {
+        key: "cleanOptionEtc",
+        label: "옵션 기타",
+        whenAttr: { key: "cleanOptions", value: "기타" },
+        fields: [{ key: "content", label: "내용", type: "text", placeholder: "기타 옵션 내용을 입력하세요" }],
+      },
+    ],
+    // 건물유형 섹션 삭제 (대표 지시 8/6 최종) — 공간유형도 대신 뜨지 않게 명시적으로 끈다
+    noBuildingType: true,
     areaInput: ["평", "m2"],
+    areaDefault: "20",
     detailPlaceholder: "현장 상세설명 및 기타 요청사항…",
     scheduleOptions: ["긴급", "오늘", "내일", "예약날짜", "가능한 빨리 진행 원해요", "협의가능해요!"],
   },
@@ -1073,28 +1096,28 @@ export const COMMON_B2B_FIELDS = {
   },
   priceType: {
     label: "단가유형",
+    // 안내 문구는 대표님 확정본 그대로 (리뷰 8/5)
     options: [
-      { value: "fixed", label: "시공금액", hasInput: true, unit: "원", desc: "확정된 시공 총액을 직접 제시합니다. 홈프로는 이 금액에 동의하면 수락합니다." },
-      { value: "balance", label: "잔금", hasInput: true, unit: "원", desc: "선금·계약금을 제외한 잔여 금액만 별도로 정해 제시합니다." },
-      { value: "onsite", label: "현장견적", hasInput: false, desc: "현장 확인 후 홈프로가 직접 견적을 산정합니다. 접수 시 금액을 입력하지 않습니다." },
-      { value: "estimate", label: "견적요청", hasInput: false, desc: "여러 홈프로에게 견적을 요청하고, 받은 견적가를 비교해 선정합니다." },
-      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P", desc: "H-포인트로 정산하는 금액입니다. 포인트(P) 단위로 입력합니다." },
+      { value: "fixed", label: "시공금액", hasInput: true, unit: "원", desc: "자재비와 공임비가 모두 포함된 최종 확정 금액으로, 추가 변동 없이 해당 작업에 대해 청구(또는 지불)되는 기본 표준 금액입니다." },
+      { value: "balance", label: "잔금", hasInput: true, unit: "원", desc: "전체 시공 총금액 중 계약금이나 선급금을 제외하고, 현장 시공 완료 후 최종적으로 청구(또는 지불)해야 하는 나머지 금액입니다." },
+      { value: "onsite", label: "현장견적", hasInput: false, desc: "반드시 현장을 직접 방문하여 현장상태, 실측 결과, 특이 사항 등 확인 후 최종 금액을 산정·확정하는 유형입니다." },
+      { value: "estimate", label: "견적요청", hasInput: false, desc: "등록된 작업 요구사항과 사진 등을 확인하거나, 현장을 직접 방문하여 견적가를 제시하는 유형입니다." },
+      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P", desc: "홈프로 플랫폼 전용 포인트입니다. 보유 중인 H-포인트를 차감하여 시공 금액의 전부 또는 일부를 결제하실 수 있습니다." },
     ],
   },
+  // 지급방법(현금/H-포인트) 별도 블록은 삭제하고 유형 자체에 H-포인트를 넣었다 (대표 지시 8/6)
   referralFee: {
     label: "소개(캐시백) 수수료",
-    desc: "오더를 소개·연결해준 대가로 지급하는 수수료입니다. 미설정이면 지급하지 않으며, 설정 시 정액 또는 정률로 금액을 정합니다.",
+    desc: "오더를 소개·연결해준 대가로 지급하는 수수료입니다. 미설정이면 지급하지 않으며, 정률(%)·정액(원)·H-포인트(P) 중 하나로 정합니다.",
     types: [
       { value: "none", label: "미설정" },
-      { value: "fixed", label: "정액설정" },
       { value: "rate", label: "정률설정" },
+      { value: "fixed", label: "정액설정" },
+      { value: "hpoint", label: "H-포인트" },
     ],
     fixedAmounts: [10000, 15000, 20000, 25000, 30000, 35000],
     rates: [5, 10, 15, 20, 25, 30],
-  },
-  referralPayMethod: {
-    label: "소개 수수료 지급방법",
-    options: ["현금(계좌이체)", "H-포인트"],
+    hpointAmounts: [1000, 3000, 5000, 10000, 20000, 30000],
   },
   matchType: {
     label: "홈프로 선택",

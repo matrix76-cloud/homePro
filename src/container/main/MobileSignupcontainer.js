@@ -16,7 +16,9 @@ export default function MobileSignupcontainer() {
     const [toast, setToast] = useState("");
     const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
-    const [userType, setUserType] = useState("customer"); // "customer" | "business"
+    // 기본 사업자회원 (대표 지시 8/5). 여기 값이 localStorage 로 업체정보설정 단계까지 이어지므로
+    // 가입 1단계도 같이 business 로 둬야 다음 단계 기본값이 실제로 사업자회원이 된다.
+    const [userType, setUserType] = useState("business"); // "customer" | "business"
     const [loginId, setLoginId] = useState("");
     const [pw, setPw] = useState("");
     const [pw2, setPw2] = useState("");

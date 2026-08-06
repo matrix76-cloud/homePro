@@ -205,6 +205,23 @@ const OrderDetailPage = () => {
       showToast("채팅방을 열지 못했습니다");
     }
   };
+  // 리뷰 작성 — 리뷰 저장은 채팅방(roomId) 기준이라 배정 홈프로와의 방을 열고 시트를 띄운다
+  const handleWriteReview = async () => {
+    const proUid = order?.matchedProUid;
+    if (!proUid) { showToast("배정된 홈프로가 없습니다"); return; }
+    try {
+      const myPhoto = userData?.profileImage || userData?.photoURL || "";
+      const roomId = await createChatRoom(
+        myUid, myName, myPhoto,
+        proUid, matchedProInfo?.companyName || matchedProInfo?.name || "홈프로", matchedProInfo?.profileImage || "",
+        { orderId: order.id }
+      );
+      navigate(`/chat/${roomId}`, { state: { openReview: true } });
+    } catch (e) {
+      showToast("리뷰 화면을 열지 못했습니다");
+    }
+  };
+
   const handlePhoneCall = (phone) => {
     if (!phone) { showToast("등록된 전화번호가 없습니다"); return; }
     window.location.href = `tel:${phone}`;
@@ -730,7 +747,9 @@ const OrderDetailPage = () => {
               <ConditionValue>
                 {order.referralFee.type === "fixed"
                   ? `정액 ${Number(order.referralFee.amount).toLocaleString()}원`
-                  : `정률 ${order.referralFee.rate}%`}
+                  : order.referralFee.type === "hpoint"
+                    ? `H-포인트 ${Number(order.referralFee.point).toLocaleString()}P`
+                    : `정률 ${order.referralFee.rate}%`}
               </ConditionValue>
             </ConditionRow>
             {order.referralPayMethod && (
@@ -894,6 +913,13 @@ const OrderDetailPage = () => {
       <FixedBottom>
         {isOwner ? (
           /* 접수자 버튼 — 대기 상태면 재접수 / 그 외면 대기후수정 (홈프로 배정 후엔 비활성) */
+          <>
+          {/* 완료 오더는 리뷰 작성이 최우선 행동 (리뷰 8/5: 체크아웃 후 진입점을 못 찾는다는 지적) */}
+          {order.orderStatus === "완료" && !order.reviewed && order.matchedProUid && (
+            <ActionRow>
+              <PrimaryCTA onClick={handleWriteReview}>리뷰 작성</PrimaryCTA>
+            </ActionRow>
+          )}
           <ActionRow>
             <OutlinedBtn
               onClick={() => { if (!HP_ASSIGNED_STATUSES.has(order.orderStatus)) navigate("/order/create", { state: { order } }); }}
@@ -918,6 +944,7 @@ const OrderDetailPage = () => {
               style={CLOSED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
             >취소</OutlinedBtn>
           </ActionRow>
+          </>
         ) : isMatchedPro ? (
           /* 이미 배정받은 오더 — 접수자에게 전화/채팅 + 현장기록 (작업완료·취소는 나의오더현황 카드) */
           <>

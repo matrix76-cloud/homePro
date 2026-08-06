@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
   IoChevronBack, IoSend, IoAdd, IoDocumentOutline, IoDownloadOutline,
@@ -47,6 +47,7 @@ const formatFileSize = (bytes) => {
 const ChatDetailPage = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
+  const { state: navState } = useLocation();
   const { userData } = useAuth();
   const myUid = userData?.uid;
   const myName = userData?.companyName || userData?.name || "";
@@ -625,6 +626,18 @@ const ChatDetailPage = () => {
     setReviewText("");
     setShowReviewSheet(true);
   };
+
+  // 나의오더현황·오더상세의 [리뷰 작성]으로 들어오면 시트를 바로 연다 (리뷰 8/5)
+  const reviewAutoOpened = useRef(false);
+  useEffect(() => {
+    if (!navState?.openReview || reviewAutoOpened.current) return;
+    if (!room || hasReview) return;
+    reviewAutoOpened.current = true;
+    handleOpenReview();
+    // 뒤로가기·새로고침에 다시 열리지 않게 state 를 비운다
+    try { navigate(`/chat/${roomId}`, { replace: true, state: {} }); } catch (e) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navState?.openReview, room, hasReview]);
 
   // 리뷰 포인트 적립 조건: 별점 등록 + 본문 15자 이상 (대표 확정 2026-07-30)
   const reviewPointEligible = reviewRating > 0 && reviewText.trim().length >= REVIEW_MIN_LENGTH;

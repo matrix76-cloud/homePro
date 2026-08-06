@@ -519,10 +519,25 @@ export const MyOrdersContent = () => {
                     )}
                   </ActionRow>
                 )}
-                {/* 완료 후에도 증빙(Before/After)은 양쪽 모두 열람 가능 — 보험·분쟁 대응용 */}
-                {displayStatus === "완료" && order.checkInAt && (order.createdBy === uid || order.matchedProUid === uid) && (
+                {/* 완료 후에도 증빙(Before/After)은 양쪽 모두 열람 가능 — 보험·분쟁 대응용
+                    + 접수자는 여기서 리뷰를 작성한다 (리뷰 8/5: 체크아웃 후 진입점을 못 찾는다는 지적.
+                      기존엔 채팅방 상단 바에만 있어서 사실상 숨어 있었음) */}
+                {displayStatus === "완료" && (order.createdBy === uid || order.matchedProUid === uid) && (order.checkInAt || (order.createdBy === uid && !order.reviewed)) && (
                   <ActionRow>
-                    <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록 보기</ActionBtn>
+                    {order.checkInAt && (
+                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록 보기</ActionBtn>
+                    )}
+                    {order.createdBy === uid && !order.reviewed && (
+                      <ActionBtn
+                        $variant="success"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const roomId = chats[0]?.roomId;
+                          if (!roomId) { window.alert("리뷰를 작성할 채팅방을 찾지 못했습니다."); return; }
+                          navigate(`/chat/${roomId}`, { state: { openReview: true } });
+                        }}
+                      >리뷰 작성</ActionBtn>
+                    )}
                   </ActionRow>
                 )}
                 {displayStatus === "선정대기" && order.createdBy === uid && (

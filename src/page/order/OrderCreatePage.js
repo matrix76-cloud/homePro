@@ -191,6 +191,15 @@ const PreviewSection = styled.div`
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
 `;
+const PreviewNotice = styled.div`
+  margin: 12px 12px 0;
+  padding: 16px;
+  background: ${THEME.background};
+  border-radius: 12px;
+  font-size: 15px;
+  color: ${THEME.textSecondary};
+  line-height: 1.6;
+`;
 const PreviewSectionLabel = styled.div`
   font-size: 15px;
   font-weight: 700;
@@ -550,7 +559,9 @@ export const OrderCreateContent = () => {
   const [referralFeeFixed, setReferralFeeFixed] = useState("");
   const [referralFeeFixedCustom, setReferralFeeFixedCustom] = useState("");
   const [referralFeeRate, setReferralFeeRate] = useState("");
-  const [referralPayMethod, setReferralPayMethod] = useState("");
+  // H-포인트 지급액 (대표 지시 8/6: 지급방법 블록을 없애고 유형에 H-포인트를 넣음)
+  const [referralFeeHpoint, setReferralFeeHpoint] = useState("");
+  const [referralFeeHpointCustom, setReferralFeeHpointCustom] = useState("");
   const [matchType, setMatchType] = useState("");
   const [directPhone, setDirectPhone] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -630,9 +641,12 @@ export const OrderCreateContent = () => {
         else { setReferralFeeFixed("custom"); setReferralFeeFixedCustom(String(amt)); }
       } else if (editOrder.referralFee.type === "rate") {
         setReferralFeeRate(String(editOrder.referralFee.rate));
+      } else if (editOrder.referralFee.type === "hpoint") {
+        const amt = Number(editOrder.referralFee.point) || 0;
+        if (COMMON_B2B_FIELDS.referralFee.hpointAmounts.includes(amt)) setReferralFeeHpoint(String(amt));
+        else { setReferralFeeHpoint("custom"); setReferralFeeHpointCustom(String(amt)); }
       }
     }
-    setReferralPayMethod(editOrder.referralPayMethod || "");
     setMatchType(editOrder.matchType || "");
     setDirectPhone(editOrder.directPhone || "");
   }, [editOrder]);
@@ -649,6 +663,30 @@ export const OrderCreateContent = () => {
   const visibleAttrSections = (detailConfig?.attrSections || []).filter(
     (sec) => !sec.services || sec.services.includes(selectedService)
   );
+  // inputSections 조건부 표시 (대표 지시 8/5)
+  //  whenItems: 특정 종목(부분청소 등)을 골랐을 때만  ·  whenAttr: 특정 속성값(옵션 '기타')을 골랐을 때만
+  const visibleInputSections = (Array.isArray(detailConfig?.inputSections) ? detailConfig.inputSections : []).filter((sec) => {
+    if (sec.services && !sec.services.includes(selectedService)) return false;
+    if (sec.whenItems) {
+      const picked = selectedSub.some((k) => sec.whenItems.includes(k.includes(":") ? k.split(":")[1] : k));
+      if (!picked) return false;
+    }
+    if (sec.whenAttr) {
+      const vals = attrValues[sec.whenAttr.key] || [];
+      if (!vals.includes(sec.whenAttr.value)) return false;
+    }
+    return true;
+  });
+  // 건물유형 섹션을 아예 쓰지 않는 카테고리 — 대체 노출되는 공간유형까지 함께 끈다 (대표 지시 8/6)
+  const hideBuildingType = !!detailConfig?.noBuildingType;
+
+  // 면적 기본값 — config 의 areaDefault (전문청소 20평, 대표 지시 8/5)
+  // 수정 모드에서는 기존 입력값을 덮지 않는다.
+  useEffect(() => {
+    if (isEdit) return;
+    const def = ORDER_FORM_CONFIG[selectedCategory]?.areaDefault;
+    setAreaValue(def ? String(def) : "");
+  }, [selectedCategory, isEdit]);
 
   // Daum 주소 API 스크립트 로드
   useEffect(() => {
@@ -803,6 +841,8 @@ export const OrderCreateContent = () => {
         referralFeeValue = { type: "fixed", amount: referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed) };
       } else if (referralFeeType === "rate") {
         referralFeeValue = { type: "rate", rate: Number(referralFeeRate) };
+      } else if (referralFeeType === "hpoint") {
+        referralFeeValue = { type: "hpoint", point: referralFeeHpoint === "custom" ? Number(referralFeeHpointCustom) : Number(referralFeeHpoint) };
       }
 
       const orderPayload = {
@@ -866,7 +906,8 @@ export const OrderCreateContent = () => {
         b2bPriceType: b2bPriceType || null,
         b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") ? Number(b2bPriceAmount) || null : null,
         referralFee: referralFeeType === "none" ? null : referralFeeValue,
-        referralPayMethod: referralFeeType !== "none" ? (referralPayMethod || null) : null,
+        // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
+        referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
         matchType: matchType || null,
         directPhone: matchType === "direct" ? directPhone : null,
         orderStatus: asWaiting ? "대기" : "접수",
@@ -930,7 +971,7 @@ export const OrderCreateContent = () => {
     items.push({ k: "주소", v: addressDetail ? `${address} ${addressDetail}` : address });
     items.push({ k: "요청 내용", v: detail });
     if (callFirst) items.push({ k: "선통화 요청", v: "예" });
-    if (contactPhone) items.push({ k: "연락처", v: contactPhone });
+    // 연락처는 확인화면에서 표기하지 않는다 (대표 지시 8/6) — 저장·전달은 그대로
     if (priceType === "direct") items.push({ k: "단가(직접)", v: `${Number(directPrice).toLocaleString()}원` });
     if (workDate) items.push({ k: "작업 날짜", v: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate });
     if (workTimeMode) items.push({ k: "작업 시간", v: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : workTimeMode });
@@ -947,8 +988,10 @@ export const OrderCreateContent = () => {
         v = `정액 ${Number(amt || 0).toLocaleString()}원`;
       } else if (referralFeeType === "rate") {
         v = `정률 ${referralFeeRate}%`;
+      } else if (referralFeeType === "hpoint") {
+        const pt = referralFeeHpoint === "custom" ? referralFeeHpointCustom : referralFeeHpoint;
+        v = `H-포인트 ${Number(pt || 0).toLocaleString()}P`;
       }
-      if (referralPayMethod) v += ` (${referralPayMethod})`;
       items.push({ k: "소개 수수료", v });
     }
     if (matchType) {
@@ -993,6 +1036,13 @@ export const OrderCreateContent = () => {
             </PreviewRow>
           ))}
         </PreviewSection>
+        {/* 카테고리별 고정문구 (대표 지시 8/6) — 확인화면에서 중개 플랫폼 고지를 반드시 노출.
+            카테고리마다 문구를 따로 두지 않고 카테고리명만 끼워넣는 공통 템플릿으로 만든다.
+            개별 문구가 필요한 카테고리는 config 에 confirmNotice 를 넣으면 그게 우선. */}
+        <PreviewNotice>
+          {formConfig?.confirmNotice
+            || `홈프로는 ${category?.shortName || "서비스"} 연결을 제공하는 중개 플랫폼이며, 실제 서비스 계약 및 책임은 서비스 제공자와 이용자 간에 이루어집니다.`}
+        </PreviewNotice>
         <PreviewActions>
           <PreviewSecondaryBtn disabled={submitting} onClick={() => setStep("form")}>{isEdit ? "뒤로" : "수정하기"}</PreviewSecondaryBtn>
           {!isEdit && <PreviewSecondaryBtn disabled={submitting} onClick={() => handleSubmit(true)}>대기</PreviewSecondaryBtn>}
@@ -1189,7 +1239,7 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 건물유형 */}
-          {showDetail && detailConfig?.buildingTypes && (
+          {showDetail && !hideBuildingType && detailConfig?.buildingTypes && (
             <Section>
               <Label>건물유형</Label>
               <ChipGrid>
@@ -1258,7 +1308,7 @@ export const OrderCreateContent = () => {
 
           {/* 직접 입력이 필요한 항목 (주소·수량·치수·차량정보·생년월일 등)
               config 의 inputSections 를 타입별 입력칸으로 렌더 (대표 사양서 7/28) */}
-          {showDetail && Array.isArray(detailConfig?.inputSections) && detailConfig.inputSections.map((sec) => (
+          {showDetail && visibleInputSections.map((sec) => (
             <Section key={sec.key}>
               <Label>{sec.label}</Label>
               {sec.fields.map((f) => {
@@ -1310,7 +1360,7 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 공간유형 (config에 buildingTypes 없을 때 기본) */}
-          {showDetail && !detailConfig?.buildingTypes && (
+          {showDetail && !hideBuildingType && !detailConfig?.buildingTypes && (
             <Section>
               <Label>공간유형</Label>
               <ChipGrid>
@@ -1503,19 +1553,22 @@ export const OrderCreateContent = () => {
                 ))}
               </ChipGrid>
             )}
+            {referralFeeType === "hpoint" && (
+              <>
+                <ChipGrid>
+                  {COMMON_B2B_FIELDS.referralFee.hpointAmounts.map((pt) => (
+                    <Chip key={pt} $selected={referralFeeHpoint === String(pt)} onClick={() => { setReferralFeeHpoint(String(pt)); setReferralFeeHpointCustom(""); }}>
+                      {pt.toLocaleString()}P
+                    </Chip>
+                  ))}
+                  <Chip $selected={referralFeeHpoint === "custom"} onClick={() => setReferralFeeHpoint("custom")}>직접입력</Chip>
+                </ChipGrid>
+                {referralFeeHpoint === "custom" && (
+                  <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder="지급 포인트 (P)" value={withComma(referralFeeHpointCustom)} onChange={(e) => setReferralFeeHpointCustom(onlyDigits(e.target.value))} />
+                )}
+              </>
+            )}
           </Section>
-
-          {/* 소개 수수료 지급방법 */}
-          {referralFeeType !== "none" && (
-            <Section>
-              <Label>{COMMON_B2B_FIELDS.referralPayMethod.label}</Label>
-              <ChipGrid>
-                {COMMON_B2B_FIELDS.referralPayMethod.options.map((opt) => (
-                  <Chip key={opt} $selected={referralPayMethod === opt} onClick={() => setReferralPayMethod(opt)}>{opt}</Chip>
-                ))}
-              </ChipGrid>
-            </Section>
-          )}
 
           {/* 홈프로 선택 */}
           <Section>
