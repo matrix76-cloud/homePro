@@ -197,7 +197,7 @@ export const CATEGORIES = [
     },
     {
         id: "aircon_install",
-        name: "에어컨 이전설치",
+        name: "에어컨 설치.수리",
         shortName: "에어컨설치",
         group: "install",
         description: "에어컨 신규/이전 설치, 실외기, 고장 점검",

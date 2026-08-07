@@ -679,6 +679,12 @@ export const OrderCreateContent = () => {
   });
   // 건물유형 섹션을 아예 쓰지 않는 카테고리 — 대체 노출되는 공간유형까지 함께 끈다 (대표 지시 8/6)
   const hideBuildingType = !!detailConfig?.noBuildingType;
+  // 지금 화면에 실제로 떠 있는 입력 필드 (숨은 필드의 잔여값이 저장·미리보기에 새지 않게)
+  const visibleFieldsOf = (sec) => sec.fields.filter((f) => {
+    if (f.whenAttr && !(attrValues[f.whenAttr.key] || []).includes(f.whenAttr.value)) return false;
+    if (f.hideWhenChecked && inputValues[sec.key]?.[f.hideWhenChecked] === "예") return false;
+    return true;
+  });
 
   // 면적 기본값 — config 의 areaDefault (전문청소 20평, 대표 지시 8/5)
   // 수정 모드에서는 기존 입력값을 덮지 않는다.
@@ -864,11 +870,15 @@ export const OrderCreateContent = () => {
           return picked.length ? Object.fromEntries(picked) : null;
         })(),
         // 직접 입력값 (주소·수량·치수·차량정보 등)
+        // 화면에 안 뜨는 필드는 저장하지 않는다 — 숙련도를 골랐다 해제하거나 서비스를 바꾸면
+        // 이전에 친 값이 state 에 남아 유령 데이터로 저장되던 문제 (조건부 필드 도입 8/7)
         inputs: (() => {
           const out = {};
-          Object.entries(inputValues).forEach(([sec, fields]) => {
-            const filled = Object.entries(fields || {}).filter(([, v]) => String(v ?? "").trim() !== "");
-            if (filled.length) out[sec] = Object.fromEntries(filled);
+          visibleInputSections.forEach((sec) => {
+            const filled = visibleFieldsOf(sec)
+              .map((f) => [f.key, inputValues[sec.key]?.[f.key]])
+              .filter(([, v]) => String(v ?? "").trim() !== "");
+            if (filled.length) out[sec.key] = Object.fromEntries(filled);
           });
           return Object.keys(out).length ? out : null;
         })(),
@@ -955,12 +965,12 @@ export const OrderCreateContent = () => {
       const sec = (detailConfig?.attrSections || []).find((s) => s.key === key);
       items.push({ k: sec?.label || key, v: vals.join(", ") });
     });
-    Object.entries(inputValues).forEach(([secKey, fields]) => {
-      const sec = (detailConfig?.inputSections || []).find((s) => s.key === secKey);
-      Object.entries(fields || {}).forEach(([fk, fv]) => {
+    // 저장되는 것과 같은 기준(화면에 떠 있는 필드)으로만 미리보기에 싣는다
+    visibleInputSections.forEach((sec) => {
+      visibleFieldsOf(sec).forEach((f) => {
+        const fv = inputValues[sec.key]?.[f.key];
         if (String(fv ?? "").trim() === "") return;
-        const f = sec?.fields?.find((x) => x.key === fk);
-        items.push({ k: `${sec?.label || secKey} ${f?.label || fk}`, v: `${fv}${f?.unit || ""}` });
+        items.push({ k: `${sec.label} ${f.label}`, v: `${fv}${f.unit || ""}` });
       });
     });
     Object.entries(itemQty).forEach(([key, qty]) => {
@@ -1238,26 +1248,25 @@ export const OrderCreateContent = () => {
             </Section>
           )}
 
-          {/* 건물유형 */}
-          {showDetail && !hideBuildingType && detailConfig?.buildingTypes && (
-            <Section>
-              <Label>건물유형</Label>
-              <ChipGrid>
-                {detailConfig.buildingTypes.map((type) => (
-                  <Chip key={type} $selected={buildingType === type} onClick={() => setBuildingType(type)}>{type}</Chip>
-                ))}
-              </ChipGrid>
-            </Section>
-          )}
-
           {/* 카테고리별 추가 속성 (대표 사양서 7/28) — 오염유형·발생시점·설치유형 등
-              config 의 attrSections 를 그대로 칩 목록으로 렌더. multi=true 면 중복선택. */}
+              config 의 attrSections 를 그대로 칩 목록으로 렌더. multi=true 면 중복선택.
+              건물유형보다 위에 둔다 — 순서는 종목 > 설치유형 > 건물유형 (대표 지시 8/7) */}
           {showDetail && visibleAttrSections.map((sec) => {
             const picked = attrValues[sec.key] || [];
             return (
               <Section key={sec.key}>
-                <Label>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
-                <ChipGrid>
+                {sec.descs ? (
+                  <LabelRow>
+                    <Label style={{ marginBottom: 0 }}>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
+                    <HelpBtn
+                      type="button"
+                      onClick={() => setHelpPopup({ title: `${sec.label} 안내`, items: sec.options.filter((o) => sec.descs[o]).map((o) => ({ name: o, desc: sec.descs[o] })) })}
+                    >?</HelpBtn>
+                  </LabelRow>
+                ) : (
+                  <Label>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
+                )}
+                <ChipGrid style={sec.descs ? { marginTop: 12 } : undefined}>
                   {sec.options.map((opt) => {
                     const on = picked.includes(opt);
                     return (
@@ -1280,6 +1289,18 @@ export const OrderCreateContent = () => {
               </Section>
             );
           })}
+
+          {/* 건물유형 */}
+          {showDetail && !hideBuildingType && detailConfig?.buildingTypes && (
+            <Section>
+              <Label>건물유형</Label>
+              <ChipGrid>
+                {detailConfig.buildingTypes.map((type) => (
+                  <Chip key={type} $selected={buildingType === type} onClick={() => setBuildingType(type)}>{type}</Chip>
+                ))}
+              </ChipGrid>
+            </Section>
+          )}
 
           {/* 선택한 종목별 수량 (가전분해청소·침대소파카펫 등) — 사양서의 '수량' 칸 */}
           {showDetail && detailConfig?.qtyPerSelected && selectedSub.length > 0 && (
@@ -1308,15 +1329,33 @@ export const OrderCreateContent = () => {
 
           {/* 직접 입력이 필요한 항목 (주소·수량·치수·차량정보·생년월일 등)
               config 의 inputSections 를 타입별 입력칸으로 렌더 (대표 사양서 7/28) */}
-          {showDetail && visibleInputSections.map((sec) => (
+          {showDetail && visibleInputSections.map((sec) => {
+            // 필드 단위 조건 (대표 지시 8/7)
+            //  whenAttr       : 위 속성에서 그 값을 골랐을 때만 (숙련도별 인원)
+            //  hideWhenChecked: 같은 섹션의 체크 필드가 켜져 있으면 숨김 (현장 직행 시 픽업장소)
+            const fields = sec.fields.filter((f) => {
+              if (f.whenAttr && !(attrValues[f.whenAttr.key] || []).includes(f.whenAttr.value)) return false;
+              if (f.hideWhenChecked && inputValues[sec.key]?.[f.hideWhenChecked] === "예") return false;
+              return true;
+            });
+            if (!fields.length) return null;
+            return (
             <Section key={sec.key}>
               <Label>{sec.label}</Label>
-              {sec.fields.map((f) => {
+              {fields.map((f) => {
                 const val = inputValues[sec.key]?.[f.key] ?? "";
                 const setVal = (v) => setInputValues((prev) => ({
                   ...prev,
                   [sec.key]: { ...(prev[sec.key] || {}), [f.key]: v },
                 }));
+                if (f.type === "check") {
+                  return (
+                    <CheckRow key={f.key} style={{ marginBottom: 12 }}>
+                      <input type="checkbox" checked={val === "예"} onChange={(e) => setVal(e.target.checked ? "예" : "")} />
+                      {f.label}
+                    </CheckRow>
+                  );
+                }
                 return (
                   <FieldRow key={f.key}>
                     <InputFieldLabel>{f.label}</InputFieldLabel>
@@ -1342,7 +1381,8 @@ export const OrderCreateContent = () => {
                 );
               })}
             </Section>
-          ))}
+            );
+          })}
 
           {/* 면적 입력 */}
           {showDetail && detailConfig?.areaInput && (
@@ -1359,10 +1399,10 @@ export const OrderCreateContent = () => {
             </Section>
           )}
 
-          {/* 공간유형 (config에 buildingTypes 없을 때 기본) */}
+          {/* 건물유형 (config에 buildingTypes 없을 때 기본 목록) — 라벨 '공간유형' → '건물유형' (대표 지시 8/7) */}
           {showDetail && !hideBuildingType && !detailConfig?.buildingTypes && (
             <Section>
-              <Label>공간유형</Label>
+              <Label>건물유형</Label>
               <ChipGrid>
                 {SPACE_TYPES.map((type) => (
                   <Chip key={type} $selected={spaceType === type} onClick={() => setSpaceType(type)}>{type}</Chip>

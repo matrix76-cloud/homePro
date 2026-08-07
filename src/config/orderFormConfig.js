@@ -168,7 +168,8 @@ const ORDER_FORM_CONFIG = {
       { label: "기타", items: ["입력"] }
     ],
     attrSections: [
-      { key: "washerKg", label: "세탁기·건조기 용량", options: ["10kg 이하", "11~14kg", "15~18kg", "19~21kg", "22kg 이상"] },
+      // 세탁기청소 외 서비스에서는 용량 칸을 숨긴다 (대표 지시 8/7)
+      { key: "washerKg", label: "세탁기·건조기 용량", services: ["세탁기청소"], options: ["10kg 이하", "11~14kg", "15~18kg", "19~21kg", "22kg 이상"] },
       { key: "maker", label: "제조사", options: ["LG", "삼성", "위니아", "캐리어", "기타"] }
     ],
     detailPlaceholder: "제품 수량·모델, 기타 안내사항등…",
@@ -181,7 +182,8 @@ const ORDER_FORM_CONFIG = {
   mattress_care: {
     qtyPerSelected: { label: "선택 품목 수량", unit: "개" },
     inputSections: [
-      { key: "carpet", label: "카페트 크기", fields: [
+      // 카페트.러그를 고른 경우에만 (대표 지시 8/7)
+      { key: "carpet", label: "카페트 크기", services: ["카페트.러그"], fields: [
         { key: "width", label: "가로", type: "number", unit: "cm" },
         { key: "height", label: "세로", type: "number", unit: "cm" },
       ] },
@@ -194,8 +196,9 @@ const ORDER_FORM_CONFIG = {
       { label: "기타", items: ["입력"] }
     ],
     attrSections: [
-      { key: "sofaSize", label: "소파 크기", multi: true, options: ["1인용", "2인용", "3인용", "4인용", "코너형", "리클라이너"] },
-      { key: "material", label: "소재/재질", options: ["패브릭", "가죽", "극세사", "천연소재", "기타"] },
+      // 소파청소를 고른 경우에만 (대표 지시 8/7). 소재/재질은 소파 종목(패브릭소파·가죽소파…)과
+      // 중복되어 삭제.
+      { key: "sofaSize", label: "소파 크기", services: ["소파청소"], multi: true, options: ["1인용", "2인용", "3인용", "4인용", "코너형", "리클라이너"] },
       { key: "soilState", label: "오염상태", options: ["일반오염", "얼룩있음", "냄새/오염심함", "반려동물/배변오염"] }
     ],
     detailPlaceholder: "품목별 수량, 카페트 크기(가로×세로cm), 기타 안내사항등…",
@@ -372,7 +375,8 @@ const ORDER_FORM_CONFIG = {
       { label: "기타", items: ["입력"] }
     ],
     attrSections: [
-      { key: "installType", label: "설치유형", options: ["신규설치", "철거+재설치", "이사 이전설치", "교체설치", "철거만"] },
+      // 냉매작업·A/S 및 점검은 설치가 아니라 설치유형을 묻지 않는다 (대표 지시 8/7)
+      { key: "installType", label: "설치유형", services: ["에어컨설치", "냉난방기"], options: ["신규설치", "철거+재설치", "이사 이전설치", "교체설치", "철거만"] },
       { key: "electricWork", label: "전기공사 유무", options: ["해당없음", "전용 차단기 증설", "콘센트 신설", "분전반 작업"] },
       { key: "preNotice", label: "사전고지 확인", multi: true, options: ["배관연장 추가요금", "실외기 거치대비용", "앵글작업", "고층작업비", "냉매추가비용", "타공추가비용"] }
     ],
@@ -1035,15 +1039,17 @@ const ORDER_FORM_CONFIG = {
 
   worker_call: {
     inputSections: [
+      // 숙련도에서 고른 등급의 인원칸만 생성 (대표 지시 8/7)
       { key: "crew", label: "숙련도별 인원", fields: [
-        { key: "조공", label: "조공", type: "number", unit: "명" },
-        { key: "준기공", label: "준기공", type: "number", unit: "명" },
-        { key: "기공", label: "기공", type: "number", unit: "명" },
-        { key: "반장", label: "반장", type: "number", unit: "명" },
+        { key: "조공", label: "조공", type: "number", unit: "명", whenAttr: { key: "skillLevel", value: "조공" } },
+        { key: "준기공", label: "준기공", type: "number", unit: "명", whenAttr: { key: "skillLevel", value: "준기공" } },
+        { key: "기공", label: "기공", type: "number", unit: "명", whenAttr: { key: "skillLevel", value: "기공" } },
+        { key: "반장", label: "반장", type: "number", unit: "명", whenAttr: { key: "skillLevel", value: "반장" } },
       ] },
-      { key: "site", label: "현장 위치", fields: [
-        { key: "pickup", label: "픽업장소", type: "text", placeholder: "픽업 주소" },
-        { key: "arrive", label: "현장도착", type: "text", placeholder: "현장 주소" },
+      // 현장으로 바로 가는 경우가 많아 체크 하나로 끝내고, 아니면 픽업장소만 받는다 (대표 지시 8/7)
+      { key: "site", label: "픽업위치", fields: [
+        { key: "direct", label: "현장으로 직접 도착", type: "check" },
+        { key: "pickup", label: "픽업장소", type: "text", placeholder: "픽업 주소", hideWhenChecked: "direct" },
       ] },
     ],
     notice: "홈프로는 작업 인력 연결을 위한 중개 서비스만 제공하며, 실제 작업 계약·작업 대금지급·작업 안전 및 사고 책임은 작업 요청자와 작업자 간에 이루어집니다.",
@@ -1055,7 +1061,16 @@ const ORDER_FORM_CONFIG = {
       { label: "기타", items: ["입력"] }
     ],
     attrSections: [
-      { key: "skillLevel", label: "숙련도", multi: true, options: ["조공", "준기공", "기공", "반장"] }
+      // descs 가 있으면 라벨 옆에 ? 안내 버튼이 뜬다 (문구는 대표 확정 8/7)
+      {
+        key: "skillLevel", label: "숙련도", multi: true, options: ["조공", "준기공", "기공", "반장"],
+        descs: {
+          "조공": "현장 경험이 적거나 입문 단계에 있는 보조 작업자(초보)입니다.",
+          "준기공": "기본적인 작업 수행 능력을 갖추었으나, 아직 독립적인 고난도 작업이나 완벽한 마감에는 숙련도가 조금 더 필요한 중간 단계입니다.",
+          "기공": "해당 분야의 전문 기술과 현장 노하우를 완벽히 갖춘 메인 전문가입니다.",
+          "반장": "현장의 기술적 숙련도는 물론, 사람을 통솔하고 고객 및 현장을 총괄 관리하는 리더입니다.",
+        },
+      }
     ],
     detailPlaceholder: "필요 인원수, 픽업장소·현장도착 주소, 작업 내용 등…",
     scheduleOptions: ["긴급", "오늘", "내일", "예약날짜", "가능한 빨리 진행 원해요", "협의가능해요!"],

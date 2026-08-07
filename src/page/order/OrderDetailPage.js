@@ -855,9 +855,12 @@ const OrderDetailPage = () => {
           <DetailSection>
             <SectionTitle>{isUnpriced ? "견적가 안내" : "단가 안내"}</SectionTitle>
             <DetailText style={{ color: THEME.muted }}>
-              {isUnpriced
-                ? "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 현장 확인 또는 사진·통화·채팅 등 제공된 정보를 바탕으로 견적가를 접수자에게 제안합니다. 현장 방문 및 실측은 선택 사항입니다."
-                : `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`}
+              {/* 현장견적은 방문이 필수, 견적요청은 선택 (대표 확정 8/7) */}
+              {!isUnpriced
+                ? `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`
+                : order.b2bPriceType === "onsite"
+                  ? "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 반드시 현장을 직접 방문하여 현장상태·실측 결과·특이 사항을 확인한 뒤 최종 금액을 산정·확정해 접수자에게 제안합니다."
+                  : "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 등록된 작업 요구사항과 사진 등을 확인하거나 현장을 직접 방문하여 견적가를 접수자에게 제안합니다."}
             </DetailText>
           </DetailSection>
         )}

@@ -248,7 +248,6 @@ export const MyOrdersContent = () => {
 
   const periodFiltered = allOrders.filter((o) => matchPeriod(o.createdAt, activePeriod, dateRange));
   const filtered = showAllTabs ? periodFiltered : periodFiltered.filter((o) => activeTabs.includes(viewStatus(o)));
-  const nowMs = Date.now();
 
   const submitCancelRequest = async () => {
     if (!cancelReqReason) { alert("사유를 선택해주세요"); return; }
@@ -502,18 +501,14 @@ export const MyOrdersContent = () => {
                             $variant="primary"
                             onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkin`); }}
                           >작업시작(체크인)</ActionBtn>
-                        ) : (() => {
-                          const assignedMs = order.assignedAt?.toMillis?.() || (order.assignedAt ? new Date(order.assignedAt).getTime() : 0);
-                          const canComplete = assignedMs > 0 && (nowMs - assignedMs >= 2 * 3600 * 1000);
-                          return (
-                            <ActionBtn
-                              $variant="success"
-                              disabled={!canComplete}
-                              style={!canComplete ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
-                              onClick={(e) => { e.stopPropagation(); if (!canComplete) { window.alert("배정 후 2시간이 지나야 작업완료가 가능합니다."); return; } navigate(`/order/worklog/${order.id}?open=checkout`); }}
-                            >작업완료(체크아웃)</ActionBtn>
-                          );
-                        })()}
+                        ) : (
+                          /* '배정 후 2시간' 게이트 해제 (대표 지시 8/7) — 체크인/체크아웃 증빙이
+                             생기면서 시간 제한으로 조기완료를 막을 이유가 없어짐 */
+                          <ActionBtn
+                            $variant="success"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkout`); }}
+                          >작업완료(체크아웃)</ActionBtn>
+                        )}
                         <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
                       </>
                     )}
