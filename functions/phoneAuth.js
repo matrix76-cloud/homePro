@@ -29,9 +29,9 @@ const MAX_SENDS_PER_WINDOW = 5;  // 시간당 발송 횟수
 const SEND_WINDOW_SEC = 3600;
 const MAX_ATTEMPTS = 5;          // 코드 오입력 허용 횟수
 
-// SMS 게이트웨이 (환경변수 우선, 없으면 기존 값)
-const SMS_URL = process.env.SMS_GATEWAY_URL || "http://34.64.211.220:8080/sendSms";
-const SMS_KEY = process.env.SMS_GATEWAY_KEY || "sms-gateway-shared-key-2025";
+// SMS 게이트웨이 — 주소·키는 functions/.env 에서만 온다(config.js 참고).
+// 하드코딩 폴백을 두면 이관 후에도 옛 계정 게이트웨이로 문자가 계속 나가므로 두지 않는다.
+const { smsGateway } = require("./config");
 
 const db = () => admin.firestore();
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -62,9 +62,10 @@ function safeEqual(a, b) {
 }
 
 async function sendSms(phoneDigits, code, label) {
-    const resp = await fetch(SMS_URL, {
+    const { url, key } = smsGateway();
+    const resp = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SMS_KEY}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
             to: phoneDigits,
             templateId: "VERIFY_CODE",

@@ -1,10 +1,10 @@
 // 리뷰 허브 전용 데모 로그인 — 시드 계정 커스텀 토큰(getSeedLoginToken)으로 iframe을 로그인 상태로.
 // SeedLoginPage.js와 동일 방식(uid + secret). URL은 localStorage override 우선.
 import { signInWithCustomToken, signOut } from 'firebase/auth'
-import { auth } from '../api/config'
+import { auth, functionUrl } from '../api/config'
 
 const SECRET = 'homepro-seed-2026-x9k3p'
-const DEFAULT_FN_URL = 'https://asia-northeast3-homepro-43f7f.cloudfunctions.net/getSeedLoginToken'
+const DEFAULT_FN_URL = functionUrl('getSeedLoginToken')
 const FN_URL_KEY = 'homepro.seedLoginFnUrl' // SeedLoginPage와 공유 — 형이 거기서 저장해둔 URL 재사용
 const ACCT_KEY = 'review.demoAcct'
 

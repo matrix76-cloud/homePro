@@ -6,6 +6,7 @@ import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, CATEGORY_GROUPS, THEME } from "../../config/homeproConfig";
+import { PUBLIC_BASE_URL } from "../../api/config";
 import { proCategoriesAtom } from "../../store/store";
 import { getProCategoryIds } from "../../service/ProService";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
@@ -351,7 +352,7 @@ const WorkerRequestList = ({ navigate }) => {
    ================================================================ */
 /* 초대 공유 (커뮤니티·SNS 공유 명세 — 대표 지시 7/29)
    딥링크: /?code=초대코드 → 가입 시 추천코드 자동 입력 (App.js에서 캡처) */
-const SHARE_BASE_URL = "https://homepro-43f7f.web.app";
+const SHARE_BASE_URL = PUBLIC_BASE_URL;
 const buildInviteText = (code) =>
   `집(Home) 관련 특화된 모든 분야 사장님들이 뭉쳐,\n오더를 공유하고 다양한 수익을 창출하는 대한민국 1등 B2B 플랫폼에 사장님을 초대합니다.\n지금 초대코드 ${code}를 입력하고, 홈프로만의 특별한 생태계에 합류하세요!`;
 

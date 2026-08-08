@@ -1,6 +1,6 @@
-// 개발용: 리뷰글에 처리완료 답글 일괄 등록
-//   node post-review-replies.mjs <replies.json>
-//   replies.json = [{ replyTo, screenId, text }]
+// 개발용: 리뷰 허브에 루트글(지시/질문) 등록
+//   node post-review-root.mjs <본문.txt> [screenId] [작성자]
+//   기본 screenId=main, 작성자=형
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import fs from "fs";
@@ -15,20 +15,18 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
 const kstNow = () => new Date().toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 16);
-const replies = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 
-for (const r of replies) {
-  const ref = await addDoc(collection(db, "reviewThreads"), {
-    screenId: r.screenId,
-    by: r.by || "카스", // 형 이름으로 달아야 할 때만 json 에 by 지정
-    text: r.text,
-    replyTo: r.replyTo,
-    at: kstNow(),
-    ts: serverTimestamp(),
-  });
-  console.log("posted", ref.id, "->", r.replyTo);
-}
-console.log("done:", replies.length);
+const text = fs.readFileSync(process.argv[2], "utf8").trimEnd();
+const screenId = process.argv[3] || "main";
+const by = process.argv[4] || "형";
+const ref = await addDoc(collection(db, "reviewThreads"), {
+  screenId,
+  by,
+  text,
+  replyTo: null,
+  at: kstNow(),
+  ts: serverTimestamp(),
+});
+console.log("posted root", ref.id, `screen=${screenId}`, `by=${by}`, kstNow());
 process.exit(0);

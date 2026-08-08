@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx react-scripts build:*)",
+      "Bash(ls:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\n홈프로 앱 전체 구축 - Pro 전용 홈서비스 플랫폼\n\n27개 카테고리 기반 견적/오더 시스템, AI견적, 나의오더, 마이페이지\\(콘텐츠 카드\\),\n캘린더, 커뮤니티, 비즈프로필, 채팅/계약, Firebase 연동 등 전체 기능 구현\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\n인증 시스템 포팅 - Apple 소셜로그인, 아이디/비밀번호 찾기, SMS 라벨\n\n- AuthService: Apple 웹/RN 로그인, sendPasswordResetEmailByAddress 추가\n- UserProfileService: getPrimaryUidByPhone 전화번호 역조회 추가\n- MobileFindAccountpage: 아이디 찾기\\(이메일 마스킹\\)/비밀번호 찾기\\(리셋 메일\\) 신규\n- MobileLoginpage: 네이버 제거, 찾기 버튼 라우팅 연결\n- SMS 발송에 label: \"홈프로\" 추가\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npm install:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase login:list:*)",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(npx:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nSMS 자체 Cloud Function 배포 및 RN 브릿지 핸들러 추가\n\n- functions/index.js: AuthCodeSend 엔드포인트 추가 \\(SMS 게이트웨이 프록시\\)\n- SMS URL을 homepro-43f7f 자체 Cloud Function으로 변경\n- 로그인 페이지: 소셜 로그인 토스트 처리, 테스트 바이패스 제거\n- App.js: RN→Web 메시지 핸들러 추가 \\(FCM토큰, 위치, 권한, 뒤로가기, 푸시\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(xargs find)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh repo create:*)",
+      "Bash(node scripts/seedVersion.js:*)",
+      "Bash(node -e:*)",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"\" node -e:*)",
+      "Bash(git checkout:*)",
+      "Bash(sort:*)"
+    ]
+  }
+}

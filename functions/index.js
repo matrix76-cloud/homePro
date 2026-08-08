@@ -2,6 +2,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onCall } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
+const { kakaoRestKey } = require("./config");
 
 admin.initializeApp();
 
@@ -18,7 +19,7 @@ exports.kakaoAuth = onCall({ region: "asia-northeast3" }, async (request) => {
 
     // 웹(브라우저) 로그인: authorization code → access token 교환
     if (!accessToken && code) {
-        const KAKAO_REST_KEY = process.env.KAKAO_REST_KEY || "ae8b70dff25588465673b02b1b0cf162";
+        const KAKAO_REST_KEY = kakaoRestKey();
         const tokenRes = await fetch("https://kauth.kakao.com/oauth/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
@@ -216,7 +217,7 @@ exports.reverseGeocode = onRequest({ region: "asia-northeast3", cors: true }, as
     const { x, y } = req.query;
     if (!x || !y) return res.status(400).json({ error: "x, y 필수" });
 
-    const KAKAO_KEY = process.env.KAKAO_REST_KEY || "ae8b70dff25588465673b02b1b0cf162";
+    const KAKAO_KEY = kakaoRestKey();
     try {
         const response = await fetch(
             `https://dapi.kakao.com/v2/local/geo/coord2regioninfo.json?x=${x}&y=${y}`,

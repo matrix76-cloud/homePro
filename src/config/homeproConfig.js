@@ -5,6 +5,7 @@
  * - 각 분야의 홈프로들이 "거래의 당사자"로 참여
  * - 일감 공유, 소개수수료 수익, 안정적 일감 확보
  */
+import { functionUrl } from "../api/config";
 
 // ─── 앱 기본 정보 ───
 // 배포할 때마다 이 버전을 올린다 (마이페이지에 표시됨)
@@ -516,12 +517,13 @@ export const PRO_DETAIL_FIELDS = {
 };
 
 // ─── Cloud Functions URL ───
+// 프로젝트를 갈아끼워도 따라오도록 api/config 의 functionUrl 로 조립한다(하드코딩 금지).
 export const APP_CONFIG = {
     sms: {
-        cfUrl: "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/api/AuthCodeSend",
+        cfUrl: functionUrl("api/AuthCodeSend"),
         label: "홈프로",
     },
-    resetPasswordUrl: "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/resetPassword",
+    resetPasswordUrl: functionUrl("resetPassword"),
 };
 
 // ─── 결제수단 ───

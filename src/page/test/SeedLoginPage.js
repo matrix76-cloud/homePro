@@ -13,10 +13,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { signInWithCustomToken } from "firebase/auth";
-import { auth } from "../../api/config";
+import { auth, functionUrl } from "../../api/config";
 
 const SECRET = "homepro-seed-2026-x9k3p";
-const DEFAULT_FN_URL = "https://asia-northeast3-homepro-43f7f.cloudfunctions.net/getSeedLoginToken";
+const DEFAULT_FN_URL = functionUrl("getSeedLoginToken");
 const FN_URL_KEY = "homepro.seedLoginFnUrl";
 
 const ACCOUNTS = [
