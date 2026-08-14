@@ -770,23 +770,6 @@ const MobileConfigpage = () => {
     setShowEditModal(false);
   };
 
-  // 일반고객 → 사업자회원 전환 (업체명 등록)
-  const handleConvertBusiness = async () => {
-    if (!uid) return;
-    const cn = window.prompt("사업자회원으로 전환합니다.\n업체명(상호명)을 입력하세요:", userData?.companyName || "");
-    if (cn === null) return;
-    const nameVal = cn.trim();
-    if (!nameVal) { window.alert("업체명을 입력해주세요."); return; }
-    try {
-      const { upsertUserProfile } = await import("../../service/UserProfileService");
-      await upsertUserProfile(uid, { userType: "business", companyName: nameVal, nickname: nameVal, name: nameVal });
-      try { await refreshUser?.(); } catch (e) { }
-      window.alert("사업자회원으로 전환되었습니다.");
-    } catch (e) {
-      window.alert("전환에 실패했습니다. 다시 시도해주세요.");
-    }
-  };
-
   const [, setProCats] = useAtom(proCategoriesAtom);
   const handleLogout = async () => {
     await signOutUser();
@@ -919,78 +902,7 @@ const MobileConfigpage = () => {
         </GradeSheetOverlay>
       )}
 
-      {/* 사업자회원 전환 (일반고객만) */}
-      {userData?.userType !== "business" && (
-        <ContentCard onClick={handleConvertBusiness} style={{ cursor: "pointer" }}>
-          <CardHeader>
-            <div>
-              <CardTitle>사업자회원 전환</CardTitle>
-              <CardDesc>업체명을 등록하고 사업자(홈프로) 회원으로 전환합니다</CardDesc>
-            </div>
-            <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-          </CardHeader>
-        </ContentCard>
-      )}
-
-      {/* 홈프로 리스트 */}
-      <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div><CardTitle>홈프로 리스트</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-
-      {/* 교육.장터 — 하단탭에서 마이로 이동 (대표 지시 8/4, 탭 자리는 안심케어가 사용) */}
-      <ContentCard onClick={() => navigate("/education-market")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div>
-            <CardTitle>교육.장터</CardTitle>
-            <CardDesc>교육 과정과 자재·장비 장터를 확인하세요</CardDesc>
-          </div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-
-      {/* 커뮤니티 */}
-      <ContentCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div><CardTitle>커뮤니티</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-
-      {/* 추천코드 */}
-      <ContentCard>
-        <CardHeader>
-          <div>
-            <CardTitle>추천코드</CardTitle>
-            <CardDesc>친구를 초대하고 포인트를 받으세요</CardDesc>
-          </div>
-        </CardHeader>
-        <ReferralBox>
-          <ReferralCode>{referralCode || "..."}</ReferralCode>
-          <CopyBtn onClick={handleCopyCode}>복사</CopyBtn>
-        </ReferralBox>
-        <ReferralStat>
-          <ReferralStatItem onClick={() => navigate("/referral/friends")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralCount}</ReferralNum><ReferralLabel>초대한 친구</ReferralLabel></ReferralStatItem>
-          <StatDivider2 />
-          <ReferralStatItem onClick={() => navigate("/referral/points")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralPoints.toLocaleString()}P</ReferralNum><ReferralLabel>받은 포인트</ReferralLabel></ReferralStatItem>
-        </ReferralStat>
-      </ContentCard>
-
-      {/* 구독 관리 */}
-      <ContentCard>
-        <CardHeader>
-          <div><CardTitle>구독 관리</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-        <SubStatusRow>
-          <SubBadge $active={false}>무료 체험중</SubBadge>
-          <SubText>구독하면 모든 오더를 받을 수 있어요</SubText>
-        </SubStatusRow>
-      </ContentCard>
-
-      {/* 포인트 / 정산 */}
+      {/* 포인트 / 정산 / 초대공유 / 초대현황 — 한 카드로 통합 (형 지시 8/8 메뉴 순서) */}
       <ContentCard>
         <CardHeader>
           <div>
@@ -1015,6 +927,63 @@ const MobileConfigpage = () => {
             <CashLabel>정산 대기</CashLabel>
           </CashItem>
         </CashGrid>
+        <ProfileDivider />
+        <CardHeader style={{ marginTop: 8 }}>
+          <div>
+            <CardTitle>초대 공유</CardTitle>
+            <CardDesc>친구를 초대하고 포인트를 받으세요</CardDesc>
+          </div>
+        </CardHeader>
+        <ReferralBox>
+          <ReferralCode>{referralCode || "..."}</ReferralCode>
+          <CopyBtn onClick={handleCopyCode}>복사</CopyBtn>
+        </ReferralBox>
+        <ReferralStat>
+          <ReferralStatItem onClick={() => navigate("/referral/friends")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralCount}</ReferralNum><ReferralLabel>초대한 친구</ReferralLabel></ReferralStatItem>
+          <StatDivider2 />
+          <ReferralStatItem onClick={() => navigate("/referral/points")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralPoints.toLocaleString()}P</ReferralNum><ReferralLabel>받은 포인트</ReferralLabel></ReferralStatItem>
+        </ReferralStat>
+      </ContentCard>
+
+      {/* 홈프로 리스트 */}
+      <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div><CardTitle>홈프로 리스트</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
+      {/* 구독 관리 */}
+      <ContentCard>
+        <CardHeader>
+          <div><CardTitle>구독 관리</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+        <SubStatusRow>
+          <SubBadge $active={false}>무료 체험중</SubBadge>
+          <SubText>구독하면 모든 오더를 받을 수 있어요</SubText>
+        </SubStatusRow>
+      </ContentCard>
+
+      {/* 기술전수교육 / 거래장터 — 분리 진입 (형 지시 8/8) */}
+      <ContentCard onClick={() => navigate("/education-market?seg=training")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>기술전수교육</CardTitle>
+            <CardDesc>기술 교육 과정을 확인하세요</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
+      <ContentCard onClick={() => navigate("/education-market?seg=market")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>거래장터</CardTitle>
+            <CardDesc>양도·매매와 자재·장비 장터를 확인하세요</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
       </ContentCard>
 
       {/* 홈프로 가이드 */}
@@ -1062,6 +1031,25 @@ const MobileConfigpage = () => {
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
         </SupportList>
+      </ContentCard>
+
+      {/* 커뮤니티 */}
+      <ContentCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div><CardTitle>커뮤니티</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
+      {/* 앱 설정 (형 지시 8/8) */}
+      <ContentCard onClick={() => navigate("/mypage/app-settings")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>앱 설정</CardTitle>
+            <CardDesc>알림·방해 금지 시간·다크모드</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
       </ContentCard>
 
       {/* 고객지원 */}

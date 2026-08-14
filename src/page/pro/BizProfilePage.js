@@ -57,7 +57,7 @@ const normalizeSnsValue = (key, raw) => {
 const BizProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userData } = useAuth();
+  const { userData, refreshUser } = useAuth();
   const myUid = userData?.uid;
   const viewUid = location.state?.viewUid; // 다른 프로 프로필 보기
   const isViewingOther = viewUid && viewUid !== myUid;
@@ -67,9 +67,10 @@ const BizProfilePage = () => {
   const [loadingMyPros, setLoadingMyPros] = useState(true);
   const [myProfile, setMyProfile] = useState(null);
   const [activityStats, setActivityStats] = useState({ quoteSent: 0, hireCount: 0 });
-  // 정산 계좌 (소개비 입금받을 계좌)
+  // 정산 계좌 (소개비 입금받을 계좌) — 접힘 기본, 클릭 시 입력폼 (형 지시 8/8)
   const [account, setAccount] = useState({ bank: "", number: "", holder: "" });
   const [savingAccount, setSavingAccount] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   // 포트폴리오·SNS 링크
   const [sns, setSns] = useState(EMPTY_SNS);
@@ -294,6 +295,23 @@ const BizProfilePage = () => {
       alert("저장 실패: " + (e.message || e));
     } finally {
       setSavingAccount(false);
+    }
+  };
+
+  // 일반고객 → 사업자회원 전환 — 마이페이지에서 비즈프로필로 이동 (형 지시 8/8)
+  const handleConvertBusiness = async () => {
+    if (!myUid) return;
+    const cn = window.prompt("사업자회원으로 전환합니다.\n업체명(상호명)을 입력하세요:", userData?.companyName || "");
+    if (cn === null) return;
+    const nameVal = cn.trim();
+    if (!nameVal) { window.alert("업체명을 입력해주세요."); return; }
+    try {
+      await upsertUserProfile(myUid, { userType: "business", companyName: nameVal, nickname: nameVal, name: nameVal });
+      setMyProfile((p) => ({ ...(p || {}), userType: "business", companyName: nameVal, nickname: nameVal, name: nameVal }));
+      try { await refreshUser?.(); } catch (e) { }
+      window.alert("사업자회원으로 전환되었습니다.");
+    } catch (e) {
+      window.alert("전환에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
@@ -535,26 +553,16 @@ const BizProfilePage = () => {
               </ActivityStatRow>
             </ActivityCard>
 
-            {/* 정산 계좌 (본인만) */}
-            {!isViewingOther && (
-              <AccountCard>
-                <AccountTitle>정산 계좌</AccountTitle>
-                <AccountSub>소개비·정산금을 입금받을 계좌입니다</AccountSub>
-                <AccountField>
-                  <AccountLabel>은행</AccountLabel>
-                  <AccountInput value={account.bank} onChange={(e) => setAccount((a) => ({ ...a, bank: e.target.value }))} placeholder="예: 국민은행" />
-                </AccountField>
-                <AccountField>
-                  <AccountLabel>계좌번호</AccountLabel>
-                  <AccountInput value={account.number} inputMode="numeric" onChange={(e) => setAccount((a) => ({ ...a, number: e.target.value.replace(/[^0-9-]/g, "") }))} placeholder="'-' 포함 또는 숫자만" />
-                </AccountField>
-                <AccountField>
-                  <AccountLabel>예금주</AccountLabel>
-                  <AccountInput value={account.holder} onChange={(e) => setAccount((a) => ({ ...a, holder: e.target.value }))} placeholder="예금주명" />
-                </AccountField>
-                <AccountSaveBtn onClick={handleSaveAccount} disabled={savingAccount}>
-                  {savingAccount ? "저장 중..." : "계좌 저장"}
-                </AccountSaveBtn>
+            {/* 사업자회원 전환 — 마이페이지에서 이동 (형 지시 8/8, 일반고객 본인만) */}
+            {!isViewingOther && (myProfile?.userType || userData?.userType) !== "business" && (
+              <AccountCard onClick={handleConvertBusiness} style={{ cursor: "pointer" }}>
+                <AccountHeadRow>
+                  <div>
+                    <AccountTitle>사업자회원 전환</AccountTitle>
+                    <AccountSub style={{ marginBottom: 0 }}>업체명을 등록하고 사업자(홈프로) 회원으로 전환합니다</AccountSub>
+                  </div>
+                  <IoChevronForward size={20} color={THEME.muted} />
+                </AccountHeadRow>
               </AccountCard>
             )}
 
@@ -684,6 +692,44 @@ const BizProfilePage = () => {
                   )}
                   <HiddenFile ref={certFileRef} type="file" accept="image/*" onChange={handleCertFile} />
                 </CertBlock>
+              </AccountCard>
+            )}
+
+            {/* 정산계좌 등록 — 하위 배치·접힘 기본, 클릭 시 입력폼 (형 지시 8/8, 본인만) */}
+            {!isViewingOther && (
+              <AccountCard>
+                <AccountHeadRow onClick={() => setAccountOpen((v) => !v)} style={{ cursor: "pointer" }}>
+                  <div>
+                    <AccountTitle>정산계좌 등록</AccountTitle>
+                    <AccountSub style={{ marginBottom: 0 }}>
+                      {myProfile?.account?.number
+                        ? `${myProfile.account.bank} ${myProfile.account.number} · ${myProfile.account.holder}`
+                        : "소개비·정산금을 입금받을 계좌를 등록하세요"}
+                    </AccountSub>
+                  </div>
+                  {accountOpen
+                    ? <IoChevronDown size={20} color={THEME.muted} />
+                    : <IoChevronForward size={20} color={THEME.muted} />}
+                </AccountHeadRow>
+                {accountOpen && (
+                  <>
+                    <AccountField>
+                      <AccountLabel>은행</AccountLabel>
+                      <AccountInput value={account.bank} onChange={(e) => setAccount((a) => ({ ...a, bank: e.target.value }))} placeholder="예: 국민은행" />
+                    </AccountField>
+                    <AccountField>
+                      <AccountLabel>계좌번호</AccountLabel>
+                      <AccountInput value={account.number} inputMode="numeric" onChange={(e) => setAccount((a) => ({ ...a, number: e.target.value.replace(/[^0-9-]/g, "") }))} placeholder="'-' 포함 또는 숫자만" />
+                    </AccountField>
+                    <AccountField>
+                      <AccountLabel>예금주</AccountLabel>
+                      <AccountInput value={account.holder} onChange={(e) => setAccount((a) => ({ ...a, holder: e.target.value }))} placeholder="예금주명" />
+                    </AccountField>
+                    <AccountSaveBtn onClick={handleSaveAccount} disabled={savingAccount}>
+                      {savingAccount ? "저장 중..." : "계좌 저장"}
+                    </AccountSaveBtn>
+                  </>
+                )}
               </AccountCard>
             )}
 
@@ -1334,6 +1380,14 @@ const AccountCard = styled.div`
   border-radius: 16px;
   padding: 18px 20px;
   box-shadow: ${THEME.cardShadow};
+`;
+
+const AccountHeadRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  &:active { opacity: 0.7; }
 `;
 
 const AccountTitle = styled.div`

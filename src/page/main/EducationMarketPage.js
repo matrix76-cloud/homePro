@@ -1,6 +1,7 @@
 /* eslint-disable */
 // 교육.장터 — 기술교육 + 양도·매매 + 자재·장비 3영역을 한 탭에 세그먼트로 통합
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { THEME } from "../../config/homeproConfig";
@@ -15,7 +16,10 @@ const SEGMENTS = [
 ];
 
 const EducationMarketPage = () => {
-  const [seg, setSeg] = useState("training");
+  // 마이페이지의 기술전수교육/거래장터 분리 진입 — ?seg= 로 초기 세그먼트 지정 (형 지시 8/8)
+  const [searchParams] = useSearchParams();
+  const initSeg = SEGMENTS.some((s) => s.key === searchParams.get("seg")) ? searchParams.get("seg") : "training";
+  const [seg, setSeg] = useState(initSeg);
   return (
     <MainListLayout NAME="교육.장터" footerType="education" hideBack>
       <SegRow>

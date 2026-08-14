@@ -77,6 +77,7 @@ import ReferralFriendsPage from "./page/referral/ReferralFriendsPage";
 import ReferralPointsPage from "./page/referral/ReferralPointsPage";
 import ReferralInputPage from "./page/referral/ReferralInputPage";
 import BlockListPage from "./page/mypage/BlockListPage";
+import AppSettingsPage from "./page/mypage/AppSettingsPage";
 import BlacklistPage from "./page/mypage/BlacklistPage";
 import BlacklistBoardPage from "./page/mypage/BlacklistBoardPage";
 
@@ -326,6 +327,7 @@ const AnimatedRoutes = () => {
 
             {/* Mypage */}
             <Route path="/mypage/blocks" element={wrap(<BlockListPage />)} />
+            <Route path="/mypage/app-settings" element={wrap(<AppSettingsPage />)} />
             <Route path="/mypage/blacklist" element={wrap(<BlacklistPage />)} />
             <Route path="/blacklist-board" element={wrap(<BlacklistBoardPage />)} />
 
