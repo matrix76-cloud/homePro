@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
@@ -18,6 +18,19 @@ const SupportPage = () => {
     const [keyword, setKeyword] = useState("");
     const [cat, setCat] = useState(ALL);
     const [openId, setOpenId] = useState(null);
+
+    // 연락처 — settings/companyInfo(관리자 설정)에서 로드, 값 없으면 "준비 중" (사업자 정보 실제값 전환 8/14)
+    const [companyInfo, setCompanyInfo] = useState(null);
+    useEffect(() => {
+        (async () => {
+            try {
+                const { doc, getDoc } = await import("firebase/firestore");
+                const { db } = await import("../../api/config");
+                const snap = await getDoc(doc(db, "settings", "companyInfo"));
+                if (snap.exists()) setCompanyInfo(snap.data());
+            } catch {}
+        })();
+    }, []);
 
     const searching = keyword.trim().length > 0;
 
@@ -144,18 +157,18 @@ const SupportPage = () => {
                         <ContactIcon><IoCallOutline size={20} color={THEME.primary} /></ContactIcon>
                         <ContactInfo>
                             <ContactLabel>전화 문의</ContactLabel>
-                            <ContactValue>1588-0000</ContactValue>
+                            <ContactValue>{companyInfo?.phone || "준비 중"}</ContactValue>
                         </ContactInfo>
-                        <ContactSub>평일 09:00 ~ 18:00</ContactSub>
+                        <ContactSub>{companyInfo?.phone ? "평일 09:00 ~ 18:00" : ""}</ContactSub>
                     </ContactRow>
                     <Divider />
                     <ContactRow>
                         <ContactIcon><IoMailOutline size={20} color={THEME.primary} /></ContactIcon>
                         <ContactInfo>
                             <ContactLabel>이메일 문의</ContactLabel>
-                            <ContactValue>support@homepro.kr</ContactValue>
+                            <ContactValue>{companyInfo?.email || "준비 중"}</ContactValue>
                         </ContactInfo>
-                        <ContactSub>24시간 접수</ContactSub>
+                        <ContactSub>{companyInfo?.email ? "24시간 접수" : ""}</ContactSub>
                     </ContactRow>
                     <Divider />
                     <ContactRow>
