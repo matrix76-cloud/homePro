@@ -21,8 +21,8 @@ await ref.set({
   ceo: "임옥진",
   bizNumber: "708-87-04038",
   address: "충청남도 논산시 은진면 탑정로 342-1",
+  email: "homenex74@gmail.com", // 고객센터 이메일 (대표님 확정 8/14 카톡)
   // phone: "",              // 고객센터 대표번호 — 대표님 회신 대기
-  // email: "",              // 고객센터 이메일 — 대표님 회신 대기
   // mailOrderRegNo: "",     // 통신판매업 신고번호 — 신고 후
 }, { merge: true });
 
