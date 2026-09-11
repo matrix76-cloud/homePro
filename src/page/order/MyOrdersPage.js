@@ -84,12 +84,17 @@ const normalizeStatus = (s) => {
 };
 
 /* ─── 단가유형/요청방식 표시 (메인화면 사양과 동일 포맷) ─── */
-const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
+const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청", info: "정보공유" };
 /* 금액 미정 단가유형 — 수락→배정 후 견적서 전송 (현장견적/견적요청 통합) */
 const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 
 const formatPriceLine = (order) => {
+  // 정보공유: 리워드 금액을 같이 표기
+  if (order.b2bPriceType === "info") {
+    const r = Number(order.infoReward) || 0;
+    return r > 0 ? `정보공유 · 리워드 ${r.toLocaleString()}원` : "정보공유";
+  }
   // 현장견적/견적요청: 선정 홈프로가 견적서를 전송하면 그 금액을 함께 표기
   if (UNPRICED_TYPES.includes(order.b2bPriceType)) {
     const label = PRICE_TYPE_LABEL[order.b2bPriceType] || "견적요청";
@@ -495,8 +500,11 @@ export const MyOrdersContent = () => {
                             견적서 전송
                           </ActionBtn>
                         )}
-                        {/* 현장 인증(대표 지시 8/4) — 체크인 전에는 체크인부터, 체크아웃은 After 사진과 함께 현장기록 화면에서 처리 */}
-                        {!order.checkInAt ? (
+                        {/* 정보공유 오더는 체크인 생략 — 리드 확인 후 계약 성사로 완료 처리 (대표 지시 8/20). 리워드·인센티브 지급은 결제 연동 뒤 */}
+                        {order.b2bPriceType === "info" ? (
+                          <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>계약 성사(완료)</ActionBtn>
+                        ) : /* 현장 인증(대표 지시 8/4) — 체크인 전에는 체크인부터, 체크아웃은 After 사진과 함께 현장기록 화면에서 처리 */
+                        !order.checkInAt ? (
                           <ActionBtn
                             $variant="primary"
                             onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkin`); }}

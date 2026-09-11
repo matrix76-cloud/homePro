@@ -513,6 +513,7 @@ export const OrderCreateContent = () => {
   const [expandedGroup, setExpandedGroup] = useState(null);
   const [selectedSub, setSelectedSub] = useState([]);
   const [selectedService, setSelectedService] = useState(""); // 서비스(subGroup 라벨) 드릴다운
+  const [selectedServices, setSelectedServices] = useState([]); // multiService 카테고리 — 동시에 고른 서비스들 (대표 지시 9/10)
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [attrValues, setAttrValues] = useState({}); // 카테고리별 추가 속성 선택값 {key: [값]}
   const [inputValues, setInputValues] = useState({}); // 직접 입력값 {섹션키: {필드키: 값}}
@@ -552,7 +553,12 @@ export const OrderCreateContent = () => {
   const [workTimeMode, setWorkTimeMode] = useState("");
   const [workTimeStart, setWorkTimeStart] = useState("");
   const [workTimeEnd, setWorkTimeEnd] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");   // 구 오더 표시용
+  // 결제방식 — 선결제(prepay) / 후불(later). 형·대표님 확정 9/11. 금액 없는 유형은 선결제 불가.
+  const [payMode, setPayMode] = useState("");
+  // 정보공유 유형 보상 두 칸 (대표 지시 8/20)
+  const [infoReward, setInfoReward] = useState("");
+  const [contractBonus, setContractBonus] = useState("");
   const [b2bPriceType, setB2bPriceType] = useState("");
   const [b2bPriceAmount, setB2bPriceAmount] = useState("");
   const [referralFeeType, setReferralFeeType] = useState("none");
@@ -589,7 +595,15 @@ export const OrderCreateContent = () => {
     const subs = editOrder.subcategories && editOrder.subcategories.length
       ? editOrder.subcategories
       : (editOrder.subcategory ? String(editOrder.subcategory).split(", ").filter(Boolean) : []);
-    if (cfg?.subGroups && subs.length) {
+    if (cfg?.subGroups && cfg.multiService && subs.length) {
+      // 중복 서비스 카테고리 — 종목이 속한 서비스를 전부 복원
+      const grps = cfg.subGroups.filter((g) => subs.some((s) => s === g.label || s.startsWith(g.label + " ")));
+      setSelectedServices(grps.map((g) => g.label));
+      setSelectedSub(subs.map((s) => {
+        const g = grps.find((x) => s.startsWith(x.label + " "));
+        return g ? `${g.label}:${s.slice(g.label.length + 1)}` : s;
+      }));
+    } else if (cfg?.subGroups && subs.length) {
       const grp = cfg.subGroups.find((g) => subs.some((s) => s === g.label || s.startsWith(g.label + " ")));
       if (grp) {
         setSelectedService(grp.label);
@@ -633,6 +647,9 @@ export const OrderCreateContent = () => {
     setCustomerPhone(editOrder.customerPhone || "");
     setB2bPriceType(editOrder.b2bPriceType || "");
     setB2bPriceAmount(editOrder.b2bPriceAmount ? String(editOrder.b2bPriceAmount) : "");
+    setPayMode(editOrder.payMode || (editOrder.paymentMethod === "선결제" ? "prepay" : editOrder.paymentMethod ? "later" : ""));
+    setInfoReward(editOrder.infoReward ? String(editOrder.infoReward) : "");
+    setContractBonus(editOrder.contractBonus ? String(editOrder.contractBonus) : "");
     if (editOrder.referralFee && editOrder.referralFee.type) {
       setReferralFeeType(editOrder.referralFee.type);
       if (editOrder.referralFee.type === "fixed") {
@@ -657,16 +674,19 @@ export const OrderCreateContent = () => {
   // 우회하던 매핑. 라벨 개편으로 매핑이 어긋나 새 사양(attrSections)이 가려지거나
   // 무관한 섹션이 노출되던 원인. 이제 카테고리 자신의 config 하나만 쓴다.
   const detailConfig = formConfig;
+  // 중복 서비스 카테고리(가전분해청소)는 여러 서비스를 동시에 고른다 — activeServices 가 지금 고른 서비스 전부
+  const multiService = !!formConfig?.multiService;
+  const activeServices = multiService ? selectedServices : (selectedService ? [selectedService] : []);
   // subGroups(서비스 선택) 카테고리는 서비스 고른 뒤에 상세필드 노출
-  const showDetail = !formConfig?.subGroups || !!selectedService;
+  const showDetail = !formConfig?.subGroups || activeServices.length > 0;
   // attrSections 에 services 배열이 있으면 해당 서비스 선택 시에만 표시
   const visibleAttrSections = (detailConfig?.attrSections || []).filter(
-    (sec) => !sec.services || sec.services.includes(selectedService)
+    (sec) => !sec.services || sec.services.some((sv) => activeServices.includes(sv))
   );
   // inputSections 조건부 표시 (대표 지시 8/5)
   //  whenItems: 특정 종목(부분청소 등)을 골랐을 때만  ·  whenAttr: 특정 속성값(옵션 '기타')을 골랐을 때만
   const visibleInputSections = (Array.isArray(detailConfig?.inputSections) ? detailConfig.inputSections : []).filter((sec) => {
-    if (sec.services && !sec.services.includes(selectedService)) return false;
+    if (sec.services && !sec.services.some((sv) => activeServices.includes(sv))) return false;
     if (sec.whenItems) {
       const picked = selectedSub.some((k) => sec.whenItems.includes(k.includes(":") ? k.split(":")[1] : k));
       if (!picked) return false;
@@ -784,7 +804,19 @@ export const OrderCreateContent = () => {
     setInputValues({});
     setItemQty({});
     setSelectedService("");
+    setSelectedServices([]);
   };
+
+  // 금액이 정해진 유형(시공금액·잔금·H-포인트)만 선결제 가능
+  const isPricedType = COMMON_B2B_FIELDS.priceType.pricedTypes.includes(b2bPriceType);
+  const isInfoType = b2bPriceType === "info";
+  // 소개 수수료 정률 상한 — 선결제 30% · 후불 15% (결제방식 안 골랐으면 후불 기준)
+  const referralRateCap = COMMON_B2B_FIELDS.referralFee.rateCap[payMode === "prepay" ? "prepay" : "later"];
+  const referralRates = COMMON_B2B_FIELDS.referralFee.rates.filter((r) => r <= referralRateCap);
+  // 유형이 바뀌어 선결제가 불가능해지면 결제방식 초기화, 상한 넘는 정률은 지운다
+  useEffect(() => { if (payMode === "prepay" && !isPricedType) setPayMode(""); }, [isPricedType, payMode]);
+  useEffect(() => { if (referralFeeRate && Number(referralFeeRate) > referralRateCap) setReferralFeeRate(""); }, [referralRateCap, referralFeeRate]);
+  useEffect(() => { if (isInfoType && referralFeeType !== "none") setReferralFeeType("none"); }, [isInfoType, referralFeeType]);
 
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
@@ -794,6 +826,8 @@ export const OrderCreateContent = () => {
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
+    if (b2bPriceType === "info" && !infoReward) { showToast("정보제공 리워드를 입력해주세요"); return false; }
+    if (payMode === "prepay" && !(isPricedType && Number(b2bPriceAmount) > 0)) { showToast("선결제는 금액이 정해진 단가유형에서만 고를 수 있어요"); return false; }
     return true;
   };
 
@@ -894,7 +928,7 @@ export const OrderCreateContent = () => {
         directPrice: priceType === "direct" ? directPrice : "",
         // 금액 표기 = 단가유형 기준 (예: "시공금액 330,000원" / "현장견적" / "견적요청")
         price: (() => {
-          const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청" };
+          const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", info: "정보공유" };
           const label = map[b2bPriceType] || "견적요청";
           if ((b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") && b2bPriceAmount) {
             return `${label} ${Number(b2bPriceAmount).toLocaleString()}${b2bPriceType === "hpoint" ? "P" : "원"}`;
@@ -912,10 +946,15 @@ export const OrderCreateContent = () => {
         workTime: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : (workTimeMode || null),
         contactPhone: contactPhone || null,
         customerPhone: customerPhone || null,
-        paymentMethod: paymentMethod || null,
+        // 결제방식 — payMode 가 진실, paymentMethod 는 화면 표기용 문자열 (구 오더 호환)
+        payMode: payMode || null,
+        paymentMethod: payMode === "prepay" ? "선결제" : payMode === "later" ? "후불 (당사자 정산)" : (paymentMethod || null),
+        // 정보공유 보상 (정보공유 유형일 때만)
+        infoReward: isInfoType ? Number(infoReward) || null : null,
+        contractBonus: isInfoType ? Number(contractBonus) || null : null,
         b2bPriceType: b2bPriceType || null,
         b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") ? Number(b2bPriceAmount) || null : null,
-        referralFee: referralFeeType === "none" ? null : referralFeeValue,
+        referralFee: referralFeeType === "none" || isInfoType ? null : referralFeeValue,
         // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
         referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
         matchType: matchType || null,
@@ -991,6 +1030,11 @@ export const OrderCreateContent = () => {
       const amt = b2bPriceAmount ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : "";
       items.push({ k: "단가유형", v: `${ptLabel}${amt}` });
     }
+    if (isInfoType) {
+      items.push({ k: "정보제공 리워드", v: `${Number(infoReward || 0).toLocaleString()}원` });
+      if (contractBonus) items.push({ k: "계약성사 인센티브", v: `${Number(contractBonus).toLocaleString()}원` });
+    }
+    if (payMode) items.push({ k: "결제방식", v: labelOf(COMMON_B2B_FIELDS.payMode.options, payMode) });
     if (referralFeeType && referralFeeType !== "none") {
       let v = "";
       if (referralFeeType === "fixed") {
@@ -1105,8 +1149,55 @@ export const OrderCreateContent = () => {
             <NoticeBox>{formConfig.notice}</NoticeBox>
           )}
 
+          {/* 중복 서비스 카테고리(가전분해청소) — 서비스를 여러 개 고르고 각 서비스의 종목을 함께 고른다 (대표 지시 9/10) */}
+          {formConfig?.subGroups && multiService && (
+            <Section>
+              <Label>서비스 선택 <span style={{ fontWeight: 400, color: THEME.muted, fontSize: 14 }}>· 여러 개 함께 선택 가능</span></Label>
+              <ChipGrid>
+                {formConfig.subGroups.filter((g) => g.label !== "기타").map((group) => (
+                  <Chip
+                    key={group.label}
+                    $selected={selectedServices.includes(group.label)}
+                    onClick={() => {
+                      const on = selectedServices.includes(group.label);
+                      setSelectedServices(on ? selectedServices.filter((l) => l !== group.label) : [...selectedServices, group.label]);
+                      if (on) setSelectedSub(selectedSub.filter((k) => !k.startsWith(`${group.label}:`)));
+                    }}
+                  >
+                    {group.label}
+                  </Chip>
+                ))}
+              </ChipGrid>
+              {selectedServices.map((label) => {
+                const group = formConfig.subGroups.find((g) => g.label === label);
+                if (!group) return null;
+                const etcKey = `${label}:기타`;
+                const etcOn = selectedSub.includes(etcKey);
+                return (
+                  <div key={label} style={{ marginTop: 14 }}>
+                    <GroupLabel>{label} 종목 선택</GroupLabel>
+                    <ChipGrid>
+                      {group.items.filter((it) => !/^(기타|입력|직접입력|기타\[ ?입력 ?\])$/.test(it)).map((item) => {
+                        const uniqueKey = `${label}:${item}`;
+                        return (
+                          <Chip key={uniqueKey} $selected={selectedSub.includes(uniqueKey)} onClick={() => handleSubToggle(uniqueKey)}>
+                            {item}
+                          </Chip>
+                        );
+                      })}
+                      <Chip $selected={etcOn} onClick={() => handleSubToggle(etcKey)}>기타</Chip>
+                    </ChipGrid>
+                    {etcOn && (
+                      <Input style={{ marginTop: 8 }} placeholder="기타 내용을 입력하세요" value={customInput} onChange={(e) => setCustomInput(e.target.value)} />
+                    )}
+                  </div>
+                );
+              })}
+            </Section>
+          )}
+
           {/* 세부 항목 — 서비스 선택 → 종목 선택 드릴다운 */}
-          {formConfig?.subGroups && (
+          {formConfig?.subGroups && !multiService && (
             <Section>
               <Label>서비스 선택</Label>
               <ChipGrid>
@@ -1558,9 +1649,49 @@ export const OrderCreateContent = () => {
                 <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={`금액 입력 (${unit})`} value={withComma(b2bPriceAmount)} onChange={(e) => setB2bPriceAmount(onlyDigits(e.target.value))} />
               );
             })()}
+            {/* 정보공유 유형 — 보상 두 칸 (대표 지시 8/20) */}
+            {isInfoType && (
+              <div style={{ marginTop: 12 }}>
+                {COMMON_B2B_FIELDS.infoReward.fields.map((f) => (
+                  <div key={f.key} style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 15, color: THEME.muted, marginBottom: 6 }}>{f.label} <span style={{ color: THEME.textSecondary }}>· {f.hint}</span></div>
+                    <Input inputMode="numeric" placeholder={`${f.label} (원)`}
+                      value={withComma(f.key === "infoReward" ? infoReward : contractBonus)}
+                      onChange={(e) => (f.key === "infoReward" ? setInfoReward : setContractBonus)(onlyDigits(e.target.value))} />
+                  </div>
+                ))}
+              </div>
+            )}
           </Section>
 
-          {/* 소개(캐시백) 수수료 */}
+          {/* 결제방식 — 선결제 / 후불 (형·대표님 확정 9/11). 금액 없는 유형은 선결제 불가 */}
+          {!isInfoType && (
+            <Section>
+              <LabelRow>
+                <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.payMode.label}</Label>
+                <HelpBtn type="button" onClick={() => setHelpPopup({ title: "결제방식 안내", items: COMMON_B2B_FIELDS.payMode.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
+              </LabelRow>
+              <ChipGrid style={{ marginTop: 12 }}>
+                {COMMON_B2B_FIELDS.payMode.options.map((opt) => {
+                  const disabled = opt.value === "prepay" && !isPricedType;
+                  return (
+                    <Chip key={opt.value} $selected={payMode === opt.value} style={disabled ? { opacity: 0.45 } : undefined}
+                      onClick={() => { if (disabled) { showToast("선결제는 시공금액·잔금·H-포인트 유형에서만 고를 수 있어요"); return; } setPayMode(opt.value); }}>
+                      {opt.label}
+                    </Chip>
+                  );
+                })}
+              </ChipGrid>
+              {payMode === "prepay" && (
+                <div style={{ marginTop: 10, fontSize: 15, color: THEME.muted, lineHeight: 1.5 }}>
+                  홈프로가 수락하면 결제 요청이 옵니다. 결제한 금액은 작업 완료 후 수행 홈프로에게 지급되고, 소개 수수료는 접수자에게 돌아옵니다.
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* 소개(캐시백) 수수료 — 정보공유 유형은 자체 보상이 있어 숨긴다 */}
+          {!isInfoType && (
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>
@@ -1588,9 +1719,12 @@ export const OrderCreateContent = () => {
             )}
             {referralFeeType === "rate" && (
               <ChipGrid>
-                {COMMON_B2B_FIELDS.referralFee.rates.map((r) => (
+                {referralRates.map((r) => (
                   <Chip key={r} $selected={referralFeeRate === String(r)} onClick={() => setReferralFeeRate(String(r))}>{r}%</Chip>
                 ))}
+                <div style={{ width: "100%", fontSize: 14, color: THEME.muted, marginTop: 4 }}>
+                  {payMode === "prepay" ? "선결제 오더는 최대 30%까지" : "후불 오더는 최대 15%까지 (선결제로 바꾸면 30%까지)"}
+                </div>
               </ChipGrid>
             )}
             {referralFeeType === "hpoint" && (
@@ -1609,6 +1743,7 @@ export const OrderCreateContent = () => {
               </>
             )}
           </Section>
+          )}
 
           {/* 홈프로 선택 */}
           <Section>

@@ -68,7 +68,6 @@ import ScheduleCreatePage from "./page/calendar/ScheduleCreatePage";
 import SearchPage from "./page/search/SearchPage";
 import ChatDetailPage from "./page/chat/ChatDetailPage";
 import ChatMemoPage from "./page/chat/ChatMemoPage";
-import OpenChatCreatePage from "./page/chat/OpenChatCreatePage";
 import CommunityPage from "./page/community/CommunityPage";
 import CommunityDetailPage from "./page/community/CommunityDetailPage";
 import CommunityWritePage from "./page/community/CommunityWritePage";
@@ -261,7 +260,6 @@ const AnimatedRoutes = () => {
             <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
             <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
             <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
-            <Route path="/chat/open/create" element={wrap(<OpenChatCreatePage />)} />
             <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
             <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
             <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />

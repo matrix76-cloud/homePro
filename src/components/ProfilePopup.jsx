@@ -6,6 +6,9 @@ import { IoPersonCircleOutline, IoCloseOutline, IoStar } from "react-icons/io5";
 import { THEME } from "../config/homeproConfig";
 import { getUserProfileByUid } from "../service/UserProfileService";
 import { hasBusinessLicense, getCompletedOrderCount } from "../service/CertificateService";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { blockUser, isBlocked } from "../service/BlockService";
 
 const GRADE_LABEL = { rookie: "루키", bronze: "브론즈", silver: "실버", gold: "골드", diamond: "다이아", master: "마스터" };
 
@@ -15,6 +18,26 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
   const [loading, setLoading] = useState(!!uid);
   // 신뢰요소 — 홈프로 누적 오더 완료 건수 (대표 지시 7/30)
   const [completedCount, setCompletedCount] = useState(null);
+  // 거부 등록 · 블랙리스트 신고 — 프로필 팝업에서 바로 (대표 지시 8/21)
+  const navigate = useNavigate();
+  const { userData } = useAuth();
+  const myUid = userData?.uid;
+  const isMe = !uid || !myUid || myUid === uid;
+  const [blocked, setBlocked] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
+  useEffect(() => {
+    if (isMe) return;
+    isBlocked(myUid, uid).then((b) => setBlocked(!!b)).catch(() => {});
+  }, [isMe, myUid, uid]);
+  const handleBlock = async () => {
+    if (blockBusy || blocked) return;
+    if (!window.confirm("이 사용자를 거부 등록할까요?\n거부 등록하면 서로 오더 공유·수락이 되지 않습니다. 나의 거부 목록에서 언제든 해제할 수 있어요.")) return;
+    setBlockBusy(true);
+    try { await blockUser(myUid, uid, "프로필에서 직접 등록"); setBlocked(true); }
+    catch (e) { alert(e.message || "거부 등록 실패"); }
+    finally { setBlockBusy(false); }
+  };
+  const handleReport = () => { onClose?.(); navigate("/biz-profile", { state: { viewUid: uid, openReport: true } }); };
 
   useEffect(() => {
     let alive = true;
@@ -88,6 +111,14 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
             {!region && !career && !intro && !grade && rating === 0 && (
               <Empty>등록된 상세 프로필 정보가 없습니다.</Empty>
             )}
+            {!isMe && (
+              <ActionRow>
+                <ActionBtn type="button" onClick={handleBlock} disabled={blocked || blockBusy}>
+                  {blocked ? "거부 등록됨" : "거부 등록"}
+                </ActionBtn>
+                <ActionBtn type="button" onClick={handleReport}>블랙리스트 신고</ActionBtn>
+              </ActionRow>
+            )}
           </Body>
         )}
       </Box>
@@ -96,6 +127,15 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
 };
 
 export default ProfilePopup;
+
+const ActionRow = styled.div`
+  display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid ${THEME.border || "#F0F0F4"};
+`;
+const ActionBtn = styled.button`
+  flex: 1; height: 44px; border-radius: 10px; border: 1px solid ${THEME.border || "#E5E7EB"}; background: #fff;
+  color: ${THEME.text || "#2b2f36"}; font-size: 15px; font-weight: 600; cursor: pointer;
+  &:disabled { color: ${THEME.muted}; cursor: default; }
+`;
 
 const Overlay = styled.div`
   position: fixed; inset: 0; z-index: 1200;

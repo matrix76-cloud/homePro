@@ -58,7 +58,7 @@ const STATUS_BADGE = {
   "완료": { bg: THEME.success, text: "#fff" },
 };
 
-const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청" };
+const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청", info: "정보공유" };
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 const HP_ASSIGNED_STATUSES = new Set(["배정", "선정대기", "업체선택대기", "완료", "마감"]);
 // 종료된 오더 — 되돌릴 수 없으므로 접수자의 대기·재접수·취소를 모두 막는다 (대표 지시 8/5)
@@ -110,6 +110,8 @@ const OrderDetailPage = () => {
   // 명세 D8/E11: 매칭방식(빠른/비교)으로 먼저 수락·배정되고, 견적가는 배정 후 전송.
   // (현장견적·견적요청 모두 동일 흐름으로 통합 — 견적 먼저 보내기 패러다임 폐지)
   const isUnpriced = ["onsite", "estimate", "quote"].includes(order?.b2bPriceType);
+  // 정보공유 오더 — 견적·체크인 없이 리드 확인 → 계약 성사로 진행 (대표 지시 8/20)
+  const isInfoOrder = order?.b2bPriceType === "info";
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
 
@@ -729,9 +731,21 @@ const OrderDetailPage = () => {
                 </ConditionValue>
               </ConditionRow>
             )}
+            {isInfoOrder && (
+              <>
+                <ConditionRow>
+                  <ConditionLabel>정보제공 리워드</ConditionLabel>
+                  <ConditionValue>{order.infoReward ? `${Number(order.infoReward).toLocaleString()}원` : "-"}</ConditionValue>
+                </ConditionRow>
+                <ConditionRow>
+                  <ConditionLabel>계약성사 인센티브</ConditionLabel>
+                  <ConditionValue>{order.contractBonus ? `${Number(order.contractBonus).toLocaleString()}원` : "-"}</ConditionValue>
+                </ConditionRow>
+              </>
+            )}
             {order.paymentMethod && (
               <ConditionRow>
-                <ConditionLabel>결제수단</ConditionLabel>
+                <ConditionLabel>{order.payMode ? "결제방식" : "결제수단"}</ConditionLabel>
                 <ConditionValue>{order.paymentMethod}</ConditionValue>
               </ConditionRow>
             )}
@@ -856,7 +870,9 @@ const OrderDetailPage = () => {
             <SectionTitle>{isUnpriced ? "견적가 안내" : "단가 안내"}</SectionTitle>
             <DetailText style={{ color: THEME.muted }}>
               {/* 현장견적은 방문이 필수, 견적요청은 선택 (대표 확정 8/7) */}
-              {!isUnpriced
+              {isInfoOrder
+                ? "정보공유 오더는 견적서·현장 체크인 없이 진행합니다. 제보된 정보를 확인하면 정보제공 리워드를, 그 업체와 계약이 성사되면 계약성사 인센티브를 접수자(제보자)에게 지급합니다."
+                : !isUnpriced
                 ? `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`
                 : order.b2bPriceType === "onsite"
                   ? "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 반드시 현장을 직접 방문하여 현장상태·실측 결과·특이 사항을 확인한 뒤 최종 금액을 산정·확정해 접수자에게 제안합니다."
@@ -959,11 +975,14 @@ const OrderDetailPage = () => {
                 <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
               </PrimaryCTA>
             </ActionRow>
-            <ActionRow>
-              <OutlinedBtn onClick={() => navigate(`/order/worklog/${order.id}`)}>
-                {order.checkInAt ? "현장기록" : "현장 체크인"}
-              </OutlinedBtn>
-            </ActionRow>
+            {/* 정보공유 오더는 체크인 생략 (대표 지시 8/20) */}
+            {!isInfoOrder && (
+              <ActionRow>
+                <OutlinedBtn onClick={() => navigate(`/order/worklog/${order.id}`)}>
+                  {order.checkInAt ? "현장기록" : "현장 체크인"}
+                </OutlinedBtn>
+              </ActionRow>
+            )}
           </>
         ) : isPendingApplicant ? (
           /* 비교선정 지원 완료(선정 전) — 상태 선정대기 + 접수자와 전화/채팅 */

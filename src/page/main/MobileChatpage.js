@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoPeopleOutline } from "react-icons/io5";
 import { THEME, CATEGORIES } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
-import { subscribeChatRooms, subscribeOpenRooms, joinOpenRoom } from "../../service/ChatService";
+import { subscribeChatRooms } from "../../service/ChatService";
 import { getOrderById } from "../../service/OrderService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
@@ -23,7 +23,7 @@ const MobileChatpage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const [rooms, setRooms] = useState([]);
-  const [openAll, setOpenAll] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [focusedRoom, setFocusedRoom] = useState(null);
   const [activeTab, setActiveTab] = useState("general"); // 명세: 일반/오픈 2탭
@@ -39,11 +39,6 @@ const MobileChatpage = () => {
       setLoading(false);
     });
   }, [myUid]);
-
-  // 오픈채팅 둘러보기: 전체 공개방 구독 (참여 여부 무관)
-  useEffect(() => {
-    return subscribeOpenRooms((list) => setOpenAll(list));
-  }, []);
 
   // 오더 연동 채팅방의 종목명 표시를 위해 오더 배치 조회
   useEffect(() => {
@@ -75,23 +70,6 @@ const MobileChatpage = () => {
     return "기타";
   };
 
-  const handleEnterOpenRoom = async (room) => {
-    const joined = (room.participants || []).includes(myUid);
-    if (!joined && myUid) {
-      try {
-        await joinOpenRoom(
-          room.id,
-          myUid,
-          userData?.nickname || userData?.name || "익명",
-          userData?.profileImage || userData?.photoURL || ""
-        );
-      } catch (e) {
-        console.error("오픈채팅 입장 실패:", e);
-      }
-    }
-    navigate(`/chat/${room.id}`);
-  };
-
   const getRoomDisplayName = (room) => {
     if (room.roomName) return room.roomName;
     const names = room.participantNames || {};
@@ -110,9 +88,9 @@ const MobileChatpage = () => {
     return counts[myUid] || 0;
   };
 
-  // 일반 탭 = 오픈 제외 전부 (오더 채팅 + 일반 채팅 통합)
+  // 오픈채팅은 삭제했다 (대표 지시 9/10) — 오더 채팅 + 일반 채팅만
   const normalRooms = rooms.filter((r) => r.roomType !== "open");
-  const openRooms = openAll; // 둘러보기: 전체 공개방
+  const openRooms = [];
 
   const NORMAL_CATEGORIES = ["전체", "오더", "기술전수", "자재.장비", "기타"];
   const OPEN_CATEGORIES = ["전체", "오더", "인력", "기술교육", "매매양도", "자재.장비"];
@@ -127,7 +105,6 @@ const MobileChatpage = () => {
       <Tabs
         tabs={[
           { key: "general", label: `일반${normalRooms.length > 0 ? ` (${normalRooms.length})` : ""}` },
-          { key: "open", label: `오픈채팅${openRooms.length > 0 ? ` (${openRooms.length})` : ""}` },
         ]}
         active={activeTab}
         onChange={setActiveTab}

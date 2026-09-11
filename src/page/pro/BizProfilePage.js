@@ -93,6 +93,8 @@ const BizProfilePage = () => {
   // 거부 등록 / 블랙리스트 신고 (형 지시 7/31)
   const [iBlocked, setIBlocked] = useState(false); // 내가 이 사용자를 거부 등록했는지
   const [reportOpen, setReportOpen] = useState(false);
+  // 프로필 팝업의 '블랙리스트 신고'로 들어오면 신고 폼을 바로 연다 (대표 지시 8/21)
+  useEffect(() => { if (location.state?.openReport && viewUid) setReportOpen(true); }, [location.state?.openReport, viewUid]);
   const [reportReason, setReportReason] = useState("");
   const [reportContent, setReportContent] = useState("");
   const [reportImgs, setReportImgs] = useState([]); // 증빙 캡처 dataURL[]

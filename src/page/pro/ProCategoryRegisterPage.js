@@ -418,7 +418,8 @@ const ProCategoryRegisterPage = () => {
                                         <FieldBlock>
                                             <FieldLabel>세부 전문분야 (복수 선택 가능)</FieldLabel>
                                             <ChipWrap>
-                                                {cat.subcategories.map((sub) => (
+                                                {/* 전문청소는 하위 7개 분야 중에서 고른다 — '기타'는 등록분야가 아니다 (대표 지시 9/10) */}
+                                                {cat.subcategories.filter((sub) => !(cat.id === "professional_cleaning" && sub === "기타")).map((sub) => (
                                                     <Chip
                                                         key={sub}
                                                         $active={catSubs.includes(sub)}
