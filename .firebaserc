@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "homepro-43f7f"
+    "default": "homepro-43f7f",
+    "client": "homepro-nexlabs"
   }
 }
