@@ -1126,7 +1126,7 @@ export const COMMON_B2B_FIELDS = {
     label: "단가유형",
     // 안내 문구는 대표님 확정본 그대로 (리뷰 8/5)
     options: [
-      { value: "fixed", label: "시공금액", hasInput: true, unit: "원", desc: "자재비와 공임비가 모두 포함된 최종 확정 금액으로, 추가 변동 없이 해당 작업에 대해 청구(또는 지불)되는 기본 표준 금액입니다." },
+      { value: "fixed", label: "시공금액", hasInput: true, unit: "원", desc: "시공금액은 해당 작업의 표준 공임비와 일반적인 자재·장비 사용을 기준으로 산정된 기본 예상 시공 금액입니다." },
       { value: "balance", label: "잔금", hasInput: true, unit: "원", desc: "전체 시공 총금액 중 계약금이나 선급금을 제외하고, 현장 시공 완료 후 최종적으로 청구(또는 지불)해야 하는 나머지 금액입니다." },
       { value: "onsite", label: "현장견적", hasInput: false, desc: "반드시 현장을 직접 방문하여 현장상태, 실측 결과, 특이 사항 등 확인 후 최종 금액을 산정·확정하는 유형입니다." },
       { value: "estimate", label: "견적요청", hasInput: false, desc: "등록된 작업 요구사항과 사진 등을 확인하거나, 현장을 직접 방문하여 견적가를 제시하는 유형입니다." },

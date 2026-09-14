@@ -159,7 +159,7 @@ export async function confirmReferralReceived(order, { byUid }) {
     updatedAt: serverTimestamp(),
   });
   await notify(order.matchedProUid, "캐시백 입금 확인 완료",
-    "접수자가 캐시백 입금을 확인했습니다. 현장 체크인을 진행할 수 있습니다.",
+    "접수자가 캐시백 입금을 확인했습니다.",
     "referral_confirmed", { orderId: order.id });
 }
 

@@ -13,7 +13,7 @@ import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { getPointPolicy } from "../../service/PointService";
 import { preparePayment } from "../../service/payService";
-import { getAccessTier } from "../../utility/tierUtils";
+import { isSubscriber } from "../../utility/tierUtils";
 
 const SubscriptionPage = () => {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ const SubscriptionPage = () => {
 
   const userPoints = Number(userData?.referralPoints || 0);
   const monthlyFee = Number(policy?.monthlySubscriptionPoint || 16500);
-  const isTier1 = getAccessTier(userData) === "tier1";
+  const isTier1 = isSubscriber(userData);
   const sub = userData?.subscription;
   const subEnd = sub?.endAt?.toDate ? sub.endAt.toDate() : (sub?.endAt ? new Date(sub.endAt) : null);
 
@@ -67,9 +67,9 @@ const SubscriptionPage = () => {
     <SimpleBackLayout NAME="월 구독" hideFooter>
       <Wrap>
         <Hero>
-          <HeroTitle>홈프로 월 구독 · 1차수</HeroTitle>
+          <HeroTitle>홈프로 월 구독 · 0차수</HeroTitle>
           <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함)</Small></HeroPrice>
-          <HeroDesc>오더가 접수되는 즉시 0초에 수락할 수 있습니다. 미구독(2차수)은 등록 5분 뒤부터 수락됩니다.</HeroDesc>
+          <HeroDesc>오더가 접수되는 즉시 0초에 수락할 수 있습니다. 미구독은 2만P 이상 보유(1차수) 3분 뒤, 무료회원(2차수) 7분 뒤부터 수락됩니다.</HeroDesc>
         </Hero>
 
         {isTier1 && (

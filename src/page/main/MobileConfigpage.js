@@ -962,7 +962,7 @@ const MobileConfigpage = () => {
           <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
         <SubStatusRow>
-          <SubText style={{ color: getAccessTier(userData) === "tier1" ? "#15803d" : THEME.text, fontWeight: 700 }}>{getAccessTier(userData) === "tier1" ? "구독 중 · 1차수" : "미구독 · 2차수"}</SubText>
+          <SubText style={{ color: getAccessTier(userData) === "tier0" ? "#15803d" : THEME.text, fontWeight: 700 }}>{getAccessTier(userData) === "tier0" ? "구독 중 · 0차수" : `미구독 · ${getAccessTier(userData) === "tier1" ? "1차수 (2만P 보유)" : "2차수"}`}</SubText>
         </SubStatusRow>
       </ContentCard>
       )}

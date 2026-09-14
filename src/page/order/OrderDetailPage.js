@@ -51,7 +51,7 @@ import { db } from "../../api/config";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
 import { GradeBadge } from "../../utility/gradeUtils";
-import { ACCEPT_DELAY_SEC, getAccessTier, getAcceptRemainSec, formatAcceptRemain } from "../../utility/tierUtils";
+import { getAccessTier, getTierDelaySec, getAcceptRemainSec, formatAcceptRemain, TIER_LABEL } from "../../utility/tierUtils";
 import ProfilePopup from "../../components/ProfilePopup";
 
 const STATUS_BADGE = {
@@ -155,23 +155,8 @@ const OrderDetailPage = () => {
   }, [order?.id, isMatchedPro, insuranceNeeded, order?.onsiteQuotedPrice, order?.b2bPriceAmount]);
   const handleInsurancePay = () => navigate(`/pay?purpose=insurance_order&refId=${order.id}`);
 
-  /* ── 보험 필수(형 확정 9/14): 보험 없으면 수락·지원 자체가 안 된다. 월·1년 가입자이거나 이 오더 건당 보험을 미리 결제한 홈프로만 ── */
-  const [acceptInsured, setAcceptInsured] = useState(null); // null=확인 중
-  useEffect(() => {
-    if (!order || isOwner || order.matchedProUid || !myUid) return;
-    if (order.b2bPriceType === "info") { setAcceptInsured(true); return; }
-    if (order.insurance?.applied && order.insurance.prepaidBy === myUid) { setAcceptInsured(true); return; }
-    let alive = true;
-    findActivePolicy(myUid).then((p) => { if (alive) setAcceptInsured(!!p); }).catch(() => { if (alive) setAcceptInsured(false); });
-    return () => { alive = false; };
-  }, [order?.id, order?.matchedProUid, order?.insurance?.prepaidBy, isOwner, myUid]);
-  const openInsuranceGate = () => {
-    if (acceptInsured === null) { showToast("보험 가입 여부를 확인하는 중입니다"); return; }
-    const goPay = window.confirm("보험 가입 후 수락할 수 있어요.\n\n[확인] 이 오더만 건당 보험 결제하기\n[취소] 월·1년 보험 가입 화면으로 가기");
-    if (goPay) navigate(`/pay?purpose=insurance_order&refId=${order.id}`);
-    else navigate("/insurance");
-  };
-  const handleInsuranceSkip = async () => { // 보험 필수라 화면에서 안 쓴다(구 데이터 호환용으로만 남김)
+  // 보험은 선택 옵션 — 배정 뒤 홈프로가 원하면 가입 (대표 9/14 카톡). 수락 게이트 없음
+  const handleInsuranceSkip = async () => {
     if (insBusy) return;
     if (!window.confirm("보험 없이 진행하시겠습니까?\n현장 사고가 나도 보험 보장을 받을 수 없습니다.")) return;
     setInsBusy(true);
@@ -208,7 +193,7 @@ const OrderDetailPage = () => {
   };
   const handleReferralConfirm = async () => {
     if (payBusy) return;
-    if (!window.confirm("캐시백 입금을 확인하셨습니까? 확인하면 홈프로가 현장 체크인을 진행할 수 있습니다.")) return;
+    if (!window.confirm("캐시백 입금을 확인하셨습니까?")) return;
     setPayBusy(true);
     try { await confirmReferralReceived(order, { byUid: myUid }); showToast("입금 확인 완료"); await refreshOrder(); }
     catch (e) { showToast(e.message || "처리에 실패했습니다"); }
@@ -236,9 +221,11 @@ const OrderDetailPage = () => {
      지원하기(다중비교)는 게이트 대상 아님. 접수자 본인 화면에도 영향 없음. */
   const [nowMs, setNowMs] = useState(() => Date.now());
   const myTier = getAccessTier(userData);
-  const acceptRemainSec = myTier === "tier2" && !isOwner ? getAcceptRemainSec(order, nowMs) : 0;
+  const myDelaySec = getTierDelaySec(userData); // 0차수 0초 · 1차수 3분 · 2차수 7분 (대표 9/14)
+  const acceptRemainSec = myDelaySec > 0 && !isOwner ? getAcceptRemainSec(order, nowMs, myDelaySec) : 0;
   const acceptLocked = acceptRemainSec > 0;
-  const acceptDelayMin = Math.round(ACCEPT_DELAY_SEC / 60);
+  const acceptDelayMin = Math.round(myDelaySec / 60);
+  const tierGateText = `${TIER_LABEL[myTier]} 회원은 오더 등록 ${acceptDelayMin}분 후부터 수락할 수 있습니다`;
 
   // 남은 시간 1초 카운트다운 (0 되면 인터벌 스스로 정리 → 버튼 정상 복귀)
   useEffect(() => {
@@ -347,17 +334,17 @@ const OrderDetailPage = () => {
 
   const handleAcceptOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
-    if (acceptInsured !== true) { openInsuranceGate(); return; } // 보험 필수 (9/14)
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 수락 불가 (형 지시 7/31)
     if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
     // 차수 게이트 방어 (버튼 우회 대비) — 2차수는 오더 등록 후 5분 경과 전 수락 불가
-    if (getAccessTier(userData) === "tier2") {
-      const remain = getAcceptRemainSec(order, Date.now());
+    if (myDelaySec > 0) {
+      const remain = getAcceptRemainSec(order, Date.now(), myDelaySec);
       if (remain > 0) {
-        showToast(`2차수 회원은 오더 등록 ${acceptDelayMin}분 후부터 수락할 수 있습니다 (${formatAcceptRemain(remain)} 남음)`);
+        showToast(`${tierGateText} (${formatAcceptRemain(remain)} 남음)`);
         return;
       }
     }
+    if (order.orderStatus === "대기") { showToast("접수자가 보류 중인 오더입니다. 다시 접수되면 수락할 수 있어요"); return; }
     if (!window.confirm("해당 오더를 수락 하시겠습니까?")) return; // 팝업 확인
     try {
       if (!acceptOrder) throw new Error("acceptOrder 함수 없음");
@@ -371,7 +358,6 @@ const OrderDetailPage = () => {
   };
 
   const handleApplyOrder = async () => {
-    if (acceptInsured !== true) { openInsuranceGate(); return; } // 보험 필수 (9/14)
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 지원 불가 (형 지시 7/31)
     if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
@@ -911,7 +897,7 @@ const OrderDetailPage = () => {
                     <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={handleReferralConfirm} disabled={payBusy}>입금 확인</PrimaryCTA></ActionRow>
                   </>
                 ) : (
-                  <PayNote>입금 완료로 표시했습니다. 접수자가 확인하면 현장 체크인이 열립니다.</PayNote>
+                  <PayNote>입금 완료로 표시했습니다. 접수자 확인을 기다리는 중입니다.</PayNote>
                 )}
               </>
             ) : isMatchedPro ? (
@@ -922,7 +908,7 @@ const OrderDetailPage = () => {
                 ) : payAccount === null ? (
                   <PayNote>접수자가 정산계좌를 아직 등록하지 않았습니다. 채팅으로 계좌를 확인해 주세요.</PayNote>
                 ) : null}
-                <PayNote>매칭이 되면 홈프로가 캐시백을 먼저 보냅니다. 송금 후 [입금 완료]를 누르고 송금증을 붙여 주세요. 접수자가 확인해야 현장 체크인을 할 수 있습니다.</PayNote>
+                <PayNote>매칭 직후 접수자 계좌로 보내는 것이 원칙이지만, 작업 완료 전후에 보내도 됩니다. 송금 후 [입금 완료]를 누르고 송금증을 붙여 주세요.</PayNote>
                 <ActionRow style={{ marginTop: 10 }}>
                   <OutlinedBtn onClick={handleTossSend} disabled={!payAccount}>토스로 송금</OutlinedBtn>
                   <OutlinedBtn onClick={handleCopyAccount} disabled={!payAccount}><IoCopyOutline size={17} /> 계좌 복사</OutlinedBtn>
@@ -968,17 +954,17 @@ const OrderDetailPage = () => {
                 ) : (
                   <>
                     <ConditionRow><ConditionLabel>건당 보험료</ConditionLabel><ConditionValue>{premium.amount.toLocaleString()}원 <span style={{ fontWeight: 400, color: THEME.muted }}>({premium.plan.groupLabel} · 금액의 {premium.plan.rate}%, 최소 {premium.plan.minPrice.toLocaleString()}원)</span></ConditionValue></ConditionRow>
-                    <PayNote>이 오더의 체크인부터 체크아웃까지 보장됩니다. 보험 결제나 가입 없이는 현장 체크인을 할 수 없습니다. 월·1년 보험에 가입하면 건마다 결제하지 않아도 됩니다.</PayNote>
+                    <PayNote>이 오더의 체크인부터 체크아웃까지 보장됩니다. 보험은 선택이며, 월·1년 보험에 가입하면 건마다 결제하지 않아도 됩니다.</PayNote>
                   </>
                 )}
                 <ActionRow style={{ marginTop: 10 }}>
                   <PrimaryCTA onClick={handleInsurancePay} disabled={!premium || premium.pending || insBusy}>건당 보험료 결제</PrimaryCTA>
                   <OutlinedBtn onClick={() => navigate("/insurance")}>월·1년 가입</OutlinedBtn>
                 </ActionRow>
-                {/* 보험 필수 (형 확정 9/14) — "보험 없이 진행" 선택지는 뺐다. 결제·가입 없이는 체크인 불가 */}
+                <PayNote style={{ marginTop: 6 }}><button type="button" onClick={handleInsuranceSkip} style={{ background: "none", border: "none", padding: 0, color: THEME.muted, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>보험 없이 진행</button></PayNote>
               </>
             ) : (
-              <PayNote>홈프로가 현장 체크인 전에 보험 적용 여부를 정합니다.</PayNote>
+              <PayNote>홈프로가 원하면 이 오더에 보험을 적용합니다(선택).</PayNote>
             )}
           </DetailSection>
         )}
@@ -1220,16 +1206,15 @@ const OrderDetailPage = () => {
             {/* 정보공유 오더는 체크인 생략 (대표 지시 8/20) */}
             {!isInfoOrder && (() => {
               // 캐시백 입금 확인 전에는 체크인을 막는다 (대표 확정 9/13)
-              const refBlocked = !order.checkInAt && isCheckInBlockedByReferral(order);
-              const insBlocked = !order.checkInAt && insuranceNeeded; // 보험 적용 여부를 정하기 전엔 체크인 불가 (대표 8/20)
-              const blocked = refBlocked || insBlocked;
+              // 체크인은 캐시백 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡)
+              const blocked = false;
               return (
                 <ActionRow>
                   <OutlinedBtn
-                    onClick={() => { if (refBlocked) { showToast(referralFeeInfo.pending ? "금액이 확정된 뒤 캐시백을 보내면 체크인할 수 있어요" : "접수자가 캐시백 입금을 확인하면 체크인할 수 있어요"); return; } if (insBlocked) { showToast("위 보험 적용 여부를 먼저 정해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
+                    onClick={() => navigate(`/order/worklog/${order.id}`)}
                     style={blocked ? { opacity: 0.45 } : undefined}
                   >
-                    {order.checkInAt ? "현장기록" : refBlocked ? "현장 체크인 (캐시백 확인 대기)" : insBlocked ? "현장 체크인 (보험 적용 결정 필요)" : "현장 체크인"}
+                    {order.checkInAt ? "현장기록" : "현장 체크인"}
                   </OutlinedBtn>
                 </ActionRow>
               );
@@ -1254,19 +1239,19 @@ const OrderDetailPage = () => {
         ) : matchType === "priority" ? (
           /* 우선배정호출 — 전화 제거, 수락하기만 (2차수는 등록 5분 후 해제) */
           <>
-            {acceptLocked && <TierGateNote>2차수 회원은 오더 등록 {acceptDelayMin}분 후부터 수락할 수 있습니다</TierGateNote>}
+            {acceptLocked && <TierGateNote>{tierGateText}</TierGateNote>}
             <ActionRow>
               {acceptLocked ? (
                 <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
               ) : (
-                <PrimaryCTA onClick={handleAcceptOrder}>{acceptInsured === false ? "보험 가입 후 수락" : "수락하기"}</PrimaryCTA>
+                <PrimaryCTA onClick={handleAcceptOrder}>{order.orderStatus === "대기" ? "보류 중 (수락 불가)" : "수락하기"}</PrimaryCTA>
               )}
             </ActionRow>
           </>
         ) : matchType === "compare" ? (
           /* 다중비교호출 — 전화 제거, 지원하기만 */
           <ActionRow>
-            <PrimaryCTA onClick={handleApplyOrder}>{acceptInsured === false ? "보험 가입 후 지원" : "지원하기"}</PrimaryCTA>
+            <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
           </ActionRow>
         ) : matchType === "direct" ? (
           /* 지정배정 — 지정된 번호의 홈프로만 수락/거절 가능 (전수검사 7/29:
@@ -1278,13 +1263,13 @@ const OrderDetailPage = () => {
               && digits(order.directPhone) === digits(userData?.phoneE164 || userData?.phone);
             return isDesignated ? (
               <>
-                {acceptLocked && <TierGateNote>2차수 회원은 오더 등록 {acceptDelayMin}분 후부터 수락할 수 있습니다</TierGateNote>}
+                {acceptLocked && <TierGateNote>{tierGateText}</TierGateNote>}
                 <ActionRow>
                   <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
                   {acceptLocked ? (
                     <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
                   ) : (
-                    <PrimaryCTA onClick={handleAcceptOrder}>{acceptInsured === false ? "보험 가입 후 수락" : "수락하기"}</PrimaryCTA>
+                    <PrimaryCTA onClick={handleAcceptOrder}>{order.orderStatus === "대기" ? "보류 중 (수락 불가)" : "수락하기"}</PrimaryCTA>
                   )}
                 </ActionRow>
               </>
@@ -1295,12 +1280,12 @@ const OrderDetailPage = () => {
         ) : (
           /* fallback — 매칭방식 미지정 시에도 수락 흐름 (전화 제거) */
           <>
-            {acceptLocked && <TierGateNote>2차수 회원은 오더 등록 {acceptDelayMin}분 후부터 수락할 수 있습니다</TierGateNote>}
+            {acceptLocked && <TierGateNote>{tierGateText}</TierGateNote>}
             <ActionRow>
               {acceptLocked ? (
                 <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
               ) : (
-                <PrimaryCTA onClick={handleAcceptOrder}>{acceptInsured === false ? "보험 가입 후 수락" : "수락하기"}</PrimaryCTA>
+                <PrimaryCTA onClick={handleAcceptOrder}>{order.orderStatus === "대기" ? "보류 중 (수락 불가)" : "수락하기"}</PrimaryCTA>
               )}
             </ActionRow>
           </>

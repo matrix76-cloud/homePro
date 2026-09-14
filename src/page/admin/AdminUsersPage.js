@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
-import { getAccessTier, TIER_LABEL, ACCEPT_DELAY_SEC } from "../../utility/tierUtils";
+import { getAccessTier, TIER_LABEL, TIER_DESC } from "../../utility/tierUtils";
 import { IoSearchOutline, IoCloseOutline } from "react-icons/io5";
 
 // ─── Helpers ───
@@ -223,10 +223,10 @@ const AdminUsersPage = () => {
     // 구독·포인트 결제 연동 전까지는 관리자가 여기서 직접 올려준다.
     const handleToggleTier = async (e, user) => {
         e.stopPropagation();
-        const next = getAccessTier(user) === "tier1" ? "tier2" : "tier1";
+        const next = user.accessTier === "tier1" ? "tier2" : "tier1";
         const msg = next === "tier1"
-            ? `"${user.name || user.id}" 회원을 1차수(오더 즉시 수락)로 전환하시겠습니까?`
-            : `"${user.name || user.id}" 회원을 2차수(오더 등록 ${Math.round(ACCEPT_DELAY_SEC / 60)}분 후 수락)로 전환하시겠습니까?`;
+            ? `"${user.name || user.id}" 회원을 구독자(0차수 · 오더 즉시 수락)로 전환하시겠습니까?`
+            : `"${user.name || user.id}" 회원의 구독자 표시를 해제하시겠습니까? (포인트 2만P 이상이면 1차수, 아니면 2차수)`;
         if (!window.confirm(msg)) return;
         try {
             await updateDoc(doc(db, "users", user.id), { accessTier: next });
@@ -297,7 +297,7 @@ const AdminUsersPage = () => {
     // 차수 표시 — 뱃지 없이 텍스트+색만 (1차수 초록/굵게, 2차수 회색)
     const renderTier = (user) => {
         const tier = getAccessTier(user);
-        return <TierText $tier1={tier === "tier1"}>{TIER_LABEL[tier]}</TierText>;
+        return <TierText $tier1={tier === "tier0"}>{TIER_LABEL[tier]}</TierText>;
     };
 
     // visible tabs (프로 전용 탭은 프로만)
@@ -328,12 +328,10 @@ const AdminUsersPage = () => {
                 <FV style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     {renderTier(selectedUser)}
                     <TierHint>
-                        {getAccessTier(selectedUser) === "tier1"
-                            ? "오더 접수 즉시 수락 가능"
-                            : `오더 등록 ${Math.round(ACCEPT_DELAY_SEC / 60)}분 후부터 수락 가능`}
+                        {TIER_DESC[getAccessTier(selectedUser)]}
                     </TierHint>
                     <ActionBtn $outline onClick={(e) => handleToggleTier(e, selectedUser)}>
-                        {getAccessTier(selectedUser) === "tier1" ? "2차수 전환" : "1차수 전환"}
+                        {selectedUser.accessTier === "tier1" ? "구독자 해제" : "구독자(0차수) 전환"}
                     </ActionBtn>
                 </FV>
             </FieldRow>
@@ -624,7 +622,7 @@ const AdminUsersPage = () => {
                                                 </>
                                             )}
                                             <ActionBtn $outline onClick={(e) => handleToggleTier(e, u)}>
-                                                {getAccessTier(u) === "tier1" ? "2차수 전환" : "1차수 전환"}
+                                                {u.accessTier === "tier1" ? "구독자 해제" : "구독자 전환"}
                                             </ActionBtn>
                                             <ActionBtn $bg={THEME.danger} onClick={(e) => handleDelete(e, u)}>삭제</ActionBtn>
                                         </Td>

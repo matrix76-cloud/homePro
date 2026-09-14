@@ -13,11 +13,29 @@
  * users 문서 필드: accessTier = "tier1" | "tier2"
  */
 
-/** 2차수 회원의 수락 대기 시간 (초) */
-export const ACCEPT_DELAY_SEC = 300;
+/**
+ * 차수 3단계 (대표 9/14 카톡 확정)
+ *  - 0차수(tier0): 유료 구독자 → 실시간(0초) 수락
+ *  - 1차수(tier1): H-포인트 2만P 이상 보유(락업) → 오더 등록 3분 뒤 수락
+ *  - 2차수(tier2): 무료회원 → 오더 등록 7분 뒤 수락
+ * users.accessTier === "tier1" 은 "구독자" 표시(서버 구독 결제·관리자 수동 전환이 세운다) → 0차수로 읽는다.
+ */
+export const LOCKUP_POINTS = 20000;
+export const TIER_DELAY_SEC = { tier0: 0, tier1: 180, tier2: 420 };
+/** 하위 호환 — 예전 코드가 참조하던 "2차수 대기 시간" */
+export const ACCEPT_DELAY_SEC = TIER_DELAY_SEC.tier2;
 
 /** 차수 표시 라벨 */
-export const TIER_LABEL = { tier1: "1차수", tier2: "2차수" };
+export const TIER_LABEL = { tier0: "0차수", tier1: "1차수", tier2: "2차수" };
+/** 차수 조건 설명 */
+export const TIER_DESC = { tier0: "유료 구독 · 접수 즉시 수락", tier1: "2만P 이상 보유 · 등록 3분 뒤 수락", tier2: "무료회원 · 등록 7분 뒤 수락" };
+
+/** 구독자인가 (users.accessTier === "tier1" 또는 subscription active) */
+export function isSubscriber(userData) {
+    if (!userData) return false;
+    if (userData.accessTier === "tier1") return true;
+    return userData.subscription?.status === "active";
+}
 
 /**
  * 사용자 문서에서 차수 판정
@@ -26,7 +44,13 @@ export const TIER_LABEL = { tier1: "1차수", tier2: "2차수" };
  * @returns {"tier1"|"tier2"}
  */
 export function getAccessTier(userData) {
-    return userData?.accessTier === "tier1" ? "tier1" : "tier2";
+    if (isSubscriber(userData)) return "tier0";
+    if (Number(userData?.referralPoints || 0) >= LOCKUP_POINTS) return "tier1";
+    return "tier2";
+}
+/** 차수별 수락 대기 초 */
+export function getTierDelaySec(userData) {
+    return TIER_DELAY_SEC[getAccessTier(userData)] ?? TIER_DELAY_SEC.tier2;
 }
 
 /**
@@ -72,17 +96,17 @@ export function toMillis(v) {
  * @param {number} [nowMs] 기준 시각 (기본 Date.now())
  * @returns {number} 남은 초 (0 이하면 0)
  */
-export function getAcceptRemainSec(order, nowMs) {
+export function getAcceptRemainSec(order, nowMs, delaySec = ACCEPT_DELAY_SEC) {
     if (!order) return 0;
     const now = typeof nowMs === "number" ? nowMs : Date.now();
     const raw = order.createdAt ?? order.registeredAt ?? order.created_at;
     if (raw == null) {
         // serverTimestamp 반영 대기 중 = 등록 직후 → 전체 대기
-        return ACCEPT_DELAY_SEC;
+        return delaySec;
     }
     const createdMs = toMillis(raw);
     if (createdMs == null) return 0; // 판정 불가 → 게이트 미적용
-    const remain = Math.ceil((createdMs + ACCEPT_DELAY_SEC * 1000 - now) / 1000);
+    const remain = Math.ceil((createdMs + delaySec * 1000 - now) / 1000);
     return remain > 0 ? remain : 0;
 }
 
@@ -102,7 +126,7 @@ export function formatAcceptRemain(sec) {
  */
 export function canAcceptNow(userData, order, nowMs) {
     const tier = getAccessTier(userData);
-    if (tier === "tier1") return { allowed: true, remainSec: 0, tier };
-    const remainSec = getAcceptRemainSec(order, nowMs);
+    if (tier === "tier0") return { allowed: true, remainSec: 0, tier };
+    const remainSec = getAcceptRemainSec(order, nowMs, TIER_DELAY_SEC[tier]);
     return { allowed: remainSec <= 0, remainSec, tier };
 }

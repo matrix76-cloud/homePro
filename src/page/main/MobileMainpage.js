@@ -692,7 +692,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     if (hideClosed && !wantsClosed && (mapped === "마감" || mapped === "취소")) return false;
     // '대기' = 접수자가 수정하려고 보류한 오더 — 본인 외에는 숨긴다 (전수검사 7/29:
     // 사양상 "메인에 안 올라감"인데 노출·수락까지 가능해 보류 중 오더를 채갈 수 있었음)
-    if (mapped === "대기" && o.createdBy !== uid) return false;
+    // 대기(보류) 오더도 메인에 보인다 — 살아 있는 상태 변화를 보여 주자는 대표 9/14 의견. 수락은 상세에서 막는다
     const statusMatch = activeStatusFilter === "전체" || mapped === activeStatusFilter;
     const catMatch = activeCatFilters.length === 0 || activeCatFilters.includes(o.categoryId);
     const periodMatch = filterByPeriod(o);
@@ -758,8 +758,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         {userData?.userType === "customer" ? (
           <span />
         ) : (
-          <TierValue $tier1={getAccessTier(userData) === "tier1"} onClick={() => navigate("/subscription")} style={{ cursor: "pointer" }} title="월 구독">
-            {TIER_LABEL[getAccessTier(userData)]} 회원{getAccessTier(userData) !== "tier1" ? " · 구독" : ""}
+          <TierValue $tier1={getAccessTier(userData) === "tier0"} onClick={() => navigate("/subscription")} style={{ cursor: "pointer" }} title="월 구독">
+            {TIER_LABEL[getAccessTier(userData)]} 회원{getAccessTier(userData) !== "tier0" ? " · 구독" : ""}
           </TierValue>
         )}
         <PointValue>{userPoints.toLocaleString()}P</PointValue>
