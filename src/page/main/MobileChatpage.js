@@ -9,7 +9,6 @@ import { subscribeChatRooms } from "../../service/ChatService";
 import { getOrderById } from "../../service/OrderService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
-import Tabs from "../../common/Tabs";
 
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
@@ -63,12 +62,16 @@ const MobileChatpage = () => {
   };
 
   // 일반 탭 카테고리 분류 (roomType 기반)
+  // 탭 분류 (대표 9/10 스샷: 전체·오더·거래장터·기술전수·공동중개)
   const catOfRoom = (r) => {
     if (r.roomType === "quote" || r.orderId) return "오더";
     if (r.roomType === "training") return "기술전수";
-    if (r.roomType === "supply") return "자재.장비";
+    if (r.roomType === "supply" || r.roomType === "marketplace") return "거래장터";
+    if (r.roomType === "brokerage") return "공동중개";
     return "기타";
   };
+  // 오더 방은 오더명이 제목, 그 아래 상대 이름·마지막 대화 (대표 9/10)
+  const getOrderTitle = (orderId) => orderMap[orderId]?.title || "";
 
   const getRoomDisplayName = (room) => {
     if (room.roomName) return room.roomName;
@@ -92,7 +95,7 @@ const MobileChatpage = () => {
   const normalRooms = rooms.filter((r) => r.roomType !== "open");
   const openRooms = [];
 
-  const NORMAL_CATEGORIES = ["전체", "오더", "기술전수", "자재.장비", "기타"];
+  const NORMAL_CATEGORIES = ["전체", "오더", "거래장터", "기술전수", "공동중개"];
   const OPEN_CATEGORIES = ["전체", "오더", "인력", "기술교육", "매매양도", "자재.장비"];
   const [openCat, setOpenCat] = useState("전체");
 
@@ -102,13 +105,6 @@ const MobileChatpage = () => {
 
   return (
     <MainListLayout NAME="채팅" footerType="CHAT" hideBack>
-      <Tabs
-        tabs={[
-          { key: "general", label: `일반${normalRooms.length > 0 ? ` (${normalRooms.length})` : ""}` },
-        ]}
-        active={activeTab}
-        onChange={setActiveTab}
-      />
       {activeTab === "open" ? (
         <CatTabRow>
           {OPEN_CATEGORIES.map((c) => (
@@ -186,13 +182,15 @@ const MobileChatpage = () => {
                 </Avatar>
                 <RoomInfo>
                   <RoomNameRow>
-                    <RoomName>{getRoomDisplayName(room)}</RoomName>
+                    <RoomName>{room.orderId && getOrderTitle(room.orderId) ? getOrderTitle(room.orderId) : getRoomDisplayName(room)}</RoomName>
                     {room.orderId && getOrderCategoryName(room.orderId) && (
                       <OrderCatTag onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${room.orderId}`); }}>
                         {getOrderCategoryName(room.orderId)} ›
                       </OrderCatTag>
                     )}
+                    {room.roomType === "brokerage" && <OrderCatTag as="span">공동중개</OrderCatTag>}
                   </RoomNameRow>
+                  {room.orderId && getOrderTitle(room.orderId) && <SubName>{getRoomDisplayName(room)}</SubName>}
                   <LastMessage>{room.lastMessage || "대화를 시작해보세요"}</LastMessage>
                 </RoomInfo>
                 <RoomMeta>
@@ -381,6 +379,7 @@ const OpenFab = styled.button`
   &:active { opacity: 0.85; }
 `;
 
+const SubName = styled.div` font-size: 14px; color: ${THEME.muted}; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; `;
 const LastMessage = styled.p`
   font-size: 15px;
   color: ${THEME.muted};

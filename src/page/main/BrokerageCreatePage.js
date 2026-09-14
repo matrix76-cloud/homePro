@@ -1,6 +1,7 @@
 /* eslint-disable */
 // 공동중개 등록 — 손님 찾습니다(demand) / 매물 있습니다(listing, 보안·블라인드)
-import React, { useState } from "react";
+import { isCertifiedBroker } from "../../service/BrokerService";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -24,6 +25,13 @@ const BrokerageCreatePage = () => {
   const [oneLine, setOneLine] = useState("");
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
+  // 글쓰기는 인증 공인중개사만 (대표 9/10). 아니면 돌려보낸다
+  useEffect(() => {
+    if (!uid) return;
+    isCertifiedBroker(uid).then((ok) => {
+      if (!ok) { window.alert("인증 공인중개사만 등록할 수 있어요.\n중개사무소 개설등록번호로 인증을 신청해 주세요."); navigate("/brokerage", { replace: true }); }
+    });
+  }, [uid, navigate]);
 
   const submit = async () => {
     if (!region.trim()) return window.alert("지역을 입력해주세요.");
@@ -59,8 +67,8 @@ const BrokerageCreatePage = () => {
         <Section>
           <Label>유형 선택</Label>
           <Row>
-            <TypeBtn $active={!isListing} onClick={() => setType("demand")}>손님 찾습니다</TypeBtn>
-            <TypeBtn $active={isListing} onClick={() => setType("listing")}>매물 있습니다</TypeBtn>
+            <TypeBtn $active={!isListing} onClick={() => setType("demand")}>손님공유</TypeBtn>
+            <TypeBtn $active={isListing} onClick={() => setType("listing")}>매물공유</TypeBtn>
           </Row>
           <Hint>{isListing ? "공동매물 등록(보안형) — 상세 번지는 노출되지 않고 '○○시 ○○구 ○○동'까지만 표시됩니다." : "찾는 손님(수요)을 등록합니다. 매물 있는 중개사와 매칭됩니다."}</Hint>
         </Section>

@@ -758,8 +758,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         {userData?.userType === "customer" ? (
           <span />
         ) : (
-          <TierValue $tier1={getAccessTier(userData) === "tier1"}>
-            {TIER_LABEL[getAccessTier(userData)]} 회원
+          <TierValue $tier1={getAccessTier(userData) === "tier1"} onClick={() => navigate("/subscription")} style={{ cursor: "pointer" }} title="월 구독">
+            {TIER_LABEL[getAccessTier(userData)]} 회원{getAccessTier(userData) !== "tier1" ? " · 구독" : ""}
           </TierValue>
         )}
         <PointValue>{userPoints.toLocaleString()}P</PointValue>
@@ -965,14 +965,22 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {/* ══════ 사업자 정보 ══════ */}
       {companyInfo && (companyInfo.companyName || companyInfo.bizNumber) && (
         <CompanyFooter>
-          <CompanyName>{companyInfo.companyName || "홈프로"}</CompanyName>
+          <CompanyName>[홈프로]</CompanyName>
           <CompanyRows>
-            {companyInfo.ceo && <span>대표 {companyInfo.ceo}</span>}
-            {companyInfo.bizNumber && <span>사업자등록번호 {companyInfo.bizNumber}</span>}
+            {companyInfo.phone && <span>고객센터 : {companyInfo.phone}</span>}
+            {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
+            {companyInfo.email && <span>이메일 : {companyInfo.email}</span>}
+            <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
+            {(companyInfo.companyName || companyInfo.ceo) && <span>상호명 : {companyInfo.companyName}{companyInfo.ceo ? ` · 대표이사 : ${companyInfo.ceo}` : ""}</span>}
+            {companyInfo.privacyOfficer && <span>개인정보책임관리자 : {companyInfo.privacyOfficer}</span>}
+            {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
             {companyInfo.address && <span>{companyInfo.address}</span>}
-            {companyInfo.phone && <span>고객센터 {companyInfo.phone}</span>}
-            {companyInfo.email && <span>{companyInfo.email}</span>}
           </CompanyRows>
+          <CompanyLinks>
+            <button type="button" onClick={() => navigate("/legal/terms")}>이용약관</button>
+            <button type="button" onClick={() => navigate("/legal/privacy")}>개인정보 처리 지침</button>
+            <button type="button" onClick={() => navigate("/legal/location")}>위치기반서비스 이용약관</button>
+          </CompanyLinks>
           <CompanyCopy>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</CompanyCopy>
         </CompanyFooter>
       )}
@@ -1566,10 +1574,36 @@ const BottomSpacer = styled.div`
 /* ===================== 사업자 정보 푸터 ===================== */
 
 const CompanyFooter = styled.footer`
-  margin: 24px 12px 8px;
-  padding: 18px 16px;
-  background: ${THEME.surface || "#fff"};
-  border-radius: 16px;
+  margin: 28px 12px 8px;
+  padding: 20px 8px 0;
+  border-top: 1px solid ${THEME.border || "#F0F0F4"};
+`;
+
+const CompanyLinks = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: ${THEME.text};
+    cursor: pointer;
+  }
+  button + button::before {
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    margin: 0 10px;
+    background: ${THEME.border || "#E5E7EB"};
+    vertical-align: -1px;
+  }
 `;
 
 const CompanyName = styled.div`

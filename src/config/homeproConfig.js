@@ -510,9 +510,9 @@ export const PRO_DETAIL_FIELDS = {
     ],
     brokerage: [
         { key: "officeName", type: "text", label: "중개사무소명", placeholder: "예: ○○공인중개사사무소" },
-        { key: "registrationNumber", type: "text", label: "개설등록번호", placeholder: "중개사무소 개설등록번호" },
+        // 형 확정 9/13: 확인은 개설등록번호 하나로 단순하게. 자격증 칸은 뺐다(공개 조회 불가)
+        { key: "registrationNumber", type: "text", label: "개설등록번호", placeholder: "중개사무소 개설등록번호 (관리자가 국가공간정보포털에서 확인)" },
         { key: "mainProperties", type: "chips", label: "주력 매물", options: ["아파트", "빌라", "오피스텔", "상가", "토지"] },
-        { key: "certifications", type: "text", label: "관련 자격증", placeholder: "예: 공인중개사 자격증번호" },
     ],
 };
 

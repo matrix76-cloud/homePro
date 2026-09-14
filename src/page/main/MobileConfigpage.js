@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { getAccessTier } from "../../utility/tierUtils";
 import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
@@ -953,17 +954,18 @@ const MobileConfigpage = () => {
         </CardHeader>
       </ContentCard>
 
-      {/* 구독 관리 */}
-      <ContentCard>
+      {/* 구독 관리 — 월 16,500원, H-포인트 혼합 결제. 누르면 구독 페이지 (9/14) */}
+      {userData?.userType !== "customer" && (
+      <ContentCard onClick={() => navigate("/subscription")} style={{ cursor: "pointer" }}>
         <CardHeader>
           <div><CardTitle>구독 관리</CardTitle></div>
           <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
         <SubStatusRow>
-          <SubBadge $active={false}>무료 체험중</SubBadge>
-          <SubText>구독하면 모든 오더를 받을 수 있어요</SubText>
+          <SubText style={{ color: getAccessTier(userData) === "tier1" ? "#15803d" : THEME.text, fontWeight: 700 }}>{getAccessTier(userData) === "tier1" ? "구독 중 · 1차수" : "미구독 · 2차수"}</SubText>
         </SubStatusRow>
       </ContentCard>
+      )}
 
       {/* 기술전수교육 / 거래장터 — 분리 진입 (형 지시 8/8) */}
       <ContentCard onClick={() => navigate("/education-market?seg=training")} style={{ cursor: "pointer" }}>
@@ -1056,6 +1058,12 @@ const MobileConfigpage = () => {
       <ContentCard>
         <CardTitle>고객지원</CardTitle>
         <SupportList>
+          {userData?.userType !== "customer" && (
+          <SupportItem onClick={() => navigate("/mypage/payments")}>
+            <SupportLabel>결제 내역 (구독·보험)</SupportLabel>
+            <IoChevronForward size={18} color={THEME.muted} />
+          </SupportItem>
+          )}
           <SupportItem onClick={() => navigate("/notice")}>
             <SupportLabel>공지사항</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />

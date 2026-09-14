@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useContext, useState, useRef, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
@@ -85,14 +85,18 @@ const DETAIL_ICONS = {
 
 const ProCategoryRegisterPage = () => {
     const navigate = useNavigate();
+    // 공동중개에서 "공인중개사 인증"으로 들어오면(?category=brokerage) 분야 선택을 건너뛰고 상세 정보만 받는다 (형 지적 9/14: 청소·설비 목록이 보이면 이상함)
+    const [searchParams] = useSearchParams();
+    const presetCat = searchParams.get("category") || "";
+    const isBrokerCert = presetCat === "brokerage";
     const { user } = useContext(UserContext);
     const [proCategories, setProCategories] = useAtom(proCategoriesAtom);
 
     // step
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(presetCat ? 2 : 1);
 
     // step 1 — 최대 5개 일괄 선택
-    const [selectedCats, setSelectedCats] = useState([]);
+    const [selectedCats, setSelectedCats] = useState(presetCat ? [presetCat] : []);
 
     // step 2 — 카테고리별 입력 (세부분야 / 동적 필드)
     const [subsByCat, setSubsByCat] = useState({});   // { catId: [sub] }
@@ -299,7 +303,7 @@ const ProCategoryRegisterPage = () => {
         setStep(2);
     };
     const goPrev = () => {
-        if (step === 1) {
+        if (step === 1 || presetCat) {
             navigate(-1);
         } else {
             setStep(1);
@@ -323,9 +327,10 @@ const ProCategoryRegisterPage = () => {
     const handleBack = () => goPrev();
 
     return (
-        <SimpleBackLayout NAME="전문분야 등록" hideFooter onBack={handleBack}>
+        <SimpleBackLayout NAME={isBrokerCert ? "공인중개사 인증" : "전문분야 등록"} hideFooter onBack={handleBack}>
             <PageWrap>
-                {/* 스텝 인디케이터 */}
+                {/* 스텝 인디케이터 — 공인중개사 인증 진입이면 단계가 하나뿐이라 숨긴다 */}
+                {!presetCat && (<>
                 <StepIndicator>
                     {STEP_LABELS.map((label, i) => {
                         const num = i + 1;
@@ -348,6 +353,7 @@ const ProCategoryRegisterPage = () => {
                         </StepLabel>
                     ))}
                 </StepLabelRow>
+                </>)}
 
                 {/* ══════ Step 1: 카테고리 선택 ══════ */}
                 {step === 1 && (
