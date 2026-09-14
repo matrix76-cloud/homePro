@@ -68,6 +68,7 @@ const SubText = styled.div`
 // (형 지시 7/28) 실제 앱·브라우저에서는 최상위 문서라 기존 분기 그대로 동작.
 const isInPreviewFrame = () => {
   try {
+    if (/^rvphone/.test(window.name || "")) return false; // 리뷰 페이지 폰 프레임(2026-09-12) — 실제 앱처럼 분기해야 로그인부터 테스트가 된다
     return window.self !== window.top;
   } catch (e) {
     return true; // 크로스오리진이면 접근 자체가 막힘 = iframe 안

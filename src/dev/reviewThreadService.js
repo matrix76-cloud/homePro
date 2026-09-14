@@ -54,3 +54,23 @@ export async function deleteEntry(pid) {
   const snap = await getDocs(q)
   await Promise.all(snap.docs.map((d) => deleteDoc(doc(db, COL, d.id))))
 }
+
+// 한 화면 스레드만 실시간 구독 — 전체 구독(596건·스샷 dataURL 포함)은 첫 로딩이 수 초라 현재 화면은 따로 빠르게 받는다.
+// where 단일 필드라 복합 인덱스 불필요 → 정렬은 클라이언트에서 ts 기준.
+export function subscribeScreen(screenId, cb) {
+  const q = query(collection(db, COL), where('screenId', '==', screenId))
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = []
+      snap.forEach((d) => {
+        const data = d.data()
+        const ms = data.ts?.toMillis ? data.ts.toMillis() : Date.parse(data.at || '') || 0
+        rows.push({ pid: d.id, by: data.by, at: data.at, text: data.text || '', replyTo: data.replyTo || undefined, imgs: data.imgs || undefined, pins: data.pins || undefined, ms })
+      })
+      rows.sort((a, b) => a.ms - b.ms)
+      cb(rows)
+    },
+    () => cb([]),
+  )
+}

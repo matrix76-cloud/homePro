@@ -1,7 +1,7 @@
 import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import fs from 'fs'
-const key = JSON.parse(fs.readFileSync('/Users/a1111/Downloads/2026Dev/mainproject/2026Web/homePro/_migration/keys/source-homepro-43f7f.json','utf8'))
+const key = JSON.parse(fs.readFileSync('/Users/a1111/Downloads/2026Dev/mainproject/2026Web/homePro/_migration/keys/target-homepro-nexlabs.json','utf8'))
 initializeApp({ credential: cert(key) })
 const db = getFirestore()
 const snap = await db.collection('reviewThreads').orderBy('ts', 'asc').get()

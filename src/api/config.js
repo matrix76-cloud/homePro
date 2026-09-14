@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, inMemoryPersistence, indexedDBLocalPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
 /**
@@ -64,7 +64,15 @@ const firebaseApp = initializeApp(firebaseConfig);
 
 // 필요한 Firebase 서비스 초기화
 const db = getFirestore(firebaseApp);
-const auth = getAuth(firebaseApp);
+// 리뷰 페이지(/review)는 폰 4개를 iframe 으로 띄워 각각 다른 계정으로 로그인한다.
+// 같은 주소의 프레임은 로그인 저장소(IndexedDB)를 공유해서 한 폰에서 로그인하면 다른 폰도 같은 계정이 돼 버린다.
+// → 리뷰 폰 프레임(iframe name 이 'rvphone' 으로 시작)에서는 로그인을 메모리에만 두어 프레임마다 따로 산다.
+//   (window.name 은 프레임 안에서 페이지를 옮겨도 유지되므로 쿼리스트링을 끌고 다닐 필요가 없다.)
+const isReviewPhoneFrame = (() => { try { return typeof window !== 'undefined' && /^rvphone/.test(window.name || ''); } catch (e) { return false; } })();
+const auth = isReviewPhoneFrame
+    ? initializeAuth(firebaseApp, { persistence: inMemoryPersistence })
+    : initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+void getAuth; // getAuth(firebaseApp) 를 부르는 다른 모듈은 위에서 초기화한 같은 인스턴스를 돌려받는다
 const storage = getStorage(firebaseApp);
 
 export { db, auth, storage, firebaseApp };

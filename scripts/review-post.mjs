@@ -2,7 +2,7 @@
 import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import fs from 'fs'
-const key = JSON.parse(fs.readFileSync('_migration/keys/source-homepro-43f7f.json', 'utf8'))
+const key = JSON.parse(fs.readFileSync('_migration/keys/target-homepro-nexlabs.json', 'utf8'))
 initializeApp({ credential: cert(key) }); const db = getFirestore()
 const kstNow = () => { const d = new Date(Date.now() + 9 * 3600000); return d.toISOString().slice(0, 16).replace('T', ' ') }
 const list = process.argv[2] === '--json' ? JSON.parse(fs.readFileSync(process.argv[3], 'utf8')) : [{ pid: process.argv[2], text: process.argv[3] }]
