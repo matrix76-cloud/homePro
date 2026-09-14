@@ -19,6 +19,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../api/config";
 import { COLLECTIONS, ORDER_STATUS } from "../config/homeproConfig";
+import { holdHpointEscrow, releaseHpointEscrow, refundHpointEscrow } from "./PayFlowService";
 
 const ordersRef = collection(db, COLLECTIONS.ORDERS);
 
@@ -290,6 +291,12 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   // 완료 전환 시 포인트 지급 (레거시 표기 '리뷰'/'정산'도 완료로 취급 — normalizeStatus 와 동일 기준)
   if (newStatus === ORDER_STATUS.COMPLETED || newStatus === "리뷰" || newStatus === "정산") {
     await grantOrderCompletionPoints(orderId);
+    // H-포인트 오더 에스크로 배분 — 홈프로에게 대금, 접수자에게 캐시백 (대표 확정 9/13)
+    try { await releaseHpointEscrow(orderId); } catch (e) { console.error("[escrow release]", e); }
+  }
+  // 취소 전환 시 보관 H-포인트 환급
+  if (newStatus === ORDER_STATUS.CANCELLED || newStatus === "취소") {
+    try { await refundHpointEscrow(orderId); } catch (e) { console.error("[escrow refund]", e); }
   }
 }
 
@@ -310,6 +317,10 @@ export const acceptOrder = async (orderId, proUid) => {
   if (!orderSnap.exists()) throw new Error("오더를 찾을 수 없습니다");
   const data = orderSnap.data();
   if (data.matchedProUid) throw new Error("배정된 오더입니다");
+  // 보험 필수(9/14): 건당 보험을 선결제한 홈프로가 있으면 그 사람만 수락 가능
+  if (data.insurance?.applied && data.insurance.prepaidBy && data.insurance.prepaidBy !== proUid) throw new Error("다른 홈프로가 보험을 결제한 오더입니다");
+  // H-포인트 오더는 배정 순간 접수자 H-포인트를 차감해 보관한다 — 부족하면 배정 자체를 막는다 (대표 확정 9/13)
+  if (data.b2bPriceType === "hpoint") await holdHpointEscrow(orderId, data);
   await updateDoc(orderRef, {
     matchedProUid: proUid,
     orderStatus: ORDER_STATUS.ASSIGNED,
@@ -377,7 +388,13 @@ export const selectPro = async (orderId, selectedProUid) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
   const cur = await getDoc(orderRef);
   if (cur.exists() && cur.data().matchedProUid) throw new Error("이미 선정된 오더입니다"); // 중복선정 방지
+  if (cur.exists() && cur.data().b2bPriceType === "hpoint") await holdHpointEscrow(orderId, cur.data());
+  // 비교선정: 다른 지원자가 건당 보험을 선결제해 뒀는데 그 사람이 선정되지 않으면 보험 적용을 풀고 환불 대상으로 표시(환불은 관리자 수동)
+  const curIns = cur.exists() ? cur.data().insurance : null;
+  const insPatch = curIns?.applied && curIns.prepaidBy && curIns.prepaidBy !== selectedProUid
+    ? { insurance: { applied: false, refundNeeded: true, refundOf: curIns, resetAt: serverTimestamp() } } : {};
   await updateDoc(orderRef, {
+    ...insPatch,
     matchedProUid: selectedProUid,
     orderStatus: ORDER_STATUS.ASSIGNED,
     assignedAt: serverTimestamp(),

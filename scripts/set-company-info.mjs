@@ -1,31 +1,26 @@
-// settings/companyInfo 에 사업자 정보 반영 (사업자등록증 2026-08-14 수령: 넥스랩스 주식회사)
-// 실행: node scripts/set-company-info.mjs
-// phone/email/통신판매업 신고번호가 오면 아래 객체에 추가하고 재실행 (merge라 부분 갱신 안전)
+/**
+ * 푸터 사업자 정보(settings/companyInfo) 갱신 — 형 지시 9/14 "[홈프로] 푸터 정보 이걸로 바꾸자"
+ * 실행: node scripts/set-company-info.mjs   (타깃 = _migration/keys/target-*.json)
+ */
 import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import fs from "fs"; import path from "path"; import { fileURLToPath } from "url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const key = JSON.parse(fs.readFileSync(path.join(ROOT, "_migration/keys/source-homepro-43f7f.json"), "utf8"));
-const app = initializeApp({ credential: cert(key), projectId: key.project_id });
-const db = getFirestore(app);
-
-const ref = db.doc("settings/companyInfo");
-const before = await ref.get();
-console.log("before:", before.exists ? JSON.stringify(before.data()) : "(없음)");
-
-await ref.set({
-  companyName: "넥스랩스 주식회사",
-  ceo: "임옥진",
-  bizNumber: "708-87-04038",
-  address: "충청남도 논산시 은진면 탑정로 342-1",
-  email: "homenex74@gmail.com", // 고객센터 이메일 (대표님 확정 8/14 카톡)
-  // phone: "",              // 고객센터 대표번호 — 대표님 회신 대기
-  // mailOrderRegNo: "",     // 통신판매업 신고번호 — 신고 후
+const dir = path.join(ROOT, "_migration/keys");
+const keyPath = fs.readdirSync(dir).filter((f) => f.startsWith("target-") && f.endsWith(".json"))[0];
+const key = JSON.parse(fs.readFileSync(path.join(dir, keyPath), "utf8"));
+initializeApp({ credential: cert(key), projectId: key.project_id });
+const db = getFirestore();
+await db.doc("settings/companyInfo").set({
+  companyName: "(주)윈플래닛",
+  ceo: "박신영",
+  bizNumber: "696-87-02440",
+  phone: "1555-3364",
+  email: "homepro3364@gmail.com",
+  mailOrderNo: "2021-서울종로-1936",
+  jobInfoNo: "",            // 직업정보제공사업 신고번호 — 신고 전
+  privacyOfficer: "박성우",
+  address: "",              // 주소는 안 주셔서 비움
+  updatedAt: FieldValue.serverTimestamp(),
 }, { merge: true });
-
-const after = await ref.get();
-console.log("after:", JSON.stringify(after.data()));
-process.exit(0);
+console.log("settings/companyInfo 갱신 완료 (", key.project_id, ")");

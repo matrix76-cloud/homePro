@@ -14,6 +14,8 @@ import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { useAuth } from "../../context/AuthContext";
 import { getOrder, addOrderLog, updateOrderStatus } from "../../service/OrderService";
+import { needsInsuranceDecision } from "../../service/OrderInsuranceService";
+import { isCheckInBlockedByReferral } from "../../service/PayFlowService";
 import {
   WORKLOG_TYPES, WORKLOG_LABELS, WORKLOG_PHOTO_HINT, GEO_ERROR_TEXT,
   addWorkLog, getWorkLogs, summarizeLogs, compressEvidencePhoto, getCurrentGeo,
@@ -84,6 +86,9 @@ const WorkLogPage = () => {
   }, [loading, requested, isWorker, checkIn, checkOut]); // eslint-disable-line
 
   const openSheet = async (type) => {
+    // 체크인 잠금 — 캐시백 입금 확인 전 / 보험 적용 결정 전 (대표 8/20 · 형 확정 9/13). 서버 규칙과 별개로 화면에서도 막는다
+    if (type === WORKLOG_TYPES.CHECKIN && order && !order.selfOrder && isCheckInBlockedByReferral(order)) { showToast("접수자가 캐시백 입금을 확인해야 체크인할 수 있어요"); navigate(`/order/detail/${orderId}`); return; }
+    if (type === WORKLOG_TYPES.CHECKIN && order && needsInsuranceDecision(order)) { showToast("보험 적용 여부를 먼저 정해 주세요"); navigate(`/order/detail/${orderId}`); return; }
     setSheetType(type);
     setPhotos([]);
     setNote("");
@@ -145,6 +150,11 @@ const WorkLogPage = () => {
     try {
       // 시트를 여는 사이 위치를 못 받았으면 여기서 한 번 더 시도
       const g = geoState || await getCurrentGeo();
+      // 좌표 없는 체크인·체크아웃 차단 (대표 9/12 회신) — 보험 증빙에 위치가 필수
+      if ((sheetType === WORKLOG_TYPES.CHECKIN || sheetType === WORKLOG_TYPES.CHECKOUT) && !g?.geo) {
+        showToast(g?.geoError === "denied" ? "위치 권한을 허용해야 체크인·체크아웃할 수 있어요" : "위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요");
+        setBusy(false); return;
+      }
       await addWorkLog(orderId, {
         type: sheetType,
         byUid: uid,

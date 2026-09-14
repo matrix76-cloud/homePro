@@ -18,6 +18,11 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
+import { Link } from "react-router-dom";
+import {
+    fetchPendingUnmaskRequests, decideUnmaskRequest, getOperatorIdentity,
+    formatDateTime as insFormatDateTime,
+} from "../../service/InsuranceAdminService";
 import {
     IoDocumentTextOutline,
     IoNotificationsOutline,
@@ -54,6 +59,9 @@ const DEFAULT_COMPANY = {
     address: "",
     phone: "",
     email: "",
+    mailOrderNo: "",
+    jobInfoNo: "",
+    privacyOfficer: "",
 };
 
 // ─── 컴포넌트 ───
@@ -301,6 +309,28 @@ const AdminSettingsPage = () => {
     // ─── 테스트 데이터 ───
     const [testStatus, setTestStatus] = useState("");
     const [testLoading, setTestLoading] = useState(false);
+
+    // ── 보험 (대리점 관리자 전화번호 마스킹 해제 요청 — 운영자 승인, 대표 9/12) ──
+    const [unmaskReqs, setUnmaskReqs] = useState([]);
+    const [unmaskLoading, setUnmaskLoading] = useState(false);
+    const [unmaskBusy, setUnmaskBusy] = useState("");
+    const loadUnmaskReqs = async () => {
+        setUnmaskLoading(true);
+        try { setUnmaskReqs(await fetchPendingUnmaskRequests()); } catch (e) { console.error(e); }
+        setUnmaskLoading(false);
+    };
+    useEffect(() => { if (section === "all") loadUnmaskReqs(); }, [section]);
+    const decideUnmask = async (req, decision) => {
+        if (!window.confirm(decision === "approved"
+            ? `${req.requesterName || req.requesterUid}의 전화번호 보기 요청을 승인할까요?\n대상: ${req.target || req.targetId}`
+            : "이 요청을 거절할까요?")) return;
+        setUnmaskBusy(req.id);
+        try {
+            await decideUnmaskRequest(req, decision, getOperatorIdentity());
+            setUnmaskReqs((prev) => prev.filter((r) => r.id !== req.id));
+        } catch (e) { alert("처리 실패: " + e.message); }
+        setUnmaskBusy("");
+    };
     const proFileInputRef = React.useRef(null);
 
     const REGIONS = [
@@ -655,6 +685,24 @@ const AdminSettingsPage = () => {
                                     onChange={(e) => setCompany((prev) => ({ ...prev, email: e.target.value }))}
                                     placeholder="info@example.com" />
                             </FormGroup>
+                            <FormGroup>
+                                <FormLabel>통신판매번호</FormLabel>
+                                <FormInput value={company.mailOrderNo || ""}
+                                    onChange={(e) => setCompany((prev) => ({ ...prev, mailOrderNo: e.target.value }))}
+                                    placeholder="2021-서울종로-0000" />
+                            </FormGroup>
+                            <FormGroup>
+                                <FormLabel>직업정보제공사업 신고번호</FormLabel>
+                                <FormInput value={company.jobInfoNo || ""}
+                                    onChange={(e) => setCompany((prev) => ({ ...prev, jobInfoNo: e.target.value }))}
+                                    placeholder="비우면 (신고전)으로 표시" />
+                            </FormGroup>
+                            <FormGroup>
+                                <FormLabel>개인정보책임관리자</FormLabel>
+                                <FormInput value={company.privacyOfficer || ""}
+                                    onChange={(e) => setCompany((prev) => ({ ...prev, privacyOfficer: e.target.value }))}
+                                    placeholder="담당자 이름" />
+                            </FormGroup>
                             <SaveRow>
                                 {companySuccess && (
                                     <SuccessText><IoCheckmarkCircle size={16} />저장되었습니다</SuccessText>
@@ -663,6 +711,58 @@ const AdminSettingsPage = () => {
                                     <IoSaveOutline size={16} />
                                     {companySaving ? "저장 중..." : "저장"}
                                 </SaveButton>
+                            </SaveRow>
+                        </CardBody>
+                    </Card>
+
+                    {/* 보험 (도급배상책임보험) — 보험료·보장 문구·담당자는 대리점 관리자 화면에서 편집, 여기서는 링크 + 마스킹 해제 승인 */}
+                    <Card>
+                        <CardHeader>
+                            <HeaderLeft>
+                                <IoDocumentTextOutline size={20} />
+                                <HeaderTitle>보험 설정 · 마스킹 해제 요청</HeaderTitle>
+                            </HeaderLeft>
+                        </CardHeader>
+                        <CardBody>
+                            <InsRow>
+                                <InsText>
+                                    보험료·위험도 그룹 요율·보장 문구·대리점 담당자는 보험대리점 관리자 화면의 설정 탭에서 편집합니다 (운영자도 편집 가능).
+                                    대리점 관리자 권한은 회원 목록의 회원 상세에서 부여합니다 (기본 2명).
+                                </InsText>
+                                <InsLink to="/insurance-admin/settings">보험 설정 열기</InsLink>
+                            </InsRow>
+                            <InsSubTitle>전화번호 마스킹 해제 요청 (대기 {unmaskReqs.length}건)</InsSubTitle>
+                            <InsText style={{ marginBottom: 12 }}>
+                                대리점 관리자가 가입자·사고 접수의 전화번호를 보려면 여기서 승인해야 합니다. 승인 건은 insurance_admin_logs 에 기록됩니다.
+                            </InsText>
+                            {unmaskLoading ? (
+                                <InsEmpty>불러오는 중...</InsEmpty>
+                            ) : unmaskReqs.length === 0 ? (
+                                <InsEmpty>대기 중인 요청이 없습니다.</InsEmpty>
+                            ) : (
+                                <InsTable>
+                                    <thead>
+                                        <tr><th>요청일시</th><th>요청자</th><th>구분</th><th>대상</th><th>문서 ID</th><th style={{ textAlign: "right" }}>처리</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {unmaskReqs.map((r) => (
+                                            <tr key={r.id}>
+                                                <td>{insFormatDateTime(r.requestedAt)}</td>
+                                                <td>{r.requesterName || r.requesterUid}</td>
+                                                <td>{r.kind === "claim" ? "사고 접수" : "가입자"}</td>
+                                                <td>{r.target || "-"}</td>
+                                                <td style={{ fontFamily: "monospace", fontSize: 14 }}>{(r.targetId || "").slice(0, 12)}</td>
+                                                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                    <InsBtn onClick={() => decideUnmask(r, "approved")} disabled={unmaskBusy === r.id}>승인</InsBtn>
+                                                    <InsBtn $danger onClick={() => decideUnmask(r, "rejected")} disabled={unmaskBusy === r.id}>거절</InsBtn>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </InsTable>
+                            )}
+                            <SaveRow>
+                                <InsBtn onClick={loadUnmaskReqs} disabled={unmaskLoading}>새로고침</InsBtn>
                             </SaveRow>
                         </CardBody>
                     </Card>
@@ -1057,6 +1157,23 @@ const ErrorText = styled.div`
     color: #ef4444;
     margin-top: 4px;
     margin-bottom: 4px;
+`;
+
+// ─── 보험 섹션 (뱃지·pill 없이 텍스트 + 얇은 테두리) ───
+const InsRow = styled.div`display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid ${THEME.border}; margin-bottom: 16px;`;
+const InsText = styled.p`font-size: 15px; color: ${THEME.text}; margin: 0; line-height: 1.55; flex: 1; min-width: 280px;`;
+const InsLink = styled(Link)`height: 40px; padding: 0 16px; display: inline-flex; align-items: center; font-size: 15px; font-weight: 600; color: ${THEME.text}; border: 1px solid #d9dee5; border-radius: 4px; background: #fff; text-decoration: none; white-space: nowrap; &:hover { background: ${THEME.background}; }`;
+const InsSubTitle = styled.div`font-size: 16px; font-weight: 700; color: ${THEME.text}; margin: 0 0 6px;`;
+const InsEmpty = styled.div`font-size: 15px; color: ${THEME.text}; padding: 18px 0;`;
+const InsTable = styled.table`
+    width: 100%; border-collapse: collapse; border: 1px solid #d9dee5;
+    th { text-align: left; padding: 10px 12px; font-size: 14px; font-weight: 600; color: ${THEME.text}; background: #f1f4f8; border-bottom: 1px solid #d9dee5; white-space: nowrap; }
+    td { padding: 10px 12px; font-size: 15px; color: ${THEME.text}; border-bottom: 1px solid #e9ecf1; }
+`;
+const InsBtn = styled.button`
+    height: 34px; padding: 0 12px; margin-left: 6px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; background: #fff;
+    border: 1px solid ${(p) => (p.$danger ? "#b91c1c" : "#d9dee5")}; color: ${(p) => (p.$danger ? "#b91c1c" : THEME.text)};
+    &:hover:not(:disabled) { background: ${THEME.background}; } &:disabled { opacity: 0.45; cursor: default; }
 `;
 
 // ─── 테스트 데이터 ───

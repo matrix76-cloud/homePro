@@ -1,160 +1,272 @@
-/* eslint-disable */
 /**
- * 홈프로 1일 안심케어 (상해 + 배상책임 통합 미니보험)
+ * 홈프로 도급배상책임보험 — /insurance (하단탭 안심케어)
  *
- * 대표님 지시(2026-08-04 리뷰 chat-list): 하단탭의 교육.장터 자리를 이 상품에 내주고,
- * 교육.장터는 마이 안으로 옮긴다.
+ * 대표 8/20 기획 · 형 확정 2026-09-13 (docs/insurance-dev-spec.md 4절)
+ *   내 보험 상태 → 가입 유형 3카드 → 보장 내용 → [가입하기]
+ *   → 본인 확인 단계(이름·휴대폰, 인증사 연동 자리) → yearly 는 /pay 결제위젯, monthly 는 토스 카드 등록(빌링키)
+ *   perOrder(건당)는 오더 진행 화면에서만 결제된다 — 여기서는 안내만.
  *
- * 주의 — 상품은 아직 인수(보험사) 협의 단계다. 보험료·보장금액을 확정된 것처럼 쓰면
- * 그 자체가 허위 안내가 되므로, 이 화면은 "출시 예정 안내 + 사전 신청 접수"까지만 한다.
- * 조건이 확정되면 COVERAGE 표와 안내 문구를 실제 약관 값으로 교체할 것.
+ * 보험료는 settings/insurance 값(없으면 임시값). 보장 한도·자기부담금은 보험사 확정 전엔 안내 문구만.
  */
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
-import { db } from "../../api/config";
+import { IoShieldCheckmarkOutline, IoCheckmarkCircle, IoChevronForward } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { useAuth } from "../../context/AuthContext";
+import { formatPhone } from "../../utility/common";
+import { isTossTestKey } from "../../utility/tossConfig";
+import { requestBillingAuth } from "../../service/payService";
 import {
-  IoShieldCheckmarkOutline, IoCheckmarkCircle, IoTimeOutline,
-  IoConstructOutline, IoHomeOutline,
-} from "react-icons/io5";
-
-const COLLECTION = "insurance_interests";
-
-/** 협의 중인 보장 구성 — 확정 시 실제 약관 값으로 교체 */
-const COVERAGE = [
-  { key: "injury", title: "작업자 상해", desc: "작업 중 다쳤을 때의 치료비·입원비 보장", Icon: IoConstructOutline },
-  { key: "liability", title: "배상책임", desc: "작업 중 고객의 재물을 파손했을 때의 배상 보장", Icon: IoHomeOutline },
-];
+  getInsuranceSettings, getMyPolicies, pickActivePolicy, computePerOrderPremium, perOrderRateRangeText,
+  formatDate, won, PLAN_DESC, PLAN_KEYS, PER_ORDER_GROUP_KEYS,
+} from "../../service/InsuranceService";
+import {
+  Wrap, Card, CardTitle, CardText, CardNote, KV, KVRow, K, V, PrimaryBtn, GhostBtn, BtnRow, FixedBar, Toast, Notice,
+  SelectCard, SelectTitleRow, SelectTitle, SelectPrice, SelectDesc, SelectMeta, CheckRow, StatusText, LinkLine,
+} from "./insuranceStyles";
 
 const InsurancePage = () => {
   const navigate = useNavigate();
-  const { user, userData } = useAuth();
-  const uid = userData?.uid || user?.uid;
+  const { currentUser, userData } = useAuth();
+  const uid = userData?.uid || currentUser?.uid;
+  const userName = userData?.name || userData?.nickname || "";
+  const userPhone = userData?.phone || userData?.phoneE164 || "";
 
-  const [applied, setApplied] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [policies, setPolicies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState("home");     // home · identity
+  const [plan, setPlan] = useState("");          // yearly · monthly
+  const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(true);
   const [toast, setToast] = useState("");
 
-  const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2200); };
+  const showToast = useCallback((m) => { setToast(m); setTimeout(() => setToast(""), 2400); }, []);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (!uid) { setChecking(false); return; }
-      try {
-        const snap = await getDocs(query(collection(db, COLLECTION), where("uid", "==", uid)));
-        if (alive) setApplied(!snap.empty);
-      } catch (e) {
-        console.warn("사전신청 조회 실패:", e.message);
-      }
-      if (alive) setChecking(false);
+      const [s, p] = await Promise.all([
+        getInsuranceSettings(),
+        uid ? getMyPolicies(uid).catch((e) => { console.warn("가입 조회 실패:", e.message); return []; }) : Promise.resolve([]),
+      ]);
+      if (!alive) return;
+      setSettings(s); setPolicies(p); setLoading(false);
     })();
     return () => { alive = false; };
   }, [uid]);
 
-  const apply = async () => {
-    if (busy || applied) return;
-    if (!uid) { showToast("로그인 후 신청할 수 있습니다"); return; }
-    setBusy(true);
-    try {
-      await addDoc(collection(db, COLLECTION), {
-        uid,
-        name: userData?.nickname || userData?.name || "",
-        phone: userData?.phone || "",
-        companyName: userData?.companyName || "",
-        createdAt: serverTimestamp(),
-      });
-      setApplied(true);
-      showToast("사전 신청이 접수되었습니다");
-    } catch (e) {
-      showToast("신청에 실패했습니다. 잠시 후 다시 시도해 주세요");
-    }
-    setBusy(false);
+  const active = useMemo(() => pickActivePolicy(policies), [policies]);
+  const plans = settings?.plans;
+  const coverage = settings?.coverage;
+  const perOrderExample = useMemo(() => computePerOrderPremium(300000, settings), [settings]);   // 예시: g1 요율
+  const rateRange = useMemo(() => perOrderRateRangeText(settings), [settings]);
+  const perOrderMin = settings?.perOrder?.minPrice ?? plans?.perOrder?.minPrice ?? 3000;
+
+  const priceText = (key) => {
+    const p = plans?.[key];
+    if (!p) return "";
+    if (key === "yearly") return `${won(p.price)} / 1년`;
+    if (key === "monthly") return `${won(p.price)} / 월`;
+    return `시공단가의 ${rateRange}`;
   };
 
+  const startJoin = () => {
+    if (!plan) { showToast("가입 유형을 선택해 주세요"); return; }
+    if (!uid) { showToast("로그인 후 가입할 수 있습니다"); return; }
+    setAgree(false);
+    setStep("identity");
+    window.scrollTo(0, 0);
+  };
+
+  const proceed = async () => {
+    if (!agree || busy) return;
+    if (plan === "yearly") {
+      navigate("/pay?purpose=insurance_yearly");
+      return;
+    }
+    if (plan === "monthly") {
+      setBusy(true);
+      try {
+        await requestBillingAuth({ customerKey: uid, customerName: userName, customerEmail: currentUser?.email || undefined });
+        // 토스 카드 등록창으로 넘어간다 (성공 시 /pay/billing-success, 실패 시 /pay/fail)
+      } catch (e) {
+        if (e?.code !== "USER_CANCEL") showToast(e?.message || "카드 등록창을 열지 못했습니다");
+        setBusy(false);
+      }
+    }
+  };
+
+  const activeTypeLabel = active ? (plans?.[active.type]?.label || active.type) : "";
+  const autoPayText = active?.type === "monthly"
+    ? (active.status === "canceled" ? "해지됨 (만료일까지 보장)" : active.billing?.billingKey ? `자동결제 켜짐${active.billing?.cardCompany ? ` · ${active.billing.cardCompany}` : ""}` : "자동결제 정보 없음")
+    : "해당 없음";
+
+  /* ───────── 본인 확인 단계 ───────── */
+  if (step === "identity") {
+    const p = plans?.[plan];
+    return (
+      <MainListLayout NAME="안심케어" footerType="insurance" hideBack>
+        <Wrap $bottom={130}>
+          <Card>
+            <CardTitle>본인 확인</CardTitle>
+            <CardText>보험 가입에는 가입자 본인 확인이 필요합니다. 아래 정보가 본인 것인지 확인해 주세요.</CardText>
+            <KV>
+              <KVRow><K>가입 유형</K><V $bold>{p?.label || plan}</V></KVRow>
+              <KVRow><K>보험료</K><V $bold>{priceText(plan)}</V></KVRow>
+              <KVRow><K>이름</K><V>{userName || "-"}</V></KVRow>
+              <KVRow><K>휴대폰</K><V>{userPhone ? formatPhone(userPhone) : "-"}</V></KVRow>
+            </KV>
+            <CardNote>이름이나 번호가 다르면 마이페이지에서 먼저 고쳐 주세요.</CardNote>
+          </Card>
+
+          <Notice>휴대폰 본인인증은 인증사 연동 후 열립니다. 그전까지는 위 이름·휴대폰 확인으로 대신합니다.</Notice>
+
+          <Card>
+            <CheckRow>
+              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+              <span>위 정보가 본인 것이 맞으며, 보험 가입과 사고 처리를 위해 이름·연락처·오더 정보를 보험대리점에 제공하는 것에 동의합니다.</span>
+            </CheckRow>
+          </Card>
+
+          {plan === "monthly" && (
+            <CardNote style={{ marginTop: 0, padding: "0 6px" }}>
+              다음 단계에서 토스페이먼츠 카드 등록창이 열립니다. 등록이 끝나면 첫 달 보험료가 바로 결제되고, 이후 매월 같은 날 자동으로 결제됩니다.
+              {isTossTestKey() ? " 지금은 토스 테스트 키로 열려 있어 실제로 돈이 빠지지 않습니다." : ""}
+            </CardNote>
+          )}
+        </Wrap>
+        <FixedBar $tab>
+          <BtnRow>
+            <GhostBtn onClick={() => setStep("home")} disabled={busy}>이전</GhostBtn>
+            <PrimaryBtn onClick={proceed} disabled={!agree || busy} style={{ flex: 2 }}>
+              {busy ? "카드 등록창 여는 중..." : plan === "monthly" ? "카드 등록하고 가입" : "결제로 진행"}
+            </PrimaryBtn>
+          </BtnRow>
+        </FixedBar>
+        {toast && <Toast>{toast}</Toast>}
+      </MainListLayout>
+    );
+  }
+
+  /* ───────── 홈 ───────── */
   return (
     <MainListLayout NAME="안심케어" footerType="insurance" hideBack>
-      <Wrap>
+      <Wrap $bottom={120}>
         <Hero>
-          <HeroBadgeRow>
-            <IoShieldCheckmarkOutline size={19} color={THEME.primary} />
-            출시 준비 중
-          </HeroBadgeRow>
-          <HeroTitle>홈프로 1일 안심케어</HeroTitle>
-          <HeroSub>상해 + 배상책임을 하나로 묶은, 일한 날만 가입하는 하루짜리 보험</HeroSub>
+          <HeroRow>
+            <IoShieldCheckmarkOutline size={20} color={THEME.primary} />
+            홈프로 도급배상책임보험
+          </HeroRow>
+          <HeroSub>작업 중 고객 재물 파손이나 대인 피해가 생겼을 때 사장님 대신 배상하는 보험입니다. 회원이면 누구나 가입할 수 있습니다.</HeroSub>
         </Hero>
 
         <Card>
-          <CardTitle>이런 걱정, 하루치만 덜어드립니다</CardTitle>
-          <CardText>
-            현장에서 다치거나 고객의 물건을 파손하면 그 부담이 온전히 사장님 몫으로 돌아옵니다.
-            연 단위 보험은 부담스럽고, 안 드는 것도 불안한 상황을 겨냥해
-            일한 날 하루만 가입하는 형태로 준비하고 있습니다.
-          </CardText>
-        </Card>
-
-        <Card>
-          <CardTitle>준비 중인 보장</CardTitle>
-          <CoverList>
-            {COVERAGE.map(({ key, title, desc, Icon }) => (
-              <CoverRow key={key}>
-                <CoverIcon><Icon size={20} color={THEME.primary} /></CoverIcon>
-                <div>
-                  <CoverTitle>{title}</CoverTitle>
-                  <CoverDesc>{desc}</CoverDesc>
-                </div>
-              </CoverRow>
-            ))}
-          </CoverList>
-          <CardNote>
-            보험료는 건당 3,000~5,000원 수준으로 협의 중입니다.
-            보장 한도와 최종 보험료는 보험사와의 계약이 확정되는 시점에 안내드립니다.
-          </CardNote>
-        </Card>
-
-        <Card>
-          <CardTitle>이용 방법 (예정)</CardTitle>
-          <StepList>
-            <StepRow><StepNo>1</StepNo><StepText>오더를 수락하면 그 작업일에 맞춰 가입 안내를 받습니다.</StepText></StepRow>
-            <StepRow><StepNo>2</StepNo><StepText>가입은 건당 결제로 끝나고, 해당 작업일 하루 동안 보장됩니다.</StepText></StepRow>
-            <StepRow><StepNo>3</StepNo><StepText>사고가 나면 현장기록의 사진·시각·위치가 그대로 청구 증빙이 됩니다.</StepText></StepRow>
-          </StepList>
-          <LinkLine onClick={() => navigate("/support")}>
-            현장기록이 무엇인지 궁금하다면 고객센터에서 확인하세요
-          </LinkLine>
-        </Card>
-
-        <ApplyArea>
-          {checking ? (
-            <ApplyBtn disabled>확인 중...</ApplyBtn>
-          ) : applied ? (
-            <AppliedBox>
-              <IoCheckmarkCircle size={19} color={THEME.primary} />
-              사전 신청이 접수되었습니다. 출시되면 가장 먼저 알려드릴게요.
-            </AppliedBox>
+          <TitleRow>
+            <CardTitle>내 보험</CardTitle>
+            <LinkLine onClick={() => navigate("/insurance/my")} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              관리 <IoChevronForward size={15} />
+            </LinkLine>
+          </TitleRow>
+          {loading ? (
+            <CardText>확인 중...</CardText>
+          ) : active ? (
+            <KV>
+              <KVRow><K>상태</K><V><StatusText $tone="on">보장 중</StatusText></V></KVRow>
+              <KVRow><K>가입 유형</K><V $bold>{activeTypeLabel}</V></KVRow>
+              <KVRow><K>만료일</K><V>{formatDate(active.endAt)}</V></KVRow>
+              <KVRow><K>자동결제</K><V>{autoPayText}</V></KVRow>
+            </KV>
           ) : (
             <>
-              <ApplyBtn onClick={apply} disabled={busy}>
-                {busy ? "접수 중..." : "출시 알림 사전 신청"}
-              </ApplyBtn>
-              <ApplyNote>
-                <IoTimeOutline size={14} color={THEME.muted} />
-                신청하시면 가입이 열리는 즉시 알려드립니다. 지금 결제되는 금액은 없습니다.
-              </ApplyNote>
+              <KV>
+                <KVRow><K>상태</K><V><StatusText $tone="none">미가입</StatusText></V></KVRow>
+              </KV>
+              <CardNote>가입하지 않은 상태에서 오더를 진행하면 오더별로 건당 단기보험을 결제할 수 있습니다.</CardNote>
             </>
           )}
-        </ApplyArea>
+        </Card>
+
+        <SectionTitle>가입 유형</SectionTitle>
+        {PLAN_KEYS.map((key) => {
+          const p = plans?.[key];
+          const d = PLAN_DESC[key];
+          const isPer = key === "perOrder";
+          const on = plan === key;
+          const inactive = p && p.active === false;
+          return (
+            <SelectCard
+              key={key}
+              type="button"
+              $on={on}
+              disabled={isPer || inactive || loading}
+              onClick={() => setPlan(on ? "" : key)}
+            >
+              <SelectTitleRow>
+                <SelectTitle>{p?.label || d.desc}</SelectTitle>
+                <SelectPrice $on={on}>{loading ? "" : priceText(key)}</SelectPrice>
+              </SelectTitleRow>
+              <SelectDesc>{d.desc}</SelectDesc>
+              <SelectMeta>보장 기간: {d.period} · 결제: {d.pay}</SelectMeta>
+              {isPer && (
+                <SelectMeta>
+                  최소 {won(perOrderMin)}{perOrderExample ? ` (예: 1그룹 시공단가 300,000원이면 ${won(perOrderExample)})` : ""}. 오더 진행 화면에서 결제합니다 — 여기서는 선택할 수 없습니다.
+                </SelectMeta>
+              )}
+              {inactive && <SelectMeta>지금은 가입을 받지 않습니다.</SelectMeta>}
+              {on && (
+                <SelectedLine><IoCheckmarkCircle size={17} color={THEME.primary} /> 선택됨</SelectedLine>
+              )}
+            </SelectCard>
+          );
+        })}
+
+        <Card>
+          <CardTitle>보장 내용</CardTitle>
+          {coverage?.items?.length ? (
+            <ItemList>
+              {coverage.items.map((t, i) => <Item key={i}>{t}</Item>)}
+            </ItemList>
+          ) : null}
+          <KV>
+            {coverage?.maxText ? (
+              <KVRow><K>보장 한도</K><V>{coverage.maxText}</V></KVRow>
+            ) : PER_ORDER_GROUP_KEYS.some((g) => coverage?.maxByGroup?.[g]) ? (
+              PER_ORDER_GROUP_KEYS.map((g) => (
+                <KVRow key={g}>
+                  <K>{settings?.perOrder?.groups?.[g]?.label || g} 한도</K>
+                  <V>{coverage?.maxByGroup?.[g] || "보험사 확정 후 안내"}</V>
+                </KVRow>
+              ))
+            ) : (
+              <KVRow><K>보장 한도</K><V>보험사 확정 후 안내 (작업 위험도 그룹별로 다를 수 있습니다)</V></KVRow>
+            )}
+            <KVRow><K>자기부담금</K><V>{coverage?.deductibleText || "30만원 (공통)"}</V></KVRow>
+          </KV>
+        </Card>
+
+        <Card>
+          <CardTitle>보장이 적용되려면</CardTitle>
+          <ItemList>
+            <Item>오더의 체크인·체크아웃 기록이 서버에 있어야 그 작업이 보장됩니다. 매칭 오더와 직접 수주한 오더 모두 같습니다.</Item>
+            <Item>월 구독형·1년형 가입자는 오더마다 추가 결제 없이 "보험 적용" 안내만 받습니다.</Item>
+            <Item>가입하지 않은 회원은 오더 진행 시 건당 보험료를 결제해야 체크인을 할 수 있습니다.</Item>
+            <Item>사고가 나면 안심케어의 내 보험 관리에서 사고 접수를 합니다. 현장기록의 사진·시각·위치가 증빙이 됩니다.</Item>
+          </ItemList>
+        </Card>
 
         <Disclaimer>
-          본 화면은 준비 중인 상품에 대한 사전 안내이며, 보험 계약의 청약·체결이 아닙니다.
-          보장 내용·보험료·인수 조건은 보험사 심사 결과에 따라 달라질 수 있습니다.
+          보험료는 보험사 확정 전 임시 금액이며 계약 확정 시 바뀔 수 있습니다. 보장 내용·인수 조건은 보험사 심사 결과에 따라 달라질 수 있습니다.
         </Disclaimer>
       </Wrap>
+
+      <FixedBar $tab>
+        <PrimaryBtn onClick={startJoin} disabled={loading || !plan}>
+          {plan ? `${plans?.[plan]?.label || ""} 가입하기` : "가입 유형을 선택해 주세요"}
+        </PrimaryBtn>
+      </FixedBar>
       {toast && <Toast>{toast}</Toast>}
     </MainListLayout>
   );
@@ -162,36 +274,20 @@ const InsurancePage = () => {
 
 export default InsurancePage;
 
-/* ===================== styles ===================== */
-
-const Wrap = styled.div`
-  padding: 12px;
-  padding-bottom: 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 560px;
-`;
+/* ===================== styles (이 화면 전용) ===================== */
 
 const Hero = styled.div`
   background: ${THEME.surface};
   border-radius: 16px;
-  padding: 24px 20px;
+  padding: 22px 20px;
   box-shadow: ${THEME.cardShadow};
 `;
 
-const HeroBadgeRow = styled.div`
+const HeroRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: ${THEME.primaryDark};
-`;
-
-const HeroTitle = styled.div`
-  margin-top: 10px;
-  font-size: 23px;
+  gap: 8px;
+  font-size: 21px;
   font-weight: 700;
   color: ${THEME.text};
   letter-spacing: -0.03em;
@@ -205,160 +301,46 @@ const HeroSub = styled.div`
   word-break: keep-all;
 `;
 
-const Card = styled.div`
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 `;
 
-const CardTitle = styled.div`
+const SectionTitle = styled.div`
+  margin: 6px 6px 0;
   font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
 `;
 
-const CardText = styled.div`
+const SelectedLine = styled.div`
   margin-top: 10px;
-  font-size: 16px;
-  line-height: 1.7;
-  color: ${THEME.textSecondary};
-  word-break: keep-all;
-`;
-
-const CardNote = styled.div`
-  margin-top: 14px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: ${THEME.muted};
-  word-break: keep-all;
-`;
-
-const CoverList = styled.div`
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-`;
-
-const CoverRow = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-`;
-
-const CoverIcon = styled.div`
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: ${THEME.background};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-`;
-
-const CoverTitle = styled.div`
-  font-size: 16px;
-  font-weight: 600;
-  color: ${THEME.text};
-`;
-
-const CoverDesc = styled.div`
-  margin-top: 3px;
-  font-size: 15px;
-  color: ${THEME.textSecondary};
-  line-height: 1.5;
-  word-break: keep-all;
-`;
-
-const StepList = styled.div`
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-`;
-
-const StepRow = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-`;
-
-const StepNo = styled.div`
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  background: ${THEME.background};
-  color: ${THEME.textSecondary};
-  font-size: 14px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-`;
-
-const StepText = styled.div`
-  flex: 1;
-  font-size: 16px;
-  line-height: 1.6;
-  color: ${THEME.textSecondary};
-  word-break: keep-all;
-`;
-
-const LinkLine = styled.div`
-  margin-top: 16px;
-  font-size: 15px;
-  font-weight: 600;
-  color: ${THEME.primaryDark};
-  cursor: pointer;
-  &:active { opacity: 0.7; }
-`;
-
-const ApplyArea = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`;
-
-const ApplyBtn = styled.button`
-  width: 100%;
-  padding: 16px;
-  border: none;
-  border-radius: 10px;
-  background: ${THEME.primary};
-  color: #fff;
-  font-size: 17px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  &:disabled { opacity: 0.5; }
-  &:active { background: ${THEME.primaryDark}; }
-`;
-
-const ApplyNote = styled.div`
   display: flex;
   align-items: center;
   gap: 5px;
-  justify-content: center;
   font-size: 14px;
-  color: ${THEME.muted};
-  word-break: keep-all;
+  font-weight: 700;
+  color: ${THEME.primaryDark};
 `;
 
-const AppliedBox = styled.div`
+const ItemList = styled.ul`
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  padding: 16px;
-  background: ${THEME.surface};
-  border-radius: 12px;
-  box-shadow: ${THEME.cardShadow};
+`;
+
+const Item = styled.li`
+  position: relative;
+  padding-left: 14px;
   font-size: 15px;
+  line-height: 1.6;
   color: ${THEME.textSecondary};
-  line-height: 1.5;
   word-break: keep-all;
+  &::before { content: "·"; position: absolute; left: 2px; top: 0; font-weight: 700; color: ${THEME.text}; }
 `;
 
 const Disclaimer = styled.div`
@@ -366,21 +348,5 @@ const Disclaimer = styled.div`
   font-size: 13px;
   line-height: 1.6;
   color: ${THEME.muted};
-  word-break: keep-all;
-`;
-
-const Toast = styled.div`
-  position: fixed;
-  bottom: 90px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(20,24,31,0.92);
-  color: #fff;
-  padding: 12px 20px;
-  border-radius: 10px;
-  font-size: 15px;
-  z-index: 1400;
-  max-width: 320px;
-  text-align: center;
   word-break: keep-all;
 `;

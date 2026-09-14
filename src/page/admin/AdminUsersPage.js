@@ -237,6 +237,22 @@ const AdminUsersPage = () => {
         }
     };
 
+    // 보험대리점 관리자 권한 (users.insuranceAdmin) — /insurance-admin 접근 권한. 운영자와 분리, 기본 2명.
+    const handleToggleInsuranceAdmin = async (e, user) => {
+        e.stopPropagation();
+        const next = !user.insuranceAdmin;
+        if (!window.confirm(next
+            ? `${user.name || user.nickname || "이 회원"}에게 보험대리점 관리자 권한을 줄까요?\n(/insurance-admin 에 들어가 보험 가입자·사고 접수를 볼 수 있습니다)`
+            : `${user.name || user.nickname || "이 회원"}의 보험대리점 관리자 권한을 해제할까요?`)) return;
+        try {
+            await updateDoc(doc(db, "users", user.id), { insuranceAdmin: next });
+            setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, insuranceAdmin: next } : u)));
+            if (selectedUser?.id === user.id) setSelectedUser((prev) => ({ ...prev, insuranceAdmin: next }));
+        } catch (err) {
+            alert("보험 관리자 권한 변경 실패: " + err.message);
+        }
+    };
+
     const handleDelete = async (e, user) => {
         e.stopPropagation();
         if (!window.confirm(`"${user.name || user.id}" 회원을 삭제하시겠습니까?`)) return;
@@ -318,6 +334,16 @@ const AdminUsersPage = () => {
                     </TierHint>
                     <ActionBtn $outline onClick={(e) => handleToggleTier(e, selectedUser)}>
                         {getAccessTier(selectedUser) === "tier1" ? "2차수 전환" : "1차수 전환"}
+                    </ActionBtn>
+                </FV>
+            </FieldRow>
+            <FieldRow>
+                <FL>보험 관리자</FL>
+                <FV style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <TierText $tier1={!!selectedUser.insuranceAdmin}>{selectedUser.insuranceAdmin ? "부여됨" : "없음"}</TierText>
+                    <TierHint>보험대리점 관리자 화면(/insurance-admin) 접근 권한 · 기본 2명</TierHint>
+                    <ActionBtn $outline onClick={(e) => handleToggleInsuranceAdmin(e, selectedUser)}>
+                        {selectedUser.insuranceAdmin ? "권한 해제" : "권한 부여"}
                     </ActionBtn>
                 </FV>
             </FieldRow>

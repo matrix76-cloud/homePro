@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { isCertifiedBroker } from "../../service/BrokerService";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
@@ -66,8 +67,16 @@ const BizProfilePage = () => {
   const [myPros, setMyPros] = useState([]);
   const [loadingMyPros, setLoadingMyPros] = useState(true);
   const [myProfile, setMyProfile] = useState(null);
+  const [brokerCertified, setBrokerCertified] = useState(false);
+  useEffect(() => {
+    const target = myProfile?.uid || null;
+    if (!target) { setBrokerCertified(false); return; }
+    let alive = true;
+    isCertifiedBroker(target).then((ok) => { if (alive) setBrokerCertified(ok); });
+    return () => { alive = false; };
+  }, [myProfile?.uid]);
   const [activityStats, setActivityStats] = useState({ quoteSent: 0, hireCount: 0 });
-  // 정산 계좌 (소개비 입금받을 계좌) — 접힘 기본, 클릭 시 입력폼 (형 지시 8/8)
+  // 정산 계좌 (캐시백 입금받을 계좌) — 접힘 기본, 클릭 시 입력폼 (형 지시 8/8)
   const [account, setAccount] = useState({ bank: "", number: "", holder: "" });
   const [savingAccount, setSavingAccount] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -479,6 +488,14 @@ const BizProfilePage = () => {
                     <ProfileName>{myProfile?.companyName || myProfile?.name || userData?.name || "이름 없음"}</ProfileName>
                     <GradeBadge grade={myProfile?.grade || userData?.grade} size="sm" />
                   </ProfileNameRow>
+                  {/* 인증 공인중개사 — 공동중개 승인(homepro_pros brokerage approved) 시 상호명 아래 한 줄 (형 지시 9/14) */}
+                  {brokerCertified && (
+                    <div style={{ fontSize: 14, color: "#15803d", fontWeight: 700, margin: "2px 0 4px" }}>인증 공인중개사</div>
+                  )}
+                  {/* 보험 가입 표시 — 상호명 바로 아래 한 줄 (대표 8/20 표준 프로필 스펙). 뱃지 스타일 금지, 글씨로만 */}
+                  {(myProfile?.insurance?.status === "active" && (myProfile.insurance.type === "yearly" || myProfile.insurance.type === "monthly")) && (
+                    <div style={{ fontSize: 14, color: "#15803d", fontWeight: 700, margin: "2px 0 4px", wordBreak: "keep-all" }}>홈프로 도급배상책임보험 가입 업체 ({myProfile.insurance.type === "monthly" ? "월 구독형" : "1년형"})</div>
+                  )}
                   <ProfileBio>
                     {myProfile?.intro || (isViewingOther ? "" : "한줄 소개를 작성해보세요")}
                   </ProfileBio>
@@ -706,7 +723,7 @@ const BizProfilePage = () => {
                     <AccountSub style={{ marginBottom: 0 }}>
                       {myProfile?.account?.number
                         ? `${myProfile.account.bank} ${myProfile.account.number} · ${myProfile.account.holder}`
-                        : "소개비·정산금을 입금받을 계좌를 등록하세요"}
+                        : "캐시백·정산금을 입금받을 계좌를 등록하세요"}
                     </AccountSub>
                   </div>
                   {accountOpen

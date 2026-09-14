@@ -9,12 +9,15 @@ import { hasBusinessLicense, getCompletedOrderCount } from "../service/Certifica
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { blockUser, isBlocked } from "../service/BlockService";
+import { isCertifiedBroker } from "../service/BrokerService";
 
 const GRADE_LABEL = { rookie: "루키", bronze: "브론즈", silver: "실버", gold: "골드", diamond: "다이아", master: "마스터" };
 
 // 미리 아는 정보(fallback)로 즉시 표시 + uid 있으면 상세 조회로 보강
 const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
   const [profile, setProfile] = useState(null);
+  const [brokerCertified, setBrokerCertified] = useState(false);
+  useEffect(() => { let alive = true; isCertifiedBroker(uid).then((ok) => { if (alive) setBrokerCertified(ok); }); return () => { alive = false; }; }, [uid]);
   const [loading, setLoading] = useState(!!uid);
   // 신뢰요소 — 홈프로 누적 오더 완료 건수 (대표 지시 7/30)
   const [completedCount, setCompletedCount] = useState(null);
@@ -82,6 +85,10 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
           <HeadInfo>
             <Name>{name}</Name>
             {company && <Company>{company}</Company>}
+            {brokerCertified && <div style={{ fontSize: 14, color: "#15803d", fontWeight: 700, marginTop: 2 }}>인증 공인중개사</div>}
+            {(p.insurance?.status === "active" && (p.insurance.type === "yearly" || p.insurance.type === "monthly")) && (
+              <div style={{ fontSize: 14, color: "#15803d", fontWeight: 700, marginTop: 2, wordBreak: "keep-all" }}>도급배상책임보험 가입 업체 ({p.insurance.type === "monthly" ? "월 구독형" : "1년형"})</div>
+            )}
             <MetaRow>
               {grade && <GradeChip>{GRADE_LABEL[grade] || grade}</GradeChip>}
               {(rating > 0 || reviewCount > 0) && (

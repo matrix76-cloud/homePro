@@ -12,7 +12,6 @@ import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
 import RequireAuth from "./components/guards/RequireAuth";
 import RequirePhone from "./components/guards/RequirePhone";
 import RequireAdmin from "./components/guards/RequireAdmin";
-import RequirePro from "./components/guards/RequirePro";
 import AdminLayout from "./components/admin/AdminLayout";
 
 /* Pages */
@@ -40,6 +39,21 @@ import MarketplaceDetailPage from "./page/order/MarketplaceDetailPage";
 import SubscriptionPage from "./page/mypage/SubscriptionPage";
 import EducationMarketPage from "./page/main/EducationMarketPage";
 import InsurancePage from "./page/insurance/InsurancePage";
+import InsuranceMyPage from "./page/insurance/InsuranceMyPage";
+import InsuranceClaimPage from "./page/insurance/InsuranceClaimPage";
+import PayPage from "./page/pay/PayPage";
+import PaySuccessPage from "./page/pay/PaySuccessPage";
+import PayFailPage from "./page/pay/PayFailPage";
+import BillingSuccessPage from "./page/pay/BillingSuccessPage";
+import RequireInsuranceAdmin from "./page/insurance-admin/RequireInsuranceAdmin";
+import InsuranceAdminLayout from "./page/insurance-admin/InsuranceAdminLayout";
+import InsAdminDashboardPage from "./page/insurance-admin/InsAdminDashboardPage";
+import InsAdminPoliciesPage from "./page/insurance-admin/InsAdminPoliciesPage";
+import InsAdminSettlementPage from "./page/insurance-admin/InsAdminSettlementPage";
+import InsAdminClaimsPage from "./page/insurance-admin/InsAdminClaimsPage";
+import InsAdminSettingsPage from "./page/insurance-admin/InsAdminSettingsPage";
+import AdminPaymentsPage from "./page/admin/AdminPaymentsPage";
+import PaymentHistoryPage from "./page/mypage/PaymentHistoryPage";
 import BrokeragePage from "./page/main/BrokeragePage";
 import BrokerageCreatePage from "./page/main/BrokerageCreatePage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
@@ -98,6 +112,7 @@ import AdminBlacklistPage from "./page/admin/AdminBlacklistPage";
 /* Dev 전용 — 리뷰 허브 (프로덕션 빌드에서 라우트 게이트로 제외, lazy로 청크 분리) */
 const AuthReview = React.lazy(() => import("./dev/AuthReview"));
 const ReviewTable = React.lazy(() => import("./dev/ReviewTable"));
+const ReviewLab = React.lazy(() => import("./dev/ReviewLab"));   // 리뷰 페이지 재구축 시안 랩 (2026-09-12)
 
 /* ===================== motion wrappers ===================== */
 
@@ -223,6 +238,7 @@ const AnimatedRoutes = () => {
 
   const isFullWidth =
     location.pathname.startsWith("/admin") ||
+    location.pathname.startsWith("/insurance-admin") ||
     location.pathname.startsWith("/review") ||
     location.pathname === "/intro";
   const Wrapper = isFullWidth ? FullContainer : Container;
@@ -247,6 +263,7 @@ const AnimatedRoutes = () => {
           <Route path="/review" element={<React.Suspense fallback={null}><AuthReview /></React.Suspense>} />
           <Route path="/review/:id" element={<React.Suspense fallback={null}><AuthReview /></React.Suspense>} />
           <Route path="/review-table" element={<React.Suspense fallback={null}><ReviewTable /></React.Suspense>} />
+          <Route path="/reviewlab" element={<React.Suspense fallback={null}><ReviewLab /></React.Suspense>} />
 
           {/* Auth Required - 로그인 필요 */}
           <Route element={<RequireAuth />}>
@@ -270,8 +287,16 @@ const AnimatedRoutes = () => {
             <Route path="/education-market" element={wrap(<EducationMarketPage />)} />
             {/* 일일 미니보험 안심케어 — 하단탭 (교육.장터 자리 대체, 대표 지시 8/4) */}
             <Route path="/insurance" element={wrap(<InsurancePage />)} />
-            {/* 공동중개 라운지 — 개업 공인중개사(홈프로) 전용. 비프로(의뢰자) 접근 차단 */}
-            <Route element={<RequirePro />}>
+            {/* 보험 가입·사고 접수·토스 결제 (9/13) */}
+            <Route path="/insurance/my" element={wrap(<InsuranceMyPage />)} />
+            <Route path="/insurance/claim" element={wrap(<InsuranceClaimPage />)} />
+            <Route path="/insurance/claim/:orderId" element={wrap(<InsuranceClaimPage />)} />
+            <Route path="/pay" element={wrap(<PayPage />)} />
+            <Route path="/pay/success" element={wrap(<PaySuccessPage />)} />
+            <Route path="/pay/fail" element={wrap(<PayFailPage />)} />
+            <Route path="/pay/billing-success" element={wrap(<BillingSuccessPage />)} />
+            {/* 공동중개 라운지 — 조회는 누구나, 글쓰기·손님공유 연결은 인증 공인중개사만 (대표 9/10 권한 구조, 9/13 반영). 판정은 페이지 안에서 */}
+            <Route>
               <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
               <Route path="/brokerage/create" element={wrap(<BrokerageCreatePage />)} />
             </Route>
@@ -312,6 +337,7 @@ const AnimatedRoutes = () => {
             <Route path="/marketplace/create" element={wrap(<MarketplaceCreatePage />)} />
             <Route path="/marketplace/:marketplaceId" element={wrap(<MarketplaceDetailPage />)} />
             <Route path="/subscription" element={wrap(<SubscriptionPage />)} />
+            <Route path="/mypage/payments" element={wrap(<PaymentHistoryPage />)} />
 
             {/* Search */}
             <Route path="/search" element={wrap(<SearchPage />)} />
@@ -344,6 +370,16 @@ const AnimatedRoutes = () => {
 
           {/* Admin */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
+          {/* 보험대리점 관리자 — 운영자 /admin 과 분리 (대표 8/20, 9/13 구현) */}
+          <Route element={<RequireInsuranceAdmin />}>
+            <Route path="/insurance-admin" element={<InsuranceAdminLayout />}>
+              <Route index element={<InsAdminDashboardPage />} />
+              <Route path="policies" element={<InsAdminPoliciesPage />} />
+              <Route path="settlement" element={<InsAdminSettlementPage />} />
+              <Route path="claims" element={<InsAdminClaimsPage />} />
+              <Route path="settings" element={<InsAdminSettingsPage />} />
+            </Route>
+          </Route>
           <Route element={<RequireAdmin />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
@@ -364,6 +400,7 @@ const AnimatedRoutes = () => {
               <Route path="notice" element={<AdminNoticePage />} />
               <Route path="notice/:filter" element={<AdminNoticePage />} />
               <Route path="settlement" element={<AdminSettlementPage />} />
+              <Route path="payments" element={<AdminPaymentsPage />} />
               <Route path="settlement/:filter" element={<AdminSettlementPage />} />
               <Route path="updates" element={<AdminUpdatesPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />

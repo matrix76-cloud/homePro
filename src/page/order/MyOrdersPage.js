@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
 import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice, addOrderLog } from "../../service/OrderService";
+import { insuranceLine } from "../../service/OrderInsuranceService";
 import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -439,7 +440,8 @@ export const MyOrdersContent = () => {
                         리스트 전체가 크래시 — 문자열로 정규화 (심화점검 11 발견) */}
                     <BottomText>{typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" ")}</BottomText>
                     <BottomText>{order.writer}</BottomText>
-                    <BottomText>{MATCH_TYPE_LABEL[order.matchType] || ""}</BottomText>
+                    <BottomText>{order.selfOrder ? "셀프 등록" : (MATCH_TYPE_LABEL[order.matchType] || "")}</BottomText>
+                    {insuranceLine(order) && <BottomText style={{ color: order.insurance?.applied ? "#15803d" : THEME.muted, fontWeight: order.insurance?.applied ? 700 : 400 }}>{insuranceLine(order)}</BottomText>}
                     {workDateText(order) && <BottomText>작업일 {workDateText(order)}</BottomText>}
                   </BottomLeft>
                   <PriceText>{formatPriceLine(order)}</PriceText>

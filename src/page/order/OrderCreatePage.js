@@ -6,6 +6,8 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../api/config";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
+import { assertHpointBalanceForCreate } from "../../service/PayFlowService";
+import { serverTimestamp } from "firebase/firestore";
 import {
   CATEGORIES,
   CATEGORY_GROUPS,
@@ -569,6 +571,10 @@ export const OrderCreateContent = () => {
   const [referralFeeHpoint, setReferralFeeHpoint] = useState("");
   const [referralFeeHpointCustom, setReferralFeeHpointCustom] = useState("");
   const [matchType, setMatchType] = useState("");
+  // 셀프 등록 오더 — 앱 밖에서 수주한 일을 본인이 등록해 보험·현장기록만 쓰는 오더 (대표 8/20). 캐시백·매칭 없음
+  const [selfOrder, setSelfOrder] = useState(false);
+  // 셀프 등록은 보험 적용용 항목만(대표 9/12): 단가유형은 시공(공사)단가 하나
+  useEffect(() => { if (selfOrder && b2bPriceType !== "fixed") setB2bPriceType("fixed"); }, [selfOrder, b2bPriceType]);
   const [directPhone, setDirectPhone] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -665,6 +671,7 @@ export const OrderCreateContent = () => {
       }
     }
     setMatchType(editOrder.matchType || "");
+    setSelfOrder(!!editOrder.selfOrder);
     setDirectPhone(editOrder.directPhone || "");
   }, [editOrder]);
 
@@ -807,16 +814,24 @@ export const OrderCreateContent = () => {
     setSelectedServices([]);
   };
 
-  // 금액이 정해진 유형(시공금액·잔금·H-포인트)만 선결제 가능
+  // 금액이 정해진 유형(시공금액·잔금)만 선결제 가능 — H-포인트 유형은 대금이 H-포인트라 결제방식 칸 자체가 없다 (형 확정 9/12)
   const isPricedType = COMMON_B2B_FIELDS.priceType.pricedTypes.includes(b2bPriceType);
   const isInfoType = b2bPriceType === "info";
-  // 소개 수수료 정률 상한 — 선결제 30% · 후불 15% (결제방식 안 골랐으면 후불 기준)
-  const referralRateCap = COMMON_B2B_FIELDS.referralFee.rateCap[payMode === "prepay" ? "prepay" : "later"];
+  // 잔금 유형은 캐시백 없음 — 접수자가 선수금으로 몫을 이미 챙긴 셈 (대표 확정 9/13)
+  const isBalanceType = b2bPriceType === "balance";
+  // 캐시백 정률 상한 — 선결제 30% · 후불 15% (결제방식 안 골랐으면 후불 기준)
+  // 캐시백 상한 없음 — 대표 9/12 회신 "소개비 상한 수치 해당 없습니다". rateCap 은 구 오더 호환용으로만 남김
+  const referralRateCap = Infinity;
   const referralRates = COMMON_B2B_FIELDS.referralFee.rates.filter((r) => r <= referralRateCap);
   // 유형이 바뀌어 선결제가 불가능해지면 결제방식 초기화, 상한 넘는 정률은 지운다
   useEffect(() => { if (payMode === "prepay" && !isPricedType) setPayMode(""); }, [isPricedType, payMode]);
+  // 단가유형 H-포인트 = 대금을 H-포인트로 받는 오더: 캐시백도 H-포인트로 고정, 결제방식(선결제/후불)은 없음. 다른 유형으로 바꾸면 H-포인트 캐시백은 해제 (형 확정 9/12)
+  useEffect(() => {
+    if (b2bPriceType === "hpoint") { if (referralFeeType !== "hpoint") setReferralFeeType("hpoint"); if (payMode) setPayMode(""); }
+    else if (referralFeeType === "hpoint") setReferralFeeType("none");
+  }, [b2bPriceType, referralFeeType, payMode]);
   useEffect(() => { if (referralFeeRate && Number(referralFeeRate) > referralRateCap) setReferralFeeRate(""); }, [referralRateCap, referralFeeRate]);
-  useEffect(() => { if (isInfoType && referralFeeType !== "none") setReferralFeeType("none"); }, [isInfoType, referralFeeType]);
+  useEffect(() => { if ((isInfoType || isBalanceType) && referralFeeType !== "none") setReferralFeeType("none"); }, [isInfoType, isBalanceType, referralFeeType]);
 
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
@@ -845,6 +860,11 @@ export const OrderCreateContent = () => {
       return;
     }
     if (!validateForm()) return;
+    // H-포인트 오더: 접수자 잔액이 대금보다 적으면 접수 불가 (대표 확정 9/13)
+    if (b2bPriceType === "hpoint" && !isEdit) {
+      try { await assertHpointBalanceForCreate(user?.uid || userData?.uid, Number(b2bPriceAmount) || 0); }
+      catch (e) { showToast(e.message || "H-포인트가 부족합니다"); return; }
+    }
     const confirmMsg = isEdit
       ? "수정한 내용을 저장하시겠습니까?"
       : (asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?");
@@ -875,7 +895,7 @@ export const OrderCreateContent = () => {
 
       const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
       const writerPhoto = userData?.profileImage || userData?.photoURL || user?.USERINFO?.userimg || "";
-      // 소개 수수료 값 계산
+      // 캐시백 값 계산
       let referralFeeValue = null;
       if (referralFeeType === "fixed") {
         referralFeeValue = { type: "fixed", amount: referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed) };
@@ -957,10 +977,15 @@ export const OrderCreateContent = () => {
         referralFee: referralFeeType === "none" || isInfoType ? null : referralFeeValue,
         // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
         referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
-        matchType: matchType || null,
-        directPhone: matchType === "direct" ? directPhone : null,
+        matchType: selfOrder ? null : (matchType || null),
+        directPhone: !selfOrder && matchType === "direct" ? directPhone : null,
         orderStatus: asWaiting ? "대기" : "접수",
       };
+      // 셀프 등록 오더: 등록자 본인이 홈프로. 바로 배정 상태로 두고 메인 목록(접수)에는 안 나온다. 캐시백 없음.
+      if (selfOrder) {
+        const me = user?.uid || userData?.uid || "";
+        Object.assign(orderPayload, { selfOrder: true, matchedProUid: me, orderStatus: "배정", assignedAt: serverTimestamp(), referralFee: null, referralPayMethod: null, matchType: null, directPhone: null });
+      }
       if (isEdit) {
         await updateOrder(editOrder.id, orderPayload); // 상태값은 유지, 내용만 갱신
       } else {
@@ -1031,8 +1056,8 @@ export const OrderCreateContent = () => {
       items.push({ k: "단가유형", v: `${ptLabel}${amt}` });
     }
     if (isInfoType) {
-      items.push({ k: "정보제공 리워드", v: `${Number(infoReward || 0).toLocaleString()}원` });
-      if (contractBonus) items.push({ k: "계약성사 인센티브", v: `${Number(contractBonus).toLocaleString()}원` });
+      items.push({ k: "정보제공 리워드", v: `${Number(infoReward || 0).toLocaleString()}P` });
+      if (contractBonus) items.push({ k: "계약성사 인센티브", v: `${Number(contractBonus).toLocaleString()}P` });
     }
     if (payMode) items.push({ k: "결제방식", v: labelOf(COMMON_B2B_FIELDS.payMode.options, payMode) });
     if (referralFeeType && referralFeeType !== "none") {
@@ -1046,9 +1071,10 @@ export const OrderCreateContent = () => {
         const pt = referralFeeHpoint === "custom" ? referralFeeHpointCustom : referralFeeHpoint;
         v = `H-포인트 ${Number(pt || 0).toLocaleString()}P`;
       }
-      items.push({ k: "소개 수수료", v });
+      items.push({ k: "캐시백", v });
     }
-    if (matchType) {
+    if (selfOrder) items.push({ k: "등록 방식", v: "셀프 등록 (내가 직접 수주한 일)" });
+    if (matchType && !selfOrder) {
       const mt = labelOf(COMMON_B2B_FIELDS.matchType.options, matchType);
       items.push({ k: "홈프로 선택", v: matchType === "direct" && directPhone ? `${mt} → ${directPhone}` : mt });
     }
@@ -1620,6 +1646,7 @@ export const OrderCreateContent = () => {
           </Section>
 
           {/* 연락처 — 접수자(인증된 본인, 자동) + 고객(실무자) */}
+          {!selfOrder && (
           <Section>
             <Label>연락처</Label>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 16, color: THEME.text }}>
@@ -1630,6 +1657,7 @@ export const OrderCreateContent = () => {
             <div style={{ fontSize: 15, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
             <Input type="tel" placeholder="고객 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
           </Section>
+          )}
 
           {/* 단가유형 */}
           <Section>
@@ -1638,7 +1666,7 @@ export const OrderCreateContent = () => {
               <HelpBtn type="button" onClick={() => setHelpPopup({ title: "단가유형 안내", items: COMMON_B2B_FIELDS.priceType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
             </LabelRow>
             <ChipGrid style={{ marginTop: 12 }}>
-              {COMMON_B2B_FIELDS.priceType.options.map((opt) => (
+              {COMMON_B2B_FIELDS.priceType.options.filter((opt) => !selfOrder || opt.value === "fixed").map((opt) => (
                 <Chip key={opt.value} $selected={b2bPriceType === opt.value} onClick={() => setB2bPriceType(opt.value)}>{opt.label}</Chip>
               ))}
             </ChipGrid>
@@ -1655,7 +1683,7 @@ export const OrderCreateContent = () => {
                 {COMMON_B2B_FIELDS.infoReward.fields.map((f) => (
                   <div key={f.key} style={{ marginTop: 10 }}>
                     <div style={{ fontSize: 15, color: THEME.muted, marginBottom: 6 }}>{f.label} <span style={{ color: THEME.textSecondary }}>· {f.hint}</span></div>
-                    <Input inputMode="numeric" placeholder={`${f.label} (원)`}
+                    <Input inputMode="numeric" placeholder={`${f.label} (P)`}
                       value={withComma(f.key === "infoReward" ? infoReward : contractBonus)}
                       onChange={(e) => (f.key === "infoReward" ? setInfoReward : setContractBonus)(onlyDigits(e.target.value))} />
                   </div>
@@ -1664,8 +1692,9 @@ export const OrderCreateContent = () => {
             )}
           </Section>
 
-          {/* 결제방식 — 선결제 / 후불 (형·대표님 확정 9/11). 금액 없는 유형은 선결제 불가 */}
-          {!isInfoType && (
+          {/* 결제방식 — 선결제 / 후불 (형·대표님 확정 9/11). 금액 없는 유형은 선결제 불가. H-포인트 유형은 대금이 H-포인트라 결제방식 없음 (9/12) */}
+          {/* 9/13 대표 확정: 홈프로에는 선결제가 없다 — 결제방식 칸을 화면에서 뺀다 (payMode 는 구 오더 호환용으로만 남김) */}
+          {false && !isInfoType && b2bPriceType !== "hpoint" && (
             <Section>
               <LabelRow>
                 <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.payMode.label}</Label>
@@ -1676,7 +1705,7 @@ export const OrderCreateContent = () => {
                   const disabled = opt.value === "prepay" && !isPricedType;
                   return (
                     <Chip key={opt.value} $selected={payMode === opt.value} style={disabled ? { opacity: 0.45 } : undefined}
-                      onClick={() => { if (disabled) { showToast("선결제는 시공금액·잔금·H-포인트 유형에서만 고를 수 있어요"); return; } setPayMode(opt.value); }}>
+                      onClick={() => { if (disabled) { showToast("선결제는 시공금액·잔금 유형에서만 고를 수 있어요"); return; } setPayMode(opt.value); }}>
                       {opt.label}
                     </Chip>
                   );
@@ -1684,24 +1713,45 @@ export const OrderCreateContent = () => {
               </ChipGrid>
               {payMode === "prepay" && (
                 <div style={{ marginTop: 10, fontSize: 15, color: THEME.muted, lineHeight: 1.5 }}>
-                  홈프로가 수락하면 결제 요청이 옵니다. 결제한 금액은 작업 완료 후 수행 홈프로에게 지급되고, 소개 수수료는 접수자에게 돌아옵니다.
+                  홈프로가 수락하면 결제 요청이 옵니다. 결제한 금액은 작업 완료 후 수행 홈프로에게 지급되고, 캐시백은 접수자에게 돌아옵니다.
                 </div>
               )}
             </Section>
           )}
 
-          {/* 소개(캐시백) 수수료 — 정보공유 유형은 자체 보상이 있어 숨긴다 */}
-          {!isInfoType && (
+          {/* 캐시백 — 정보공유 유형은 자체 보상이 있어 숨긴다 */}
+          {/* 셀프 등록 — 앱 밖 수주 건을 본인이 등록 (대표 8/20 보험 기획). 켜면 캐시백·홈프로 선택은 숨긴다 */}
+          {!isInfoType && !isEdit && (
+          <Section>
+            <LabelRow>
+              <Label style={{ marginBottom: 0 }}>등록 방식</Label>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "등록 방식 안내", items: [{ name: "매칭 오더", desc: "홈프로에게 일을 넘기는 오더입니다. 캐시백과 홈프로 선택 방식을 정합니다." }, { name: "셀프 등록", desc: "앱 밖에서 직접 수주한 일을 본인이 등록합니다. 나의오더현황에서 현장 체크인·체크아웃을 남기고 보험 적용을 받을 수 있습니다. 캐시백·홈프로 선택은 없습니다." }] })}>?</HelpBtn>
+            </LabelRow>
+            <ChipGrid style={{ marginTop: 12 }}>
+              <Chip $selected={!selfOrder} onClick={() => setSelfOrder(false)}>매칭 오더</Chip>
+              <Chip $selected={selfOrder} onClick={() => setSelfOrder(true)}>셀프 등록 (내가 직접 수주한 일)</Chip>
+            </ChipGrid>
+            {selfOrder && (
+              <div style={{ fontSize: 14, color: THEME.muted, marginTop: 10, lineHeight: 1.5 }}>등록하면 바로 나의오더현황에 배정 상태로 들어갑니다. 현장 체크인 전에 보험 적용 여부를 정하게 됩니다.</div>
+            )}
+          </Section>
+          )}
+
+          {!isInfoType && !isBalanceType && !selfOrder && (
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>
-              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "소개(캐시백) 수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "캐시백 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
             </LabelRow>
+            {b2bPriceType === "hpoint" ? (
+              <div style={{ fontSize: 14, color: THEME.muted, margin: "10px 0 12px" }}>대금을 H-포인트로 주는 오더라 캐시백도 H-포인트로 줍니다. 완료 후 접수자가 직접 대금을 H-포인트로 보내고, 홈프로가 직접 캐시백을 H-포인트로 돌려줍니다(자동 차감 아님).</div>
+            ) : (
             <ChipGrid style={{ marginTop: 12, marginBottom: 12 }}>
               {COMMON_B2B_FIELDS.referralFee.types.map((t) => (
                 <Chip key={t.value} $selected={referralFeeType === t.value} onClick={() => setReferralFeeType(t.value)}>{t.label}</Chip>
               ))}
             </ChipGrid>
+            )}
             {referralFeeType === "fixed" && (
               <>
                 <ChipGrid>
@@ -1723,7 +1773,7 @@ export const OrderCreateContent = () => {
                   <Chip key={r} $selected={referralFeeRate === String(r)} onClick={() => setReferralFeeRate(String(r))}>{r}%</Chip>
                 ))}
                 <div style={{ width: "100%", fontSize: 14, color: THEME.muted, marginTop: 4 }}>
-                  {payMode === "prepay" ? "선결제 오더는 최대 30%까지" : "후불 오더는 최대 15%까지 (선결제로 바꾸면 30%까지)"}
+                  캐시백 비율은 당사자끼리 정합니다 (상한 없음)
                 </div>
               </ChipGrid>
             )}
@@ -1745,7 +1795,8 @@ export const OrderCreateContent = () => {
           </Section>
           )}
 
-          {/* 홈프로 선택 */}
+          {/* 홈프로 선택 — 셀프 등록이면 없음 */}
+          {!selfOrder && (
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.matchType.label}</Label>
@@ -1768,6 +1819,7 @@ export const OrderCreateContent = () => {
               </DirectAssignWrap>
             )}
           </Section>
+          )}
 
           {/* 등록 버튼 — 미리보기 화면으로 진입 */}
           <Section>

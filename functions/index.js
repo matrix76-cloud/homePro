@@ -561,3 +561,16 @@ const seedFns = require("./seed");
 exports.cleanAllTestData = seedFns.cleanAllTestData;
 exports.seedTestData = seedFns.seedTestData;
 exports.getSeedLoginToken = seedFns.getSeedLoginToken;
+
+// ─── 토스 결제(보험·구독) + 보험 스케줄·트리거 (functions/tossPay.js · functions/insurance.js) ───
+const tossPayFns = require("./tossPay");
+exports.tossPrepare = tossPayFns.tossPrepare;
+exports.tossConfirm = tossPayFns.tossConfirm;
+exports.tossBillingIssue = tossPayFns.tossBillingIssue;
+exports.tossBillingCancel = tossPayFns.tossBillingCancel;
+
+const insuranceFns = require("./insurance");
+exports.insuranceMonthlyCharge = insuranceFns.insuranceMonthlyCharge;
+exports.insuranceExpireSweep = insuranceFns.insuranceExpireSweep;
+exports.subscriptionExpireSweep = insuranceFns.subscriptionExpireSweep;
+exports.onInsuranceClaimCreated = insuranceFns.onInsuranceClaimCreated;

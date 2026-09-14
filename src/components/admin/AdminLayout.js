@@ -193,6 +193,8 @@ const MENUS = [
         ],
     },
     { to: "/admin/updates", icon: IoCloudDownloadOutline, label: "앱 업데이트 관리" },
+    { to: "/admin/payments", icon: IoCashOutline, label: "PG 결제 내역" },
+    { to: "/insurance-admin", icon: IoShieldCheckmarkOutline, label: "보험대리점 관리" },
     {
         icon: IoSettingsOutline, label: "설정", groupKey: "settings",
         sub: [
