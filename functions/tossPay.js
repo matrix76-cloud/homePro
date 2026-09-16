@@ -7,9 +7,11 @@
  *  ② tossConfirm({ paymentKey, orderId, amount })
  *       적어둔 금액과 대조 → 토스 승인 → payments done → purpose 별 후처리(policy 생성 / users.insurance / orders.insurance / users.subscription).
  *       이미 done 이면 다시 승인하지 않고, 후처리만 빠져 있으면(이전 호출이 중간에 죽은 경우) 후처리만 마저 한다.
- *  ③ tossBillingIssue({ authKey, customerKey })
- *       /v1/billing/authorizations/issue → billingKey → 첫 달 즉시 승인 → monthly policy(active, billing{...}) + users.insurance
- *  ④ tossBillingCancel({ policyId })
+ *  ③ tossBillingIssue({ authKey, customerKey, purpose })
+ *       /v1/billing/authorizations/issue → billingKey → 첫 달 즉시 승인
+ *       purpose 'insurance_monthly'(기본) → monthly policy(active, billing{...}) + users.insurance
+ *       purpose 'subscription'           → users.accessTier=tier1 + users.subscription{autoRenew:true, billing{...}}
+ *  ④ tossBillingCancel({ policyId } | { target:'subscription' })
  *       자동결제 해지 — endAt 까지는 active 유지, autoRenew:false, billing.nextChargeAt:null
  *
  *  payments/{tossOrderId}
@@ -44,6 +46,35 @@ async function findActiveGeneralPolicy(uid) {
     const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.type === "yearly" || p.type === "monthly");
     list.sort((a, b) => (toDate(b.endAt) || 0) - (toDate(a.endAt) || 0));
     return list[0] || null;
+}
+
+/**
+ * 빌링키 발급 — /v1/billing/authorizations/issue.
+ * 보험 월납과 앱 월 구독이 같은 절차라 여기서 한 번만 구현한다(토스 V2 빌링 가이드).
+ * 돌려주는 값: { billingKey, cardCompany, cardNumberMasked }
+ */
+async function issueBillingKey({ authKey, customerKey }) {
+    let issued;
+    try {
+        const r = await tossRequest("/v1/billing/authorizations/issue", { authKey: String(authKey), customerKey: String(customerKey) });
+        issued = r.json || {};
+        if (!r.ok) {
+            console.error("[toss] 빌링키 발급 실패", r.status, issued);
+            throw new HttpsError("aborted", issued.message || "카드 등록에 실패했습니다.");
+        }
+    } catch (e) {
+        if (e instanceof HttpsError) throw e;
+        console.error("[toss] 빌링키 발급 중 오류", e);
+        throw new HttpsError("internal", "결제사와 연결하지 못했습니다.");
+    }
+    const billingKey = issued.billingKey;
+    if (!billingKey) throw new HttpsError("internal", "빌링키를 받지 못했습니다.");
+    const card = issued.card || {};
+    return {
+        billingKey,
+        cardCompany: issued.cardCompany || card.company || null,
+        cardNumberMasked: maskCardNumber(card.number || issued.cardNumber),
+    };
 }
 
 /** 오더의 기준 금액 — b2bPriceAmount → onsiteQuotedPrice → applicantQuotes[matchedProUid]. 없으면 0 */
@@ -358,6 +389,99 @@ exports.tossConfirm = onCall({ region: REGION }, async (request) => {
     return summary({ ...p, ...done }, false, meta);
 });
 
+/**
+ * 앱 월 구독 — 빌링키 등록 + 첫 달 즉시 승인 (대표 지시 9/16: 구독은 단건이 아니라 자동결제).
+ * 자동결제는 전액 카드만 받는다(형 확정 9/16). H-포인트 혼합은 기존 단건 경로(tossPrepare purpose=subscription)로 남는다.
+ *
+ * 이미 유효한 구독이 남아 있으면(단건으로 결제해 둔 달 포함) 지금은 청구하지 않고 카드만 붙여서
+ * 만료일에 첫 자동결제가 되게 한다 — 낸 돈이 겹쳐 사라지지 않게. (resumed:true)
+ */
+async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
+    const sub = (user && user.subscription) || {};
+    const now = new Date();
+    const curEnd = toDate(sub.endAt);
+    const stillValid = sub.status === "active" && curEnd && curEnd.getTime() > now.getTime();
+    if (stillValid && sub.autoRenew === true) {
+        throw new HttpsError("failed-precondition", "이미 자동결제로 구독 중입니다.");
+    }
+
+    const amount = await subscriptionPrice();
+    const orderName = "홈프로 월 구독";
+    const { billingKey, cardCompany, cardNumberMasked } = await issueBillingKey({ authKey, customerKey: ck });
+    const billing = (nextAt) => ({
+        billingKey, customerKey: ck, cardCompany, cardNumberMasked,
+        nextChargeAt: fromDate(nextAt), failCount: 0, issuedAt: tsNow(),
+    });
+
+    // 남은 구독이 있으면 카드만 연결 — 청구는 만료일에
+    if (stillValid) {
+        await db().collection(USERS).doc(uid).set({
+            accessTier: "tier1",
+            subscription: {
+                ...sub, autoRenew: true, autoRenewCanceledAt: null,
+                billing: billing(curEnd), updatedAt: tsNow(),
+            },
+            updatedAt: tsNow(),
+        }, { merge: true });
+        return {
+            ok: true, resumed: true, amount: 0,
+            endAt: curEnd.toISOString(), nextChargeAt: curEnd.toISOString(),
+            cardCompany, cardNumberMasked,
+        };
+    }
+
+    // 첫 달 즉시 승인
+    const tossOrderId = makeTossOrderId("subscription", uid.slice(0, 8));
+    const payRef = db().collection(PAYMENTS).doc(tossOrderId);
+    await payRef.set({
+        purpose: "subscription", uid, authUid, amount, status: "ready",
+        tossOrderId, orderName, method: "billing",
+        meta: { policyId: null, orderId: null, planType: "subscription", pointsUsed: 0 },
+        createdAt: tsNow(), updatedAt: tsNow(),
+    });
+
+    let r;
+    try {
+        r = await chargeBillingKey({ billingKey, customerKey: ck, amount, orderId: tossOrderId, orderName, customerName: userDisplayName(user) });
+    } catch (e) {
+        console.error("[toss] 구독 첫 달 승인 중 오류", e);
+        await payRef.set({ status: "fail", failCode: "NETWORK", failMessage: e.message, updatedAt: tsNow() }, { merge: true });
+        throw new HttpsError("internal", "결제사와 연결하지 못했습니다.");
+    }
+    const result = r.json || {};
+    if (!r.ok) {
+        console.error("[toss] 구독 첫 달 승인 실패", r.status, result);
+        await payRef.set({ status: "fail", failCode: result.code || String(r.status), failMessage: result.message || "승인에 실패했습니다.", raw: result, updatedAt: tsNow() }, { merge: true });
+        throw new HttpsError("aborted", result.message || "첫 달 결제 승인에 실패했습니다. 카드를 다시 등록해 주세요.");
+    }
+    await payRef.set({
+        status: "done",
+        paymentKey: result.paymentKey || null,
+        tossMethod: result.method || null,
+        approvedAt: result.approvedAt || null,
+        receiptUrl: (result.receipt && result.receipt.url) || null,
+        raw: result, updatedAt: tsNow(),
+    }, { merge: true });
+
+    const endAt = addMonths(now, 1);
+    await db().collection(USERS).doc(uid).set({
+        accessTier: "tier1",
+        subscription: {
+            status: "active", autoRenew: true, autoRenewCanceledAt: null,
+            startAt: fromDate(now), endAt: fromDate(endAt),
+            paymentId: tossOrderId, amount, pointsUsed: 0,
+            billing: billing(endAt), updatedAt: tsNow(),
+        },
+        updatedAt: tsNow(),
+    }, { merge: true });
+
+    return {
+        ok: true, resumed: false, paymentId: tossOrderId, amount,
+        endAt: endAt.toISOString(), nextChargeAt: endAt.toISOString(),
+        cardCompany, cardNumberMasked,
+    };
+}
+
 // ─────────────────────────── ③ 빌링키 발급 + 첫 달 승인 ───────────────────────────
 /**
  * data: { authKey, customerKey }  — requestBillingAuth successUrl 이 받은 값 그대로.
@@ -367,11 +491,16 @@ exports.tossConfirm = onCall({ region: REGION }, async (request) => {
  *  · 자동결제만 해지된(autoRenew:false) 월 구독형이 아직 유효하면 → 카드만 다시 붙이고 다음 결제일을 endAt 으로(지금 청구 안 함, resumed:true).
  */
 exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
-    const { authKey, customerKey } = request.data || {};
+    const { authKey, customerKey, purpose } = request.data || {};
     if (!authKey || !customerKey) throw new HttpsError("invalid-argument", "카드 등록 정보(authKey/customerKey)가 없습니다.");
     const { uid, authUid, user } = await resolveCaller(request);
     const ck = String(customerKey);
     if (!(ck.includes(uid) || ck.includes(authUid))) throw new HttpsError("permission-denied", "customerKey 가 로그인한 회원과 맞지 않습니다.");
+
+    // 앱 월 구독 — purpose 를 안 주면 예전처럼 월 구독형 보험으로 본다(기존 호출 호환)
+    if (String(purpose || "") === "subscription") {
+        return await issueSubscriptionBilling({ authKey, ck, uid, authUid, user });
+    }
 
     const settings = await loadInsuranceSettings();
     const plan = settings.plans.monthly;
@@ -386,24 +515,7 @@ exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
     }
 
     // 빌링키 발급
-    let issued;
-    try {
-        const r = await tossRequest("/v1/billing/authorizations/issue", { authKey: String(authKey), customerKey: ck });
-        issued = r.json || {};
-        if (!r.ok) {
-            console.error("[toss] 빌링키 발급 실패", r.status, issued);
-            throw new HttpsError("aborted", issued.message || "카드 등록에 실패했습니다.");
-        }
-    } catch (e) {
-        if (e instanceof HttpsError) throw e;
-        console.error("[toss] 빌링키 발급 중 오류", e);
-        throw new HttpsError("internal", "결제사와 연결하지 못했습니다.");
-    }
-    const billingKey = issued.billingKey;
-    if (!billingKey) throw new HttpsError("internal", "빌링키를 받지 못했습니다.");
-    const card = issued.card || {};
-    const cardCompany = issued.cardCompany || card.company || null;
-    const cardNumberMasked = maskCardNumber(card.number || issued.cardNumber);
+    const { billingKey, cardCompany, cardNumberMasked } = await issueBillingKey({ authKey, customerKey: ck });
 
     // 해지만 해둔 월 구독형이 아직 유효하면 — 카드만 다시 붙이고, 다음 결제는 지금 endAt 에 한다(지금은 청구 없음)
     if (cur && cur.type === "monthly" && cur.autoRenew === false) {
@@ -482,9 +594,27 @@ exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
  * 돌려주는 값: { ok, policyId, endAt }  — status 는 endAt 까지 active 그대로, autoRenew:false, billing.nextChargeAt:null
  */
 exports.tossBillingCancel = onCall({ region: REGION }, async (request) => {
-    const { policyId } = request.data || {};
-    if (!policyId) throw new HttpsError("invalid-argument", "보험 정보(policyId)가 없습니다.");
+    const { policyId, target } = request.data || {};
     const { uid, user } = await resolveCaller(request);
+
+    // 앱 월 구독 해지 — 만료일까지는 0차수 그대로 두고 자동 연장만 끊는다
+    if (String(target || "") === "subscription") {
+        const sub = (user && user.subscription) || {};
+        const endAtIso = toDate(sub.endAt) ? toDate(sub.endAt).toISOString() : null;
+        if (sub.status !== "active") throw new HttpsError("failed-precondition", "진행 중인 구독이 없습니다.");
+        if (sub.autoRenew !== true) return { ok: true, already: true, target: "subscription", endAt: endAtIso };
+        await db().collection(USERS).doc(uid).set({
+            subscription: {
+                ...sub, autoRenew: false, autoRenewCanceledAt: tsNow(),
+                billing: { ...(sub.billing || {}), nextChargeAt: null },
+                updatedAt: tsNow(),
+            },
+            updatedAt: tsNow(),
+        }, { merge: true });
+        return { ok: true, already: false, target: "subscription", endAt: endAtIso };
+    }
+
+    if (!policyId) throw new HttpsError("invalid-argument", "보험 정보(policyId)가 없습니다.");
 
     const ref = db().collection(POLICIES).doc(String(policyId));
     const snap = await ref.get();

@@ -425,6 +425,136 @@ exports.insuranceExpireSweep = onSchedule(
     },
 );
 
+// ─────────────────────────── 앱 월 구독 자동결제 ───────────────────────────
+/**
+ * 매일 03:20 KST — users.subscription 자동결제 갱신 (대표 지시 9/16: 구독은 자동결제).
+ * 만료 정리(subscriptionExpireSweep, 03:40)보다 먼저 돌아야 정상 갱신된 구독이 잘리지 않는다.
+ * 보험 월납(renewMonthlyPolicy)과 같은 규칙: 실패하면 failCount+1, MAX_BILLING_FAILS 회면 자동연장을 끊는다.
+ * 만료 처리 자체는 03:40 sweep 이 endAt 기준으로 한다.
+ *
+ * 쿼리는 accessTier=='tier1' 등호 하나만(복합 인덱스 불필요) 하고 나머지 조건은 메모리에서 거른다.
+ */
+async function chargeSubscription(userDoc, price) {
+    const u = userDoc.data();
+    const uid = userDoc.id;
+    const sub = u.subscription || {};
+    const billing = sub.billing || {};
+    const amount = Number(price) || 16500;
+    const orderName = "홈프로 월 구독 갱신";
+
+    const tossOrderId = makeTossOrderId("subscription", uid.slice(0, 8));
+    const payRef = db().collection(PAYMENTS).doc(tossOrderId);
+    await payRef.set({
+        purpose: "subscription", uid, authUid: null, amount, status: "ready",
+        tossOrderId, orderName, method: "billing", renewal: true,
+        meta: { policyId: null, orderId: null, planType: "subscription", pointsUsed: 0 },
+        createdAt: tsNow(), updatedAt: tsNow(),
+    });
+
+    let r;
+    try {
+        r = await chargeBillingKey({
+            billingKey: billing.billingKey, customerKey: billing.customerKey,
+            amount, orderId: tossOrderId, orderName, customerName: userDisplayName(u),
+        });
+    } catch (e) {
+        r = { ok: false, status: 0, json: { code: "NETWORK", message: e.message } };
+    }
+
+    if (!r.ok) {
+        const failCount = (Number(billing.failCount) || 0) + 1;
+        const code = (r.json && r.json.code) || String(r.status);
+        const message = (r.json && r.json.message) || "자동결제 승인에 실패했습니다.";
+        console.error("[subscription] 자동결제 실패", uid, code, message);
+        await payRef.set({ status: "fail", failCode: code, failMessage: message, raw: r.json || null, updatedAt: tsNow() }, { merge: true });
+
+        const giveUp = failCount >= MAX_BILLING_FAILS;
+        const nextBilling = {
+            ...billing, failCount, lastFailAt: tsNow(), lastFailCode: code, lastFailMessage: message,
+        };
+        if (giveUp) nextBilling.nextChargeAt = null;
+        await userDoc.ref.set({
+            subscription: { ...sub, autoRenew: giveUp ? false : sub.autoRenew, billing: nextBilling, updatedAt: tsNow() },
+            updatedAt: tsNow(),
+        }, { merge: true });
+
+        await createNotification(
+            giveUp ? "subscription_charge_gaveup" : "subscription_charge_failed",
+            giveUp ? "구독 자동결제가 중단되었습니다" : "구독 자동결제에 실패했습니다",
+            giveUp
+                ? `구독 자동결제가 ${MAX_BILLING_FAILS}회 실패해 자동 연장을 멈췄습니다. 만료일이 지나면 2차수로 바뀝니다. 마이페이지 > 구독 관리에서 카드를 다시 등록해 주세요.`
+                : `구독 자동결제가 실패했습니다(${failCount}/${MAX_BILLING_FAILS}회). 내일 다시 시도합니다. 카드 상태를 확인해 주세요.`,
+            [uid],
+            { failCount, failCode: code },
+        );
+        return { ok: false, giveUp, code };
+    }
+
+    const result = r.json || {};
+    await payRef.set({
+        status: "done",
+        paymentKey: result.paymentKey || null,
+        tossMethod: result.method || null,
+        approvedAt: result.approvedAt || null,
+        receiptUrl: (result.receipt && result.receipt.url) || null,
+        raw: result, updatedAt: tsNow(),
+    }, { merge: true });
+
+    const base = toDate(sub.endAt) || new Date();
+    const newEnd = addMonths(base, 1);
+    const newNext = addMonths(toDate(billing.nextChargeAt) || base, 1);
+    await userDoc.ref.set({
+        accessTier: "tier1",
+        subscription: {
+            ...sub, status: "active", endAt: Timestamp().fromDate(newEnd),
+            amount, paymentId: tossOrderId, pointsUsed: 0,
+            billing: { ...billing, nextChargeAt: Timestamp().fromDate(newNext), failCount: 0, lastChargedAt: tsNow() },
+            updatedAt: tsNow(),
+        },
+        updatedAt: tsNow(),
+    }, { merge: true });
+
+    await createNotification(
+        "subscription_renewed",
+        "월 구독이 갱신되었습니다",
+        `${amount.toLocaleString()}원이 결제되어 구독이 ${newEnd.getFullYear()}.${String(newEnd.getMonth() + 1).padStart(2, "0")}.${String(newEnd.getDate()).padStart(2, "0")} 까지 연장되었습니다.`,
+        [uid],
+        { paymentId: tossOrderId, amount },
+    );
+    return { ok: true, paymentId: tossOrderId };
+}
+
+exports.subscriptionAutoCharge = onSchedule(
+    { schedule: "every day 03:20", timeZone: "Asia/Seoul", region: REGION, timeoutSeconds: 540 },
+    async () => {
+        const settings = await db().doc("settings/subscription").get();
+        const price = Number((settings.exists && settings.data().monthlyPrice) || 0) || 16500;
+        const nowMs = Date.now();
+        const snap = await db().collection("users").where("accessTier", "==", "tier1").get();
+        const due = snap.docs.filter((d) => {
+            const sub = d.data().subscription;
+            if (!sub || sub.status !== "active" || sub.autoRenew !== true) return false;
+            const b = sub.billing;
+            if (!b || !b.billingKey || !b.customerKey) return false;
+            if ((Number(b.failCount) || 0) >= MAX_BILLING_FAILS) return false;
+            const next = toDate(b.nextChargeAt);
+            return next && next.getTime() <= nowMs;
+        });
+        console.log(`[subscription] 자동결제 대상 ${due.length}건 / 0차수 ${snap.size}명`);
+        let ok = 0, fail = 0, gaveUp = 0;
+        for (const d of due) {
+            try {
+                const r = await chargeSubscription(d, price);
+                if (r.ok) ok += 1; else { fail += 1; if (r.giveUp) gaveUp += 1; }
+            } catch (e) {
+                fail += 1;
+                console.error("[subscription] 자동결제 처리 중 예외", d.id, e);
+            }
+        }
+        console.log(`[subscription] 자동결제 결과 성공 ${ok} · 실패 ${fail} (중단 ${gaveUp})`);
+    },
+);
+
 // ─────────────────────────── 월 구독(1차수) 만료 ───────────────────────────
 /**
  * users.subscription.endAt 이 지난 1차수 회원을 2차수로 내린다 (매일 03:40 KST).
@@ -443,6 +573,9 @@ exports.subscriptionExpireSweep = onSchedule(
             if (!sub || sub.status !== "active") continue;
             const end = toDate(sub.endAt);
             if (!end || end.getTime() >= nowMs) continue;
+            // 자동결제가 켜져 있고 실패 한도 전이면 유예 — 03:20 자동결제가 내일 다시 시도한다
+            const b = sub.billing;
+            if (sub.autoRenew === true && b && b.billingKey && (Number(b.failCount) || 0) < MAX_BILLING_FAILS) continue;
             try {
                 await d.ref.set({ accessTier: "tier2", subscription: { ...sub, status: "expired", expiredAt: tsNow() }, updatedAt: tsNow() }, { merge: true });
                 n += 1;

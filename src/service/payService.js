@@ -119,19 +119,22 @@ export async function confirmPayment({ paymentKey, orderId, amount }) {
 /* ───────────── 자동결제 (빌링키) ───────────── */
 
 /**
- * 월 구독형 — 토스 카드 등록창. 결제위젯이 아니라 payment().requestBillingAuth.
- * 성공하면 /pay/billing-success?authKey=…&customerKey=… 로 돌아온다(페이지 이동).
+ * 자동결제 카드 등록창 — 결제위젯이 아니라 payment().requestBillingAuth.
+ * purpose: 'insurance_monthly'(월 구독형 보험, 기본) | 'subscription'(앱 월 구독 — 대표 지시 9/16)
+ * 성공하면 /pay/billing-success?authKey=…&customerKey=…&purpose=… 로 돌아온다(페이지 이동).
+ * purpose 를 successUrl 쿼리에 실어 보내는 이유: 앱 WebView 가 복귀 중 리로드되면 sessionStorage 가 비는 경우가 있어
+ * 세션에만 기대면 돌아와서 무엇을 등록하던 중인지 잃어버린다. 세션에도 같이 남겨 둘 다로 읽는다.
  */
-export async function requestBillingAuth({ customerKey, customerName, customerEmail }) {
+export async function requestBillingAuth({ customerKey, customerName, customerEmail, purpose = "insurance_monthly" }) {
   const key = makeCustomerKey(customerKey);
   if (!key) throw new Error("로그인 정보가 없습니다.");
-  savePaySession({ purpose: "insurance_monthly", refId: null, tossOrderId: null });
+  savePaySession({ purpose, refId: null, tossOrderId: null });
   const toss = await loadTossPayments(TOSS_CLIENT_KEY);
   const payment = toss.payment({ customerKey: key });
   const origin = window.location.origin;
   await payment.requestBillingAuth({
     method: "CARD",
-    successUrl: `${origin}${TOSS_BILLING_SUCCESS_PATH}`,
+    successUrl: `${origin}${TOSS_BILLING_SUCCESS_PATH}?purpose=${encodeURIComponent(purpose)}`,
     failUrl: `${origin}${TOSS_FAIL_PATH}`,
     customerEmail: customerEmail || undefined,
     customerName: customerName || undefined,
@@ -142,10 +145,10 @@ export async function requestBillingAuth({ customerKey, customerName, customerEm
  * 빌링키 발급 + 첫 달 승인 + policy 생성 (서버 tossBillingIssue).
  * 서버 반환(확정): { ok, resumed, policyId, paymentId, amount, endAt(ISO), nextChargeAt(ISO), cardCompany, cardNumberMasked }
  */
-export async function issueBilling({ authKey, customerKey }) {
+export async function issueBilling({ authKey, customerKey, purpose = "insurance_monthly" }) {
   if (!authKey || !customerKey) throw new Error("카드 등록 정보를 받지 못했습니다.");
   try {
-    const res = await call("tossBillingIssue")({ authKey, customerKey });
+    const res = await call("tossBillingIssue")({ authKey, customerKey, purpose });
     clearPaySession();
     return res?.data || {};
   } catch (e) {
@@ -153,11 +156,15 @@ export async function issueBilling({ authKey, customerKey }) {
   }
 }
 
-/** 자동결제 해지 (서버 tossBillingCancel) — endAt 까지 보장은 유지, 자동 연장만 끊는다. 서버 반환(확정): { ok, already, policyId, endAt(ISO) } */
-export async function cancelBilling({ policyId }) {
-  if (!policyId) throw new Error("가입 정보가 없습니다.");
+/**
+ * 자동결제 해지 (서버 tossBillingCancel) — 만료일까지는 그대로 두고 자동 연장만 끊는다.
+ * 보험: { policyId } / 앱 월 구독: { target: "subscription" }
+ * 서버 반환(확정): { ok, already, policyId?|target?, endAt(ISO) }
+ */
+export async function cancelBilling({ policyId, target }) {
+  if (!policyId && !target) throw new Error("가입 정보가 없습니다.");
   try {
-    const res = await call("tossBillingCancel")({ policyId });
+    const res = await call("tossBillingCancel")({ policyId, target });
     return res?.data || {};
   } catch (e) {
     throw humanError(e, "자동결제 해지에 실패했습니다. 잠시 후 다시 시도해 주세요.");

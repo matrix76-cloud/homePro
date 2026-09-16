@@ -575,5 +575,6 @@ exports.tossBillingCancel = tossPayFns.tossBillingCancel;
 const insuranceFns = require("./insurance");
 exports.insuranceMonthlyCharge = insuranceFns.insuranceMonthlyCharge;
 exports.insuranceExpireSweep = insuranceFns.insuranceExpireSweep;
+exports.subscriptionAutoCharge = insuranceFns.subscriptionAutoCharge;
 exports.subscriptionExpireSweep = insuranceFns.subscriptionExpireSweep;
 exports.onInsuranceClaimCreated = insuranceFns.onInsuranceClaimCreated;
