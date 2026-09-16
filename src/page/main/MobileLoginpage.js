@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { signInWithCustomToken } from "firebase/auth";
 import { UserContext } from "../../context/User";
-import { signInWithSocial, signInWithEmailPassword, consumeKakaoRedirectIfAny } from "../../service/AuthService";
+import { signInWithSocial, signInWithEmailPassword, consumeKakaoRedirectIfAny, resumeNativeSocialSignIn } from "../../service/AuthService";
+import { isInRnWebView, readPendingSignin } from "../../bridge/webviewBridge";
 import { auth } from "../../api/config";
 import { THEME, APP_NAME } from "../../config/homeproConfig";
 
@@ -187,6 +188,23 @@ const MobileLoginpage = () => {
         setError(e?.message || "카카오 로그인에 실패했습니다.");
         setLoading(false);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 앱: 소셜 로그인 중 WebView가 리로드된 경우 — 남겨둔 진행 표시를 보고 결과를 이어받아 마무리
+  useEffect(() => {
+    if (!isInRnWebView() || !readPendingSignin()) return;
+    setLoading(true);
+    resumeNativeSocialSignIn()
+      .then((res) => {
+        if (res?.success) {
+          navigate("/MobileSplash", { replace: true });
+          return;
+        }
+        if (res && !res.success) setError(res.error_message || "소셜 로그인에 실패했습니다.");
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

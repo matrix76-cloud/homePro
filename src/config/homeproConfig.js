@@ -145,7 +145,7 @@ export const CATEGORY_GROUPS = [
     { id: "repair", label: "설비/수리", categoryIds: ["drain_pipe", "leak_detection", "home_repair", "boiler", "electrical_work"] },
     { id: "install", label: "설치", categoryIds: ["aircon_install", "appliance_install"] },
     { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "paint_waterproof", "partial_interior", "full_remodel", "heavy_equipment"] },
-    { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer", "fortune"] },
+    { id: "life", label: "생활/기타", categoryIds: ["worker_call", "moving", "auto", "appliance_rental", "computer"] },
 ];
 
 // ─── 전문분야 등록 전용 카테고리 그룹 (proOnly) ───
@@ -356,14 +356,7 @@ export const CATEGORIES = [
         description: "세차, 정비, 구매상담, 렌트 등",
         subcategories: ["세차.관리", "출장정비", "전기.전자.장치설치", "베터리출장", "신차구매상담", "장기렌트상담", "내차팔기", "중고차 구매동행", "폐차"],
     },
-    {
-        id: "fortune",
-        name: "사주.작명",
-        shortName: "사주/작명",
-        group: "life",
-        description: "사주, 작명, 운세, 상담",
-        subcategories: ["승.패 분석", "작명.개명", "진로.적성", "상호.브랜드", "기타"],
-    },
+    // 사주.작명 카테고리는 삭제 (대표 9/14 리뷰). 사용 중인 오더·프로 0건 확인 후 제거
     {
         // 공동중개(부동산) — 프로 전문분야 등록 전용(proOnly).
         // 오더 접수·AI견적·메인 카테고리 브라우징에는 노출하지 않는다.

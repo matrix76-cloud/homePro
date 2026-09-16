@@ -63,6 +63,12 @@ const STATUS_COLOR = {
 
 /* ─── 필터 옵션 ─── */
 const DISTANCE_OPTIONS = ["전체", "내 동네", "같은 시", "타지역"];
+// 거리 선택 시트의 반경 안내 (대표 9/14 리뷰). 오더 좌표가 없어 구·시 단위로 거르므로 대략값으로 보여 준다
+const DISTANCE_RADIUS_HINT = {
+  "내 동네": "같은 구 · 반경 약 5km",
+  "같은 시": "같은 시·도 · 반경 약 20km",
+  "타지역": "다른 시·도 · 20km 이상",
+};
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
 const SORT_OPTIONS = ["등록순", "가까운거리순", "서비스순", "지역순", "요청방식순", "단가유형순"];
 
@@ -534,6 +540,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+      if (saved === "referral") return "assets"; // 초대코드 탭 통합 전 저장값
       if (saved) return saved;
     } catch (e) { /* ignore */ }
     return "all_orders";
@@ -745,9 +752,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
 
   const HOME_TABS = [
     { key: "all_orders", label: "오더목록" },
-    { key: "my_orders", label: "나의오더현황" },
+    { key: "my_orders", label: "나의오더현황", wide: true },
     { key: "ai_estimate", label: "AI견적" },
-    { key: "referral", label: "초대코드" },
+    // 초대코드 탭은 보유자산 탭에 통합 (대표 9/14 리뷰) — 보유자산 맨 위에 초대 내용을 먼저 보인다
     { key: "assets", label: "보유자산" },
   ];
 
@@ -768,7 +775,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {/* ── 상단 탭 버튼 ── */}
       <HomeTabRow>
         {HOME_TABS.map((tab) => (
-          <HomeTabBtn key={tab.key} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
+          <HomeTabBtn key={tab.key} $wide={tab.wide} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
             {tab.label}
             {tab.sub && <HomeTabSub $active={activeTab === tab.key}>{tab.sub}</HomeTabSub>}
           </HomeTabBtn>
@@ -778,6 +785,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {/* ══════ 보유자산 (포인트 잔액 + 내역) ══════ */}
       {activeTab === "assets" && (
         <AssetWrap>
+          {/* 초대코드 — 보유자산 탭에 통합, 초대 내용을 먼저 노출 (대표 9/14 리뷰) */}
+          <InviteTabContent />
+
           <PointBalanceCard>
             <PointBalanceLabel>총 보유 포인트</PointBalanceLabel>
             <PointBalanceValue>{userPoints.toLocaleString()}P</PointBalanceValue>
@@ -925,13 +935,6 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         <WorkerRequestList navigate={navigate} />
       )}
 
-      {/* ══════ 초대코드 ══════ */}
-      {activeTab === "referral" && (
-        <>
-          <InviteTabContent />
-        </>
-      )}
-
       {/* ══════ 가이드 ══════ */}
       {activeTab === "guide" && (
         <GuideSection>
@@ -965,22 +968,33 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {/* ══════ 사업자 정보 ══════ */}
       {companyInfo && (companyInfo.companyName || companyInfo.bizNumber) && (
         <CompanyFooter>
-          <CompanyName>[홈프로]</CompanyName>
-          <CompanyRows>
-            {companyInfo.phone && <span>고객센터 : {companyInfo.phone}</span>}
-            {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
-            {companyInfo.email && <span>이메일 : {companyInfo.email}</span>}
-            <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
-            {(companyInfo.companyName || companyInfo.ceo) && <span>상호명 : {companyInfo.companyName}{companyInfo.ceo ? ` · 대표이사 : ${companyInfo.ceo}` : ""}</span>}
-            {companyInfo.privacyOfficer && <span>개인정보책임관리자 : {companyInfo.privacyOfficer}</span>}
-            {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
-            {companyInfo.address && <span>{companyInfo.address}</span>}
-          </CompanyRows>
-          <CompanyLinks>
+          {/* 순서·문구: 대표 9/15 리뷰 — 약관 링크 → 상호 → 대표·개인정보책임자 → 주소 → 등록번호들 → 고객센터·이메일 */}
+          <CompanyLinks style={{ marginTop: 0, marginBottom: 10 }}>
             <button type="button" onClick={() => navigate("/legal/terms")}>이용약관</button>
-            <button type="button" onClick={() => navigate("/legal/privacy")}>개인정보 처리 지침</button>
+            <button type="button" onClick={() => navigate("/legal/privacy")}>개인정보 처리방침</button>
             <button type="button" onClick={() => navigate("/legal/location")}>위치기반서비스 이용약관</button>
           </CompanyLinks>
+          <CompanyRows>
+            {companyInfo.companyName && <span>상호명 : {companyInfo.companyName}</span>}
+            {(companyInfo.ceo || companyInfo.privacyOfficer) && (
+              <span>
+                {companyInfo.ceo ? `대표이사 : ${companyInfo.ceo}` : ""}
+                {companyInfo.ceo && companyInfo.privacyOfficer ? "\u00a0\u00a0\u00a0" : ""}
+                {companyInfo.privacyOfficer ? `개인정보책임관리자 : ${companyInfo.privacyOfficer}` : ""}
+              </span>
+            )}
+            {companyInfo.address && <span>주소 : {companyInfo.address}</span>}
+            {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
+            {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
+            <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
+            {(companyInfo.phone || companyInfo.email) && (
+              <span>
+                {companyInfo.phone ? `고객센터 : ${companyInfo.phone}` : ""}
+                {companyInfo.phone && companyInfo.email ? "\u00a0\u00a0\u00a0" : ""}
+                {companyInfo.email ? `이메일 : ${companyInfo.email}` : ""}
+              </span>
+            )}
+          </CompanyRows>
           <CompanyCopy>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</CompanyCopy>
         </CompanyFooter>
       )}
@@ -1045,7 +1059,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             <SheetList>
               {DISTANCE_OPTIONS.map((d) => (
                 <SheetItem key={d} onClick={() => { setActiveDist(d); setShowDistSheet(false); }}>
-                  <SheetItemName>{d}</SheetItemName>
+                  <SheetItemName>
+                    {d}
+                    {DISTANCE_RADIUS_HINT[d] && <DistHint>{DISTANCE_RADIUS_HINT[d]}</DistHint>}
+                  </SheetItemName>
                   {activeDist === d && <IoCheckmarkCircle size={22} color={THEME.primary} />}
                 </SheetItem>
               ))}
@@ -1819,7 +1836,7 @@ const HomeTabRow = styled.div`
 `;
 
 const HomeTabBtn = styled.button`
-  flex: 1;
+  flex: ${({ $wide }) => ($wide ? 1.6 : 1)};
   padding: 10px 8px 8px;
   border: none;
   border-bottom: 2px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
@@ -1835,6 +1852,14 @@ const HomeTabBtn = styled.button`
   align-items: center;
   gap: 2px;
   &:active { opacity: 0.8; }
+`;
+
+const DistHint = styled.span`
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2b2f36;
 `;
 
 const HomeTabSub = styled.span`

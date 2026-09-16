@@ -1,4 +1,7 @@
 /* eslint-disable */
+// 양도·매매 매물 등록 — 월 구독 사업자 전용 (대표 리뷰 2026-09)
+// 필수: 거래 형태 · 제목 · 시도/시군구 · 권리금 · 상세 설명 · 양도 사유
+// 보증금/월세는 사업장/공간 양도에서만 입력
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
@@ -10,53 +13,49 @@ import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME, STORAGE_PATH_PREFIX } from "../../config/homeproConfig";
 import { compressDetailImage } from "../../utility/imageUtils";
+import { isSubscriber } from "../../utility/tierUtils";
+import { KR_AREAS } from "../../utility/constants";
+import { MARKET_COLLECTION, CATEGORIES, INCLUDE_OPTIONS, SALES_RANGES, TabBox, TabItem } from "./MarketplaceShared";
 
 const MAX_PHOTOS = 4;
 
-/* ─── 시트7 사양 ─── */
-const TRADE_TYPES = ["시공도급", "작업도급", "사업권양도", "물품매매", "장비매매", "업체인수양도", "설치도급", "공사도급"];
-const MEMBER_TYPES = ["개인", "사업자", "법인"];
-const CONTRACT_TYPES = ["도급", "일괄매매", "부분양도", "협의"];
-
-const MUST_NOTICES = [
-  "허위 정보 등록금지",
-  "계약 조건 명확히 기재",
-  "선금 요구 사기 주의",
-  "거래 전 계약서 작성 권장",
-  "법적 권리 여부 확인",
-];
-
-const FORBIDDEN_ITEMS = [
-  "불법 하도급",
-  "무허가 공사",
-  "허위매물",
-  "불법 다단계",
-  "선입금 사기",
-];
+const onlyDigits = (v) => String(v || "").replace(/[^0-9]/g, "");
+const withComma = (v) => (v === "" ? "" : Number(v).toLocaleString());
 
 const MarketplaceCreatePage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
-  const [tradeType, setTradeType] = useState("");
-  const [memberType, setMemberType] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [managerName, setManagerName] = useState("");
-  const [contact, setContact] = useState("");
-  const [region, setRegion] = useState("");
+  const canWrite = isSubscriber(userData);
+
+  const [category, setCategory] = useState("");
   const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [contractType, setContractType] = useState("");
+  const [sido, setSido] = useState("");
+  const [gu, setGu] = useState("");
+  const [premium, setPremium] = useState(""); // 원, 숫자 문자열
+  const [depositMan, setDepositMan] = useState("");
+  const [monthlyRentMan, setMonthlyRentMan] = useState("");
+  const [monthlySales, setMonthlySales] = useState("");
+  const [staffInfo, setStaffInfo] = useState("");
+  const [includes, setIncludes] = useState([]);
   const [description, setDescription] = useState("");
-  const [photos, setPhotos] = useState([]); // [{ preview, file }]
+  const [transferReason, setTransferReason] = useState("");
+  const [photos, setPhotos] = useState([]);
   const fileInputRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState("");
 
+  const isSpace = category === "space";
+  const guList = KR_AREAS.find((a) => a.sido === sido)?.guList || [];
+
+  const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2200); };
+
+  const toggleInclude = (key) =>
+    setIncludes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
   const handlePhotoAdd = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    const remaining = MAX_PHOTOS - photos.length;
-    const toProcess = files.slice(0, remaining);
+    const toProcess = files.slice(0, MAX_PHOTOS - photos.length);
     try {
       const compressed = await Promise.all(
         toProcess.map(async (f) => {
@@ -67,7 +66,7 @@ const MarketplaceCreatePage = () => {
       setPhotos((prev) => [...prev, ...compressed]);
     } catch (err) {
       console.error("사진 압축 실패:", err);
-      showToast("사진 처리 실패");
+      showToast("사진 처리에 실패했습니다");
     }
     e.target.value = "";
   };
@@ -79,66 +78,71 @@ const MarketplaceCreatePage = () => {
     });
   };
 
-  // TODO: 유료구독 회원 체크 (사양 R57~63) — 현재 placeholder
-  const isSubscriber = userData?.subscription?.active === true || true; // 임시 통과
-
-  const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2000); };
-
   const handleSubmit = async () => {
-    if (!isSubscriber) return showToast("유료구독 회원만 등록 가능합니다");
-    if (!tradeType) return showToast("거래유형을 선택해주세요");
-    if (!memberType) return showToast("회원유형을 선택해주세요");
-    if (!title.trim()) return showToast("거래 제목을 입력해주세요");
-    if (!description.trim()) return showToast("상세내용을 입력해주세요");
+    if (!canWrite) return showToast("월 구독 사업자만 등록할 수 있습니다");
+    if (!category) return showToast("거래 형태를 선택해주세요");
+    if (!title.trim()) return showToast("제목을 입력해주세요");
+    if (!sido || !gu) return showToast("지역(시·도 / 시·군·구)을 선택해주세요");
+    if (premium === "") return showToast("권리금을 입력해주세요 (없으면 0)");
+    if (!description.trim()) return showToast("상세 설명을 입력해주세요");
+    if (!transferReason.trim()) return showToast("양도 사유를 입력해주세요");
+    if (submitting) return;
     setSubmitting(true);
     try {
-      // 사진 업로드
+      const uid = userData?.uid || "anon";
       const imageURLs = await Promise.all(
         photos.map(async (p, i) => {
-          const path = `${STORAGE_PATH_PREFIX}/marketplace/${userData?.uid || "anon"}/${Date.now()}_${i}.jpg`;
+          const path = `${STORAGE_PATH_PREFIX}/marketplace/${uid}/${Date.now()}_${i}.jpg`;
           const storageRef = ref(storage, path);
           await uploadBytes(storageRef, p.file, { contentType: "image/jpeg" });
           return getDownloadURL(storageRef);
         })
       );
 
-      await addDoc(collection(db, "homepro_marketplace"), {
-        tradeType,
-        memberType,
-        companyName: companyName.trim() || null,
-        managerName: managerName.trim() || null,
-        contact: contact.trim() || null,
-        region: region.trim() || null,
+      await addDoc(collection(db, MARKET_COLLECTION), {
+        category,
         title: title.trim(),
-        amount: amount ? Number(amount) : null,
-        contractType: contractType || null,
+        regionSido: sido,
+        regionGu: gu,
+        region: `${sido} ${gu}`,
+        premium: Number(premium),
+        depositMan: isSpace && depositMan !== "" ? Number(depositMan) : null,
+        monthlyRentMan: isSpace && monthlyRentMan !== "" ? Number(monthlyRentMan) : null,
+        monthlySales: monthlySales || null,
+        staffInfo: staffInfo.trim() || null,
+        includes,
         description: description.trim(),
+        transferReason: transferReason.trim(),
         images: imageURLs,
+        status: "open",
         createdBy: userData?.uid || null,
-        writer: userData?.nickname || userData?.name || "",
+        writer: userData?.companyName || userData?.nickname || userData?.name || "",
         writerPhoto: userData?.profileImage || userData?.photoURL || "",
-        status: "active",
+        authorPhone: userData?.phoneE164 || userData?.phone || "",
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
       showToast("등록되었습니다");
       setTimeout(() => navigate(-1), 600);
     } catch (e) {
       console.error(e);
-      showToast("등록 실패: " + (e.message || ""));
+      showToast("등록에 실패했습니다");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!isSubscriber) {
+  if (!canWrite) {
     return (
-      <SimpleBackLayout NAME="도급·양도·매매" hideFooter>
+      <SimpleBackLayout NAME="양도·매매 등록" hideFooter>
         <PageWrap>
           <GateBox>
-            <GateTitle>유료구독 회원 전용</GateTitle>
-            <GateText>도급·양도·매매 게시판은 사업자 간 거래 정보 보호 및 서비스 품질 유지를 위해 유료구독 회원에게만 게시글 작성 및 열람이 제공됩니다.</GateText>
-            <GateText>구독회원 가입 후 거래 정보 열람 및 등록이 가능합니다.</GateText>
-            <GateBtn onClick={() => navigate("/subscription")}>구독신청</GateBtn>
+            <GateTitle>월 구독 사업자 전용</GateTitle>
+            <GateText>
+              양도·매매 매물 등록은 부실 공고와 허위 매물을 막기 위해 월 구독 사업자에게만 열려 있습니다.
+              매물 열람과 문의는 구독 없이도 할 수 있습니다.
+            </GateText>
+            <GateBtn type="button" onClick={() => navigate("/subscription")}>구독 안내 보기</GateBtn>
           </GateBox>
         </PageWrap>
       </SimpleBackLayout>
@@ -146,120 +150,115 @@ const MarketplaceCreatePage = () => {
   }
 
   return (
-    <SimpleBackLayout NAME="도급·양도·매매 등록" hideFooter>
+    <SimpleBackLayout NAME="양도·매매 등록" hideFooter>
       <PageWrap>
-        {/* 플랫폼 안내 + 필수 안내 + 금지 항목 */}
-        <GuideBox>
-          <GuideBlock>
-            <GuideHead>플랫폼 안내</GuideHead>
-            <GuideText>
-              본 서비스는 거래 정보를 등록하고 거래 상대방을 연결하는 중개 정보 서비스입니다.
-              홈프로는 거래 당사자가 아니며, 계약체결 및 거래 책임은 당사자 간에 있습니다.
-            </GuideText>
-          </GuideBlock>
-
-          <GuideDivider />
-
-          <GuideBlock>
-            <GuideHead>등록 전 필수 안내</GuideHead>
-            {MUST_NOTICES.map((n) => <GuideItem key={n}>· {n}</GuideItem>)}
-          </GuideBlock>
-
-          <GuideDivider />
-
-          <GuideBlock>
-            <GuideHead $warn>금지 등록 항목</GuideHead>
-            <GuideSub>위반 시 게시글 삭제·계정 정지·법적 조치</GuideSub>
-            {FORBIDDEN_ITEMS.map((n) => <GuideItem key={n} $warn>· {n}</GuideItem>)}
-          </GuideBlock>
-        </GuideBox>
-
-        {/* 거래유형 */}
         <Section>
-          <Label>거래유형</Label>
-          <ChipRow>
-            {TRADE_TYPES.map((t) => (
-              <Chip key={t} $active={tradeType === t} type="button" onClick={() => setTradeType(t)}>{t}</Chip>
+          <SecTitle>기본 정보</SecTitle>
+          <Label>거래 형태 <Req>필수</Req></Label>
+          <TabBox>
+            {CATEGORIES.map((c) => (
+              <TabItem key={c.key} type="button" $active={category === c.key} onClick={() => setCategory(c.key)}>
+                {c.formLabel}
+              </TabItem>
             ))}
-          </ChipRow>
+          </TabBox>
+          {category && <Help>{CATEGORIES.find((c) => c.key === category)?.desc}</Help>}
+
+          <Label>제목 <Req>필수</Req></Label>
+          <Input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="예: 고정 거래처 20곳 포함 수도권 청소 사업권 양도" />
+
+          <Label>지역 <Req>필수</Req></Label>
+          <Row2>
+            <Select value={sido} onChange={(e) => { setSido(e.target.value); setGu(""); }}>
+              <option value="">시·도</option>
+              {KR_AREAS.map((a) => <option key={a.sido} value={a.sido}>{a.sido}</option>)}
+            </Select>
+            <Select value={gu} disabled={!sido} onChange={(e) => setGu(e.target.value)}>
+              <option value="">시·군·구</option>
+              {guList.map((g) => <option key={g} value={g}>{g}</option>)}
+            </Select>
+          </Row2>
         </Section>
 
-        {/* 회원유형 + 필수정보 */}
         <Section>
-          <Label>회원유형</Label>
-          <ChipRow>
-            {MEMBER_TYPES.map((t) => (
-              <Chip key={t} $active={memberType === t} type="button" onClick={() => setMemberType(t)}>{t}</Chip>
+          <SecTitle>금액 정보</SecTitle>
+          <Label>권리금 <Req>필수</Req></Label>
+          <UnitInput>
+            <Input inputMode="numeric" value={withComma(premium)} onChange={(e) => setPremium(onlyDigits(e.target.value))} placeholder="권리금이 없으면 0" />
+            <Unit>원</Unit>
+          </UnitInput>
+
+          <Label $muted={!isSpace}>보증금 / 월세</Label>
+          <Row2>
+            <UnitInput>
+              <Input inputMode="numeric" disabled={!isSpace} value={isSpace ? withComma(depositMan) : ""} onChange={(e) => setDepositMan(onlyDigits(e.target.value))} placeholder="보증금" />
+              <Unit>만원</Unit>
+            </UnitInput>
+            <UnitInput>
+              <Input inputMode="numeric" disabled={!isSpace} value={isSpace ? withComma(monthlyRentMan) : ""} onChange={(e) => setMonthlyRentMan(onlyDigits(e.target.value))} placeholder="월세" />
+              <Unit>만원</Unit>
+            </UnitInput>
+          </Row2>
+          <Help>{isSpace ? "오프라인 사업장 조건을 적어주세요. 없으면 비워두세요." : "사업장/공간 양도를 선택하면 입력할 수 있습니다."}</Help>
+        </Section>
+
+        <Section>
+          <SecTitle>운영 현황 및 조건</SecTitle>
+          <Label>월 평균 매출 수준</Label>
+          <Select value={monthlySales} onChange={(e) => setMonthlySales(e.target.value)}>
+            <option value="">선택 안 함</option>
+            {SALES_RANGES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </Select>
+
+          <Label>상주 인력 현황</Label>
+          <Input value={staffInfo} maxLength={60} onChange={(e) => setStaffInfo(e.target.value)} placeholder="예: 대표 포함 3명 근무" />
+
+          <Label>포함 내역</Label>
+          <CheckGrid>
+            {INCLUDE_OPTIONS.map((o) => (
+              <CheckItem key={o.key}>
+                <input type="checkbox" checked={includes.includes(o.key)} onChange={() => toggleInclude(o.key)} />
+                <span>{o.label}</span>
+              </CheckItem>
             ))}
-          </ChipRow>
-          <SubLabel style={{ marginTop: 12 }}>업체명</SubLabel>
-          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="업체명" />
-          <SubLabel style={{ marginTop: 8 }}>담당자명</SubLabel>
-          <Input value={managerName} onChange={(e) => setManagerName(e.target.value)} placeholder="담당자명" />
-          <SubLabel style={{ marginTop: 8 }}>연락처</SubLabel>
-          <Input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="전화번호 또는 이메일" />
-          <SubLabel style={{ marginTop: 8 }}>지역 (시·군·구)</SubLabel>
-          <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="예: 서울 강남구" />
+          </CheckGrid>
         </Section>
 
-        {/* 거래 정보 */}
         <Section>
-          <Label>거래 제목</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="간략한 제목" />
-          <SubLabel style={{ marginTop: 12 }}>거래금액 (원)</SubLabel>
-          <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="협의 가능 시 비워두세요" />
-          <SubLabel style={{ marginTop: 12 }}>계약방식</SubLabel>
-          <ChipRow>
-            {CONTRACT_TYPES.map((t) => (
-              <Chip key={t} $active={contractType === t} type="button" onClick={() => setContractType(t)}>{t}</Chip>
-            ))}
-          </ChipRow>
-        </Section>
+          <SecTitle>상세 설명 및 양도 사유</SecTitle>
+          <Label>상세 설명 <Req>필수</Req></Label>
+          <Textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="거래처 구성, 시설·장비 상태, 인수 후 지원 내용 등" />
+          <Label>양도 사유 <Req>필수</Req></Label>
+          <Textarea rows={3} value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder="예: 건강상의 이유, 타 업종 전환, 은퇴 등 솔직하게 적을수록 신뢰도가 올라갑니다" />
 
-        {/* 상세내용 */}
-        <Section>
-          <Label>상세내용</Label>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="작업·거래내용, 규모, 계약조건, 대금지급방식, 진행 일정 등"
-            rows={6}
-          />
-        </Section>
-
-        {/* 사진 첨부 (최대 4장) */}
-        <Section>
-          <Label>사진 첨부 <PhotoCount>({photos.length}/{MAX_PHOTOS})</PhotoCount></Label>
+          <Label>사진 첨부 <Count>({photos.length}/{MAX_PHOTOS})</Count></Label>
           <PhotoGrid>
             {photos.map((p, i) => (
               <PhotoSlot key={i}>
-                <PhotoImg src={p.preview} alt={`photo-${i}`} />
-                <PhotoRemove type="button" onClick={() => handlePhotoRemove(i)}>
+                <PhotoImg src={p.preview} alt="" />
+                <PhotoRemove type="button" onClick={() => handlePhotoRemove(i)} aria-label="사진 삭제">
                   <IoCloseCircle size={22} />
                 </PhotoRemove>
               </PhotoSlot>
             ))}
             {photos.length < MAX_PHOTOS && (
               <PhotoAddSlot type="button" onClick={() => fileInputRef.current?.click()}>
-                <PhotoAddIcon>+</PhotoAddIcon>
-                <PhotoAddLabel>사진 추가</PhotoAddLabel>
+                <span>+</span>
+                <small>사진 추가</small>
               </PhotoAddSlot>
             )}
           </PhotoGrid>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: "none" }}
-            onChange={handlePhotoAdd}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoAdd} />
         </Section>
 
-        <SubmitBtn onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "등록 중..." : "등록하기"}
+        <Guide>
+          허위 매물·과장된 매출 기재·선입금 요구는 게시글 삭제 및 이용 제한 사유입니다.
+          홈프로는 정보 등록·연결 서비스이며 거래 당사자가 아닙니다. 계약서 작성과 권리 관계 확인은 당사자 간에 진행해주세요.
+        </Guide>
+
+        <SubmitBtn type="button" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "등록 중..." : "매물 등록하기"}
         </SubmitBtn>
-        <BottomSpacer />
       </PageWrap>
       {toast && <Toast>{toast}</Toast>}
     </SimpleBackLayout>
@@ -270,135 +269,120 @@ export default MarketplaceCreatePage;
 
 /* ===================== styles ===================== */
 const PageWrap = styled.div`
-  display: flex;
-  flex-direction: column;
   background: ${THEME.background};
   min-height: 100%;
-`;
-
-const GuideBox = styled.div`
-  margin: 8px 12px;
-  padding: 16px;
-  background: #F5F6F8;
-  border-radius: 12px;
-`;
-
-const GuideBlock = styled.div``;
-
-const GuideDivider = styled.div`
-  height: 1px;
-  background: #E9EAEE;
-  margin: 12px 0;
-`;
-
-const GuideHead = styled.div`
-  font-weight: 700;
-  font-size: 15px;
-  color: ${({ $warn }) => ($warn ? "#C0392B" : THEME.text)};
-  margin-bottom: 6px;
-`;
-
-const GuideSub = styled.div`
-  font-size: 13px;
-  color: ${THEME.muted};
-  margin-bottom: 6px;
-`;
-
-const GuideText = styled.div`
-  font-size: 14px;
-  color: ${THEME.muted};
-  line-height: 1.6;
-`;
-
-const GuideItem = styled.div`
-  font-size: 14px;
-  line-height: 1.7;
-  color: ${({ $warn }) => ($warn ? "#C0392B" : THEME.muted)};
+  padding: 12px 16px 48px;
 `;
 
 const Section = styled.div`
   background: #fff;
-  margin: 8px 12px;
-  padding: 16px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border: 1px solid #e2e5ea;
+  padding: 18px 16px 20px;
+  margin-bottom: 12px;
+`;
+
+const SecTitle = styled.div`
+  font-size: 17px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 4px;
 `;
 
 const Label = styled.div`
-  font-size: 16px;
-  font-weight: 700;
-  color: ${THEME.text};
-  margin-bottom: 10px;
-`;
-
-const SubLabel = styled.div`
-  font-size: 14px;
-  color: ${THEME.muted};
-  margin-bottom: 6px;
-`;
-
-const ChipRow = styled.div`
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-`;
-
-const Chip = styled.button`
-  padding: 6px 12px;
-  font-size: 14px;
+  margin: 16px 0 8px;
+  font-size: 15px;
   font-weight: 600;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  border-radius: 16px;
-  background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
-  color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
-  cursor: pointer;
+  color: ${({ $muted }) => ($muted ? THEME.muted : THEME.text)};
 `;
 
-const Input = styled.input`
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 15px;
-  border: 1px solid ${THEME.border};
-  border-radius: 8px;
-  background: #fff;
-  box-sizing: border-box;
-  &:focus { outline: none; border-color: ${THEME.primary}; }
+const Req = styled.span`
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: ${THEME.danger};
 `;
 
-const Textarea = styled.textarea`
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 15px;
-  border: 1px solid ${THEME.border};
-  border-radius: 8px;
-  background: #fff;
-  resize: none;
-  font-family: inherit;
-  box-sizing: border-box;
-  &:focus { outline: none; border-color: ${THEME.primary}; }
-`;
-
-const SubmitBtn = styled.button`
-  margin: 16px 12px 8px;
-  padding: 14px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
-  border: none;
-  border-radius: 10px;
-  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
-`;
-
-const BottomSpacer = styled.div`
-  height: 40px;
-`;
-
-const PhotoCount = styled.span`
+const Count = styled.span`
+  margin-left: 4px;
   font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
-  margin-left: 6px;
+`;
+
+const Help = styled.div`
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: ${THEME.textSecondary};
+  word-break: keep-all;
+`;
+
+const fieldCss = `
+  width: 100%;
+  height: 46px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: ${THEME.text};
+  border: 1px solid #d5d9e0;
+  border-radius: 0;
+  background: #fff;
+  box-sizing: border-box;
+  &:focus { outline: none; border-color: ${THEME.primaryDark}; }
+  &:disabled { background: #f3f4f6; color: ${THEME.muted}; }
+`;
+
+const Input = styled.input`${fieldCss}`;
+const Select = styled.select`${fieldCss}`;
+
+const Textarea = styled.textarea`
+  ${fieldCss}
+  height: auto;
+  padding: 10px 12px;
+  line-height: 1.6;
+  resize: vertical;
+`;
+
+const Row2 = styled.div`
+  display: flex;
+  gap: 8px;
+  & > * { flex: 1; min-width: 0; }
+`;
+
+const UnitInput = styled.div`
+  position: relative;
+  input { padding-right: 48px; }
+`;
+
+const Unit = styled.span`
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: ${THEME.textSecondary};
+  pointer-events: none;
+`;
+
+const CheckGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  @media (max-width: 360px) { grid-template-columns: 1fr; }
+`;
+
+const CheckItem = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid #d5d9e0;
+  font-size: 15px;
+  color: ${THEME.text};
+  cursor: pointer;
+  word-break: keep-all;
+  input { width: 18px; height: 18px; accent-color: ${THEME.primaryDark}; flex: none; }
 `;
 
 const PhotoGrid = styled.div`
@@ -409,9 +393,7 @@ const PhotoGrid = styled.div`
 
 const PhotoSlot = styled.div`
   position: relative;
-  width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 10px;
   overflow: hidden;
   background: ${THEME.background};
 `;
@@ -426,44 +408,54 @@ const PhotoRemove = styled.button`
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: none;
   border-radius: 50%;
-  width: 22px;
-  height: 22px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 0;
 `;
 
 const PhotoAddSlot = styled.button`
-  width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 10px;
-  border: 1.5px dashed ${THEME.border};
+  border: 1px dashed #c5cad3;
   background: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   gap: 2px;
-  &:active { background: ${THEME.background}; }
+  cursor: pointer;
+  font-family: inherit;
+  color: ${THEME.textSecondary};
+  span { font-size: 24px; line-height: 1; }
+  small { font-size: 13px; }
 `;
 
-const PhotoAddIcon = styled.div`
-  font-size: 24px;
-  font-weight: 300;
-  color: ${THEME.muted};
-  line-height: 1;
+const Guide = styled.div`
+  margin: 4px 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: ${THEME.textSecondary};
+  word-break: keep-all;
 `;
 
-const PhotoAddLabel = styled.div`
-  font-size: 13px;
-  color: ${THEME.muted};
+const SubmitBtn = styled.button`
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 8px;
+  background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
 `;
 
 const Toast = styled.div`
@@ -471,21 +463,21 @@ const Toast = styled.div`
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.8);
+  padding: 12px 18px;
+  background: rgba(0, 0, 0, 0.82);
   color: #fff;
   font-size: 15px;
-  border-radius: 20px;
+  border-radius: 8px;
   z-index: 1000;
+  white-space: nowrap;
 `;
 
 const GateBox = styled.div`
-  margin: 40px 16px;
-  padding: 32px 20px;
+  margin-top: 28px;
+  padding: 28px 20px;
   background: #fff;
-  border-radius: 16px;
+  border: 1px solid #e2e5ea;
   text-align: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 `;
 
 const GateTitle = styled.div`
@@ -497,19 +489,21 @@ const GateTitle = styled.div`
 
 const GateText = styled.div`
   font-size: 15px;
-  color: ${THEME.muted};
-  line-height: 1.6;
-  margin-bottom: 8px;
+  line-height: 1.65;
+  color: ${THEME.textSecondary};
+  word-break: keep-all;
 `;
 
 const GateBtn = styled.button`
   margin-top: 20px;
-  padding: 12px 24px;
-  font-size: 17px;
-  font-weight: 700;
-  color: #fff;
-  background: ${THEME.primary};
+  height: 48px;
+  padding: 0 24px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
+  background: ${THEME.primary};
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
 `;

@@ -67,9 +67,10 @@ const STATUS_DESC = {
 const STATUS_STYLE = {
   "접수":     { bg: "#8B5CF6", color: "#fff" },   // 보라계열 (대표 지시)
   "대기":     { bg: "#9CA3AF", color: "#fff" },   // 회색
-  "선정대기": { bg: "#FCD34D", color: "#7A5300" }, // 연노랑
-  "배정":     { bg: "#F59E0B", color: "#fff" },   // 노랑
-  "완료":     { bg: "#10B981", color: "#fff" },   // 초록(유지)
+  // 대표 9/15 리뷰: 선정대기 = 기존 배정 색, 배정 = 노랑, 완료 = 파랑
+  "선정대기": { bg: "#F59E0B", color: "#fff" },   // 기존 배정 색(주황빛 노랑)
+  "배정":     { bg: "#FACC15", color: "#3a2f00" }, // 노랑
+  "완료":     { bg: "#2563EB", color: "#fff" },   // 파랑
   "취소":     { bg: "#EF4444", color: "#fff" },   // 붉은
 };
 
@@ -93,6 +94,7 @@ const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", di
 const formatPriceLine = (order) => {
   // 정보공유: 리워드 금액을 같이 표기
   if (order.b2bPriceType === "info") {
+    if (order.infoIncentive) return `정보공유 · 소개비 ${(order.infoIncentive.type === "rate" ? `정률 ${order.infoIncentive.rate}%` : `정액 ${Number(order.infoIncentive.amount || 0).toLocaleString()}원`)}`;
     const r = Number(order.infoReward) || 0;
     return r > 0 ? `정보공유 · 리워드 ${r.toLocaleString()}원` : "정보공유";
   }

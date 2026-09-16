@@ -557,6 +557,9 @@ exports.linkPhoneToAccount = phoneAuthFns.linkPhoneToAccount;
 exports.findAccountByPhone = phoneAuthFns.findAccountByPhone;
 exports.resetPasswordWithPhone = phoneAuthFns.resetPasswordWithPhone;
 
+// ─── AI 견적 (Vertex AI, 서버 호출) ───
+exports.aiEstimate = require("./aiEstimate").aiEstimate;
+
 const seedFns = require("./seed");
 exports.cleanAllTestData = seedFns.cleanAllTestData;
 exports.seedTestData = seedFns.seedTestData;

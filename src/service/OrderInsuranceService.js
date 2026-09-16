@@ -52,6 +52,11 @@ export function getOrderInsuranceState(order) {
   return "pending";
 }
 
+/** 접수자가 '보험가입 필수'로 등록한 오더인가 (대표 9/15 카톡 8번) — 배정 뒤 건당·월·년 중 가입해야 체크인 */
+export function isInsuranceRequired(order) {
+  return order?.insuranceRequired === true && order?.b2bPriceType !== "info" && !order?.selfOrder;
+}
+
 /** 보험 결정이 필요한 오더인가 — 배정된 홈프로 있고, 정보공유 아니고, 아직 체크인 전 */
 export function needsInsuranceDecision(order) {
   if (!order || !order.matchedProUid) return false;

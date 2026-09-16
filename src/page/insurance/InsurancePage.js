@@ -160,8 +160,15 @@ const InsurancePage = () => {
             <IoShieldCheckmarkOutline size={20} color={THEME.primary} />
             홈프로 도급배상책임보험
           </HeroRow>
-          <HeroSub>작업 중 고객 재물 파손이나 대인 피해가 생겼을 때 사장님 대신 배상하는 보험입니다. 회원이면 누구나 가입할 수 있습니다.</HeroSub>
+          {/* 대표 9/15 리뷰 원문 */}
+          <HeroSub>사업자(수급인)가 청소·시공·공사 등 맡은 일(도급 작업)을 수행하는 과정에서 발생하는 제3자의 신체 부상이나 재물 파손 사고에 대한 법률상 손해배상책임을 보장해 주는 사업자 전용 안전 보험입니다.</HeroSub>
         </Hero>
+
+        {/* 사고 접수는 안심케어를 열면 바로 보이게 (대표 9/15 리뷰) · 셀프보장등록은 예약접수에서 이리로 옮김 */}
+        <BtnRow style={{ marginBottom: 12 }}>
+          <GhostBtn type="button" onClick={() => navigate("/insurance/claim")}>사고 접수</GhostBtn>
+          <GhostBtn type="button" onClick={() => navigate("/order/create?self=1")}>셀프보장등록</GhostBtn>
+        </BtnRow>
 
         <Card>
           <TitleRow>
@@ -250,10 +257,10 @@ const InsurancePage = () => {
         <Card>
           <CardTitle>보장이 적용되려면</CardTitle>
           <ItemList>
-            <Item>오더의 체크인·체크아웃 기록이 서버에 있어야 그 작업이 보장됩니다. 매칭 오더와 직접 수주한 오더 모두 같습니다.</Item>
+            <Item>오더의 체크인·체크아웃 기록이 서버에 있어야 그 작업이 보장됩니다. 매칭오더와 셀프 등록한 오더 모두 같습니다.</Item>
             <Item>월 구독형·1년형 가입자는 오더마다 추가 결제 없이 "보험 적용" 안내만 받습니다.</Item>
-            <Item>가입하지 않은 회원은 오더 진행 시 건당 보험료를 결제해야 체크인을 할 수 있습니다.</Item>
-            <Item>사고가 나면 안심케어의 내 보험 관리에서 사고 접수를 합니다. 현장기록의 사진·시각·위치가 증빙이 됩니다.</Item>
+            <Item>보험은 필수가 아니라 선택입니다. 다만 접수자가 "보험가입 필수"로 등록한 오더는 배정 뒤 건당·월·년 중 하나로 가입해야 체크인할 수 있습니다.</Item>
+            <Item>사고가 나면 안심케어 탭에서 사고 접수를 합니다. 현장기록의 사진·시각·위치가 증빙이 됩니다.</Item>
           </ItemList>
         </Card>
 

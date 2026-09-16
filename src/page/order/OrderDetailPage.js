@@ -12,7 +12,7 @@ import {
   getReferralFeeAmount, isCheckInBlockedByReferral, isWorkPayApplicable, getUserAccount,
   buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived, markWorkPaySent, confirmWorkPayReceived,
 } from "../../service/PayFlowService";
-import { getOrderInsuranceState, needsInsuranceDecision, computeOrderPremium, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, findActivePolicy, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
+import { isInsuranceRequired, getOrderInsuranceState, needsInsuranceDecision, computeOrderPremium, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, findActivePolicy, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
 // TODO: 에이전트A가 만들 함수들 — 아직 없으면 런타임에서 에러 catch
@@ -137,6 +137,7 @@ const OrderDetailPage = () => {
   /* ── 보험 적용 (대표 8/20 · 형 확정 9/13): 월·1년 가입자는 자동, 아니면 건당 결제 또는 보험 없이 진행. 정하기 전엔 체크인 잠금 ── */
   const insuranceState = order ? getOrderInsuranceState(order) : "pending";
   const insuranceNeeded = order ? needsInsuranceDecision(order) : false;
+  const insuranceRequired = order ? isInsuranceRequired(order) : false;
   const [premium, setPremium] = useState(null); // { amount, pending, plan }
   const [insBusy, setInsBusy] = useState(false);
   useEffect(() => {
@@ -835,7 +836,13 @@ const OrderDetailPage = () => {
                 </ConditionValue>
               </ConditionRow>
             )}
-            {isInfoOrder && (
+            {isInfoOrder && order.infoIncentive && (
+              <ConditionRow>
+                <ConditionLabel>소개비(인센티브)</ConditionLabel>
+                <ConditionValue>{(order.infoIncentive.type === "rate" ? `정률 ${order.infoIncentive.rate}%` : `정액 ${Number(order.infoIncentive.amount || 0).toLocaleString()}원`)}</ConditionValue>
+              </ConditionRow>
+            )}
+            {isInfoOrder && !order.infoIncentive && (
               <>
                 <ConditionRow>
                   <ConditionLabel>정보제공 리워드</ConditionLabel>
@@ -935,7 +942,10 @@ const OrderDetailPage = () => {
         {/* ── 보험 적용 — 일하는 홈프로가 정한다. 체크인 전까지 (정보공유 제외) ── */}
         {order.matchedProUid && (isOwner || isMatchedPro) && order.b2bPriceType !== "info" && (insuranceState !== "pending" || insuranceNeeded) && (
           <DetailSection>
-            <SectionTitle>보험 적용</SectionTitle>
+            <SectionTitle>보험 적용{insuranceRequired ? " · 보험가입 필수" : ""}</SectionTitle>
+            {insuranceRequired && insuranceState !== "applied" && (
+              <PayNote $warn>접수자가 보험가입 필수로 등록한 오더입니다. 건당·월·년 중 하나로 가입해야 현장 체크인을 할 수 있습니다.</PayNote>
+            )}
             {insuranceState === "applied" ? (
               <PayNote $done>보험 적용 · {INSURANCE_TYPE_LABEL[order.insurance?.type] || "가입"}{order.insurance?.type === "perOrder" ? " (이 오더 결제 완료)" : ""}</PayNote>
             ) : insuranceState === "skipped" ? (
@@ -944,6 +954,7 @@ const OrderDetailPage = () => {
                 {isMatchedPro && !order.checkInAt && (
                   <ActionRow style={{ marginTop: 10 }}><OutlinedBtn onClick={handleInsuranceReset} disabled={insBusy}>다시 정하기</OutlinedBtn></ActionRow>
                 )}
+                {/* 필수 오더인데 예전에 '보험 없이 진행'으로 표시된 경우 */}
               </>
             ) : isMatchedPro ? (
               <>
@@ -959,12 +970,12 @@ const OrderDetailPage = () => {
                 )}
                 <ActionRow style={{ marginTop: 10 }}>
                   <PrimaryCTA onClick={handleInsurancePay} disabled={!premium || premium.pending || insBusy}>건당 보험료 결제</PrimaryCTA>
-                  <OutlinedBtn onClick={() => navigate("/insurance")}>월·1년 가입</OutlinedBtn>
+                  <OutlinedBtn onClick={() => navigate("/insurance")}>월·년 가입</OutlinedBtn>
                 </ActionRow>
-                <PayNote style={{ marginTop: 6 }}><button type="button" onClick={handleInsuranceSkip} style={{ background: "none", border: "none", padding: 0, color: THEME.muted, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>보험 없이 진행</button></PayNote>
+                {!insuranceRequired && <PayNote style={{ marginTop: 6 }}><button type="button" onClick={handleInsuranceSkip} style={{ background: "none", border: "none", padding: 0, color: THEME.muted, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>보험 없이 진행</button></PayNote>}
               </>
             ) : (
-              <PayNote>홈프로가 원하면 이 오더에 보험을 적용합니다(선택).</PayNote>
+              <PayNote>{insuranceRequired ? "보험가입 필수 오더 — 배정된 홈프로가 건당·월·년 중 하나로 가입한 뒤 체크인합니다." : "홈프로가 원하면 이 오더에 보험을 적용합니다(선택)."}</PayNote>
             )}
           </DetailSection>
         )}
@@ -1011,6 +1022,12 @@ const OrderDetailPage = () => {
               <ConditionLabel>매칭방식</ConditionLabel>
               <ConditionValue>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</ConditionValue>
             </ConditionRow>
+            {order.b2bPriceType !== "info" && !order.selfOrder && (
+              <ConditionRow>
+                <ConditionLabel>보험</ConditionLabel>
+                <ConditionValue>{insuranceRequired ? "보험가입 필수" : "선택"}</ConditionValue>
+              </ConditionRow>
+            )}
           </DetailSection>
         )}
 
@@ -1207,11 +1224,12 @@ const OrderDetailPage = () => {
             {!isInfoOrder && (() => {
               // 캐시백 입금 확인 전에는 체크인을 막는다 (대표 확정 9/13)
               // 체크인은 캐시백 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡)
-              const blocked = false;
+              // 단 접수자가 '보험가입 필수'로 등록한 오더는 보험 적용 전 체크인 불가 (대표 9/15 카톡 8번)
+              const blocked = !order.checkInAt && insuranceRequired && insuranceState !== "applied";
               return (
                 <ActionRow>
                   <OutlinedBtn
-                    onClick={() => navigate(`/order/worklog/${order.id}`)}
+                    onClick={() => { if (blocked) { showToast("보험가입 필수 오더입니다. 건당·월·년 중 하나로 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
                     style={blocked ? { opacity: 0.45 } : undefined}
                   >
                     {order.checkInAt ? "현장기록" : "현장 체크인"}

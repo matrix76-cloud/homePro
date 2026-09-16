@@ -64,7 +64,8 @@ export const PLAN_DESC = {
   perOrder: { period: "그 오더의 체크인부터 체크아웃까지", pay: "오더별 결제", desc: "가입하지 않은 회원이 오더를 진행할 때 그 오더만 보장합니다. 건당 보험료는 작업 위험도 그룹(4단계)에 따라 시공단가의 1~2%입니다." },
 };
 
-export const PLAN_KEYS = ["yearly", "monthly", "perOrder"];
+// 가입 유형 순서: 건당 > 월 > 년 (대표 9/15 리뷰)
+export const PLAN_KEYS = ["perOrder", "monthly", "yearly"];
 
 export const POLICY_STATUS_LABEL = { active: "보장 중", expired: "만료", canceled: "해지", pending: "결제 전" };
 export const CLAIM_STATUS_LABEL = { received: "접수됨", in_progress: "처리 중", done: "처리 완료" };

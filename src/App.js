@@ -1,6 +1,6 @@
 /* eslint-disable */
-import React, { useContext, useEffect } from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import React, { useContext, useEffect, useRef } from "react";
+import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMediaQuery } from "react-responsive";
 import styled, { createGlobalStyle } from "styled-components";
@@ -8,7 +8,26 @@ import styled, { createGlobalStyle } from "styled-components";
 import { UserContext } from "./context/User";
 import { AuthProvider } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
-import { attachMessageListener, postToRN } from "./bridge/webviewBridge";
+import { attachMessageListener, postToRN, sendNavState } from "./bridge/webviewBridge";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// 앱(RN 셸) 기준 "첫 화면" — 여기서 뒤로가기는 앱 종료 흐름(두 번 눌러 종료)으로 간다
+const APP_ROOT_PATHS = ["/", "/MobileSplash", "/MobileLogin", "/MobileMain", "/intro"];
+
+// 푸시 data → 이동할 화면. 서버(onNotificationSend)가 data 에 type·orderId·roomId 를 실어 보낸다
+function pushTargetPath(d = {}) {
+  if (d.deeplink && String(d.deeplink).startsWith("/")) return String(d.deeplink);
+  if (d.roomId) return `/chat/${d.roomId}`;
+  if (d.orderId) return `/order/detail/${d.orderId}`;
+  return "";
+}
+
+const PushBanner = styled.div`
+  cursor: pointer;
+  .t { font-size: 15px; font-weight: 700; color: #1b1f27; }
+  .b { font-size: 14px; color: #2b2f36; margin-top: 3px; line-height: 1.4; }
+`;
 import RequireAuth from "./components/guards/RequireAuth";
 import RequirePhone from "./components/guards/RequirePhone";
 import RequireAdmin from "./components/guards/RequireAdmin";
@@ -163,11 +182,28 @@ const GlobalStyle = createGlobalStyle`
   }
 `;
 
+// 푸시 배너 모양 — 흰 면·얇은 테두리·각진 모서리. 상단 안전영역만큼 내린다
+const PushToastStyle = createGlobalStyle`
+  .Toastify__toast-container--top-center { top: calc(env(safe-area-inset-top, 0px) + 10px); width: calc(100% - 32px); max-width: 480px; }
+  .Toastify__toast { border-radius: 0; border: 1px solid #d9dde3; box-shadow: 0 2px 10px rgba(0,0,0,0.08); background: #fff; color: #1b1f27; font-family: inherit; min-height: 56px; padding: 12px 16px; }
+  .Toastify__toast-body { padding: 0; font-size: 15px; }
+`;
+
 /* ===================== routes ===================== */
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, dispatch } = useContext(UserContext);
+  const exitArmedAtRef = useRef(0);
+
+  // 앱(RN): 화면이 바뀔 때마다 상태를 셸에 알린다 — 셸은 이걸 보고 뒤로가기를 웹에 넘길지 종료 흐름으로 갈지 정한다.
+  // (안 보내면 셸은 늘 첫 화면이라 믿고 어느 화면에서든 종료 요청을 보낸다)
+  useEffect(() => {
+    const path = location.pathname || "/";
+    const isRoot = APP_ROOT_PATHS.includes(path);
+    sendNavState({ path, isRoot, canGoBackInWeb: !isRoot && window.history.length > 1 });
+  }, [location.pathname]);
 
   const isGalaxyFlipUnfolded = useMediaQuery({ minWidth: 450, maxWidth: 767 });
 
@@ -217,17 +253,45 @@ const AnimatedRoutes = () => {
       case "BACK_REQUEST": {
         if (window.history.length > 1) {
           window.history.back();
+        } else {
+          navigate("/MobileMain", { replace: true });
         }
         break;
       }
 
       case "APP_EXIT_REQUEST": {
-        postToRN("EXIT_APP", { at: Date.now() });
+        // 첫 화면에서 뒤로가기 — 2초 안에 한 번 더 누르면 종료
+        const now = Date.now();
+        if (now - exitArmedAtRef.current < 2000) {
+          postToRN("EXIT_APP", { at: now });
+          break;
+        }
+        exitArmedAtRef.current = now;
+        toast.info("한 번 더 누르면 앱이 종료됩니다.", { toastId: "app-exit", autoClose: 1800 });
         break;
       }
 
       case "PUSH_EVENT": {
-        console.log("[PUSH]", p?.title, p?.body);
+        const target = pushTargetPath(p?.data || p);
+        // 시스템 알림을 눌러 앱이 열린 경우 — 배너 없이 바로 이동
+        if (p?.event === "opened") {
+          if (target) navigate(target);
+          break;
+        }
+        // 앱을 보고 있을 때 온 푸시 — 화면 위 배너
+        if (!p?.title && !p?.body) break;
+        toast(
+          <PushBanner>
+            <div className="t">{p?.title || "홈프로"}</div>
+            {p?.body ? <div className="b">{p.body}</div> : null}
+          </PushBanner>,
+          {
+            toastId: p?.messageId || `push-${p?.ts || Date.now()}`,
+            position: "top-center",
+            autoClose: 5000,
+            onClick: () => { if (target) navigate(target); },
+          }
+        );
         break;
       }
 
@@ -246,6 +310,8 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Wrapper>
+        <ToastContainer position="bottom-center" hideProgressBar closeButton={false} newestOnTop limit={2} />
+        <PushToastStyle />
         <Routes location={location} key={location.pathname}>
           {/* Public - 인증 불필요 */}
           <Route path="/" element={<Navigate to="/MobileSplash" replace />} />

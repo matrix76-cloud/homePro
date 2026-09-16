@@ -20,3 +20,6 @@ _admin.mjs
 
 # 이관 작업 산출물(사용자 데이터·해시 포함)
 _migration/
+
+# 리뷰 덤프 산출물(생성물)
+reviews.json

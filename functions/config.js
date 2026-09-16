@@ -24,12 +24,13 @@ function requireEnv(name, hint) {
 const kakaoRestKey = () =>
     requireEnv("KAKAO_REST_KEY", "카카오 개발자 콘솔 > 내 애플리케이션 > 앱 키 > REST API 키");
 
-/** SMS 게이트웨이 — 인증번호 발송이 나가는 곳. */
-const smsGateway = () => ({
-    url: requireEnv("SMS_GATEWAY_URL", "예: https://sms.example.com/sendSms"),
-    key: requireEnv("SMS_GATEWAY_KEY", "게이트웨이와 공유하는 인증키"),
+/** 솔라피(문자) — 인증번호 발송. 게이트웨이 서버 없이 Functions 에서 직접 호출한다(2026-09-15, 옛 게이트웨이 VM 폐기). */
+const solapi = () => ({
+    apiKey: requireEnv("SOLAPI_API_KEY", "솔라피 콘솔 > API Key 관리"),
+    apiSecret: requireEnv("SOLAPI_API_SECRET", "솔라피 콘솔 > API Key 관리"),
+    sender: requireEnv("SOLAPI_SENDER", "솔라피에 사전등록된 발신번호, 숫자만"),
 });
 
 const REGION = process.env.FUNCTIONS_REGION || "asia-northeast3";
 
-module.exports = { requireEnv, kakaoRestKey, smsGateway, REGION };
+module.exports = { requireEnv, kakaoRestKey, solapi, REGION };

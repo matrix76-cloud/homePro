@@ -1,61 +1,80 @@
 /* eslint-disable */
-import React, { useState, useEffect } from "react";
+// 자재·장비 거래글 상세 (대표 스펙 9/15)
+// 사진 · 전체 항목 · 등록자 · 전화/채팅 · 작성자 거래완료 처리
+// 예전 업체 소개글(tradeType 없음)도 깨지지 않게 업체 정보 표로 보여준다.
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
+import { IoCallOutline, IoChatbubbleEllipsesOutline, IoImageOutline } from "react-icons/io5";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { createChatRoom } from "../../service/ChatService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCallOutline, IoTimeOutline, IoLocationOutline, IoCarOutline, IoStorefrontOutline, IoChatbubbleEllipsesOutline } from "react-icons/io5";
-
-const formatDate = (ts) => {
-  if (!ts) return "";
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-};
+import {
+  SUPPLIES_COL, isLegacy, tradeLabel, categoryLabel, conditionLabel, formatPrice,
+  dealMethodText, formatDate, LINE, ACTIVE_FACE, INK_BUTTON, DONE_COLOR,
+} from "./suppliesConstants";
 
 const SuppliesDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userData } = useAuth();
+  const myUid = userData?.uid;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const toastTimer = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 2000);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 2200);
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "homepro_supplies", id));
-        if (snap.exists()) setData({ id: snap.id, ...snap.data() });
-      } catch (err) {
-        console.error("업체 상세 로드 실패:", err);
-      } finally {
+    const unsub = onSnapshot(
+      doc(db, SUPPLIES_COL, id),
+      (snap) => {
+        setData(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("자재·장비 상세 로드 실패:", err);
         setLoading(false);
       }
-    })();
+    );
+    return () => unsub();
   }, [id]);
 
+  const legacy = isLegacy(data);
+  const isAuthor = !!myUid && data?.createdBy === myUid;
+  const isDone = data?.status === "done";
+  const phone = legacy ? data?.phone : data?.contactPhone;
+  const images = Array.isArray(data?.images) ? data.images.filter(Boolean) : [];
+  const displayTitle = legacy ? data?.name || "업체" : data?.title || "";
+
+  const handleCall = () => {
+    if (!phone) return showToast("연락처를 남기지 않은 글입니다. 채팅으로 문의해주세요");
+    window.location.href = `tel:${String(phone).replace(/[^0-9+]/g, "")}`;
+  };
+
   const handleChat = async () => {
-    const myUid = userData?.uid;
     if (!myUid) return showToast("로그인이 필요합니다");
     if (!data?.createdBy) return showToast("등록자 정보가 없어 채팅할 수 없습니다");
-    if (data.createdBy === myUid) return showToast("본인이 등록한 업체입니다");
+    if (isAuthor) return showToast("본인이 등록한 글입니다");
     try {
       const roomId = await createChatRoom(
         myUid,
-        userData?.nickname || userData?.name || "",
+        userData?.companyName || userData?.nickname || userData?.name || "",
         userData?.profileImage || userData?.photoURL || "",
         data.createdBy,
-        data.name || "업체",
-        "",
-        { supplyId: data.id, supplyTitle: data.name || "" }
+        data.authorName || displayTitle || "판매자",
+        data.authorPhoto || "",
+        { supplyId: data.id, supplyTitle: displayTitle }
       );
       navigate(`/chat/${roomId}`);
     } catch (e) {
@@ -64,93 +83,165 @@ const SuppliesDetailPage = () => {
     }
   };
 
-  if (loading) {
+  const toggleDone = async () => {
+    if (!isAuthor || busy) return;
+    const next = isDone ? "active" : "done";
+    const msg = isDone ? "이 글을 다시 거래중으로 바꿀까요?" : "거래완료로 바꿀까요?\n목록에 거래완료로 표시되고 연락 버튼이 닫힙니다.";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, SUPPLIES_COL, data.id), {
+        status: next,
+        doneAt: next === "done" ? serverTimestamp() : null,
+        updatedAt: serverTimestamp(),
+      });
+      showToast(next === "done" ? "거래완료로 변경했습니다" : "다시 거래중으로 변경했습니다");
+    } catch (e) {
+      console.error("상태 변경 실패:", e);
+      showToast("변경에 실패했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading || !data) {
     return (
-      <SimpleBackLayout NAME="자재.장비" hideFooter>
-        <Center>불러오는 중...</Center>
+      <SimpleBackLayout NAME="자재·장비" hideFooter>
+        <Center>{loading ? "불러오는 중..." : "삭제되었거나 존재하지 않는 글입니다"}</Center>
       </SimpleBackLayout>
     );
   }
 
-  if (!data) {
-    return (
-      <SimpleBackLayout NAME="자재.장비" hideFooter>
-        <Center>존재하지 않는 업체입니다</Center>
-      </SimpleBackLayout>
-    );
-  }
+  const rows = legacy
+    ? [
+        ["구분", "업체 소개(이전 등록글)"],
+        ["지역", data.location || "-"],
+        ["연락처", data.phone || "-"],
+        ["영업시간", data.hours || "-"],
+        ["배송", data.deliveryAvailable ? "배송 가능" : "-"],
+        ["취급 품목", Array.isArray(data.items) && data.items.length ? data.items.join(", ") : "-"],
+        ["등록일", formatDate(data.createdAt) || "-"],
+      ]
+    : [
+        ["거래 종류", tradeLabel(data.tradeType) || "-"],
+        ["카테고리", categoryLabel(data.category) || "-"],
+        [data.tradeType === "buy" ? "원하는 상태" : "물품 상태", conditionLabel(data.condition) || "-"],
+        ["가격", formatPrice(data)],
+        ...(data.tradeType !== "free" ? [["가격 조정", data.negotiable ? "네고 가능" : "제안 불가"]] : []),
+        ["거래 방법", dealMethodText(data) || "-"],
+        ...(Array.isArray(data.dealMethods) && data.dealMethods.includes("direct")
+          ? [["직거래 장소", data.directPlace || "-"]]
+          : []),
+        ["지역", data.location || "-"],
+        ["등록일", formatDate(data.createdAt) || "-"],
+      ];
 
   return (
-    <SimpleBackLayout NAME="자재.장비" hideFooter>
-      <ToastWrap $show={!!toast}>{toast}</ToastWrap>
+    <SimpleBackLayout NAME="자재·장비" hideFooter>
+      {toast && <ToastWrap>{toast}</ToastWrap>}
       <PageWrap>
-        <Section>
-          <TopRow>
-            <ShopIcon>
-              <IoStorefrontOutline size={22} color={THEME.primary} />
-            </ShopIcon>
-            <ShopName>{data.name}</ShopName>
-          </TopRow>
-          {data.deliveryAvailable && (
-            <DeliveryBadge>
-              <IoCarOutline size={14} />
-              배송가능
-            </DeliveryBadge>
-          )}
+        {!legacy && (
+          <Gallery>
+            {images.length ? (
+              <>
+                <Slides
+                  onScroll={(e) => {
+                    const w = e.currentTarget.clientWidth || 1;
+                    setPhotoIdx(Math.round(e.currentTarget.scrollLeft / w));
+                  }}
+                >
+                  {images.map((src, i) => (
+                    <Slide key={i}>
+                      <img src={src} alt="" />
+                    </Slide>
+                  ))}
+                </Slides>
+                {images.length > 1 && <Counter>{photoIdx + 1} / {images.length}</Counter>}
+              </>
+            ) : (
+              <NoPhoto>
+                <IoImageOutline size={34} color={THEME.muted} />
+                <span>등록된 사진이 없습니다</span>
+              </NoPhoto>
+            )}
+            {isDone && <DoneCover>거래완료</DoneCover>}
+          </Gallery>
+        )}
 
-          <InfoList>
-            <InfoLine>
-              <IoCallOutline size={16} color={THEME.muted} />
-              <span>{data.phone || "연락처 없음"}</span>
-            </InfoLine>
-            <InfoLine>
-              <IoTimeOutline size={16} color={THEME.muted} />
-              <span>{data.hours || "영업시간 미등록"}</span>
-            </InfoLine>
-            <InfoLine>
-              <IoLocationOutline size={16} color={THEME.muted} />
-              <span>{data.location || "지역 미등록"}</span>
-            </InfoLine>
-          </InfoList>
+        <Section>
+          <TopLine>
+            <TypeText $type={data.tradeType}>{legacy ? "업체" : tradeLabel(data.tradeType)}</TypeText>
+            {!legacy && <span>{categoryLabel(data.category)}</span>}
+            <StateText $done={isDone}>{legacy ? "" : isDone ? "거래완료" : "거래중"}</StateText>
+          </TopLine>
+          <Title>{displayTitle}</Title>
+          {!legacy && (
+            <PriceLine>
+              <Price $free={data.tradeType === "free"}>{formatPrice(data)}</Price>
+              {data.tradeType !== "free" && <Nego>{data.negotiable ? "네고 가능" : "제안 불가"}</Nego>}
+            </PriceLine>
+          )}
+        </Section>
+
+        <Section>
+          <SectionTitle>{legacy ? "업체 정보" : "거래 정보"}</SectionTitle>
+          <InfoTable>
+            <tbody>
+              {rows.map(([k, v]) => (
+                <tr key={k}>
+                  <th>{k}</th>
+                  <td>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </InfoTable>
         </Section>
 
         {data.description && (
           <Section>
-            <SectionTitle>업체 소개</SectionTitle>
+            <SectionTitle>{legacy ? "업체 소개" : "상세 설명"}</SectionTitle>
             <Body>{data.description}</Body>
           </Section>
         )}
 
-        {Array.isArray(data.items) && data.items.length > 0 && (
+        {!legacy && (
           <Section>
-            <SectionTitle>취급 품목</SectionTitle>
-            <ChipRow>
-              {data.items.map((it, i) => (
-                <Chip key={i}>{it}</Chip>
-              ))}
-            </ChipRow>
+            <SectionTitle>등록자</SectionTitle>
+            <Seller>
+              {data.authorPhoto ? <Avatar src={data.authorPhoto} alt="" /> : <AvatarBlank />}
+              <div>
+                <SellerName>{data.authorName || "홈프로 회원"}</SellerName>
+                <SellerMeta>
+                  {data.authorSubscribed ? "월 구독 회원" : "일반 회원"}
+                  {phone ? ` · ${phone}` : " · 채팅으로 연락"}
+                </SellerMeta>
+              </div>
+            </Seller>
           </Section>
         )}
 
-        <RegDate>등록일 {formatDate(data.createdAt)}</RegDate>
+        <Caution>
+          홈프로는 회원 간 직거래를 연결하는 공간이며 거래에 개입하거나 보증하지 않습니다. 물품 상태와 작동 여부는 직접 확인한 뒤 거래해주세요.
+        </Caution>
       </PageWrap>
 
       <BottomBar>
-        {data.phone ? (
-          <CallBtn as="a" href={`tel:${data.phone}`}>
-            <IoCallOutline size={18} />
-            전화 문의
-          </CallBtn>
+        {isAuthor ? (
+          <OutlineBtn type="button" onClick={toggleDone} disabled={busy} style={{ flex: 1 }}>
+            {isDone ? "다시 거래중으로 변경" : "거래완료로 변경"}
+          </OutlineBtn>
+        ) : isDone ? (
+          <DoneNote>거래가 완료된 글입니다</DoneNote>
         ) : (
-          <CallBtn type="button" onClick={() => showToast("등록된 전화번호가 없습니다")}>
-            <IoCallOutline size={18} />
-            전화 문의
-          </CallBtn>
+          <>
+            <OutlineBtn type="button" onClick={handleCall}>
+              <IoCallOutline size={18} /> 전화
+            </OutlineBtn>
+            <FilledBtn type="button" onClick={handleChat}>
+              <IoChatbubbleEllipsesOutline size={18} /> 채팅 문의
+            </FilledBtn>
+          </>
         )}
-        <ChatBtn onClick={handleChat}>
-          <IoChatbubbleEllipsesOutline size={18} />
-          채팅 문의
-        </ChatBtn>
       </BottomBar>
     </SimpleBackLayout>
   );
@@ -160,70 +251,122 @@ export default SuppliesDetailPage;
 
 /* ===== styles ===== */
 const PageWrap = styled.div`
-  padding: 12px 12px 90px;
+  padding: 0 0 100px;
+  background: ${THEME.background};
+  min-height: 100%;
+`;
+
+const Gallery = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 400px;
+  background: #eef0f3;
+`;
+
+const Slides = styled.div`
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const Slide = styled.div`
+  flex: 0 0 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+`;
+
+const Counter = styled.div`
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 4px 10px;
+  background: rgba(20, 24, 31, 0.7);
+  color: #fff;
+  font-size: 13px;
+`;
+
+const NoPhoto = styled.div`
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-`;
-
-const Section = styled.div`
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
-`;
-
-const TopRow = styled.div`
-  display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  color: ${THEME.textSecondary};
 `;
 
-const ShopIcon = styled.div`
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: ${THEME.purpleLight};
+const DoneCover = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 24, 31, 0.5);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  pointer-events: none;
 `;
 
-const ShopName = styled.h2`
+const Section = styled.div`
+  background: #fff;
+  border-bottom: 1px solid ${LINE};
+  padding: 18px 16px;
+  margin-bottom: 8px;
+`;
+
+const TopLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: ${THEME.textSecondary};
+  margin-bottom: 6px;
+`;
+
+const TypeText = styled.span`
+  font-weight: 700;
+  color: ${({ $type }) => ($type === "free" ? THEME.primaryDark : $type === "buy" ? "#b45309" : THEME.text)};
+`;
+
+const StateText = styled.span`
+  margin-left: auto;
+  font-weight: 700;
+  color: ${({ $done }) => ($done ? DONE_COLOR : THEME.primaryDark)};
+`;
+
+const Title = styled.h2`
   font-size: 21px;
   font-weight: 700;
   color: ${THEME.text};
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.35;
+  word-break: keep-all;
 `;
 
-const DeliveryBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: ${THEME.success};
-  background: #ecfdf5;
-  padding: 4px 10px;
-  border-radius: 20px;
-  margin-bottom: 16px;
-`;
-
-const InfoList = styled.div`
+const PriceLine = styled.div`
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
   gap: 10px;
+  margin-top: 10px;
 `;
 
-const InfoLine = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  color: ${THEME.text};
+const Price = styled.span`
+  font-size: 22px;
+  font-weight: 700;
+  color: ${({ $free }) => ($free ? THEME.primaryDark : THEME.text)};
+`;
+
+const Nego = styled.span`
+  font-size: 15px;
+  color: ${THEME.textSecondary};
 `;
 
 const SectionTitle = styled.h3`
@@ -233,41 +376,85 @@ const SectionTitle = styled.h3`
   margin: 0 0 12px;
 `;
 
+const InfoTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid ${LINE};
+  th, td {
+    border-bottom: 1px solid ${LINE};
+    padding: 11px 12px;
+    font-size: 15px;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.45;
+    word-break: keep-all;
+  }
+  tr:last-child th, tr:last-child td { border-bottom: none; }
+  th {
+    width: 96px;
+    background: #f4f5f7;
+    color: ${THEME.textSecondary};
+    font-weight: 600;
+  }
+  td { color: ${THEME.text}; }
+`;
+
 const Body = styled.p`
   font-size: 16px;
-  color: ${THEME.textSecondary};
+  color: ${THEME.text};
   line-height: 1.7;
   margin: 0;
   white-space: pre-wrap;
+  word-break: keep-all;
 `;
 
-const ChipRow = styled.div`
+const Seller = styled.div`
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 `;
 
-const Chip = styled.span`
-  padding: 6px 14px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 20px;
-  background: ${THEME.background};
-  color: ${THEME.textSecondary};
+const Avatar = styled.img`
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
 `;
 
-const RegDate = styled.div`
+const AvatarBlank = styled.div`
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e3e6ea;
+  flex: none;
+`;
+
+const SellerName = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const SellerMeta = styled.div`
   font-size: 14px;
-  color: ${THEME.muted};
-  text-align: center;
-  padding: 4px 0;
+  color: ${THEME.textSecondary};
+  margin-top: 2px;
+`;
+
+const Caution = styled.div`
+  padding: 6px 16px 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: ${THEME.textSecondary};
+  word-break: keep-all;
 `;
 
 const Center = styled.div`
   padding: 80px 0;
   text-align: center;
   font-size: 16px;
-  color: ${THEME.muted};
+  color: ${THEME.text};
 `;
 
 const BottomBar = styled.div`
@@ -277,62 +464,68 @@ const BottomBar = styled.div`
   transform: translateX(-50%);
   width: 100%;
   max-width: 400px;
-  padding: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
-  background: ${THEME.surface};
-  box-shadow: 0 -1px 4px rgba(0,0,0,0.06);
+  background: #fff;
+  border-top: 1px solid ${LINE};
   z-index: 100;
   display: flex;
-  gap: 10px;
+  gap: 8px;
 `;
 
-const ChatBtn = styled.button`
-  flex: 1;
+const BaseBtn = styled.button`
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 14px 0;
-  border: none;
-  border-radius: 10px;
-  background: ${THEME.primary};
-  color: #fff;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
-  &:active { opacity: 0.85; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
-const CallBtn = styled.button`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 0;
-  border: 1.5px solid ${THEME.primary};
-  border-radius: 10px;
+const OutlineBtn = styled(BaseBtn)`
+  flex: 0 0 38%;
+  border: 1px solid #c9ced6;
   background: #fff;
-  color: ${THEME.primary};
-  font-size: 18px;
+  color: ${THEME.text};
+  &:active { background: ${ACTIVE_FACE}; }
+`;
+
+const FilledBtn = styled(BaseBtn)`
+  flex: 1;
+  border: none;
+  background: ${INK_BUTTON};
+  color: #fff;
+  &:active { opacity: 0.88; }
+`;
+
+const DoneNote = styled.div`
+  flex: 1;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${ACTIVE_FACE};
+  font-size: 16px;
   font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  &:active { opacity: 0.85; }
+  color: ${THEME.text};
 `;
 
 const ToastWrap = styled.div`
   position: fixed;
-  top: 60px;
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
+  max-width: 360px;
+  width: max-content;
   background: ${THEME.text};
   color: #fff;
-  padding: 10px 20px;
-  border-radius: 10px;
+  padding: 11px 18px;
   font-size: 15px;
+  line-height: 1.4;
+  text-align: center;
   z-index: 9999;
-  opacity: ${({ $show }) => ($show ? 1 : 0)};
-  transition: opacity 0.25s;
-  pointer-events: none;
 `;

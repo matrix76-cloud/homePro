@@ -29,9 +29,9 @@ const MAX_SENDS_PER_WINDOW = 5;  // 시간당 발송 횟수
 const SEND_WINDOW_SEC = 3600;
 const MAX_ATTEMPTS = 5;          // 코드 오입력 허용 횟수
 
-// SMS 게이트웨이 — 주소·키는 functions/.env 에서만 온다(config.js 참고).
-// 하드코딩 폴백을 두면 이관 후에도 옛 계정 게이트웨이로 문자가 계속 나가므로 두지 않는다.
-const { smsGateway } = require("./config");
+// 솔라피 키·발신번호는 functions/.env.<프로젝트> 에서만 온다(config.js 참고).
+// 하드코딩 폴백을 두면 이관 후에도 옛 계정으로 문자가 계속 나가므로 두지 않는다.
+const { solapi } = require("./config");
 
 const db = () => admin.firestore();
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -61,23 +61,30 @@ function safeEqual(a, b) {
     return crypto.timingSafeEqual(ba, bb);
 }
 
+/** 솔라피 HMAC 인증 헤더 */
+function solapiAuthHeader(apiKey, apiSecret) {
+    const date = new Date().toISOString();
+    const salt = crypto.randomBytes(32).toString("hex");
+    const signature = crypto.createHmac("sha256", apiSecret).update(date + salt).digest("hex");
+    return `HMAC-SHA256 apiKey=${apiKey}, date=${date}, salt=${salt}, signature=${signature}`;
+}
+
+/** 솔라피 직접 발송 — 인증번호 문자. 문구는 서버 고정(클라이언트 값이 문구에 섞이지 않게) */
 async function sendSms(phoneDigits, code, label) {
-    const { url, key } = smsGateway();
-    const resp = await fetch(url, {
+    const { apiKey, apiSecret, sender } = solapi();
+    const text = `[${label || "홈프로"}] 인증번호 ${code} (${Math.floor(CODE_TTL_SEC / 60)}분 내 입력해 주세요)`;
+    const resp = await fetch("https://api.solapi.com/messages/v4/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        headers: { "Content-Type": "application/json", Authorization: solapiAuthHeader(apiKey, apiSecret) },
         body: JSON.stringify({
-            to: phoneDigits,
-            templateId: "VERIFY_CODE",
-            label: label || "홈프로",
-            variables: { code },
+            message: { to: String(phoneDigits).replace(/\D/g, ""), from: String(sender).replace(/\D/g, ""), text },
         }),
     });
+    const json = await resp.json().catch(() => null);
     if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(`SMS 게이트웨이 응답 ${resp.status} ${text.slice(0, 200)}`);
+        throw new Error(`솔라피 응답 ${resp.status} ${JSON.stringify(json || {}).slice(0, 200)}`);
     }
-    return resp.json().catch(() => null);
+    return json;
 }
 
 /* ─────────────────────────────────────────────────────────────

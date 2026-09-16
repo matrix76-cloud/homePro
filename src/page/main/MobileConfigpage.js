@@ -40,6 +40,31 @@ const ProfileDivider = styled.div`
   margin: 18px 0 4px;
 `;
 
+const ProfileActionRow = styled.div`
+  display: flex;
+  gap: 10px;
+  padding-top: 14px;
+`;
+
+const ProfileActionBtn = styled.button`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 14px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.surface};
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  strong { font-size: 16px; font-weight: 700; color: ${THEME.text}; }
+  span { font-size: 13px; color: #2b2f36; }
+  &:active { background: ${THEME.background}; }
+`;
+
 const ProfileBizRow = styled.div`
   display: flex;
   align-items: center;
@@ -806,13 +831,19 @@ const MobileConfigpage = () => {
             </ProfileSub>
             {intro && <ProfileIntro>{intro}</ProfileIntro>}
           </ProfileInfo>
-          <ProfileEditLabel>편집</ProfileEditLabel>
         </ProfileTopRow>
         <ProfileDivider />
-        <ProfileBizRow onClick={() => navigate("/biz-profile")}>
-          <CardTitle>비즈프로필</CardTitle>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </ProfileBizRow>
+        {/* 프로필·비즈프로필 정리 (대표 9/15 리뷰) — 두 진입을 같은 모양의 버튼 두 개로 나란히, 무엇이 다른지 한 줄로 */}
+        <ProfileActionRow>
+          <ProfileActionBtn type="button" onClick={handleOpenEdit}>
+            <strong>기본 프로필</strong>
+            <span>사진·닉네임·소개</span>
+          </ProfileActionBtn>
+          <ProfileActionBtn type="button" onClick={() => navigate("/biz-profile")}>
+            <strong>비즈프로필</strong>
+            <span>인증·포트폴리오·정산계좌</span>
+          </ProfileActionBtn>
+        </ProfileActionRow>
       </ProfileCard>
 
       {/* 프로필 편집 모달 */}
@@ -968,17 +999,18 @@ const MobileConfigpage = () => {
       )}
 
       {/* 기술전수교육 / 거래장터 — 분리 진입 (형 지시 8/8) */}
-      <ContentCard onClick={() => navigate("/education-market?seg=training")} style={{ cursor: "pointer" }}>
+      {/* 대표 9/15 리뷰: 메뉴명 '기술전수 수강생모집', 기술전수 항목만 관리 (only=1 → 다른 세그먼트 숨김) */}
+      <ContentCard onClick={() => navigate("/education-market?seg=training&only=1")} style={{ cursor: "pointer" }}>
         <CardHeader>
           <div>
-            <CardTitle>기술전수교육</CardTitle>
-            <CardDesc>기술 교육 과정을 확인하세요</CardDesc>
+            <CardTitle>기술전수 수강생모집</CardTitle>
+            <CardDesc>교육 공고를 등록하고 수강생을 모집하세요</CardDesc>
           </div>
           <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
       </ContentCard>
 
-      <ContentCard onClick={() => navigate("/education-market?seg=market")} style={{ cursor: "pointer" }}>
+      <ContentCard onClick={() => navigate("/education-market?seg=market&only=1")} style={{ cursor: "pointer" }}>
         <CardHeader>
           <div>
             <CardTitle>거래장터</CardTitle>

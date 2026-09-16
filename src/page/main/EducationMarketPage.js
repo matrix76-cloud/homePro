@@ -20,15 +20,22 @@ const EducationMarketPage = () => {
   const [searchParams] = useSearchParams();
   const initSeg = SEGMENTS.some((s) => s.key === searchParams.get("seg")) ? searchParams.get("seg") : "training";
   const [seg, setSeg] = useState(initSeg);
+  // 마이페이지 '기술전수 수강생모집'에서 들어오면 기술전수 항목만 (대표 9/15 리뷰). 거래장터는 양도·매매·자재·장비만
+  const only = searchParams.get("only") === "1";
+  const visibleSegs = only
+    ? SEGMENTS.filter((s) => (initSeg === "training" ? s.key === "training" : s.key !== "training"))
+    : SEGMENTS;
   return (
-    <MainListLayout NAME="교육.장터" footerType="education" hideBack>
+    <MainListLayout NAME={only && initSeg === "training" ? "기술전수 수강생모집" : "교육.장터"} footerType="education" hideBack={!only}>
+      {visibleSegs.length > 1 && (
       <SegRow>
-        {SEGMENTS.map((s) => (
+        {visibleSegs.map((s) => (
           <SegBtn key={s.key} $active={seg === s.key} onClick={() => setSeg(s.key)}>
             {s.label}
           </SegBtn>
         ))}
       </SegRow>
+      )}
       <SegBody>
         {seg === "training" && <TrainingPage embedded />}
         {seg === "market" && <MarketplacePage embedded />}

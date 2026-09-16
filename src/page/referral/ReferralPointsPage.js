@@ -212,25 +212,7 @@ const ReferralPointsPage = () => {
           </SlideSection>
         )}
 
-        {/* 등급 안내 */}
-        <GradeSection>
-          <SectionTitle style={{ marginTop: 0 }}>나의 등급</SectionTitle>
-          <GradeProgressBar totalEarnedPoints={totalEarned} gradeRules={gradeRules} />
-          <GradeGrid>
-            {GRADE_ORDER.map((key) => {
-              const rule = (gradeRules || {})[key] || {};
-              const current = calcGrade(totalEarned, gradeRules);
-              const isCurrent = current.key === key;
-              return (
-                <GradeItem key={key} $active={isCurrent} $color={rule.color}>
-                  <GradeDot $color={rule.color} />
-                  <GradeName $active={isCurrent}>{rule.label || key}</GradeName>
-                  <GradeMin>{(rule.minPoints || 0).toLocaleString()}P</GradeMin>
-                </GradeItem>
-              );
-            })}
-          </GradeGrid>
-        </GradeSection>
+        {/* 나의 등급 카드는 삭제 (대표 9/15 리뷰) */}
 
         {/* 포인트 이력 */}
         <SectionTitle>포인트 내역</SectionTitle>

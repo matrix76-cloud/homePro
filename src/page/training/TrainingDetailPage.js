@@ -1,36 +1,18 @@
 /* eslint-disable */
+// 기술전수 교육생 모집 — 상세 (조건 확인 → 전화하기 / 채팅하기, 수강생은 모두 무료)
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
-import { createChatRoom } from "../../service/ChatService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCalendarOutline, IoPeopleOutline, IoLocationOutline, IoTimeOutline, IoCallOutline, IoPersonOutline, IoChatbubbleEllipsesOutline } from "react-icons/io5";
-
-// 연락처가 전화번호 형태인지 (숫자 8자리 이상)
-const isPhone = (c) => !!c && (c.replace(/[^0-9]/g, "").length >= 8);
-
-const formatDate = (ts) => {
-  if (!ts) return "";
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-};
-
-const formatPeriod = (s, e) => {
-  if (!s && !e) return "일정 미정";
-  if (s && e) return `${s} ~ ${e}`;
-  return s || e;
-};
-
-const formatPrice = (priceType, price) => {
-  if (priceType === "무료") return "무료";
-  if (priceType === "협의") return "협의";
-  if (price) return `${Number(price).toLocaleString()}원`;
-  return "가격 미정";
-};
+import { IoCallOutline, IoChatbubbleEllipsesOutline } from "react-icons/io5";
+import {
+  TRAINING_COL, STATUS_COLOR, normalizeTraining, computeStatus, recruitText, eduDateText,
+  priceInfo, formatTs, dotDate, callTrainer, chatTrainer,
+} from "./trainingShared";
 
 const TrainingDetailPage = () => {
   const { id } = useParams();
@@ -38,152 +20,143 @@ const TrainingDetailPage = () => {
   const { userData } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState("");
-
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2000);
-  };
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "homepro_trainings", id));
-        if (snap.exists()) setData({ id: snap.id, ...snap.data() });
-      } catch (err) {
-        console.error("교육 상세 로드 실패:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    const unsub = onSnapshot(doc(db, TRAINING_COL, id), (snap) => {
+      setData(snap.exists() ? normalizeTraining({ id: snap.id, ...snap.data() }) : null);
+      setLoading(false);
+    }, (err) => {
+      console.error("교육 상세 로드 실패:", err);
+      setLoading(false);
+    });
+    return () => unsub();
   }, [id]);
 
-  const handleChat = async () => {
-    const myUid = userData?.uid;
-    if (!myUid) return showToast("로그인이 필요합니다");
-    if (!data?.createdBy) return showToast("등록자 정보가 없어 채팅할 수 없습니다");
-    if (data.createdBy === myUid) return showToast("본인이 등록한 교육입니다");
+  const NAME = "교육생 모집";
+
+  if (loading) {
+    return <SimpleBackLayout NAME={NAME} hideFooter><Center>불러오는 중...</Center></SimpleBackLayout>;
+  }
+  const mine = !!data && !!userData?.uid && data.authorUid === userData.uid;
+  if (!data || (data.status === "pending" && !mine)) {
+    return <SimpleBackLayout NAME={NAME} hideFooter><Center>존재하지 않거나 게시되지 않은 교육입니다</Center></SimpleBackLayout>;
+  }
+
+  const status = computeStatus(data);
+  const price = priceInfo(data);
+  const ended = status === "교육완료" || status === "모집마감";
+  const manualClosed = data.status === "모집마감" || data.status === "마감";
+
+  const toggleClose = async () => {
+    const closing = !manualClosed;
+    if (!window.confirm(closing ? "모집을 마감할까요?\n목록에 '모집마감'으로 표시됩니다." : "모집을 다시 열까요?")) return;
+    setBusy(true);
     try {
-      const roomId = await createChatRoom(
-        myUid,
-        userData?.nickname || userData?.name || "",
-        userData?.profileImage || userData?.photoURL || "",
-        data.createdBy,
-        data.instructor || data.title || "강사",
-        "",
-        { trainingId: data.id, trainingTitle: data.title || "" }
-      );
-      navigate(`/chat/${roomId}`);
-    } catch (e) {
-      console.error("채팅 시작 실패:", e);
-      showToast("채팅 시작에 실패했습니다");
+      await updateDoc(doc(db, TRAINING_COL, data.id), { status: closing ? "모집마감" : "모집중", updatedAt: serverTimestamp() });
+    } catch {
+      window.alert("처리에 실패했습니다.");
+    } finally {
+      setBusy(false);
     }
   };
 
-  if (loading) {
-    return (
-      <SimpleBackLayout NAME="기술전수교육" hideFooter>
-        <Center>불러오는 중...</Center>
-      </SimpleBackLayout>
-    );
-  }
-
-  if (!data) {
-    return (
-      <SimpleBackLayout NAME="기술전수교육" hideFooter>
-        <Center>존재하지 않는 교육입니다</Center>
-      </SimpleBackLayout>
-    );
-  }
+  const rows = [
+    ["분야", [data.categoryLabel, data.subCategory].filter(Boolean).join(" · ")],
+    ["교육 방식", data.method],
+    ["모집 기간", status === "교육완료" ? "교육 종료" : recruitText(data)],
+    ["교육 일시", [eduDateText(data), data.eduTime].filter(Boolean).join(" · ")],
+    ["지역", data.regionLabel],
+    ["장소 안내", data.address],
+    ["모집 정원", data.capacity ? `${data.capacity}명${data.capacityNote ? ` (${data.capacityNote})` : ""}` : ""],
+    ["강사 / 업체", data.instructor],
+  ].filter(([, v]) => v);
 
   return (
-    <SimpleBackLayout NAME="기술전수교육" hideFooter>
-      <ToastWrap $show={!!toast}>{toast}</ToastWrap>
+    <SimpleBackLayout NAME={NAME} hideFooter>
       <PageWrap>
-        <Section>
-          <TopRow>
-            <StatusBadge $status={data.status}>{data.status || "모집중"}</StatusBadge>
-            {data.field && <FieldBadge>{data.field}</FieldBadge>}
-          </TopRow>
-          <Title>{data.title}</Title>
-          <Instructor>
-            <IoPersonOutline size={14} color={THEME.muted} />
-            {data.instructor || "강사 미정"}
-          </Instructor>
-
-          <InfoList>
-            <InfoLine>
-              <IoCalendarOutline size={16} color={THEME.muted} />
-              <span>{formatPeriod(data.startDate, data.endDate)}</span>
-            </InfoLine>
-            {data.startTime && (
-              <InfoLine>
-                <IoTimeOutline size={16} color={THEME.muted} />
-                <span>{data.startTime}</span>
-              </InfoLine>
+        {data.photos.length > 0 && (
+          <Gallery>
+            <MainPhoto><img src={data.photos[Math.min(photoIdx, data.photos.length - 1)]} alt="" /></MainPhoto>
+            {data.photos.length > 1 && (
+              <ThumbRow>
+                {data.photos.map((u, i) => (
+                  <ThumbBtn key={u} $active={i === photoIdx} onClick={() => setPhotoIdx(i)}><img src={u} alt="" /></ThumbBtn>
+                ))}
+              </ThumbRow>
             )}
-            <InfoLine>
-              <IoPeopleOutline size={16} color={THEME.muted} />
-              <span>{data.capacity ? `${data.capacity}명 모집` : "인원 미정"}</span>
-            </InfoLine>
-            <InfoLine>
-              <IoLocationOutline size={16} color={THEME.muted} />
-              <span>{data.location || "지역 미정"}</span>
-            </InfoLine>
-          </InfoList>
-        </Section>
-
-        {Array.isArray(data.methods) && data.methods.length > 0 && (
-          <Section>
-            <SectionTitle>교육 방식</SectionTitle>
-            <ChipRow>
-              {data.methods.map((m) => (
-                <Chip key={m}>{m}</Chip>
-              ))}
-            </ChipRow>
-          </Section>
+          </Gallery>
         )}
 
         <Section>
-          <SectionTitle>교육 내용</SectionTitle>
-          <Body>{data.description || "내용 없음"}</Body>
+          <HeadRow>
+            <StatusText style={{ color: STATUS_COLOR[status] }}>{status}</StatusText>
+            <RegDate>등록 {formatTs(data.publishedAt || data.createdAt)}</RegDate>
+          </HeadRow>
+          <Title>
+            {data.tag && <TagText>[{data.tag}]</TagText>}
+            {data.title}
+          </Title>
+          <PriceBox>
+            <PriceMain>{price.main}</PriceMain>
+            {price.regular && <PriceRegular>정가 {price.regular}</PriceRegular>}
+          </PriceBox>
+          {data.priceEarly != null && data.earlyUntil && <EarlyNote>얼리버드 할인 {dotDate(data.earlyUntil)}까지</EarlyNote>}
+
+          <InfoTable>
+            {rows.map(([k, v]) => (
+              <InfoRow key={k}><span>{k}</span><b>{v}</b></InfoRow>
+            ))}
+          </InfoTable>
         </Section>
 
         <Section>
-          <SectionTitle>비용</SectionTitle>
-          <Price>{formatPrice(data.priceType, data.price)}</Price>
+          <SecTitle>주요 교육 내용</SecTitle>
+          <Body>{data.curriculum || "내용 없음"}</Body>
         </Section>
 
-        {data.contact && (
+        {data.benefits && (
           <Section>
-            <SectionTitle>연락처</SectionTitle>
-            <InfoLine>
-              <IoCallOutline size={16} color={THEME.muted} />
-              <span>{data.contact}</span>
-            </InfoLine>
+            <SecTitle>기타 지원</SecTitle>
+            <Body>{data.benefits}</Body>
           </Section>
         )}
 
-        <RegDate>등록일 {formatDate(data.createdAt)}</RegDate>
+        {mine && (
+          <Section>
+            <SecTitle>내 공고 관리</SecTitle>
+            {data.status === "pending" ? (
+              <Note>포인트 차감이 끝나지 않아 게시되지 않은 공고입니다. 고객센터로 문의해 주세요.</Note>
+            ) : status === "교육완료" ? (
+              <Note>교육 일정이 지나 자동으로 '교육완료'로 표시됩니다.</Note>
+            ) : (
+              <>
+                <Note>{manualClosed ? "모집을 마감한 공고입니다." : "정원이 찼거나 더 받지 않으면 모집을 마감해 주세요."}</Note>
+                <ManageBtn disabled={busy} onClick={toggleClose}>{manualClosed ? "모집 다시 열기" : "모집 마감하기"}</ManageBtn>
+              </>
+            )}
+          </Section>
+        )}
+
+        <Note style={{ padding: "4px 4px 0" }}>
+          목록·상세 열람과 전화·채팅 문의는 무료입니다. 홈프로는 교육 정보 제공과 연결만 하며, 교육 품질·계약 조건·비용·교육 결과에 대한 책임은 교육 개설자에게 있습니다.
+        </Note>
       </PageWrap>
 
-      <BottomBar>
-        {isPhone(data.contact) ? (
-          <CallBtn as="a" href={`tel:${data.contact.replace(/[^0-9+]/g, "")}`}>
-            <IoCallOutline size={18} />
-            전화 문의
-          </CallBtn>
-        ) : (
-          <CallBtn type="button" onClick={() => showToast("등록된 전화번호가 없습니다")}>
-            <IoCallOutline size={18} />
-            전화 문의
-          </CallBtn>
-        )}
-        <ChatBtn onClick={handleChat}>
-          <IoChatbubbleEllipsesOutline size={18} />
-          채팅 문의
-        </ChatBtn>
-      </BottomBar>
+      {!mine && (
+        <BottomBar>
+          {ended && <EndedNote>{status === "교육완료" ? "종료된 교육입니다. 다음 기수는 문의해 보세요." : "모집이 마감된 교육입니다."}</EndedNote>}
+          <BtnRow>
+            <CallBtn type="button" onClick={() => callTrainer(data)}>
+              <IoCallOutline size={18} /> 전화하기
+            </CallBtn>
+            <ChatBtn type="button" onClick={() => chatTrainer(data, userData, navigate)}>
+              <IoChatbubbleEllipsesOutline size={18} /> 채팅 문의
+            </ChatBtn>
+          </BtnRow>
+        </BottomBar>
+      )}
     </SimpleBackLayout>
   );
 };
@@ -191,185 +164,57 @@ const TrainingDetailPage = () => {
 export default TrainingDetailPage;
 
 /* ===== styles ===== */
-const PageWrap = styled.div`
-  padding: 12px 12px 90px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+const Center = styled.div` padding: 80px 20px; text-align: center; font-size: 16px; color: #2b2f36; `;
+const PageWrap = styled.div` padding: 12px 12px 130px; background: ${THEME.background}; `;
+const Gallery = styled.div` margin-bottom: 12px; `;
+const MainPhoto = styled.div`
+  width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: #eef0f3;
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
 `;
-
+const ThumbRow = styled.div` display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; `;
+const ThumbBtn = styled.button`
+  flex: none; width: 60px; height: 60px; padding: 0; border-radius: 8px; overflow: hidden; cursor: pointer; background: #eef0f3;
+  border: 2px solid ${({ $active }) => ($active ? THEME.text : "transparent")};
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+`;
 const Section = styled.div`
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
+  background: ${THEME.surface}; border: 1px solid #eceef2; border-radius: 12px; padding: 18px; margin-bottom: 12px;
 `;
-
-const TopRow = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+const HeadRow = styled.div` display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; `;
+const StatusText = styled.span` font-size: 15px; font-weight: 700; `;
+const RegDate = styled.span` font-size: 13px; color: ${THEME.muted}; `;
+const Title = styled.h1` margin: 0 0 12px; font-size: 21px; font-weight: 700; line-height: 1.4; color: ${THEME.text}; word-break: keep-all; `;
+const TagText = styled.span` color: ${THEME.primaryDark}; margin-right: 5px; `;
+const PriceBox = styled.div` display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; `;
+const PriceMain = styled.span` font-size: 20px; font-weight: 700; color: ${THEME.text}; `;
+const PriceRegular = styled.span` font-size: 14px; color: ${THEME.muted}; text-decoration: line-through; `;
+const EarlyNote = styled.div` margin-top: 4px; font-size: 14px; color: #b45309; font-weight: 600; `;
+const InfoTable = styled.div` margin-top: 14px; border-top: 1px solid #eceef2; `;
+const InfoRow = styled.div`
+  display: flex; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid #eceef2; font-size: 15px;
+  span { flex: none; color: #2b2f36; }
+  b { font-weight: 600; color: ${THEME.text}; text-align: right; word-break: keep-all; line-height: 1.45; }
 `;
-
-const StatusBadge = styled.span`
-  font-size: 14px;
-  font-weight: 700;
-  color: ${(p) => (p.$status === "마감" ? THEME.muted : THEME.primary)};
+const SecTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
+const Body = styled.div` font-size: 15px; line-height: 1.7; color: ${THEME.text}; white-space: pre-wrap; word-break: keep-all; `;
+const Note = styled.div` font-size: 14px; line-height: 1.6; color: #2b2f36; word-break: keep-all; `;
+const ManageBtn = styled.button`
+  width: 100%; height: 48px; margin-top: 12px; border-radius: 10px; border: 1px solid #d5d9e0; background: #fff;
+  color: ${THEME.text}; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
+  &:disabled { opacity: 0.6; }
 `;
-
-const FieldBadge = styled.span`
-  font-size: 14px;
-  font-weight: 400;
-  color: #fff;
-  background: ${THEME.primary};
-  padding: 3px 9px;
-  border-radius: 20px;
-`;
-
-const Title = styled.h2`
-  font-size: 22px;
-  font-weight: 700;
-  color: ${THEME.text};
-  margin: 0 0 8px;
-  line-height: 1.4;
-`;
-
-const Instructor = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 15px;
-  color: ${THEME.textSecondary};
-  margin-bottom: 16px;
-`;
-
-const InfoList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-`;
-
-const InfoLine = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  color: ${THEME.text};
-`;
-
-const SectionTitle = styled.h3`
-  font-size: 17px;
-  font-weight: 700;
-  color: ${THEME.text};
-  margin: 0 0 12px;
-`;
-
-const Body = styled.p`
-  font-size: 16px;
-  color: ${THEME.textSecondary};
-  line-height: 1.7;
-  margin: 0;
-  white-space: pre-wrap;
-`;
-
-const Price = styled.div`
-  font-size: 20px;
-  font-weight: 700;
-  color: ${THEME.primary};
-`;
-
-const ChipRow = styled.div`
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-`;
-
-const Chip = styled.span`
-  padding: 6px 14px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 20px;
-  background: ${THEME.background};
-  color: ${THEME.textSecondary};
-`;
-
-const RegDate = styled.div`
-  font-size: 14px;
-  color: ${THEME.muted};
-  text-align: center;
-  padding: 4px 0;
-`;
-
-const Center = styled.div`
-  padding: 80px 0;
-  text-align: center;
-  font-size: 16px;
-  color: ${THEME.muted};
-`;
-
 const BottomBar = styled.div`
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 400px;
-  padding: 12px;
-  box-sizing: border-box;
-  background: ${THEME.surface};
-  box-shadow: 0 -1px 4px rgba(0,0,0,0.06);
-  z-index: 100;
-  display: flex;
-  gap: 10px;
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 400px; box-sizing: border-box;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: ${THEME.surface};
+  box-shadow: 0 -1px 4px rgba(0,0,0,0.06); z-index: 100;
 `;
-
-const ChatBtn = styled.button`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 0;
-  border: none;
-  border-radius: 10px;
-  background: ${THEME.primary};
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  &:active { opacity: 0.85; }
-`;
-
+const EndedNote = styled.div` font-size: 14px; color: #2b2f36; text-align: center; margin-bottom: 8px; `;
+const BtnRow = styled.div` display: flex; gap: 10px; `;
 const CallBtn = styled.button`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 0;
-  border: 1.5px solid ${THEME.primary};
-  border-radius: 10px;
-  background: #fff;
-  color: ${THEME.primary};
-  font-size: 18px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  &:active { opacity: 0.85; }
+  flex: 1; height: 50px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px;
+  border: 1px solid #d5d9e0; background: #fff; color: ${THEME.text}; font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
 `;
-
-const ToastWrap = styled.div`
-  position: fixed;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: ${THEME.text};
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 15px;
-  z-index: 9999;
-  opacity: ${({ $show }) => ($show ? 1 : 0)};
-  transition: opacity 0.25s;
-  pointer-events: none;
+const ChatBtn = styled.button`
+  flex: 1; height: 50px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px;
+  border: none; background: ${THEME.primary}; color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
 `;

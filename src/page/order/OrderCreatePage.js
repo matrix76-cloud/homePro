@@ -561,6 +561,10 @@ export const OrderCreateContent = () => {
   // 정보공유 유형 보상 두 칸 (대표 지시 8/20)
   const [infoReward, setInfoReward] = useState("");
   const [contractBonus, setContractBonus] = useState("");
+  // 정보공유 소개비(인센티브) — 정액/정률 (대표 9/15 리뷰)
+  const [infoIncType, setInfoIncType] = useState("fixed");
+  const [infoIncFixed, setInfoIncFixed] = useState(String(COMMON_B2B_FIELDS.infoIncentive.fixed.default));
+  const [infoIncRate, setInfoIncRate] = useState(String(COMMON_B2B_FIELDS.infoIncentive.rate.default));
   const [b2bPriceType, setB2bPriceType] = useState("");
   const [b2bPriceAmount, setB2bPriceAmount] = useState("");
   const [referralFeeType, setReferralFeeType] = useState("none");
@@ -571,8 +575,13 @@ export const OrderCreateContent = () => {
   const [referralFeeHpoint, setReferralFeeHpoint] = useState("");
   const [referralFeeHpointCustom, setReferralFeeHpointCustom] = useState("");
   const [matchType, setMatchType] = useState("");
+  // 보험 조건 — 기본 선택(홈프로 자유). 필수로 고르면 배정 뒤 홈프로가 건당·월·년 중 가입해야 체크인 (대표 9/15 카톡 8번)
+  const [insuranceRequired, setInsuranceRequired] = useState(false);
   // 셀프 등록 오더 — 앱 밖에서 수주한 일을 본인이 등록해 보험·현장기록만 쓰는 오더 (대표 8/20). 캐시백·매칭 없음
-  const [selfOrder, setSelfOrder] = useState(false);
+  // 대표 9/15 리뷰: 예약접수의 '등록 방식' 칸 삭제 → 안심케어 [셀프보장등록] 버튼이 /order/create?self=1 로 연다
+  const [selfOrder, setSelfOrder] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("self") === "1"; } catch { return false; }
+  });
   // 셀프 등록은 보험 적용용 항목만(대표 9/12): 단가유형은 시공(공사)단가 하나
   useEffect(() => { if (selfOrder && b2bPriceType !== "fixed") setB2bPriceType("fixed"); }, [selfOrder, b2bPriceType]);
   const [directPhone, setDirectPhone] = useState("");
@@ -655,6 +664,8 @@ export const OrderCreateContent = () => {
     setB2bPriceAmount(editOrder.b2bPriceAmount ? String(editOrder.b2bPriceAmount) : "");
     setPayMode(editOrder.payMode || (editOrder.paymentMethod === "선결제" ? "prepay" : editOrder.paymentMethod ? "later" : ""));
     setInfoReward(editOrder.infoReward ? String(editOrder.infoReward) : "");
+    if (editOrder.infoIncentive?.type === "rate") { setInfoIncType("rate"); setInfoIncRate(String(editOrder.infoIncentive.rate || "")); }
+    else if (editOrder.infoIncentive?.type === "fixed") { setInfoIncType("fixed"); setInfoIncFixed(String(editOrder.infoIncentive.amount || "")); }
     setContractBonus(editOrder.contractBonus ? String(editOrder.contractBonus) : "");
     if (editOrder.referralFee && editOrder.referralFee.type) {
       setReferralFeeType(editOrder.referralFee.type);
@@ -672,6 +683,7 @@ export const OrderCreateContent = () => {
     }
     setMatchType(editOrder.matchType || "");
     setSelfOrder(!!editOrder.selfOrder);
+    setInsuranceRequired(editOrder.insuranceRequired === true);
     setDirectPhone(editOrder.directPhone || "");
   }, [editOrder]);
 
@@ -690,6 +702,45 @@ export const OrderCreateContent = () => {
   const visibleAttrSections = (detailConfig?.attrSections || []).filter(
     (sec) => !sec.services || sec.services.some((sv) => activeServices.includes(sv))
   );
+  // 속성 칩 섹션 — afterQty 가 붙은 섹션(제조사 등)은 선택 품목 수량 아래에 그린다 (대표 9/15 리뷰)
+  const renderAttrSection = (sec) => {
+    const picked = attrValues[sec.key] || [];
+    return (
+      <Section key={sec.key}>
+        {sec.descs ? (
+          <LabelRow>
+            <Label style={{ marginBottom: 0 }}>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
+            <HelpBtn
+              type="button"
+              onClick={() => setHelpPopup({ title: `${sec.label} 안내`, items: sec.options.filter((o) => sec.descs[o]).map((o) => ({ name: o, desc: sec.descs[o] })) })}
+            >?</HelpBtn>
+          </LabelRow>
+        ) : (
+          <Label>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
+        )}
+        <ChipGrid style={sec.descs ? { marginTop: 12 } : undefined}>
+          {sec.options.map((opt) => {
+            const on = picked.includes(opt);
+            return (
+              <Chip
+                key={opt}
+                $selected={on}
+                onClick={() => setAttrValues((prev) => {
+                  const cur = prev[sec.key] || [];
+                  if (sec.multi) {
+                    return { ...prev, [sec.key]: cur.includes(opt) ? cur.filter((v) => v !== opt) : [...cur, opt] };
+                  }
+                  return { ...prev, [sec.key]: cur.includes(opt) ? [] : [opt] };
+                })}
+              >
+                {opt}
+              </Chip>
+            );
+          })}
+        </ChipGrid>
+      </Section>
+    );
+  };
   // inputSections 조건부 표시 (대표 지시 8/5)
   //  whenItems: 특정 종목(부분청소 등)을 골랐을 때만  ·  whenAttr: 특정 속성값(옵션 '기타')을 골랐을 때만
   const visibleInputSections = (Array.isArray(detailConfig?.inputSections) ? detailConfig.inputSections : []).filter((sec) => {
@@ -841,7 +892,16 @@ export const OrderCreateContent = () => {
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
-    if (b2bPriceType === "info" && !infoReward) { showToast("정보제공 리워드를 입력해주세요"); return false; }
+    if (b2bPriceType === "info") {
+      const inc = COMMON_B2B_FIELDS.infoIncentive;
+      if (infoIncType === "fixed") {
+        const v = Number(infoIncFixed);
+        if (!(v >= inc.fixed.min && v <= inc.fixed.max)) { showToast(`정액 소개비는 ${inc.fixed.min.toLocaleString()}원 ~ ${inc.fixed.max.toLocaleString()}원 사이로 입력해주세요`); return false; }
+      } else {
+        const v = Number(infoIncRate);
+        if (!(v >= inc.rate.min && v <= inc.rate.max)) { showToast(`정률 소개비는 ${inc.rate.min}% ~ ${inc.rate.max}% 사이로 입력해주세요`); return false; }
+      }
+    }
     if (payMode === "prepay" && !(isPricedType && Number(b2bPriceAmount) > 0)) { showToast("선결제는 금액이 정해진 단가유형에서만 고를 수 있어요"); return false; }
     return true;
   };
@@ -970,14 +1030,18 @@ export const OrderCreateContent = () => {
         payMode: payMode || null,
         paymentMethod: payMode === "prepay" ? "선결제" : payMode === "later" ? "후불 (당사자 정산)" : (paymentMethod || null),
         // 정보공유 보상 (정보공유 유형일 때만)
-        infoReward: isInfoType ? Number(infoReward) || null : null,
-        contractBonus: isInfoType ? Number(contractBonus) || null : null,
+        infoReward: null,
+        contractBonus: null,
+        infoIncentive: isInfoType
+          ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : { type: "fixed", amount: Number(infoIncFixed) })
+          : null,
         b2bPriceType: b2bPriceType || null,
         b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") ? Number(b2bPriceAmount) || null : null,
         referralFee: referralFeeType === "none" || isInfoType ? null : referralFeeValue,
         // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
         referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
         matchType: selfOrder ? null : (matchType || null),
+        insuranceRequired: !selfOrder && !isInfoType && insuranceRequired,
         directPhone: !selfOrder && matchType === "direct" ? directPhone : null,
         orderStatus: asWaiting ? "대기" : "접수",
       };
@@ -1056,8 +1120,7 @@ export const OrderCreateContent = () => {
       items.push({ k: "단가유형", v: `${ptLabel}${amt}` });
     }
     if (isInfoType) {
-      items.push({ k: "정보제공 리워드", v: `${Number(infoReward || 0).toLocaleString()}P` });
-      if (contractBonus) items.push({ k: "계약성사 인센티브", v: `${Number(contractBonus).toLocaleString()}P` });
+      items.push({ k: "소개비(인센티브)", v: infoIncType === "rate" ? `정률 ${infoIncRate}%` : `정액 ${Number(infoIncFixed || 0).toLocaleString()}원` });
     }
     if (payMode) items.push({ k: "결제방식", v: labelOf(COMMON_B2B_FIELDS.payMode.options, payMode) });
     if (referralFeeType && referralFeeType !== "none") {
@@ -1073,7 +1136,8 @@ export const OrderCreateContent = () => {
       }
       items.push({ k: "캐시백", v });
     }
-    if (selfOrder) items.push({ k: "등록 방식", v: "셀프 등록 (내가 직접 수주한 일)" });
+    if (selfOrder) items.push({ k: "등록 방식", v: "셀프보장등록 (내가 직접 수주한 일)" });
+    if (!selfOrder && !isInfoType) items.push({ k: "도급배상책임보험", v: insuranceRequired ? "보험가입 필수" : "선택 (홈프로 자유)" });
     if (matchType && !selfOrder) {
       const mt = labelOf(COMMON_B2B_FIELDS.matchType.options, matchType);
       items.push({ k: "홈프로 선택", v: matchType === "direct" && directPhone ? `${mt} → ${directPhone}` : mt });
@@ -1299,6 +1363,33 @@ export const OrderCreateContent = () => {
             </Section>
           )}
 
+          {/* 선택한 종목별 수량 (가전분해청소·침대소파카펫 등) — 사양서의 '수량' 칸. 서비스·종목 선택 바로 아래 (대표 9/15 리뷰) */}
+          {showDetail && detailConfig?.qtyPerSelected && selectedSub.length > 0 && (
+            <Section>
+              <Label>{detailConfig.qtyPerSelected.label || "수량"}</Label>
+              {selectedSub.map((key) => {
+                const name = key.includes(":") ? key.split(":")[1] : key;
+                return (
+                  <FieldRow key={key}>
+                    <InputFieldLabel>{name}</InputFieldLabel>
+                    <Input
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={itemQty[key] ?? ""}
+                      onChange={(e) => setItemQty((prev) => ({ ...prev, [key]: e.target.value }))}
+                      style={{ flex: 1 }}
+                    />
+                    <FieldUnit>{detailConfig.qtyPerSelected.unit || "개"}</FieldUnit>
+                  </FieldRow>
+                );
+              })}
+            </Section>
+          )}
+
+          {showDetail && visibleAttrSections.filter((sec) => sec.afterQty).map(renderAttrSection)}
+
           {/* fallback: config 없을 때 기존 subcategories 사용 */}
           {!formConfig?.subGroups && category.subcategories && (
             <Section>
@@ -1368,44 +1459,7 @@ export const OrderCreateContent = () => {
           {/* 카테고리별 추가 속성 (대표 사양서 7/28) — 오염유형·발생시점·설치유형 등
               config 의 attrSections 를 그대로 칩 목록으로 렌더. multi=true 면 중복선택.
               건물유형보다 위에 둔다 — 순서는 종목 > 설치유형 > 건물유형 (대표 지시 8/7) */}
-          {showDetail && visibleAttrSections.map((sec) => {
-            const picked = attrValues[sec.key] || [];
-            return (
-              <Section key={sec.key}>
-                {sec.descs ? (
-                  <LabelRow>
-                    <Label style={{ marginBottom: 0 }}>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
-                    <HelpBtn
-                      type="button"
-                      onClick={() => setHelpPopup({ title: `${sec.label} 안내`, items: sec.options.filter((o) => sec.descs[o]).map((o) => ({ name: o, desc: sec.descs[o] })) })}
-                    >?</HelpBtn>
-                  </LabelRow>
-                ) : (
-                  <Label>{sec.label}{sec.multi ? " (중복선택 가능)" : ""}</Label>
-                )}
-                <ChipGrid style={sec.descs ? { marginTop: 12 } : undefined}>
-                  {sec.options.map((opt) => {
-                    const on = picked.includes(opt);
-                    return (
-                      <Chip
-                        key={opt}
-                        $selected={on}
-                        onClick={() => setAttrValues((prev) => {
-                          const cur = prev[sec.key] || [];
-                          if (sec.multi) {
-                            return { ...prev, [sec.key]: cur.includes(opt) ? cur.filter((v) => v !== opt) : [...cur, opt] };
-                          }
-                          return { ...prev, [sec.key]: cur.includes(opt) ? [] : [opt] };
-                        })}
-                      >
-                        {opt}
-                      </Chip>
-                    );
-                  })}
-                </ChipGrid>
-              </Section>
-            );
-          })}
+          {showDetail && visibleAttrSections.filter((sec) => !sec.afterQty).map(renderAttrSection)}
 
           {/* 건물유형 */}
           {showDetail && !hideBuildingType && detailConfig?.buildingTypes && (
@@ -1419,30 +1473,6 @@ export const OrderCreateContent = () => {
             </Section>
           )}
 
-          {/* 선택한 종목별 수량 (가전분해청소·침대소파카펫 등) — 사양서의 '수량' 칸 */}
-          {showDetail && detailConfig?.qtyPerSelected && selectedSub.length > 0 && (
-            <Section>
-              <Label>{detailConfig.qtyPerSelected.label || "수량"}</Label>
-              {selectedSub.map((key) => {
-                const name = key.includes(":") ? key.split(":")[1] : key;
-                return (
-                  <FieldRow key={key}>
-                    <InputFieldLabel>{name}</InputFieldLabel>
-                    <Input
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={itemQty[key] ?? ""}
-                      onChange={(e) => setItemQty((prev) => ({ ...prev, [key]: e.target.value }))}
-                      style={{ flex: 1 }}
-                    />
-                    <FieldUnit>{detailConfig.qtyPerSelected.unit || "개"}</FieldUnit>
-                  </FieldRow>
-                );
-              })}
-            </Section>
-          )}
 
           {/* 직접 입력이 필요한 항목 (주소·수량·치수·차량정보·생년월일 등)
               config 의 inputSections 를 타입별 입력칸으로 렌더 (대표 사양서 7/28) */}
@@ -1677,19 +1707,31 @@ export const OrderCreateContent = () => {
                 <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={`금액 입력 (${unit})`} value={withComma(b2bPriceAmount)} onChange={(e) => setB2bPriceAmount(onlyDigits(e.target.value))} />
               );
             })()}
-            {/* 정보공유 유형 — 보상 두 칸 (대표 지시 8/20) */}
-            {isInfoType && (
-              <div style={{ marginTop: 12 }}>
-                {COMMON_B2B_FIELDS.infoReward.fields.map((f) => (
-                  <div key={f.key} style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 15, color: THEME.muted, marginBottom: 6 }}>{f.label} <span style={{ color: THEME.textSecondary }}>· {f.hint}</span></div>
-                    <Input inputMode="numeric" placeholder={`${f.label} (P)`}
-                      value={withComma(f.key === "infoReward" ? infoReward : contractBonus)}
-                      onChange={(e) => (f.key === "infoReward" ? setInfoReward : setContractBonus)(onlyDigits(e.target.value))} />
+            {/* 정보공유 유형 — 소개비(인센티브) 설정 정액/정률 (대표 9/15 리뷰) */}
+            {isInfoType && (() => {
+              const inc = COMMON_B2B_FIELDS.infoIncentive;
+              const rowStyle = { display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" };
+              return (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: THEME.text }}>{inc.label}</div>
+                  <div style={rowStyle}>
+                    <Chip $selected={infoIncType === "fixed"} onClick={() => setInfoIncType("fixed")}>{inc.fixed.label}</Chip>
+                    <Input style={{ flex: 1, minWidth: 120 }} inputMode="numeric" disabled={infoIncType !== "fixed"}
+                      value={withComma(infoIncFixed)} onChange={(e) => setInfoIncFixed(onlyDigits(e.target.value))} />
+                    <span style={{ fontSize: 15, color: THEME.text }}>{inc.fixed.unit}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 4 }}>등록 가능 범위: {inc.fixed.min.toLocaleString()}원 ~ {inc.fixed.max.toLocaleString()}원</div>
+                  <div style={rowStyle}>
+                    <Chip $selected={infoIncType === "rate"} onClick={() => setInfoIncType("rate")}>{inc.rate.label}</Chip>
+                    <Input style={{ flex: 1, minWidth: 120 }} inputMode="numeric" disabled={infoIncType !== "rate"}
+                      value={infoIncRate} onChange={(e) => setInfoIncRate(onlyDigits(e.target.value).slice(0, 2))} />
+                    <span style={{ fontSize: 15, color: THEME.text }}>{inc.rate.unit}</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 4 }}>등록 가능 범위: {inc.rate.min}% ~ {inc.rate.max}%</div>
+                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 10, lineHeight: 1.5 }}>안내: {inc.notice}</div>
+                </div>
+              );
+            })()}
           </Section>
 
           {/* 결제방식 — 선결제 / 후불 (형·대표님 확정 9/11). 금액 없는 유형은 선결제 불가. H-포인트 유형은 대금이 H-포인트라 결제방식 없음 (9/12) */}
@@ -1721,19 +1763,10 @@ export const OrderCreateContent = () => {
 
           {/* 캐시백 — 정보공유 유형은 자체 보상이 있어 숨긴다 */}
           {/* 셀프 등록 — 앱 밖 수주 건을 본인이 등록 (대표 8/20 보험 기획). 켜면 캐시백·홈프로 선택은 숨긴다 */}
-          {!isInfoType && !isEdit && (
+          {selfOrder && !isEdit && (
           <Section>
-            <LabelRow>
-              <Label style={{ marginBottom: 0 }}>등록 방식</Label>
-              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "등록 방식 안내", items: [{ name: "매칭 오더", desc: "홈프로에게 일을 넘기는 오더입니다. 캐시백과 홈프로 선택 방식을 정합니다." }, { name: "셀프 등록", desc: "앱 밖에서 직접 수주한 일을 본인이 등록합니다. 나의오더현황에서 현장 체크인·체크아웃을 남기고 보험 적용을 받을 수 있습니다. 캐시백·홈프로 선택은 없습니다." }] })}>?</HelpBtn>
-            </LabelRow>
-            <ChipGrid style={{ marginTop: 12 }}>
-              <Chip $selected={!selfOrder} onClick={() => setSelfOrder(false)}>매칭 오더</Chip>
-              <Chip $selected={selfOrder} onClick={() => setSelfOrder(true)}>셀프 등록 (내가 직접 수주한 일)</Chip>
-            </ChipGrid>
-            {selfOrder && (
-              <div style={{ fontSize: 14, color: THEME.muted, marginTop: 10, lineHeight: 1.5 }}>등록하면 바로 나의오더현황에 배정 상태로 들어갑니다. 현장 체크인 전에 보험 적용 여부를 정하게 됩니다.</div>
-            )}
+            <Label>셀프보장등록</Label>
+            <div style={{ fontSize: 15, color: THEME.text, lineHeight: 1.5 }}>앱 밖에서 직접 수주한 일을 등록합니다. 등록하면 바로 나의오더현황에 배정 상태로 들어가고, 현장 체크인·체크아웃 기록으로 보험 적용을 받을 수 있습니다. 캐시백·홈프로 선택은 없습니다.</div>
           </Section>
           )}
 
@@ -1741,10 +1774,10 @@ export const OrderCreateContent = () => {
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>
-              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "캐시백 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "소개(캐시백)수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
             </LabelRow>
             {b2bPriceType === "hpoint" ? (
-              <div style={{ fontSize: 14, color: THEME.muted, margin: "10px 0 12px" }}>대금을 H-포인트로 주는 오더라 캐시백도 H-포인트로 줍니다. 완료 후 접수자가 직접 대금을 H-포인트로 보내고, 홈프로가 직접 캐시백을 H-포인트로 돌려줍니다(자동 차감 아님).</div>
+              <div style={{ fontSize: 15, color: THEME.text, margin: "10px 0 12px", lineHeight: 1.5 }}>접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 캐시백이 자동 지급됩니다.</div>
             ) : (
             <ChipGrid style={{ marginTop: 12, marginBottom: 12 }}>
               {COMMON_B2B_FIELDS.referralFee.types.map((t) => (
@@ -1792,6 +1825,21 @@ export const OrderCreateContent = () => {
                 )}
               </>
             )}
+          </Section>
+          )}
+
+          {/* 보험 조건 — 대표 9/15 카톡 8번. 셀프보장등록·정보공유는 없음 */}
+          {!selfOrder && !isInfoType && (
+          <Section>
+            <LabelRow>
+              <Label style={{ marginBottom: 0 }}>도급배상책임보험</Label>
+              {/* 안내 문구 = 대표 9/15 리뷰 원문 */}
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "도급배상책임보험 안내", text: "오더를 등록하는 발주자(고객)가 현장 작업중 사고 위험에 대비해 작업자의 보험 가입 조건을 직접 선택할 수 있습니다.\n\n보험가입 선택하시면 현장 안전을 책임지는 안심 배지 보유 기사님이나 건당 안심보험을 활성화한 기사님만 현장에 투입되어 안심하고 맡기실 수 있습니다." })}>?</HelpBtn>
+            </LabelRow>
+            <ChipGrid style={{ marginTop: 12 }}>
+              <Chip $selected={!insuranceRequired} onClick={() => setInsuranceRequired(false)}>선택</Chip>
+              <Chip $selected={insuranceRequired} onClick={() => setInsuranceRequired(true)}>보험가입 필수</Chip>
+            </ChipGrid>
           </Section>
           )}
 
@@ -2046,9 +2094,10 @@ const HelpTitle = styled.div`
 `;
 
 const HelpText = styled.div`
-  font-size: 13.5px;
-  color: ${THEME.textSecondary};
+  font-size: 15px;
+  color: ${THEME.text};
   line-height: 1.6;
+  white-space: pre-line;
 `;
 
 const HelpItem = styled.div`
@@ -2068,6 +2117,7 @@ const HelpItemDesc = styled.div`
   font-size: 15px;
   color: ${THEME.textSecondary};
   line-height: 1.55;
+  white-space: pre-line;
 `;
 
 const HelpCloseBtn = styled.button`

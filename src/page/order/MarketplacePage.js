@@ -1,5 +1,7 @@
 /* eslint-disable */
-import React, { useEffect, useState } from "react";
+// 양도·매매 리스트 (인수자 뷰) — 3대 카테고리 · 지역 · 상태 필터
+// 민감 정보(월 평균 매출·거래처·상세 설명)는 리스트에 노출하지 않고 상세 + 1:1 채팅으로 유도
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
@@ -7,133 +9,123 @@ import { db } from "../../api/config";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
-
-const TRADE_TYPES_FILTER = ["전체", "시공도급", "작업도급", "사업권양도", "물품매매", "장비매매", "업체인수양도", "설치도급", "공사도급"];
-
-// 이미지 개수별 레이아웃 분기 (1 / 2 / 3 / 4+)
-const CardImages = ({ images }) => {
-  const count = images.length;
-  if (count === 0) return null;
-
-  // 1장: 넓은 단일 이미지 (4:3)
-  if (count === 1) {
-    return (
-      <Gallery>
-        <SingleImg src={images[0]} alt="" loading="lazy" />
-      </Gallery>
-    );
-  }
-
-  // 2장: 좌우 2분할
-  if (count === 2) {
-    return (
-      <Gallery>
-        <DuoGrid>
-          {images.map((src, i) => (
-            <Cell key={i}><CellImg src={src} alt="" loading="lazy" /></Cell>
-          ))}
-        </DuoGrid>
-      </Gallery>
-    );
-  }
-
-  // 3장: 큰 1장(좌) + 작은 2장(우 상하)
-  if (count === 3) {
-    return (
-      <Gallery>
-        <TrioGrid>
-          <Cell $span><CellImg src={images[0]} alt="" loading="lazy" /></Cell>
-          <Cell><CellImg src={images[1]} alt="" loading="lazy" /></Cell>
-          <Cell><CellImg src={images[2]} alt="" loading="lazy" /></Cell>
-        </TrioGrid>
-      </Gallery>
-    );
-  }
-
-  // 4장 이상: 2x2 그리드 + 마지막 칸 "+N" 오버레이
-  const shown = images.slice(0, 4);
-  const remain = count - 4;
-  return (
-    <Gallery>
-      <QuadGrid>
-        {shown.map((src, i) => (
-          <Cell key={i}>
-            <CellImg src={src} alt="" loading="lazy" />
-            {i === 3 && remain > 0 && <MoreOverlay>+{remain}</MoreOverlay>}
-          </Cell>
-        ))}
-      </QuadGrid>
-    </Gallery>
-  );
-};
+import { isSubscriber } from "../../utility/tierUtils";
+import { KR_AREAS } from "../../utility/constants";
+import {
+  MARKET_COLLECTION, CATEGORIES, STATUSES, getCategory, getCategoryKey, getStatus,
+  premiumText, rentText, includesSummary, regionText, timeAgo, TabBox, TabItem,
+} from "./MarketplaceShared";
 
 const MarketplacePage = ({ embedded } = {}) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
+  const canWrite = isSubscriber(userData);
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("전체");
-
-  // 유료구독 게이트 (placeholder — 추후 실제 체크)
-  const isSubscriber = userData?.subscription?.active === true || true;
+  const [cat, setCat] = useState("all");
+  const [sido, setSido] = useState("");
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
-    const q = query(collection(db, "homepro_marketplace"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    });
+    const q = query(collection(db, MARKET_COLLECTION), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
     return () => unsub();
   }, []);
 
-  const filtered = filter === "전체" ? items : items.filter((i) => i.tradeType === filter);
+  const filtered = useMemo(
+    () =>
+      items.filter((it) => {
+        if (cat !== "all" && getCategoryKey(it) !== cat) return false;
+        if (sido && !regionText(it).startsWith(sido)) return false;
+        if (status && getStatus(it).key !== status) return false;
+        return true;
+      }),
+    [items, cat, sido, status]
+  );
+
+  const handleWrite = () => {
+    if (!canWrite) {
+      if (window.confirm("양도·매매 글 등록은 월 구독 사업자만 할 수 있습니다.\n구독 안내로 이동할까요?")) navigate("/subscription");
+      return;
+    }
+    navigate("/marketplace/create");
+  };
 
   const Wrapper = embedded ? React.Fragment : SimpleBackLayout;
-  const wrapperProps = embedded ? {} : { NAME: "도급·양도·매매", hideFooter: true };
+  const wrapperProps = embedded ? {} : { NAME: "양도·매매", hideFooter: true };
+
   return (
     <Wrapper {...wrapperProps}>
       <Wrap>
-        {!isSubscriber && (
-          <GateNotice>유료구독 회원만 게시글 작성 및 열람이 가능합니다</GateNotice>
-        )}
+        <TabBox>
+          <TabItem $active={cat === "all"} onClick={() => setCat("all")}>전체</TabItem>
+          {CATEGORIES.map((c) => (
+            <TabItem key={c.key} $active={cat === c.key} onClick={() => setCat(c.key)}>{c.chipLabel}</TabItem>
+          ))}
+        </TabBox>
+
+        {cat !== "all" && <CatDesc>{CATEGORIES.find((c) => c.key === cat)?.desc}</CatDesc>}
 
         <FilterRow>
-          {TRADE_TYPES_FILTER.map((t) => (
-            <FilterChip key={t} $active={filter === t} onClick={() => setFilter(t)}>{t}</FilterChip>
-          ))}
+          <Select value={sido} onChange={(e) => setSido(e.target.value)}>
+            <option value="">지역 전체</option>
+            {KR_AREAS.map((a) => <option key={a.sido} value={a.sido}>{a.sido}</option>)}
+          </Select>
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">상태 전체</option>
+            {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </Select>
         </FilterRow>
 
-        {loading ? (
-          <Empty>불러오는 중...</Empty>
-        ) : filtered.length === 0 ? (
-          <Empty>등록된 게시글이 없습니다</Empty>
-        ) : (
-          <List>
-            {filtered.map((it) => {
-              const images = Array.isArray(it.images) ? it.images.filter(Boolean) : [];
+        <ListArea>
+          {loading ? (
+            <Empty>불러오는 중...</Empty>
+          ) : filtered.length === 0 ? (
+            <Empty>조건에 맞는 매물이 없습니다</Empty>
+          ) : (
+            filtered.map((it) => {
+              const c = getCategory(it);
+              const st = getStatus(it);
+              const rent = rentText(it);
+              const summary = includesSummary(it);
+              const go = () => navigate(`/marketplace/${it.id}`);
               return (
-                <Card key={it.id} onClick={() => navigate(`/marketplace/${it.id}`)}>
-                  <CardBody>
-                    <CardTop>
-                      <TypeLabel>{it.tradeType}</TypeLabel>
-                      <CardDate>{it.createdAt?.toDate ? new Date(it.createdAt.toDate()).toLocaleDateString() : ""}</CardDate>
-                    </CardTop>
-                    <CardTitle>{it.title}</CardTitle>
-                    {it.amount > 0 && <CardPrice>{Number(it.amount).toLocaleString()}원</CardPrice>}
-                    <CardMeta>
-                      <MetaItem>{it.region || "지역미정"}</MetaItem>
-                      {it.contractType && <MetaItem>{it.contractType}</MetaItem>}
-                    </CardMeta>
-                    <CardDesc>{it.description?.slice(0, 60)}{it.description?.length > 60 ? "..." : ""}</CardDesc>
-                    <CardImages images={images} />
-                  </CardBody>
+                <Card key={it.id} onClick={go} $done={st.key === "done"}>
+                  <TopLine>
+                    <StatusText style={{ color: st.color }}>{st.label}</StatusText>
+                    <MetaText>{regionText(it)} · {timeAgo(it.createdAt)}</MetaText>
+                  </TopLine>
+                  <Title>
+                    <TagText>[{c.tag}]</TagText> {it.title}
+                  </Title>
+                  <PriceLine>
+                    <Price>{premiumText(it)}</Price>
+                    {rent && <Rent>{rent}</Rent>}
+                  </PriceLine>
+                  {summary.length > 0 && <Summary>{summary.join(" · ")}</Summary>}
+                  <CtaBtn type="button" onClick={(e) => { e.stopPropagation(); go(); }}>
+                    상세보기 및 비밀채팅 문의
+                  </CtaBtn>
                 </Card>
               );
-            })}
-          </List>
-        )}
+            })
+          )}
+        </ListArea>
 
-        <Fab onClick={() => navigate("/marketplace/create")}>+ 등록</Fab>
+        <Notice>
+          매출·거래처 등 민감한 정보는 상세 화면과 1:1 채팅에서만 확인할 수 있습니다.
+          홈프로는 정보 등록·연결 서비스이며 거래 당사자가 아닙니다.
+        </Notice>
+
+        <Fab type="button" onClick={handleWrite}>+ 매물 등록</Fab>
       </Wrap>
     </Wrapper>
   );
@@ -144,43 +136,39 @@ export default MarketplacePage;
 const Wrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
-  padding-bottom: 80px;
+  padding: 12px 16px 110px;
 `;
 
-const GateNotice = styled.div`
-  margin: 8px 12px 0;
-  padding: 10px 14px;
-  background: #F5F6F8;
-  border-radius: 10px;
+const CatDesc = styled.div`
+  margin-top: 10px;
   font-size: 14px;
-  color: ${THEME.muted};
+  line-height: 1.55;
+  color: ${THEME.textSecondary};
+  word-break: keep-all;
 `;
 
 const FilterRow = styled.div`
   display: flex;
-  gap: 6px;
-  padding: 12px 12px 8px;
-  overflow-x: auto;
-  &::-webkit-scrollbar { display: none; }
-  scrollbar-width: none;
+  gap: 8px;
+  margin-top: 10px;
 `;
 
-const FilterChip = styled.button`
-  flex-shrink: 0;
-  padding: 7px 14px;
+const Select = styled.select`
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 10px;
+  border: 1px solid #d5d9e0;
+  border-radius: 0;
+  background: #fff;
+  color: ${THEME.text};
   font-size: 15px;
-  font-weight: 600;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  border-radius: 18px;
-  background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
-  color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
+  font-family: inherit;
 `;
 
-const List = styled.div`
-  padding: 4px 12px 0;
+const ListArea = styled.div`
+  margin-top: 12px;
+  min-height: 50vh;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -188,143 +176,88 @@ const List = styled.div`
 
 const Card = styled.div`
   background: #fff;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  cursor: pointer;
-  &:active {
-    background: #FAFAFB;
-  }
-`;
-
-const Gallery = styled.div`
-  margin-top: 14px;
-  border-radius: 12px;
-  overflow: hidden;
-`;
-
-// 1장 — 넓은 단일 이미지 (4:3)
-const SingleImg = styled.img`
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  background: #F3F4F6;
-  display: block;
-`;
-
-// 2장 — 좌우 2분할
-const DuoGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-`;
-
-// 3장 — 큰 1장 + 작은 2장 (좌: 세로 2칸 span)
-const TrioGrid = styled.div`
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 4px;
-  aspect-ratio: 4 / 3;
-`;
-
-// 4장+ — 2x2 그리드
-const QuadGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 4px;
-`;
-
-const Cell = styled.div`
-  position: relative;
-  overflow: hidden;
-  background: #F3F4F6;
-  ${({ $span }) => $span && "grid-row: 1 / span 2;"}
-`;
-
-const CellImg = styled.img`
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  display: block;
-`;
-
-const MoreOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-`;
-
-const CardBody = styled.div`
+  border: 1px solid #e2e5ea;
   padding: 16px;
+  cursor: pointer;
+  opacity: ${({ $done }) => ($done ? 0.75 : 1)};
+  &:active { background: #fafbfc; }
 `;
 
-const CardTop = styled.div`
+const TopLine = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  gap: 8px;
 `;
 
-const TypeLabel = styled.span`
+const StatusText = styled.span`
   font-size: 14px;
-  font-weight: 600;
-  color: ${THEME.muted};
-  letter-spacing: -0.2px;
+  font-weight: 700;
+  flex: none;
 `;
 
-const CardDate = styled.span`
+const MetaText = styled.span`
   font-size: 13px;
   color: ${THEME.muted};
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
-const CardTitle = styled.div`
+const Title = styled.div`
+  margin-top: 8px;
   font-size: 17px;
   font-weight: 700;
+  line-height: 1.45;
   color: ${THEME.text};
-  line-height: 1.4;
-  margin-bottom: 6px;
+  word-break: break-word;
 `;
 
-const CardPrice = styled.div`
-  font-size: 20px;
-  font-weight: 800;
-  color: ${THEME.primary};
-  letter-spacing: -0.3px;
-  margin-bottom: 10px;
+const TagText = styled.span`
+  color: ${THEME.textSecondary};
+  font-weight: 700;
 `;
 
-const CardMeta = styled.div`
+const PriceLine = styled.div`
+  margin-top: 8px;
   display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-bottom: 8px;
   flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
 `;
 
-const MetaItem = styled.span`
-  font-size: 14px;
-  color: ${THEME.muted};
-  &:not(:last-child)::after {
-    content: "·";
-    margin-left: 6px;
-    color: ${THEME.border};
-  }
+const Price = styled.span`
+  font-size: 19px;
+  font-weight: 800;
+  color: ${THEME.text};
+  letter-spacing: -0.3px;
 `;
 
-const CardDesc = styled.div`
+const Rent = styled.span`
   font-size: 15px;
-  color: ${THEME.muted};
-  line-height: 1.55;
+  color: ${THEME.textSecondary};
+`;
+
+const Summary = styled.div`
+  margin-top: 6px;
+  font-size: 15px;
+  color: ${THEME.primaryDark};
+  font-weight: 600;
+`;
+
+const CtaBtn = styled.button`
+  margin-top: 14px;
+  width: 100%;
+  height: 44px;
+  border: 1px solid #cfd4dc;
+  background: #fff;
+  color: ${THEME.text};
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { background: #f3f4f6; }
 `;
 
 const Empty = styled.div`
@@ -334,18 +267,29 @@ const Empty = styled.div`
   color: ${THEME.muted};
 `;
 
+const Notice = styled.div`
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: ${THEME.muted};
+  word-break: keep-all;
+`;
+
 const Fab = styled.button`
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  padding: 14px 22px;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  height: 48px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 8px;
+  background: ${THEME.primary};
+  color: #fff;
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
-  background: ${THEME.primary};
-  border: none;
-  border-radius: 30px;
-  box-shadow: 0 4px 12px rgba(37, 113, 227, 0.4);
+  font-family: inherit;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   cursor: pointer;
-  z-index: 100;
 `;

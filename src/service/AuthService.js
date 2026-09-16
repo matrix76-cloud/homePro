@@ -27,6 +27,7 @@ import { firebaseApp, db } from "../api/config";
 import {
     isInRnWebView,
     requestNativeSocialSignIn,
+    resumeNativeSigninResult,
     requestNativeSignOut,
 } from "../bridge/webviewBridge";
 import { STORAGE_KEYS } from "../config/homeproConfig";
@@ -380,12 +381,17 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
         };
     }
 
+    const res = await requestNativeSocialSignIn({ provider: p });
+    return completeNativeSocialSignIn({ provider: p, res, keepLogin });
+}
+
+/** RN이 넘긴 SIGNIN_RESULT를 Firebase 로그인으로 마무리 — 정상 흐름과 리로드 후 이어받기가 같이 쓴다 */
+export async function completeNativeSocialSignIn({ provider, res, keepLogin = true }) {
+    const p = safeTrim(provider).toLowerCase();
     const auth = getAuthInstance();
 
     try {
         await applyPersistence(auth, keepLogin);
-
-        const res = await requestNativeSocialSignIn({ provider: p });
 
         if (!res || res.success !== true) {
             return {
@@ -528,6 +534,14 @@ export async function signInWithSocial({ provider, keepLogin = true }) {
             error_message: e?.message || String(e),
         };
     }
+}
+
+/** 소셜 로그인 중 WebView가 리로드돼 화면이 새로 떴을 때, 남겨둔 표시를 보고 결과를 이어받아 마무리. 없으면 null */
+export async function resumeNativeSocialSignIn({ keepLogin = true } = {}) {
+    if (!isInRnWebView()) return null;
+    const got = await resumeNativeSigninResult(20000);
+    if (!got) return null;
+    return completeNativeSocialSignIn({ provider: got.provider, res: got.res, keepLogin });
 }
 
 export async function signOutUser() {

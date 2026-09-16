@@ -1,247 +1,380 @@
 /* eslint-disable */
-import React, { useState, useEffect, useContext } from "react";
+// 자재·장비 거래장터 — 현업 사업자 B2B 직거래 (대표 스펙 9/15)
+// 거래 종류(전체/판매/구매요청/무료나눔) 탭 + 카테고리·지역 필터 + 최신순 카드 + 등록 버튼
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoStorefrontOutline, IoCallOutline, IoTimeOutline, IoCarOutline, IoLocationOutline } from "react-icons/io5";
+import { IoImageOutline, IoStorefrontOutline, IoAdd } from "react-icons/io5";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
-import { useAuth } from "../../context/AuthContext";
-import { UserContext } from "../../context/User";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
+import {
+  SUPPLIES_COL, TRADE_TYPES, CATEGORIES, isLegacy, categoryShort, conditionLabel,
+  formatPrice, dealMethodText, timeAgo, LINE, ACTIVE_FACE, INK_BUTTON,
+} from "./suppliesConstants";
+
+const TYPE_TABS = [{ key: "all", label: "전체" }, ...TRADE_TYPES];
 
 const SuppliesPage = ({ embedded } = {}) => {
   const navigate = useNavigate();
-  const { userData } = useAuth();
-  const { user } = useContext(UserContext);
-  const regionName = user?.USERINFO?.address_name || "지역 미설정";
-  const [supplies, setSupplies] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [typeTab, setTypeTab] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [regionQ, setRegionQ] = useState("");
 
   useEffect(() => {
-    const q = query(
-      collection(db, "homepro_supplies"),
-      orderBy("createdAt", "desc")
+    const q = query(collection(db, SUPPLIES_COL), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (err) => {
+        console.error("자재·장비 목록 로드 실패:", err);
+        setLoading(false);
+      }
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setSupplies(list);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  const filtered = useMemo(() => {
+    const rq = regionQ.trim();
+    return items.filter((it) => {
+      const legacy = isLegacy(it);
+      if (typeTab !== "all" && (legacy || it.tradeType !== typeTab)) return false;
+      if (category !== "all" && (legacy || it.category !== category)) return false;
+      if (rq) {
+        const loc = `${it.location || ""} ${it.directPlace || ""}`;
+        if (!loc.includes(rq)) return false;
+      }
+      return true;
+    });
+  }, [items, typeTab, category, regionQ]);
+
   const Wrapper = embedded ? React.Fragment : MainListLayout;
-  const wrapperProps = embedded ? {} : { NAME: "자재.장비", footerType: "supplies", hideBack: true, location: regionName };
+  const wrapperProps = embedded ? {} : { NAME: "자재.장비", footerType: "supplies", hideBack: true };
+
   return (
     <Wrapper {...wrapperProps}>
       <Content>
-        {loading ? (
-          <EmptyState>불러오는 중...</EmptyState>
-        ) : supplies.length === 0 ? (
-          <EmptyState>
-            <EmptyText>등록된 업체가 없습니다</EmptyText>
-            <EmptySub>우리 지역 자재.장비 업체를 등록해보세요</EmptySub>
-          </EmptyState>
-        ) : (
-          supplies.map((item) => (
-            <Card key={item.id} onClick={() => navigate(`/supplies/${item.id}`)}>
-              <HeaderZone>
-                <Avatar>
-                  <IoStorefrontOutline size={20} color={THEME.textSecondary} />
-                </Avatar>
-                <HeaderText>
-                  <ShopName>{item.name}</ShopName>
-                  <LocationMeta>
-                    <IoLocationOutline size={13} color={THEME.muted} />
-                    {item.location || "지역 미등록"}
-                  </LocationMeta>
-                </HeaderText>
-                {item.deliveryAvailable && (
-                  <DeliveryTag>
-                    <IoCarOutline size={13} />
-                    배송가능
-                  </DeliveryTag>
-                )}
-              </HeaderZone>
-              <Body>
-                {item.description && (
-                  <Description>{item.description}</Description>
-                )}
-                <InfoRow>
-                  <InfoItem>
-                    <IoCallOutline size={14} color={THEME.muted} />
-                    <InfoText>{item.phone || "연락처 없음"}</InfoText>
-                  </InfoItem>
-                  <InfoItem>
-                    <IoTimeOutline size={14} color={THEME.muted} />
-                    <InfoText>{item.hours || "시간 미등록"}</InfoText>
-                  </InfoItem>
-                </InfoRow>
-              </Body>
-            </Card>
-          ))
-        )}
+        <Intro>남은 시공 자재 처분·나눔부터 중고 장비·공구, 특장 차량까지 사장님끼리 직거래하는 장터입니다.</Intro>
+
+        <TabBar>
+          {TYPE_TABS.map((t) => (
+            <TabCell key={t.key} type="button" $active={typeTab === t.key} onClick={() => setTypeTab(t.key)}>
+              {t.label}
+            </TabCell>
+          ))}
+        </TabBar>
+
+        <FilterRow>
+          <FilterSelect value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="all">카테고리 전체</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </FilterSelect>
+          <FilterInput
+            placeholder="지역 검색 (예: 강남구)"
+            value={regionQ}
+            onChange={(e) => setRegionQ(e.target.value)}
+          />
+        </FilterRow>
+
+        <ListArea>
+          {loading ? (
+            <Empty>불러오는 중...</Empty>
+          ) : filtered.length === 0 ? (
+            <Empty>
+              <EmptyTitle>조건에 맞는 글이 없습니다</EmptyTitle>
+              <EmptySub>남은 자재나 안 쓰는 장비를 먼저 올려보세요</EmptySub>
+            </Empty>
+          ) : (
+            filtered.map((it) =>
+              isLegacy(it) ? (
+                <Card key={it.id} onClick={() => navigate(`/supplies/${it.id}`)}>
+                  <Thumb>
+                    <IoStorefrontOutline size={28} color={THEME.muted} />
+                  </Thumb>
+                  <CardBody>
+                    <Title>
+                      <CatText>[업체]</CatText> {it.name || "이름 없는 업체"}
+                    </Title>
+                    {it.description && <Meta>{it.description}</Meta>}
+                    <Foot>
+                      {it.location || "지역 미등록"}
+                      {it.phone ? ` · ${it.phone}` : ""}
+                    </Foot>
+                  </CardBody>
+                </Card>
+              ) : (
+                <Card key={it.id} $done={it.status === "done"} onClick={() => navigate(`/supplies/${it.id}`)}>
+                  <Thumb>
+                    {Array.isArray(it.images) && it.images[0] ? (
+                      <img src={it.images[0]} alt="" loading="lazy" />
+                    ) : (
+                      <IoImageOutline size={28} color={THEME.muted} />
+                    )}
+                    {it.status === "done" && <DoneCover>거래완료</DoneCover>}
+                  </Thumb>
+                  <CardBody>
+                    <Title>
+                      <CatText>[{categoryShort(it.category) || "기타"}]</CatText> {it.title}
+                    </Title>
+                    <Meta>
+                      <TypeText $type={it.tradeType}>{TRADE_TYPES.find((t) => t.key === it.tradeType)?.label}</TypeText>
+                      {it.condition ? ` · ${conditionLabel(it.condition)}` : ""}
+                    </Meta>
+                    <PriceRow>
+                      <Price $free={it.tradeType === "free"}>{formatPrice(it)}</Price>
+                      {it.tradeType !== "free" && (
+                        <Nego>{it.negotiable ? "네고 가능" : "제안 불가"}</Nego>
+                      )}
+                    </PriceRow>
+                    <Foot>
+                      {[dealMethodText(it), it.location, timeAgo(it.createdAt)].filter(Boolean).join(" · ")}
+                    </Foot>
+                  </CardBody>
+                </Card>
+              )
+            )
+          )}
+        </ListArea>
       </Content>
 
-      <FloatBtn onClick={() => navigate("/supplies/create")}>+ 업체 등록</FloatBtn>
+      <Fab type="button" onClick={() => navigate("/supplies/create")}>
+        <IoAdd size={20} /> 글 등록
+      </Fab>
     </Wrapper>
   );
 };
 
 export default SuppliesPage;
 
-// ─── Styled Components ───
+// ─── Styled ───
 
 const Content = styled.div`
-  padding: 12px 12px 80px;
+  padding: 12px 16px 100px;
+  background: ${THEME.background};
+`;
+
+const Intro = styled.div`
+  font-size: 15px;
+  line-height: 1.5;
+  color: ${THEME.text};
+  margin: 2px 0 12px;
+  word-break: keep-all;
+`;
+
+/* 탭바 기준 스타일 — 하나의 박스 + 사이 세로선, 열린 탭은 연회색 면 + 굵게 */
+const TabBar = styled.div`
+  display: flex;
+  border: 1px solid ${LINE};
+  background: #fff;
+  margin-bottom: 10px;
+`;
+
+const TabCell = styled.button`
+  flex: 1;
+  height: 44px;
+  border: none;
+  border-left: 1px solid ${LINE};
+  &:first-child { border-left: none; }
+  background: ${({ $active }) => ($active ? ACTIVE_FACE : "#fff")};
+  color: ${THEME.text};
+  font-size: 15px;
+  font-weight: ${({ $active }) => ($active ? 700 : 400)};
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0 4px;
+`;
+
+const FilterRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+`;
+
+const FilterSelect = styled.select`
+  flex: 0 0 44%;
+  min-width: 0;
+  height: 44px;
+  border: 1px solid ${LINE};
+  border-radius: 0;
+  padding: 0 10px;
+  font-size: 15px;
+  font-family: inherit;
+  color: ${THEME.text};
+  background: #fff;
+`;
+
+const FilterInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 1px solid ${LINE};
+  border-radius: 0;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: ${THEME.text};
+  background: #fff;
+  box-sizing: border-box;
+  &:focus { outline: none; border-color: ${THEME.text}; }
+  &::placeholder { color: ${THEME.muted}; }
+`;
+
+/* 필터 전환 시 화면이 줄었다 늘었다 하지 않게 최소 높이 */
+const ListArea = styled.div`
+  min-height: 55vh;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 `;
 
 const Card = styled.div`
-  background: ${THEME.surface};
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
-    0 6px 20px rgba(0, 0, 0, 0.06);
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid ${LINE};
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  &:active {
-    transform: scale(0.985);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
+  opacity: ${({ $done }) => ($done ? 0.72 : 1)};
+  &:active { background: #fafbfc; }
 `;
 
-/* 상단 옅은 헤더 존 — 명도차로 위계 부여 */
-const HeaderZone = styled.div`
+const Thumb = styled.div`
+  position: relative;
+  flex: 0 0 92px;
+  width: 92px;
+  height: 92px;
+  background: #f1f3f6;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 18px;
-  background: #fafbfc;
-  border-bottom: 1px solid ${THEME.border};
+  justify-content: center;
+  overflow: hidden;
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
 `;
 
-const Avatar = styled.div`
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #f2f4f6;
+const DoneCover = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 24, 31, 0.55);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
-const HeaderText = styled.div`
+const CardBody = styled.div`
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 `;
 
-const ShopName = styled.div`
-  font-size: 19px;
+const Title = styled.div`
+  font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
-  line-height: 1.25;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: keep-all;
 `;
 
-const LocationMeta = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12.5px;
-  color: ${THEME.muted};
-`;
-
-/* 배송가능 — 뱃지(연배경+진글씨) 대신 단색 배경 + 흰 글씨 태그 */
-const DeliveryTag = styled.span`
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #fff;
-  background: ${THEME.primary};
-  padding: 4px 9px;
-  border-radius: 6px;
-`;
-
-const Body = styled.div`
-  padding: 16px 18px 18px;
-`;
-
-const Description = styled.div`
-  font-size: 16px;
+const CatText = styled.span`
   color: ${THEME.textSecondary};
-  margin-bottom: 14px;
-  line-height: 1.55;
+  font-weight: 600;
 `;
 
-const InfoRow = styled.div`
-  display: flex;
-  gap: 18px;
-`;
-
-const InfoItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-`;
-
-const InfoText = styled.span`
-  font-size: 15px;
-  color: ${THEME.muted};
+const Meta = styled.div`
+  font-size: 14px;
+  color: ${THEME.textSecondary};
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
-const EmptyState = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
-  gap: 10px;
+const TypeText = styled.span`
+  font-weight: 700;
+  color: ${({ $type }) => ($type === "free" ? THEME.primaryDark : $type === "buy" ? "#b45309" : THEME.text)};
 `;
 
-const EmptyText = styled.div`
+const PriceRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const Price = styled.span`
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
+  color: ${({ $free }) => ($free ? THEME.primaryDark : THEME.text)};
+`;
+
+const Nego = styled.span`
+  font-size: 14px;
   color: ${THEME.textSecondary};
+`;
+
+const Foot = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const Empty = styled.div`
+  padding: 70px 20px;
+  text-align: center;
+  font-size: 15px;
+  color: ${THEME.text};
+`;
+
+const EmptyTitle = styled.div`
+  font-size: 17px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 6px;
 `;
 
 const EmptySub = styled.div`
   font-size: 15px;
-  color: ${THEME.muted};
+  color: ${THEME.textSecondary};
 `;
 
-const FloatBtn = styled.button`
+const Fab = styled.button`
   position: fixed;
-  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
-  right: calc(50% - 163px);
-  padding: 10px 18px;
-  background: ${THEME.primary};
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 22px;
   border: none;
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: ${THEME.primary}; // 다른 교육.장터 탭의 등록 버튼과 같은 색
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
-  z-index: 90;
-  &:active { opacity: 0.85; }
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  &:active { opacity: 0.88; }
 `;
