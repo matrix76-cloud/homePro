@@ -29,9 +29,22 @@ export const todayStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
+/**
+ * 날짜 문자열을 YYYY-MM-DD 로 맞춘다.
+ * 예전 문서는 "2026.08.05" 처럼 점으로 저장돼 있어 `new Date("2026.08.05T00:00:00")` 가
+ * Invalid Date 가 된다. 그러면 dayDiff 가 NaN 이 되고 비교가 전부 false 로 떨어져
+ * 이미 끝난 교육이 계속 "모집중"으로 보였다. (검증 2026-09-16)
+ */
+export const toIsoDate = (s) => {
+  if (!s) return "";
+  const m = String(s).trim().match(/^(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+  if (!m) return String(s).trim();
+  return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+};
 const dayDiff = (from, to) => {
-  const a = new Date(`${from}T00:00:00`);
-  const b = new Date(`${to}T00:00:00`);
+  const a = new Date(`${toIsoDate(from)}T00:00:00`);
+  const b = new Date(`${toIsoDate(to)}T00:00:00`);
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return NaN;
   return Math.round((b - a) / 86400000);
 };
 
@@ -64,9 +77,11 @@ export function normalizeTraining(raw) {
   const subShort = sub ? String(sub).split(/[/(]/)[0].trim() : "";
   const tag = cat ? (subShort ? `${cat.short}/${subShort}` : cat.short) : subShort;
 
-  const eduStart = t.eduDate || t.startDate || "";
-  const eduEnd = t.eduEndDate || t.endDate || eduStart;
-  const recruitEnd = t.recruitType === "기간" ? t.recruitEnd || "" : "";
+  // 예전 문서는 "2026.08.05", 새 문서는 <input type="date"> 의 "2026-08-05" —
+  // 여기서 한 번에 ISO 로 맞춰 아래 상태 계산·표시가 형식에 흔들리지 않게 한다.
+  const eduStart = toIsoDate(t.eduDate || t.startDate || "");
+  const eduEnd = toIsoDate(t.eduEndDate || t.endDate || "") || eduStart;
+  const recruitEnd = t.recruitType === "기간" ? toIsoDate(t.recruitEnd || "") : "";
 
   const nationwide = t.regionScope === "전국";
   const sido = nationwide ? "전국" : t.region?.sido || (t.location ? String(t.location).split(" ")[0] : "");

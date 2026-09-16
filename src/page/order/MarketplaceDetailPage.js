@@ -17,6 +17,7 @@ import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME } from "../../config/homeproConfig";
 import { createChatRoom } from "../../service/ChatService";
+import { formatPhone } from "../../utility/common";
 import {
   MARKET_COLLECTION, STATUSES, INCLUDE_OPTIONS, getCategory, getStatus,
   premiumText, rentText, regionText, timeAgo, TabBox, TabItem,
@@ -181,7 +182,7 @@ const MarketplaceDetailPage = () => {
                   {post.memberType && <InfoRow><Key>회원유형</Key><Val>{post.memberType}</Val></InfoRow>}
                   {post.companyName && <InfoRow><Key>업체명</Key><Val>{post.companyName}</Val></InfoRow>}
                   {post.managerName && <InfoRow><Key>담당자</Key><Val>{post.managerName}</Val></InfoRow>}
-                  {post.contact && <InfoRow><Key>연락처</Key><Val>{post.contact}</Val></InfoRow>}
+                  {post.contact && <InfoRow><Key>연락처</Key><Val>{formatPhone(post.contact)}</Val></InfoRow>}
                 </>
               )}
             </Card>
@@ -221,7 +222,7 @@ const MarketplaceDetailPage = () => {
                 {post.writerPhoto ? <Avatar src={post.writerPhoto} alt="" /> : <AvatarBlank />}
                 <div>
                   <AuthorName>{post.writer || "등록자"}</AuthorName>
-                  <Meta>{isOwner ? "내가 등록한 매물" : "월 구독 사업자"}</Meta>
+                  <Meta>{isOwner ? "내가 등록한 매물" : post.authorSubscribed ? "월 구독 사업자" : "홈프로 회원"}</Meta>
                 </div>
               </Author>
             </Card>

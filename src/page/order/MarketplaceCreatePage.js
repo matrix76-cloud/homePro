@@ -119,6 +119,7 @@ const MarketplaceCreatePage = () => {
         writer: userData?.companyName || userData?.nickname || userData?.name || "",
         writerPhoto: userData?.profileImage || userData?.photoURL || "",
         authorPhone: userData?.phoneE164 || userData?.phone || "",
+        authorSubscribed: canWrite, // 등록 시점의 구독 여부 — 상세의 등록자 표기에 쓴다
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

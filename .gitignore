@@ -23,3 +23,5 @@ _migration/
 
 # 리뷰 덤프 산출물(생성물)
 reviews.json
+.env.development.local
+.env.bak.*

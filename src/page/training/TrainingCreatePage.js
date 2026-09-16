@@ -12,6 +12,7 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { deductPoints } from "../../service/PointService";
 import { compressEvidencePhoto } from "../../service/WorkLogService";
+import { formatPhone } from "../../utility/common";
 import { IoCloseCircle, IoCameraOutline } from "react-icons/io5";
 import { TRAINING_COL, TRAINING_POST_COST, CATEGORIES, METHODS, todayStr } from "./trainingShared";
 
@@ -48,7 +49,7 @@ const TrainingCreatePage = () => {
     curriculum: "",
     benefits: "",
     instructor: userData?.companyName || userData?.nickname || userData?.name || "",
-    contactPhone: userData?.phoneE164 || userData?.phone || "",
+    contactPhone: formatPhone(userData?.phoneE164 || userData?.phone || ""),
   });
   const [regionScope, setRegionScope] = useState("지역"); // 지역 | 전국
   const [region, setRegion] = useState(null);
@@ -66,7 +67,7 @@ const TrainingCreatePage = () => {
     setForm((p) => ({
       ...p,
       instructor: p.instructor || userData.companyName || userData.nickname || userData.name || "",
-      contactPhone: p.contactPhone || userData.phoneE164 || userData.phone || "",
+      contactPhone: p.contactPhone || formatPhone(userData.phoneE164 || userData.phone || ""),
     }));
   }, [userData?.uid]);
 
