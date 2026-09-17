@@ -487,6 +487,7 @@ const Tab = styled.button`
     &:hover {
         opacity: 0.85;
     }
+  &:focus { outline: none; }
 `;
 
 const TabCount = styled.span`

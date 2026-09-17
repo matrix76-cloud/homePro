@@ -6,16 +6,16 @@ import styled from "styled-components";
 import { useAtom } from "jotai";
 import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline } from "react-icons/io5";
 import { UserContext } from "../../context/User";
-import { signOutUser } from "../../service/AuthService";
+import { signOutUser, withdrawUser } from "../../service/AuthService";
 import { useAuth } from "../../context/AuthContext";
 import { THEME, CATEGORIES, APP_VERSION } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import MyPageLayout from "../../screen/Layout/Layout/MyPageLayout";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../../api/config";
+import { db, storage } from "../../api/config";
 import { compressProfileImage } from "../../utility/imageUtils";
 import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade } from "../../utility/gradeUtils";
-import { IoHelpCircleOutline, IoCloseOutline } from "react-icons/io5";
+import { IoHelpCircleOutline, IoCloseOutline, IoChevronBack } from "react-icons/io5";
 
 /* ─── 프로필 카드 ─── (기본 프로필 + 비즈프로필 진입을 한 박스로 — 형 리뷰 7/29) */
 const ProfileCard = styled.div`
@@ -135,6 +135,125 @@ const ProfileEditLabel = styled.div`
   color: ${THEME.primary};
 `;
 
+/* ─── 프로필 편집 화면 (시안 4번, 형 9/18) ─── */
+const EditScreen = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  margin: 0 auto;
+`;
+
+const EditHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px 8px;
+  min-height: 52px;
+  border-bottom: 1px solid #EFF1F4;
+`;
+
+const EditBackBtn = styled.button`
+  border: none;
+  background: none;
+  padding: 6px;
+  display: flex;
+  cursor: pointer;
+`;
+
+const EditTitle = styled.div`
+  flex: 1;
+  font-size: 19px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const EditSaveText = styled.button`
+  border: none;
+  background: none;
+  padding: 8px 6px;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: inherit;
+  color: ${({ disabled }) => (disabled ? "#9AA1AB" : THEME.primary)};
+  cursor: ${({ disabled }) => (disabled ? "default" : "pointer")};
+`;
+
+const EditBody = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 20px 40px;
+`;
+
+const EditPhotoWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+`;
+
+const EditPhotoText = styled.button`
+  border: none;
+  background: none;
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 15px;
+  font-family: inherit;
+  color: #2b2f36;
+  cursor: pointer;
+`;
+
+const EditLabelRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+`;
+
+const EditLabel = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const EditCount = styled.div`
+  font-size: 13px;
+  color: #2b2f36;
+`;
+
+const EditInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  height: 52px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: ${THEME.text};
+  border: 1px solid #D9DDE3;
+  border-radius: 10px;
+  background: #fff;
+  &:focus { outline: none; border-color: ${THEME.primary}; }
+`;
+
+const EditTextarea = styled.textarea`
+  width: 100%;
+  box-sizing: border-box;
+  height: 180px;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.55;
+  font-family: inherit;
+  color: ${THEME.text};
+  border: 1px solid #D9DDE3;
+  border-radius: 10px;
+  background: #fff;
+  resize: none;
+  &:focus { outline: none; border-color: ${THEME.primary}; }
+`;
+
 /* ─── 프로필 편집 모달 ─── */
 const ModalOverlay = styled.div`
   position: fixed;
@@ -217,7 +336,7 @@ const CameraBadge = styled.div`
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -299,7 +418,7 @@ const ModalSaveBtn = styled.button`
   padding: 16px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 18px;
   font-weight: 600;
@@ -309,6 +428,119 @@ const ModalSaveBtn = styled.button`
   &:disabled { background: ${THEME.border}; color: ${THEME.muted}; }
 `;
 
+
+const WithdrawLink = styled.button`
+  display: block;
+  margin: 6px auto 0;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  color: ${THEME.muted};
+  text-decoration: underline;
+  cursor: pointer;
+  &:focus { outline: none; }
+`;
+
+const WithdrawOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+`;
+
+const WithdrawSheet = styled.div`
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 22px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const WithdrawTitle = styled.div`
+  font-size: 19px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const WithdrawDesc = styled.div`
+  font-size: 15px;
+  line-height: 1.65;
+  color: #2b2f36;
+  word-break: keep-all;
+  b { color: ${THEME.text}; font-weight: 700; }
+`;
+
+const WithdrawInput = styled.input`
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid ${THEME.border};
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  color: ${THEME.text};
+  &:focus { outline: none; border-color: ${THEME.primary}; }
+`;
+
+const WithdrawBtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+`;
+
+const WithdrawCancel = styled.button`
+  flex: 1;
+  height: 52px;
+  border-radius: 8px;
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  &:focus { outline: none; }
+`;
+
+const WithdrawGo = styled.button`
+  flex: 1;
+  height: 52px;
+  border-radius: 8px;
+  border: none;
+  background: ${({ disabled }) => (disabled ? "#D9DDE3" : THEME.danger)};
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: ${({ disabled }) => (disabled ? "default" : "pointer")};
+  &:focus { outline: none; }
+`;
+
+/* 카드 없이 배경 위에 바로 (대표 9/17) */
+const CompanyFooter = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 20px 16px 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: ${THEME.muted};
+  word-break: keep-all;
+`;
+
+const CompanyTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 4px;
+`;
 
 const LogoutButton = styled.button`
   width: calc(100% - 32px);
@@ -502,7 +734,7 @@ const CopyBtn = styled.button`
   padding: 6px 14px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 500;
@@ -667,7 +899,7 @@ const ToggleSwitch = styled.div`
   width: 44px;
   height: 24px;
   border-radius: 12px;
-  background: ${({ $on }) => ($on ? THEME.primary : THEME.border)};
+  background: ${({ $on }) => ($on ? THEME.button : THEME.border)};
   position: relative;
   cursor: pointer;
   transition: background 0.2s;
@@ -705,6 +937,19 @@ const MobileConfigpage = () => {
   const [referralStats, setReferralStats] = useState({ referralCount: 0, referralPoints: 0 });
   const [refBusy, setRefBusy] = useState(false);
   const [showGradeSheet, setShowGradeSheet] = useState(false);
+  // 사업자 정보 (홈에서 옮겨 옴 — 대표 9/17)
+  const [companyInfo, setCompanyInfo] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const snap = await getDoc(doc(db, "settings", "companyInfo"));
+        if (!cancelled && snap.exists()) setCompanyInfo(snap.data());
+      } catch (e) { /* 없으면 표시하지 않는다 */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [gradeRules, setGradeRules] = useState(null);
 
   // 추천코드 로드
@@ -797,6 +1042,27 @@ const MobileConfigpage = () => {
   };
 
   const [, setProCats] = useAtom(proCategoriesAtom);
+  // 회원 탈퇴 — 글자를 직접 쳐야 진행된다 (대표 9/17)
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawText, setWithdrawText] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
+  const WITHDRAW_WORD = "탈퇴합니다";
+
+  const handleWithdraw = async () => {
+    if (withdrawText.trim() !== WITHDRAW_WORD) return;
+    setWithdrawing(true);
+    try {
+      await withdrawUser(userData?.uid || user?.USERS_ID);
+      dispatch(null);
+      setProCats([]);
+      navigate("/MobileLogin", { replace: true });
+    } catch (e) {
+      console.error("탈퇴 실패:", e);
+      window.alert("탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setWithdrawing(false);
+    }
+  };
+
   const handleLogout = async () => {
     await signOutUser();
     dispatch(null);
@@ -846,24 +1112,27 @@ const MobileConfigpage = () => {
         </ProfileActionRow>
       </ProfileCard>
 
-      {/* 프로필 편집 모달 */}
+      {/* 프로필 편집 — 창 대신 화면 한 장 (시안 4번, 형 9/18) */}
       {showEditModal && (
-        <ModalOverlay onClick={() => setShowEditModal(false)}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>프로필 편집</ModalTitle>
-              <ModalCloseBtn onClick={() => setShowEditModal(false)}>
-                <IoClose size={24} color={THEME.text} />
-              </ModalCloseBtn>
-            </ModalHeader>
-            <ModalImgWrap>
+        <EditScreen>
+          <EditHeader>
+            <EditBackBtn type="button" onClick={() => setShowEditModal(false)} aria-label="뒤로">
+              <IoChevronBack size={24} color={THEME.text} />
+            </EditBackBtn>
+            <EditTitle>프로필 편집</EditTitle>
+            <EditSaveText type="button" onClick={handleSaveProfile} disabled={!editNickname.trim() || uploadingImg}>
+              저장
+            </EditSaveText>
+          </EditHeader>
+          <EditBody>
+            <EditPhotoWrap>
               <input ref={profileFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleSelectPhoto} />
               <ModalImgBtn onClick={() => profileFileRef.current?.click()}>
                 {editImg ? (
-                  <ProfileImg src={editImg} alt="profile" style={{ width: 80, height: 80, opacity: uploadingImg ? 0.4 : 1 }} />
+                  <ProfileImg src={editImg} alt="profile" style={{ width: 96, height: 96, opacity: uploadingImg ? 0.4 : 1 }} />
                 ) : (
-                  <ProfilePlaceholder style={{ width: 80, height: 80, opacity: uploadingImg ? 0.4 : 1 }}>
-                    <IoPersonCircleOutline size={80} color={THEME.border} />
+                  <ProfilePlaceholder style={{ width: 96, height: 96, opacity: uploadingImg ? 0.4 : 1 }}>
+                    <IoPersonCircleOutline size={96} color="#D9DDE3" />
                   </ProfilePlaceholder>
                 )}
                 {uploadingImg && (
@@ -875,31 +1144,32 @@ const MobileConfigpage = () => {
                   <IoCameraOutline size={16} color="#fff" />
                 </CameraBadge>
               </ModalImgBtn>
-            </ModalImgWrap>
-            <ModalInput
+              <EditPhotoText type="button" onClick={() => profileFileRef.current?.click()}>사진 바꾸기</EditPhotoText>
+            </EditPhotoWrap>
+
+            <EditLabelRow>
+              <EditLabel>대화명</EditLabel>
+              <EditCount>{editNickname.length}/12</EditCount>
+            </EditLabelRow>
+            <EditInput
               value={editNickname}
               onChange={(e) => setEditNickname(e.target.value.slice(0, 12))}
               placeholder="대화명을 입력하세요"
               maxLength={12}
             />
-            <ModalInputCount>{editNickname.length}/12</ModalInputCount>
-            <ModalIntroLabel>자기소개</ModalIntroLabel>
-            <ModalTextarea
+
+            <EditLabelRow style={{ marginTop: 22 }}>
+              <EditLabel>자기소개</EditLabel>
+              <EditCount>{editIntro.length}/200</EditCount>
+            </EditLabelRow>
+            <EditTextarea
               value={editIntro}
               onChange={(e) => setEditIntro(e.target.value.slice(0, 200))}
               placeholder="전문 분야, 경력, 강점 등을 소개해주세요"
               maxLength={200}
-              rows={4}
             />
-            <ModalInputCount>{editIntro.length}/200</ModalInputCount>
-            <ModalSaveBtn
-              onClick={handleSaveProfile}
-              disabled={!editNickname.trim()}
-            >
-              저장
-            </ModalSaveBtn>
-          </ModalContent>
-        </ModalOverlay>
+          </EditBody>
+        </EditScreen>
       )}
 
       {/* 등급 안내 바텀시트 */}
@@ -934,21 +1204,16 @@ const MobileConfigpage = () => {
         </GradeSheetOverlay>
       )}
 
-      {/* 포인트 / 정산 / 초대공유 / 초대현황 — 한 카드로 통합 (형 지시 8/8 메뉴 순서) */}
+      {/* 정산 — 포인트·초대는 홈 보유자산 탭과 겹쳐서 뺐다 (대표 9/17) */}
       <ContentCard>
         <CardHeader>
           <div>
-            <CardTitle>포인트 / 정산</CardTitle>
-            <CardDesc>수익 현황을 한눈에 확인하세요</CardDesc>
+            <CardTitle>정산</CardTitle>
+            <CardDesc>수익과 정산 현황을 확인하세요</CardDesc>
           </div>
           <ArrowBtn onClick={() => navigate("/referral/points")}><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
         <CashGrid>
-          <CashItem onClick={() => navigate("/referral/points")} style={{ cursor: "pointer" }}>
-            <CashAmount>{referralStats.referralPoints.toLocaleString()}P</CashAmount>
-            <CashLabel>보유 포인트</CashLabel>
-          </CashItem>
-          <CashDivider />
           <CashItem>
             <CashAmount>0원</CashAmount>
             <CashLabel>이번달 수익</CashLabel>
@@ -959,22 +1224,6 @@ const MobileConfigpage = () => {
             <CashLabel>정산 대기</CashLabel>
           </CashItem>
         </CashGrid>
-        <ProfileDivider />
-        <CardHeader style={{ marginTop: 8 }}>
-          <div>
-            <CardTitle>초대 공유</CardTitle>
-            <CardDesc>친구를 초대하고 포인트를 받으세요</CardDesc>
-          </div>
-        </CardHeader>
-        <ReferralBox>
-          <ReferralCode>{referralCode || "..."}</ReferralCode>
-          <CopyBtn onClick={handleCopyCode}>복사</CopyBtn>
-        </ReferralBox>
-        <ReferralStat>
-          <ReferralStatItem onClick={() => navigate("/referral/friends")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralCount}</ReferralNum><ReferralLabel>초대한 친구</ReferralLabel></ReferralStatItem>
-          <StatDivider2 />
-          <ReferralStatItem onClick={() => navigate("/referral/points")} style={{ cursor: "pointer" }}><ReferralNum>{referralStats.referralPoints.toLocaleString()}P</ReferralNum><ReferralLabel>받은 포인트</ReferralLabel></ReferralStatItem>
-        </ReferralStat>
       </ContentCard>
 
       {/* 홈프로 리스트 */}
@@ -995,6 +1244,19 @@ const MobileConfigpage = () => {
         <SubStatusRow>
           <SubText style={{ color: getAccessTier(userData) === "tier0" ? "#15803d" : THEME.text, fontWeight: 700 }}>{getAccessTier(userData) === "tier0" ? "구독 중 · 0차수" : `미구독 · ${getAccessTier(userData) === "tier1" ? "1차수 (2만P 보유)" : "2차수"}`}</SubText>
         </SubStatusRow>
+      </ContentCard>
+      )}
+
+      {/* 사업자도구 · PG결제 — 유료 구독 사업자 전용 (대표 리뷰 9/17) */}
+      {userData?.userType !== "customer" && (
+      <ContentCard onClick={() => navigate("/mypage/pg")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>사업자도구 · PG결제</CardTitle>
+            <CardDesc>결제링크로 고객에게 직접 결제받기</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
       </ContentCard>
       )}
 
@@ -1029,7 +1291,7 @@ const MobileConfigpage = () => {
             <ConfigGuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><ConfigGuideSubIcon><IoSendOutline size={18} color="#B45309" /></ConfigGuideSubIcon></ConfigGuideIconWrap>
             <ConfigGuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</ConfigGuideText>
           </ConfigGuideCard>
-          <ConfigGuideCard $bg="#E6F9EE" onClick={() => navigate("/guide/2")}>
+          <ConfigGuideCard $bg="#F1EAF6" onClick={() => navigate("/guide/2")}>
             <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><ConfigGuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></ConfigGuideSubIcon></ConfigGuideIconWrap>
             <ConfigGuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</ConfigGuideText>
           </ConfigGuideCard>
@@ -1041,11 +1303,19 @@ const MobileConfigpage = () => {
             <ConfigGuideIconWrap><IoCameraOutline size={32} color="#059669" /></ConfigGuideIconWrap>
             <ConfigGuideText>프로필 사진,{"\n"}이렇게 찍으세요</ConfigGuideText>
           </ConfigGuideCard>
-          <ConfigGuideCard $bg="#E6F9EE" onClick={() => navigate("/guide/5")}>
+          <ConfigGuideCard $bg="#F1EAF6" onClick={() => navigate("/guide/5")}>
             <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></ConfigGuideIconWrap>
             <ConfigGuideText>등급 시스템{"\n"}포인트로 올리세요</ConfigGuideText>
           </ConfigGuideCard>
         </ConfigScrollRow>
+      </ContentCard>
+
+      {/* 커뮤니티 — 차단 관리 위로 (형 9/18) */}
+      <ContentCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div><CardTitle>커뮤니티</CardTitle></div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
       </ContentCard>
 
       {/* 차단/거부 관리 */}
@@ -1065,14 +1335,6 @@ const MobileConfigpage = () => {
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
         </SupportList>
-      </ContentCard>
-
-      {/* 커뮤니티 */}
-      <ContentCard onClick={() => navigate("/community")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div><CardTitle>커뮤니티</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
       </ContentCard>
 
       {/* 앱 설정 (형 지시 8/8) */}
@@ -1096,10 +1358,6 @@ const MobileConfigpage = () => {
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
           )}
-          <SupportItem onClick={() => navigate("/notice")}>
-            <SupportLabel>공지사항</SupportLabel>
-            <IoChevronForward size={18} color={THEME.muted} />
-          </SupportItem>
           <SupportItem onClick={() => navigate("/support")}>
             <SupportLabel>고객센터</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
@@ -1116,6 +1374,7 @@ const MobileConfigpage = () => {
             <SupportLabel>위치기반서비스 이용약관</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
+
           <SupportItem as="div" style={{ borderBottom: "none", cursor: "default" }}>
             <SupportLabel>버전 정보</SupportLabel>
             <span style={{ fontSize: 16, fontWeight: 600, color: THEME.muted }}>v{APP_VERSION}</span>
@@ -1124,6 +1383,67 @@ const MobileConfigpage = () => {
       </ContentCard>
 
       <LogoutButton onClick={handleLogout}>로그아웃</LogoutButton>
+
+      <WithdrawLink type="button" onClick={() => { setShowWithdraw(true); setWithdrawText(""); }}>탈퇴하기</WithdrawLink>
+
+      {showWithdraw && (
+        <WithdrawOverlay onClick={() => !withdrawing && setShowWithdraw(false)}>
+          <WithdrawSheet onClick={(e) => e.stopPropagation()}>
+            <WithdrawTitle>정말 탈퇴하시겠어요</WithdrawTitle>
+            <WithdrawDesc>
+              탈퇴하면 보유 포인트와 등급이 모두 사라지고 되돌릴 수 없습니다.
+              진행 중인 오더가 있으면 마무리한 뒤에 탈퇴해 주세요.
+            </WithdrawDesc>
+            <WithdrawDesc>
+              계속하시려면 아래 칸에 <b>{WITHDRAW_WORD}</b> 라고 그대로 입력해 주세요.
+            </WithdrawDesc>
+            <WithdrawInput
+              value={withdrawText}
+              onChange={(e) => setWithdrawText(e.target.value)}
+              placeholder={WITHDRAW_WORD}
+              disabled={withdrawing}
+            />
+            <WithdrawBtnRow>
+              <WithdrawCancel type="button" onClick={() => setShowWithdraw(false)} disabled={withdrawing}>
+                그만두기
+              </WithdrawCancel>
+              <WithdrawGo
+                type="button"
+                onClick={handleWithdraw}
+                disabled={withdrawing || withdrawText.trim() !== WITHDRAW_WORD}
+              >
+                {withdrawing ? "처리 중..." : "탈퇴하기"}
+              </WithdrawGo>
+            </WithdrawBtnRow>
+          </WithdrawSheet>
+        </WithdrawOverlay>
+      )}
+
+      {companyInfo && (
+        <CompanyFooter>
+          <CompanyTitle>사업자 정보</CompanyTitle>
+              {companyInfo.companyName && <span>상호명 : {companyInfo.companyName}</span>}
+              {(companyInfo.ceo || companyInfo.privacyOfficer) && (
+                <span>
+                  {companyInfo.ceo ? `대표이사 : ${companyInfo.ceo}` : ""}
+                  {companyInfo.ceo && companyInfo.privacyOfficer ? "\u00a0\u00a0\u00a0" : ""}
+                  {companyInfo.privacyOfficer ? `개인정보책임관리자 : ${companyInfo.privacyOfficer}` : ""}
+                </span>
+              )}
+              {companyInfo.address && <span>주소 : {companyInfo.address}</span>}
+              {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
+              {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
+              <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
+              {(companyInfo.phone || companyInfo.email) && (
+                <span>
+                  {companyInfo.phone ? `고객센터 : ${companyInfo.phone}` : ""}
+                  {companyInfo.phone && companyInfo.email ? "\u00a0\u00a0\u00a0" : ""}
+                  {companyInfo.email ? `이메일 : ${companyInfo.email}` : ""}
+                </span>
+              )}
+              <span style={{ marginTop: 6, opacity: 0.75 }}>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</span>
+        </CompanyFooter>
+      )}
 
       <BottomSpacer />
     </MyPageLayout>

@@ -12,10 +12,11 @@ import { getProCategoryIds } from "../../service/ProService";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
-import { IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline } from "react-icons/io5";
+import { IoAddCircle, IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline, IoSearchOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
 import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
+import EmptyOrders from "../../components/EmptyOrders";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
@@ -50,13 +51,13 @@ const matchPointPeriod = (createdAt, period) => {
 const STATUS_TABS = ["접수", "대기", "마감", "취소"];
 // 상태별 색상 통일 (대표 지시 7/23) — 접수=보라(형 룰 충돌로 확인 전까지 블루)/배정=노랑/완료=초록/취소=붉은/대기=회색/선정대기=연노랑
 const STATUS_COLOR = {
-  "접수": "#8B5CF6",            // 보라계열 (대표 지시)
+  "접수": THEME.primary,        // 강조 초록 (9/17 색 변경 — 원래 대표 지시는 보라계열)
   "대기": "#9CA3AF",            // 회색
   "선정대기": "#E0A800",        // 연노랑(텍스트 가독성 위해 진한 노랑)
   "배정": "#F59E0B",            // 노랑
   "마감": THEME.muted,
   "취소": THEME.danger,         // 붉은
-  "요청": "#8B5CF6",
+  "요청": THEME.primary,
   "진행": "#F59E0B",
   "완료": THEME.success,        // 초록
 };
@@ -362,7 +363,7 @@ const SHARE_BASE_URL = PUBLIC_BASE_URL;
 const buildInviteText = (code) =>
   `집(Home) 관련 특화된 모든 분야 사장님들이 뭉쳐,\n오더를 공유하고 다양한 수익을 창출하는 대한민국 1등 B2B 플랫폼에 사장님을 초대합니다.\n지금 초대코드 ${code}를 입력하고, 홈프로만의 특별한 생태계에 합류하세요!`;
 
-const InviteTabContent = () => {
+const InviteTabContent = ({ pointHistory = [] }) => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
@@ -376,8 +377,16 @@ const InviteTabContent = () => {
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
   const [alreadyReferred, setAlreadyReferred] = useState(false);
+  // 어떤 코드로 가입했는지까지 보여 준다 (대표 9/17 시안 3번)
+  const [referredInfo, setReferredInfo] = useState(null); // { code, nickname }
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
+
+  // 가입할 때 추천으로 받은 포인트 (내역에서 찾는다)
+  const referralReward = useMemo(
+    () => pointHistory.find((h) => h.type === "earn" && /추천|초대/.test(h.reason || "")) || null,
+    [pointHistory]
+  );
 
   useEffect(() => {
     if (!uid) return;
@@ -391,8 +400,17 @@ const InviteTabContent = () => {
       setStats(s);
       // 이미 추천코드 사용 여부 확인
       const userSnap = await getDoc(doc(db, "users", uid));
-      if (userSnap.exists() && userSnap.data()?.referredBy) {
+      const refUid = userSnap.exists() ? userSnap.data()?.referredBy : null;
+      if (refUid) {
         setAlreadyReferred(true);
+        try {
+          const refCode = await getReferralCode(refUid);
+          const refSnap = await getDoc(doc(db, "users", refUid));
+          setReferredInfo({
+            code: refCode || "",
+            nickname: refSnap.exists() ? (refSnap.data()?.nickname || "") : "",
+          });
+        } catch (re) { console.error("추천인 정보 로드 실패:", re); }
       }
     })();
   }, [uid]);
@@ -420,12 +438,6 @@ const InviteTabContent = () => {
     } else {
       handleCopyInvite();
     }
-  };
-
-  const handleBandShare = () => {
-    if (!myCode) return;
-    const body = encodeURIComponent(`${buildInviteText(myCode)}\n${inviteUrl}`);
-    window.open(`https://band.us/plugin/share?body=${body}&route=${encodeURIComponent(inviteUrl)}`, "_blank");
   };
 
   const handleRegenerate = async () => {
@@ -476,10 +488,9 @@ const InviteTabContent = () => {
       {/* 초대 공유 (대표 지시 7/29 — 카카오/밴드/단톡방 공유, 링크 타면 코드 자동입력) */}
       <InviteCard>
         <InviteCardTitle>초대 공유</InviteCardTitle>
-        <InviteCardDesc>초대 링크로 가입하면 추천코드가 자동으로 입력됩니다</InviteCardDesc>
+        <InviteCardDesc>링크로 가입하면 코드가 자동 입력됩니다</InviteCardDesc>
         <ShareBtnRow>
           <ShareBtn onClick={handleCopyInvite}>초대문구 복사</ShareBtn>
-          <ShareBtn onClick={handleBandShare}>밴드 공유</ShareBtn>
           <ShareBtn $primary onClick={handleWebShare}>공유하기</ShareBtn>
         </ShareBtnRow>
       </InviteCard>
@@ -505,7 +516,21 @@ const InviteTabContent = () => {
         {alreadyReferred ? (
           <>
             <InviteCardTitle>추천코드</InviteCardTitle>
-            <ReferredDoneText>이미 추천코드로 가입되었습니다 ✓</ReferredDoneText>
+            <ReferredList>
+              {referredInfo?.code && (
+                <ReferredRow>등록한 코드 <ReferredStrong>{referredInfo.code}</ReferredStrong>
+                  {referredInfo.nickname ? <> · 추천인 <ReferredStrong>{referredInfo.nickname}</ReferredStrong></> : null}
+                </ReferredRow>
+              )}
+              {referralReward ? (
+                <ReferredRow>
+                  가입 보상 <ReferredStrong>{(referralReward.amount || 0).toLocaleString()}P</ReferredStrong> 받음
+                  {referralReward.createdAt ? " · " + fmtCashDate(referralReward.createdAt) : ""}
+                </ReferredRow>
+              ) : (
+                <ReferredRow>이미 추천코드로 가입되었습니다</ReferredRow>
+              )}
+            </ReferredList>
           </>
         ) : (
           <>
@@ -553,6 +578,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [activePeriod, setActivePeriod] = useState("전체");
   const [activeSort, setActiveSort] = useState("등록순");
   const [showCatSheet, setShowCatSheet] = useState(false);
+  // 필터 줄 접기 (섹션 3-1) — 평소엔 필터 버튼과 고른 조건만 보인다
+  const [showFilters, setShowFilters] = useState(false);
   const [showDistSheet, setShowDistSheet] = useState(false);
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showStatusSheet, setShowStatusSheet] = useState(false);
@@ -562,7 +589,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [userPoints, setUserPoints] = useState(0);
   const [pointHistory, setPointHistory] = useState([]);
   const [pointPeriod, setPointPeriod] = useState("전체");
+  // 보유자산 안쪽 탭 — 포인트 / 친구 초대 (대표 9/17 시안 3번)
+  const [assetSub, setAssetSub] = useState("point");
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [showCompany, setShowCompany] = useState(false); // 사업자 정보 접기 (대표 9/17 섹션 7-1)
 
   // 사업자 정보(settings/companyInfo) 로드 — 관리자 설정에서 입력한 값
   useEffect(() => {
@@ -579,6 +609,12 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
+
+  // 가입할 때 추천으로 받은 포인트 (내역에서 찾는다)
+  const referralReward = useMemo(
+    () => pointHistory.find((h) => h.type === "earn" && /추천|초대/.test(h.reason || "")) || null,
+    [pointHistory]
+  );
 
   // 내가 거부 등록한 사용자 — 거부등록된 상대의 오더 클릭 차단 (형 지시 7/31)
   const [blockedUids, setBlockedUids] = useState(new Set());
@@ -747,6 +783,32 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     return list;
   }, [filteredOrders, activeSort, myRegion]);
 
+  // 오늘 올라온 오더 수 (섹션 5-1)
+  const todayCount = useMemo(() => {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    return allOrders.filter((o) => {
+      const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || 0);
+      return d >= start;
+    }).length;
+  }, [allOrders]);
+
+  // 내 분야 오더 수 — 로그인 전이거나 등록한 분야가 없으면 null (보여 주지 않는다)
+  const myFieldCount = useMemo(() => {
+    if (!uid || !proCategories || proCategories.length === 0) return null;
+    return allOrders.filter((o) => proCategories.includes(o.categoryId)).length;
+  }, [allOrders, proCategories, uid]);
+
+  // 지금 걸려 있는 필터만 칩으로 (섹션 3-1)
+  const activeFilterChips = useMemo(() => {
+    const list = [];
+    if (activeSort !== "등록순") list.push({ key: "sort", label: activeSort, clear: () => setActiveSort("등록순") });
+    if (activeStatusFilter !== "전체") list.push({ key: "status", label: activeStatusFilter, clear: () => setActiveStatusFilter("전체") });
+    if (activeDist !== "전체") list.push({ key: "dist", label: activeDist, clear: () => setActiveDist("전체") });
+    if (activePeriod !== "전체") list.push({ key: "period", label: activePeriod, clear: () => setActivePeriod("전체") });
+    if (activeCatFilters.length > 0) list.push({ key: "cat", label: "카테고리 " + activeCatFilters.length, clear: () => setActiveCatFilters([]) });
+    return list;
+  }, [activeSort, activeStatusFilter, activeDist, activePeriod, activeCatFilters]);
+
   // 바텀시트에는 항상 전체 카테고리 표시
   const filterCats = CATEGORIES;
 
@@ -761,16 +823,29 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   return (
     <PageWrap>
       {/* ── 상단 차수·포인트 ── (차수 상단 표시 = 대표 지시 7/29 "매우중요" · 일반고객은 차수 미표기 = 형 지시 7/31) */}
-      <PointHeader>
-        {userData?.userType === "customer" ? (
-          <span />
-        ) : (
-          <TierValue $tier1={getAccessTier(userData) === "tier0"} onClick={() => navigate("/subscription")} style={{ cursor: "pointer" }} title="월 구독">
-            {TIER_LABEL[getAccessTier(userData)]} 회원{getAccessTier(userData) !== "tier0" ? " · 구독" : ""}
-          </TierValue>
+      {/* 시안 5번 두 칸 나눔 (형 9/17): 왼쪽 회원 등급 → 구독, 오른쪽 보유 포인트 → 보유자산 */}
+      <PointLine>
+        {userData?.userType !== "customer" && (
+          <>
+            <PointCell onClick={() => navigate("/subscription")}>
+              <div>
+                <PointCellLabel>회원 등급</PointCellLabel>
+                <PointLineTier>
+                  {TIER_LABEL[getAccessTier(userData)]}{getAccessTier(userData) !== "tier0" ? " · 구독" : ""}
+                </PointLineTier>
+              </div>
+            </PointCell>
+            <PointCellDivider />
+          </>
         )}
-        <PointValue>{userPoints.toLocaleString()}P</PointValue>
-      </PointHeader>
+        <PointCell onClick={() => setActiveTab("assets")}>
+          <div>
+            <PointCellLabel>보유 포인트</PointCellLabel>
+            <PointLineValue>{userPoints.toLocaleString()}P</PointLineValue>
+          </div>
+          <IoChevronForward size={17} color="#2b2f36" />
+        </PointCell>
+      </PointLine>
 
       {/* ── 상단 탭 버튼 ── */}
       <HomeTabRow>
@@ -782,94 +857,194 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         ))}
       </HomeTabRow>
 
+      {/* 비회원 — 회원 전용 탭에는 로그인 안내를 보여 준다 (대표 9/17) */}
+      {!uid && (activeTab === "assets" || activeTab === "my_orders" || activeTab === "ai_estimate") && (
+        <GuestNotice>
+          <GuestTitle>로그인이 필요한 화면이에요</GuestTitle>
+          <GuestDesc>
+            {activeTab === "assets" && "포인트와 초대코드는 회원만 볼 수 있습니다."}
+            {activeTab === "my_orders" && "내가 등록하거나 맡은 오더는 회원만 볼 수 있습니다."}
+            {activeTab === "ai_estimate" && "AI 견적은 회원만 이용할 수 있습니다."}
+          </GuestDesc>
+          <GuestBtnRow>
+            <GuestPrimary onClick={() => navigate("/MobileSignup")}>회원가입 하고 이용하기</GuestPrimary>
+            <GuestGhost onClick={() => navigate("/MobileLogin")}>이미 회원이에요 · 로그인</GuestGhost>
+          </GuestBtnRow>
+        </GuestNotice>
+      )}
+
       {/* ══════ 보유자산 (포인트 잔액 + 내역) ══════ */}
-      {activeTab === "assets" && (
+      {uid && activeTab === "assets" && (
         <AssetWrap>
-          {/* 초대코드 — 보유자산 탭에 통합, 초대 내용을 먼저 노출 (대표 9/14 리뷰) */}
-          <InviteTabContent />
+          {/* 포인트와 친구 초대를 안쪽 탭으로 가른다 (대표 9/17 시안 3번) */}
+          <AssetSubTabs>
+            <AssetSubTab $active={assetSub === "point"} onClick={() => setAssetSub("point")}>포인트</AssetSubTab>
+            <AssetSubTab $active={assetSub === "invite"} onClick={() => setAssetSub("invite")}>친구 초대</AssetSubTab>
+          </AssetSubTabs>
 
-          <PointBalanceCard>
-            <PointBalanceLabel>총 보유 포인트</PointBalanceLabel>
-            <PointBalanceValue>{userPoints.toLocaleString()}P</PointBalanceValue>
-          </PointBalanceCard>
+          {assetSub === "invite" && <InviteTabContent pointHistory={pointHistory} />}
 
-          <AssetListHeader>
-            <AssetListTitle>포인트 내역</AssetListTitle>
-          </AssetListHeader>
+          {assetSub === "point" && (
+            <>
+              <PointBalanceCard>
+                <PointBalanceLabel>총 보유 포인트</PointBalanceLabel>
+                <PointBalanceValue>{userPoints.toLocaleString()}P</PointBalanceValue>
+              </PointBalanceCard>
 
-          <PeriodChipRow>
-            {POINT_PERIODS.map((p) => (
-              <PeriodChip key={p} $active={pointPeriod === p} onClick={() => setPointPeriod(p)}>
-                {p}
-              </PeriodChip>
-            ))}
-          </PeriodChipRow>
+              <AssetListHeader>
+                <AssetListTitle>포인트 내역</AssetListTitle>
+              </AssetListHeader>
 
-          {(() => {
-            const filtered = pointHistory.filter((h) => matchPointPeriod(h.createdAt, pointPeriod));
-            if (pointHistory.length === 0) return <AssetEmpty>아직 포인트 내역이 없어요</AssetEmpty>;
-            if (filtered.length === 0) return <AssetEmpty>해당 기간 내역이 없어요</AssetEmpty>;
-            return (
-            <AssetHistoryList>
-              {filtered.map((h) => (
-                <AssetHistoryItem key={h.id}>
-                  <div style={{ minWidth: 0 }}>
-                    <AssetHistoryReason>{h.reason || "포인트"}</AssetHistoryReason>
-                    <AssetHistoryDate>{fmtCashDate(h.createdAt)}</AssetHistoryDate>
-                  </div>
-                  <AssetHistoryAmt $type={h.type}>
-                    {h.type === "earn" ? "+" : h.type === "use" ? "-" : ""}{(h.amount || 0).toLocaleString()}P
-                  </AssetHistoryAmt>
-                </AssetHistoryItem>
-              ))}
-            </AssetHistoryList>
-            );
-          })()}
+              <PeriodChipRow>
+                {POINT_PERIODS.map((p) => (
+                  <PeriodChip key={p} $active={pointPeriod === p} onClick={() => setPointPeriod(p)}>
+                    {p}
+                  </PeriodChip>
+                ))}
+              </PeriodChipRow>
+
+              {(() => {
+                const filtered = pointHistory.filter((h) => matchPointPeriod(h.createdAt, pointPeriod));
+                if (pointHistory.length === 0) return (
+                  <EmptyOrders
+                    icon={<IoGiftOutline size={30} color={THEME.primary} />}
+                    title="아직 쌓인 포인트가 없어요"
+                    desc="오더를 끝내거나 친구를 초대하면 포인트가 들어옵니다."
+                    primaryLabel="친구 초대하고 받기"
+                    onPrimary={() => setAssetSub("invite")}
+                  />
+                );
+                if (filtered.length === 0) return (
+                  <EmptyOrders
+                    icon={<IoGiftOutline size={30} color={THEME.primary} />}
+                    title="이 기간에는 내역이 없어요"
+                    desc="기간을 넓히면 지난 내역을 볼 수 있습니다."
+                    onReset={() => setPointPeriod("전체")}
+                    resetLabel="전체 기간 보기"
+                    showCreate={false}
+                  />
+                );
+                return (
+                <AssetHistoryList>
+                  {filtered.map((h) => (
+                    <AssetHistoryItem key={h.id}>
+                      <div style={{ minWidth: 0 }}>
+                        <AssetHistoryReason>{h.reason || "포인트"}</AssetHistoryReason>
+                        <AssetHistoryDate>{fmtCashDate(h.createdAt)}</AssetHistoryDate>
+                      </div>
+                      <AssetHistoryAmt $type={h.type}>
+                        {h.type === "earn" ? "+" : h.type === "use" ? "-" : ""}{(h.amount || 0).toLocaleString()}P
+                      </AssetHistoryAmt>
+                    </AssetHistoryItem>
+                  ))}
+                </AssetHistoryList>
+                );
+              })()}
+            </>
+          )}
         </AssetWrap>
       )}
 
       {/* ══════ 요청목록 (전체) ══════ */}
       {activeTab === "all_orders" && (
       <>
-          <FilterBtnRow>
-            <FilterBtn $active={activeSort !== "등록순"} onClick={() => setShowSortSheet(true)}>
-              {activeSort} <IoChevronDown size={11} />
-            </FilterBtn>
-            <FilterBtn $active={activeStatusFilter !== "전체"} onClick={() => setShowStatusSheet(true)}>
-              {activeStatusFilter !== "전체" ? activeStatusFilter : "상태"} <IoChevronDown size={11} />
-            </FilterBtn>
-            <FilterBtn $active={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
-              {activeDist !== "전체" ? activeDist : "거리"} <IoChevronDown size={11} />
-            </FilterBtn>
-            <FilterBtn $active={activePeriod !== "전체"} onClick={() => setShowPeriodSheet(true)}>
-              {activePeriod !== "전체" ? activePeriod : "기간"} <IoChevronDown size={11} />
-            </FilterBtn>
-            <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
-              {activeCatFilters.length > 0 ? `${activeCatFilters.length}개` : "카테고리"} <IoChevronDown size={11} />
-            </FilterBtn>
-            {/* 마감·취소 숨기기 토글 (기본 켜짐) */}
-            <FilterBtn $active={hideClosed} onClick={() => setHideClosed((v) => !v)}>
-              {hideClosed ? "마감·취소 숨김" : "마감·취소 표시"}
-            </FilterBtn>
-          </FilterBtnRow>
+          {/* 요약 줄 — 오늘 새 오더 · 내 분야 (섹션 5-1). 로그인 전이거나 내 분야가 없으면 내 분야는 빼고 보여 준다 */}
+          {(todayCount > 0 || myFieldCount) ? (
+            <SummaryLine>
+              오늘 새로 올라온 오더 <b>{todayCount}건</b>
+              {myFieldCount !== null && <> · 내 분야 <b>{myFieldCount}건</b></>}
+            </SummaryLine>
+          ) : null}
+
+          <FilterToggleRow>
+            <FilterToggleBtn $on={showFilters} onClick={() => setShowFilters((v) => !v)}>
+              필터{activeFilterChips.length > 0 ? " " + activeFilterChips.length : ""}
+              {/* 펼침/접힘 표시 (형 9/17) */}
+              <FilterChevron $open={showFilters}><IoChevronDown size={16} /></FilterChevron>
+            </FilterToggleBtn>
+            {activeFilterChips.map((chip) => (
+              <ActiveChip key={chip.key} onClick={chip.clear}>{chip.label} ×</ActiveChip>
+            ))}
+            <FilterCount>{sortedOrders.length}건</FilterCount>
+          </FilterToggleRow>
+
+          {showFilters && (
+          <FilterPanel>
+            <FilterGroup>
+              <FilterGroupLabel>정렬</FilterGroupLabel>
+              <FilterBtnRow>
+                {SORT_OPTIONS.map((t) => (
+                  <FilterBtn key={t} $active={activeSort === t} onClick={() => setActiveSort(t)}>{t}</FilterBtn>
+                ))}
+              </FilterBtnRow>
+            </FilterGroup>
+
+            <FilterGroup>
+              <FilterGroupLabel>상태</FilterGroupLabel>
+              <FilterBtnRow>
+                {["전체", ...STATUS_TABS].map((t) => (
+                  <FilterBtn key={t} $active={activeStatusFilter === t} onClick={() => setActiveStatusFilter(t)}>{t}</FilterBtn>
+                ))}
+              </FilterBtnRow>
+            </FilterGroup>
+
+            <FilterGroup>
+              <FilterGroupLabel>거리</FilterGroupLabel>
+              <FilterBtnRow>
+                {DISTANCE_OPTIONS.map((t) => (
+                  <FilterBtn key={t} $active={activeDist === t} onClick={() => setActiveDist(t)}>{t}</FilterBtn>
+                ))}
+              </FilterBtnRow>
+            </FilterGroup>
+
+            <FilterGroup>
+              <FilterGroupLabel>기간</FilterGroupLabel>
+              <FilterBtnRow>
+                {PERIOD_OPTIONS.map((t) => (
+                  <FilterBtn key={t} $active={activePeriod === t} onClick={() => setActivePeriod(t)}>{t}</FilterBtn>
+                ))}
+              </FilterBtnRow>
+            </FilterGroup>
+
+            <FilterGroup>
+              <FilterGroupLabel>그 밖에</FilterGroupLabel>
+              <FilterBtnRow>
+                <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
+                  {activeCatFilters.length > 0 ? `카테고리 ${activeCatFilters.length}개` : "카테고리"} <IoChevronDown size={11} />
+                </FilterBtn>
+                <FilterBtn $active={hideClosed} onClick={() => setHideClosed((v) => !v)}>
+                  {hideClosed ? "마감·취소 숨김" : "마감·취소 표시"}
+                </FilterBtn>
+              </FilterBtnRow>
+            </FilterGroup>
+            <FilterFoldBtn type="button" onClick={() => setShowFilters(false)}>
+              필터 접기 <FilterChevron $open><IoChevronDown size={16} /></FilterChevron>
+            </FilterFoldBtn>
+          </FilterPanel>
+          )}
 
           {sortedOrders.length === 0 ? (
-            <EmptyWrap>
-              <EmptyText>등록된 요청이 없습니다</EmptyText>
-              <EmptySubText>새로운 요청이 들어오면 알려드릴게요!</EmptySubText>
-            </EmptyWrap>
+            <EmptyOrders
+              title={activeFilterChips.length > 0 ? "조건에 맞는 오더가 없어요" : "아직 올라온 오더가 없어요"}
+              desc={activeFilterChips.length > 0 ? "거리를 넓히거나 기간을 늘려 보세요." : "새 오더가 올라오면 여기에 바로 보입니다."}
+              onReset={activeFilterChips.length > 0 ? () => {
+                setActiveSort("등록순"); setActiveStatusFilter("전체"); setActiveDist("전체");
+                setActivePeriod("전체"); setActiveCatFilters([]);
+              } : null}
+            />
           ) : (
             <ScrollHintTable>
               <TableHeader>
                 {/* 컬럼 순서: 날짜-상태-요청방식-서비스-지역-단가유형 (형 리뷰 7/31 — 요청방식 앞쪽 배치) */}
-                <ThCell $flex={0.9} style={{textAlign:"center"}}>날짜</ThCell>
+                {/* 옆으로 밀어도 날짜는 왼쪽에 붙어 있게 (대표 9/17) */}
+                <ThCell $stickw={78} style={{textAlign:"center"}}>날짜</ThCell>
                 <ThCell $flex={0.7} style={{textAlign:"center"}}>상태</ThCell>
                 <ThCell $flex={0.7} style={{textAlign:"center"}}>요청방식</ThCell>
                 <ThCell $flex={1.2} style={{textAlign:"center"}}>서비스</ThCell>
                 <ThCell $flex={1.0} style={{textAlign:"center"}}>지역</ThCell>
                 <ThCell $flex={1.1} style={{textAlign:"center"}}>단가유형</ThCell>
               </TableHeader>
-              {sortedOrders.map((order) => {
+              {sortedOrders.map((order, rowIdx) => {
                 const cat = CATEGORIES.find((c) => c.id === order.categoryId);
                 const dateLabel = formatOrderScheduleShort(order);
                 const status = mapStatus(order.orderStatus);
@@ -879,13 +1054,13 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const priceLabel = formatPriceType(order);
                 const matchLabel = formatMatchType(order);
                 return (
-                  <TableRow key={order.id} onClick={() => {
+                  <TableRow key={order.id} $odd={rowIdx % 2 === 1} onClick={() => {
                     if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
                     if (status === "대기" && order.createdBy !== uid) { showToast("접수자가 수정 중인 오더입니다"); return; }
                     if (order.createdBy !== uid && blockedUids.has(order.createdBy)) { showToast("거부등록된 오더입니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
                   }}>
-                    <TdCell $flex={0.9} style={{alignItems:"center"}}>
+                    <TdCell $stickw={78} style={{alignItems:"center"}}>
                       <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
@@ -914,19 +1089,21 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </ScrollHintTable>
           )}
 
-        <FloatBtn onClick={() => navigate("/order/create")}>+ 예약접수</FloatBtn>
+        <RoundCta onClick={() => navigate("/order/create")}>
+          <IoAddCircle size={20} /> 접수
+        </RoundCta>
         </>
       )}
 
       {/* ══════ 나의오더현황 ══════ */}
-      {activeTab === "my_orders" && (
+      {uid && activeTab === "my_orders" && (
         <>
           <MyOrdersContent />
         </>
       )}
 
       {/* ══════ AI견적 ══════ */}
-      {activeTab === "ai_estimate" && (
+      {uid && activeTab === "ai_estimate" && (
         <AIEstimateContent />
       )}
 
@@ -965,40 +1142,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         </GuideSection>
       )}
 
-      {/* ══════ 사업자 정보 ══════ */}
-      {companyInfo && (companyInfo.companyName || companyInfo.bizNumber) && (
-        <CompanyFooter>
-          {/* 순서·문구: 대표 9/15 리뷰 — 약관 링크 → 상호 → 대표·개인정보책임자 → 주소 → 등록번호들 → 고객센터·이메일 */}
-          <CompanyLinks style={{ marginTop: 0, marginBottom: 10 }}>
-            <button type="button" onClick={() => navigate("/legal/terms")}>이용약관</button>
-            <button type="button" onClick={() => navigate("/legal/privacy")}>개인정보 처리방침</button>
-            <button type="button" onClick={() => navigate("/legal/location")}>위치기반서비스 이용약관</button>
-          </CompanyLinks>
-          <CompanyRows>
-            {companyInfo.companyName && <span>상호명 : {companyInfo.companyName}</span>}
-            {(companyInfo.ceo || companyInfo.privacyOfficer) && (
-              <span>
-                {companyInfo.ceo ? `대표이사 : ${companyInfo.ceo}` : ""}
-                {companyInfo.ceo && companyInfo.privacyOfficer ? "\u00a0\u00a0\u00a0" : ""}
-                {companyInfo.privacyOfficer ? `개인정보책임관리자 : ${companyInfo.privacyOfficer}` : ""}
-              </span>
-            )}
-            {companyInfo.address && <span>주소 : {companyInfo.address}</span>}
-            {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
-            {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
-            <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
-            {(companyInfo.phone || companyInfo.email) && (
-              <span>
-                {companyInfo.phone ? `고객센터 : ${companyInfo.phone}` : ""}
-                {companyInfo.phone && companyInfo.email ? "\u00a0\u00a0\u00a0" : ""}
-                {companyInfo.email ? `이메일 : ${companyInfo.email}` : ""}
-              </span>
-            )}
-          </CompanyRows>
-          <CompanyCopy>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</CompanyCopy>
-        </CompanyFooter>
-      )}
-
+      {/* 사업자 정보·약관은 마이페이지로 옮김 (대표 9/17) */}
       <BottomSpacer />
 
       {/* 카테고리 필터 바텀시트 */}
@@ -1356,7 +1500,207 @@ const PageWrap = styled.div`
   display: flex;
   flex-direction: column;
   background: ${THEME.background};
-  min-height: 100%;
+  min-height: 100vh;
+`;
+
+/* 상단 포인트 카드 (섹션 1-2) */
+const PointLine = styled.div`
+  display: flex;
+  background: ${THEME.surface};
+  border-bottom: 1px solid #F2F4F7;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+`;
+
+const PointCell = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+`;
+
+const PointCellDivider = styled.div`
+  width: 1px;
+  margin: 10px 0;
+  background: #EFF1F4;
+`;
+
+const PointCellLabel = styled.div`
+  font-size: 13px;
+  color: #2b2f36;
+`;
+
+const PointLineTier = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-top: 2px;
+`;
+
+const PointLineValue = styled.div`
+  font-size: 20px;
+  font-weight: 800;
+  color: ${THEME.primary};
+  margin-top: 1px;
+`;
+
+const PointCard = styled.div`
+  margin: 10px 12px 12px;
+  padding: 14px 16px;
+  background: ${THEME.button};
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  &:active { opacity: 0.9; }
+`;
+
+const PointCardLeft = styled.div`
+  min-width: 0;
+`;
+
+const PointCardLabel = styled.div`
+  font-size: 14px;
+  opacity: 0.9;
+`;
+
+const PointCardTier = styled.div`
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+`;
+
+const PointCardValue = styled.div`
+  font-size: 26px;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+/* 탭 줄 — 두 줄 (섹션 2-2) */
+const HomeTabGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px 12px;
+`;
+
+const HomeTabCell = styled.button`
+  padding: 10px 6px;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  background: ${({ $active }) => ($active ? THEME.purpleLight : THEME.surface)};
+  color: ${({ $active }) => ($active ? THEME.primaryDark : THEME.text)};
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  border-radius: 8px;
+  &:active { opacity: 0.85; }
+`;
+
+/* 요약 줄 (섹션 5-1) */
+const SummaryLine = styled.div`
+  margin: 12px 14px 0;
+  font-size: 14px;
+  color: #2b2f36;
+  b { color: ${THEME.primaryDark}; }
+`;
+
+/* 필터 접기 줄 (섹션 3-1) */
+const FilterToggleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  /* 탭 줄 바로 밑에 붙어 보여 위 여백을 늘림 (형 9/17) */
+  padding: 20px 16px 12px;
+`;
+
+const FilterToggleBtn = styled.button`
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : THEME.border)};
+  background: ${({ $on }) => ($on ? THEME.purpleLight : THEME.surface)};
+  color: ${THEME.text};
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 7px 10px 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const FilterChevron = styled.span`
+  display: inline-flex;
+  transition: transform 0.15s;
+  transform: rotate(${({ $open }) => ($open ? "180deg" : "0deg")});
+`;
+
+const FilterFoldBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-top: 1px solid ${THEME.border};
+  background: none;
+  color: ${THEME.text};
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: -6px;
+`;
+
+const ActiveChip = styled.button`
+  border: 1px solid ${THEME.primary};
+  background: ${THEME.surface};
+  color: ${THEME.primaryDark};
+  font-size: 13px;
+  font-family: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+`;
+
+const FilterCount = styled.span`
+  margin-left: auto;
+  font-size: 14px;
+  color: ${THEME.text};
+`;
+
+/* 예약접수 — 화면 아래 고정 동그라미 버튼 (대표 9/17) */
+const RoundCta = styled.button`
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 24px;
+  background: ${THEME.button};
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  z-index: 90;
+  &:active { opacity: 0.9; }
+  &:focus { outline: none; }
 `;
 
 const PointHeader = styled.div`
@@ -1536,7 +1880,7 @@ const StepNum = styled.div`
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 16px;
   font-weight: 600;
@@ -1585,7 +1929,7 @@ const HideToast = styled.div`
 `;
 
 const BottomSpacer = styled.div`
-  height: 20px;
+  height: calc(16px + env(safe-area-inset-bottom, 0px));
 `;
 
 /* ===================== 사업자 정보 푸터 ===================== */
@@ -1598,9 +1942,10 @@ const CompanyFooter = styled.footer`
 
 const CompanyLinks = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   margin-top: 12px;
+  line-height: 1.7;
   font-size: 14px;
   line-height: 1.4;
   button {
@@ -1612,12 +1957,14 @@ const CompanyLinks = styled.div`
     color: ${THEME.text};
     cursor: pointer;
   }
+  column-gap: 12px;
+  row-gap: 6px;
   button + button::before {
     content: "";
     display: inline-block;
     width: 1px;
     height: 12px;
-    margin: 0 10px;
+    margin-right: 12px;
     background: ${THEME.border || "#E5E7EB"};
     vertical-align: -1px;
   }
@@ -1630,18 +1977,43 @@ const CompanyName = styled.div`
   margin-bottom: 8px;
 `;
 
+/* 사업자 정보 펼치기 — 박스 없이 글자만 (대표 9/17) */
+const CompanyToggle = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.surface};
+  padding: 13px 14px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.text};
+  font-family: inherit;
+  cursor: pointer;
+  &:active { background: ${THEME.background}; }
+`;
+
 const CompanyRows = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.surface};
+  padding: 14px;
+  gap: 7px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.7;
   color: ${THEME.muted};
+  span { word-break: keep-all; }
 `;
 
 const CompanyCopy = styled.div`
-  margin-top: 10px;
+  margin-top: 16px;
   font-size: 13px;
+  line-height: 1.7;
   color: ${THEME.muted};
   opacity: 0.7;
 `;
@@ -1649,7 +2021,7 @@ const CompanyCopy = styled.div`
 /* ===================== 초대코드 탭 styles ===================== */
 
 const InviteWrap = styled.div`
-  padding: 0 12px;
+  padding: 0;
 `;
 
 const InviteCard = styled.div`
@@ -1658,6 +2030,7 @@ const InviteCard = styled.div`
   padding: 20px;
   margin-top: 12px;
   box-shadow: ${THEME.cardShadow};
+  &:first-child { margin-top: 0; }
 `;
 
 const InviteCardTitle = styled.div`
@@ -1695,7 +2068,7 @@ const InviteCopyBtn = styled.button`
   padding: 8px 16px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -1713,9 +2086,9 @@ const ShareBtnRow = styled.div`
 const ShareBtn = styled.button`
   flex: 1;
   padding: 12px 0;
-  border: 1px solid ${({ $primary }) => ($primary ? THEME.primary : THEME.border)};
+  border: 1px solid ${({ $primary }) => ($primary ? THEME.button : THEME.border)};
   border-radius: 10px;
-  background: ${({ $primary }) => ($primary ? THEME.primary : "#fff")};
+  background: ${({ $primary }) => ($primary ? THEME.button : "#fff")};
   color: ${({ $primary }) => ($primary ? "#fff" : THEME.text)};
   font-size: 15px;
   font-weight: 600;
@@ -1793,7 +2166,7 @@ const InviteApplyBtn = styled.button`
   padding: 12px 20px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 17px;
   font-weight: 600;
@@ -1804,11 +2177,23 @@ const InviteApplyBtn = styled.button`
   &:disabled { background: ${THEME.border}; color: ${THEME.muted}; }
 `;
 
-const ReferredDoneText = styled.div`
+const ReferredList = styled.div`
   margin-top: 8px;
-  font-size: 16px;
-  color: ${THEME.success || "#10B981"};
-  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const ReferredRow = styled.div`
+  font-size: 15px;
+  color: #2b2f36;
+  line-height: 1.6;
+  word-break: keep-all;
+`;
+
+const ReferredStrong = styled.b`
+  color: ${THEME.text};
+  font-weight: 700;
 `;
 
 const InviteToast = styled.div`
@@ -1831,18 +2216,23 @@ const HomeTabRow = styled.div`
   gap: 0;
   padding: 0 12px;
   overflow-x: auto;
+  background: ${THEME.surface};
   border-bottom: 1px solid ${THEME.border};
+  position: sticky;
+  top: 61px; /* 포인트 줄(두 칸) 높이만큼 — 안 맞으면 스크롤 시 포인트 줄을 덮는다 */
+  z-index: 20;
   &::-webkit-scrollbar { display: none; }
 `;
 
 const HomeTabBtn = styled.button`
   flex: ${({ $wide }) => ($wide ? 1.6 : 1)};
-  padding: 10px 8px 8px;
+  /* 탭 높이 조금 키움 (형 9/18 "좀 작아 보여서") */
+  padding: 14px 8px 12px;
   border: none;
-  border-bottom: 2px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
+  border-bottom: 3px solid ${({ $active }) => $active ? THEME.primary : "transparent"};
   background: ${THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1852,6 +2242,7 @@ const HomeTabBtn = styled.button`
   align-items: center;
   gap: 2px;
   &:active { opacity: 0.8; }
+  &:focus { outline: none; }
 `;
 
 const DistHint = styled.span`
@@ -1869,36 +2260,121 @@ const HomeTabSub = styled.span`
 `;
 
 /* 보유자산 (포인트 잔액 + 내역) */
+/* 비회원 안내 (대표 9/17) */
+const GuestNotice = styled.div`
+  min-height: calc(100vh - 320px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0 14px;
+  padding: 24px 18px;
+  text-align: center;
+`;
+
+const GuestTitle = styled.div`
+  font-size: 18px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const GuestDesc = styled.div`
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #2b2f36;
+  word-break: keep-all;
+`;
+
+const GuestBtnRow = styled.div`
+  margin-top: 20px;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const GuestPrimary = styled.button`
+  height: 50px;
+  border: none;
+  border-radius: 10px;
+  background: ${THEME.button};
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+`;
+
+const GuestGhost = styled.button`
+  height: 50px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+`;
+
 const AssetWrap = styled.div`
-  padding: 12px;
+  padding: 12px 16px 16px;
   display: flex;
   flex-direction: column;
 `;
 
+/* 한 상자 탭 — 위 홈 탭(밑줄)과 겹쳐 보이지 않게 (시안 1번, 형 9/18) */
+const AssetSubTabs = styled.div`
+  display: flex;
+  margin: 0 0 14px;
+  border: 1px solid #D9DDE3;
+  background: ${THEME.surface};
+`;
+
+const AssetSubTab = styled.button`
+  flex: 1;
+  height: 48px;
+  border: none;
+  & + & { border-left: 1px solid #D9DDE3; }
+  background: ${({ $active }) => ($active ? "#E9ECF1" : THEME.surface)};
+  color: ${THEME.text};
+  font-size: 16px;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+  &:focus { outline: none; }
+`;
+
+/* 색 면을 빼고 한 줄로 담백하게 (대표 9/17 "크고 색이 들어가 부담스럽다") */
 const PointBalanceCard = styled.div`
-  background: ${THEME.primary};
-  border-radius: 16px;
-  padding: 24px 20px;
-  text-align: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  padding: 16px 16px;
 `;
 
 const PointBalanceLabel = styled.div`
-  font-size: 16px;
-  color: rgba(255,255,255,0.85);
+  font-size: 15px;
+  color: #2b2f36;
 `;
 
 const PointBalanceValue = styled.div`
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 700;
-  color: #fff;
-  margin-top: 6px;
+  color: ${THEME.text};
 `;
 
 const AssetListHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 20px 4px 10px;
+  margin: 20px 0 10px;
 `;
 
 const AssetListTitle = styled.div`
@@ -1927,6 +2403,7 @@ const PeriodChip = styled.button`
   color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
   cursor: pointer;
   white-space: nowrap;
+  &:focus { outline: none; }
 `;
 
 const AssetHistoryList = styled.div`
@@ -1995,7 +2472,7 @@ const FloatBtn = styled.button`
   bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   right: calc(50% - 163px);
   padding: 10px 18px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -2018,8 +2495,31 @@ const SectionTitle = styled.div`
 const FilterBtnRow = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 12px 16px 8px;
+  gap: 8px;
+`;
+
+/* 펼친 필터 — 항목 이름으로 묶는다 (대표 9/17) */
+const FilterPanel = styled.div`
+  margin: 0 12px 12px;
+  padding: 14px;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const FilterGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const FilterGroupLabel = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${THEME.text};
 `;
 
 const FilterLabel = styled.div`
@@ -2035,8 +2535,8 @@ const FilterBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 9px 14px;
+  border-radius: 8px;
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}10` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.textSecondary};
@@ -2046,6 +2546,7 @@ const FilterBtn = styled.button`
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
+  &:focus { outline: none; }
   &:active { opacity: 0.8; }
 `;
 
@@ -2198,7 +2699,7 @@ const StatusCount = styled.span`
   font-size: 14px;
   font-weight: 600;
   color: ${({ $active }) => $active ? "#fff" : THEME.muted};
-  background: ${({ $active }) => $active ? THEME.primary : THEME.border};
+  background: ${({ $active }) => $active ? THEME.button : THEME.border};
   border-radius: 10px;
   padding: 2px 8px;
   min-width: 20px;
@@ -2389,8 +2890,13 @@ const TableScrollOuter = styled.div`
 `;
 
 const TableWrap = styled.div`
+  /* 목록만 세로로 스크롤한다. 위쪽(지역·포인트·탭·필터)과 하단 탭은 제자리에 남는다 (대표 9/17) */
+  /* 위쪽(지역·포인트·탭·필터)을 뺀 나머지를 모두 목록에 준다 — 하단 탭 바로 위까지 (대표 9/17) */
+  height: calc(100vh - 252px - env(safe-area-inset-bottom, 0px));
+  min-height: 300px;
   background: ${THEME.surface};
-  overflow-x: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   border: 1px solid ${THEME.border};
   scrollbar-width: none;
@@ -2425,20 +2931,24 @@ const ScrollHintArrow = styled.div`
 `;
 
 const TableHeader = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   padding: 8px 12px;
   gap: 4px;
-  background: #4A5568;
-  border-bottom: 1px solid ${THEME.border};
+  background: #E9ECF1;
+  border-bottom: 1px solid #D9DDE3;
   align-items: center;
   min-width: 600px;
 `;
 
 const ThCell = styled.div`
-  flex: ${({ $flex }) => $flex || 1};
+  ${({ $stickw }) => ($stickw ? `position: sticky; left: 0; z-index: 3; flex: 0 0 ${$stickw}px; width: ${$stickw}px; background: #E9ECF1;` : "")}
+  flex: ${({ $flex, $stickw }) => ($stickw ? "0 0 " + $stickw + "px" : $flex || 1)};
   font-size: 15px;
-  font-weight: 600;
-  color: #fff;
+  font-weight: 700;
+  color: ${THEME.text};
   white-space: nowrap;
 `;
 
@@ -2447,17 +2957,19 @@ const TableRow = styled.div`
   display: flex;
   padding: 8px 12px;
   gap: 4px;
-  border-bottom: 1px solid ${THEME.border};
+  background: ${({ $odd }) => ($odd ? "#F7F8FA" : THEME.surface)};
+  border-bottom: 1px solid #EEF0F3;
   cursor: pointer;
   align-items: center;
   min-height: 40px;
   min-width: 600px;
   &:last-child { border-bottom: none; }
-  &:active { background: ${THEME.background}; }
+  &:active { background: #EDEFF3; }
 `;
 
 const TdCell = styled.div`
-  flex: ${({ $flex }) => $flex || 1};
+  ${({ $stickw }) => ($stickw ? `position: sticky; left: 0; z-index: 1; flex: 0 0 ${$stickw}px; width: ${$stickw}px; background: inherit;` : "")}
+  flex: ${({ $flex, $stickw }) => ($stickw ? "0 0 " + $stickw + "px" : $flex || 1)};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2807,7 +3319,7 @@ const SheetConfirmBtn = styled.button`
   padding: 14px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 17px;
   font-weight: 600;
@@ -2879,7 +3391,7 @@ const CalAddBtn = styled.button`
 
 const AICard = styled.div`
   margin: 12px 12px 0;
-  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark || "#00A341"});
+  background: linear-gradient(135deg, ${THEME.button}, ${THEME.buttonDark || "#007A33"});
   border-radius: 12px;
   padding: 18px 20px;
   display: flex;

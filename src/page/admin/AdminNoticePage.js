@@ -69,7 +69,7 @@ const CreateBtn = styled.button`
     border-radius: 4px;
     cursor: pointer;
     color: #fff;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     &:hover {
         opacity: 0.85;
     }
@@ -133,7 +133,7 @@ const ActionBtn = styled.button`
     cursor: pointer;
     margin-right: 4px;
     color: #fff;
-    background: ${({ $bg }) => $bg || THEME.primary};
+    background: ${({ $bg }) => $bg || THEME.button};
     &:hover {
         opacity: 0.85;
     }
@@ -258,7 +258,7 @@ const ModalBtn = styled.button`
     border-radius: 4px;
     cursor: pointer;
     color: #fff;
-    background: ${({ $bg }) => $bg || THEME.primary};
+    background: ${({ $bg }) => $bg || THEME.button};
     &:disabled {
         opacity: 0.5;
         cursor: default;

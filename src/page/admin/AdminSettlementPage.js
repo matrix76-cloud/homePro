@@ -13,7 +13,7 @@ const Title = styled.h2`font-size:22px;font-weight:700;color:${THEME.text};margi
 const HeaderRight = styled.div`display:flex;gap:8px;`;
 const Btn = styled.button`
     padding:8px 16px;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer;
-    background:${p => p.$danger ? THEME.danger : p.$outline ? '#fff' : THEME.primary};
+    background:${p => p.$danger ? THEME.danger : p.$outline ? '#fff' : THEME.button};
     color:${p => p.$outline ? THEME.primary : '#fff'};
     border:${p => p.$outline ? `1px solid ${THEME.primary}` : 'none'};
     &:disabled{opacity:0.5;}

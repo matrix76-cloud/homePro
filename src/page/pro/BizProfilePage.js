@@ -23,7 +23,7 @@ import { getProsByCategory } from "../../service/ProService";
 import { upsertUserProfile } from "../../service/UserProfileService";
 import { createChatRoom } from "../../service/ChatService";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
-import { GradeBadge, GradeProgressBar } from "../../utility/gradeUtils";
+import { GradeBadge, GradeProgressBar, getGradeRule } from "../../utility/gradeUtils";
 import { reportToBlacklist, BLACKLIST_REASONS } from "../../service/BlacklistService";
 import { blockUser, unblockUser, isBlocked as isBlockedCheck } from "../../service/BlockService";
 import { IoShieldOutline, IoBanOutline, IoImageOutline } from "react-icons/io5";
@@ -84,6 +84,9 @@ const BizProfilePage = () => {
   // 포트폴리오·SNS 링크
   const [sns, setSns] = useState(EMPTY_SNS);
   const [savingSns, setSavingSns] = useState(false);
+  const [snsEditKey, setSnsEditKey] = useState(null); // 지금 입력 중인 채널
+  const [snsDraft, setSnsDraft] = useState("");
+  const [snsPicking, setSnsPicking] = useState(false); // [채널 추가] 눌러 채널 고르는 중
   const [webView, setWebView] = useState(null); // { url, label }
 
   // 증명서
@@ -214,6 +217,24 @@ const BizProfilePage = () => {
       setSns({ ...EMPTY_SNS, ...snsLinks });
       setMyProfile((p) => ({ ...(p || {}), snsLinks }));
       alert("포트폴리오·SNS 링크가 저장되었습니다");
+    } catch (e) {
+      alert("저장 실패: " + (e.message || e));
+    } finally {
+      setSavingSns(false);
+    }
+  };
+
+  // 채널 하나만 저장/삭제 (시안 4번) — 나머지 채널 값은 그대로 둔다
+  const saveSnsOne = async (key, raw) => {
+    if (!myUid) return;
+    setSavingSns(true);
+    try {
+      const snsLinks = { ...EMPTY_SNS, ...(myProfile?.snsLinks || {}), [key]: normalizeSnsValue(key, raw) };
+      await upsertUserProfile(myUid, { snsLinks });
+      setSns(snsLinks);
+      setMyProfile((p) => ({ ...(p || {}), snsLinks }));
+      setSnsEditKey(null);
+      setSnsDraft("");
     } catch (e) {
       alert("저장 실패: " + (e.message || e));
     } finally {
@@ -486,8 +507,12 @@ const BizProfilePage = () => {
                 <ProfileInfo>
                   <ProfileNameRow>
                     <ProfileName>{myProfile?.companyName || myProfile?.name || userData?.name || "이름 없음"}</ProfileName>
-                    <GradeBadge grade={myProfile?.grade || userData?.grade} size="sm" />
                   </ProfileNameRow>
+                  {/* 등급은 알약 뱃지 대신 이름 밑 글씨로 (시안 4번, 형 9/17) */}
+                  {(() => {
+                    const g = myProfile?.grade || userData?.grade || "rookie";
+                    return <GradeText $color={GRADE_TEXT_COLOR[g] || THEME.text}>{getGradeRule(g).label} 등급</GradeText>;
+                  })()}
                   {/* 인증 공인중개사 — 공동중개 승인(homepro_pros brokerage approved) 시 상호명 아래 한 줄 (형 지시 9/14) */}
                   {brokerCertified && (
                     <div style={{ fontSize: 14, color: "#15803d", fontWeight: 700, margin: "2px 0 4px" }}>인증 공인중개사</div>
@@ -585,30 +610,69 @@ const BizProfilePage = () => {
               </AccountCard>
             )}
 
-            {/* 포트폴리오·SNS — 본인: 입력/저장 (대표 지시 7/30) */}
-            {!isViewingOther && (
-              <AccountCard>
-                <AccountTitle>포트폴리오 · SNS</AccountTitle>
-                <AccountSub>등록한 채널은 내 프로필을 보는 홈프로에게 노출됩니다</AccountSub>
-                {SNS_META.map(({ key, label, placeholder }) => (
-                  <SnsField key={key}>
-                    <SnsLabel>{label}</SnsLabel>
-                    <AccountInput
-                      value={sns[key] || ""}
-                      onChange={(e) => setSns((s) => ({ ...s, [key]: e.target.value }))}
-                      placeholder={placeholder}
-                      autoCapitalize="off"
-                      autoCorrect="off"
-                      spellCheck={false}
-                    />
-                  </SnsField>
-                ))}
-                <AccountSaveBtn onClick={handleSaveSns} disabled={savingSns}>
-                  {savingSns ? "저장 중..." : "링크 저장"}
-                </AccountSaveBtn>
-                <SnsHint>주소 형식이 아니어도 저장 시 자동으로 정리됩니다</SnsHint>
-              </AccountCard>
-            )}
+            {/* 포트폴리오·SNS — 본인: 등록한 채널만 보이고 [채널 추가]로 하나씩 (시안 4번, 형 9/17) */}
+            {!isViewingOther && (() => {
+              const saved = myProfile?.snsLinks || {};
+              const registered = SNS_META.filter((m) => saved[m.key]);
+              const unregistered = SNS_META.filter((m) => !saved[m.key]);
+              const editor = (meta) => (
+                <SnsEditBox key={"edit-" + meta.key}>
+                  <SnsRowHead><meta.Icon size={18} color={meta.color} /><SnsRowLabel>{meta.label}</SnsRowLabel></SnsRowHead>
+                  <AccountInput
+                    autoFocus
+                    value={snsDraft}
+                    onChange={(e) => setSnsDraft(e.target.value)}
+                    placeholder={meta.placeholder}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  <SnsEditBtns>
+                    <SnsGhostBtn type="button" onClick={() => { setSnsEditKey(null); setSnsDraft(""); }}>취소</SnsGhostBtn>
+                    {saved[meta.key] && (
+                      <SnsGhostBtn type="button" disabled={savingSns} onClick={() => saveSnsOne(meta.key, "")}>삭제</SnsGhostBtn>
+                    )}
+                    <SnsSaveBtn type="button" disabled={savingSns || !snsDraft.trim()} onClick={() => saveSnsOne(meta.key, snsDraft)}>
+                      {savingSns ? "저장 중..." : "저장"}
+                    </SnsSaveBtn>
+                  </SnsEditBtns>
+                </SnsEditBox>
+              );
+              return (
+                <AccountCard>
+                  <AccountTitle>포트폴리오 · SNS</AccountTitle>
+                  <AccountSub>등록한 채널은 내 프로필을 보는 홈프로에게 노출됩니다</AccountSub>
+                  {registered.map((m) => (
+                    snsEditKey === m.key ? editor(m) : (
+                      <SnsRow key={m.key}>
+                        <m.Icon size={18} color={m.color} />
+                        <SnsRowText>
+                          <SnsRowLabel>{m.label}</SnsRowLabel>
+                          <SnsRowUrl>{saved[m.key].replace(/^https?:\/\//, "")}</SnsRowUrl>
+                        </SnsRowText>
+                        <SnsEditLink type="button" onClick={() => { setSnsEditKey(m.key); setSnsDraft(saved[m.key].replace(/^https?:\/\//, "")); setSnsPicking(false); }}>수정</SnsEditLink>
+                      </SnsRow>
+                    )
+                  ))}
+                  {snsEditKey && !saved[snsEditKey] && editor(SNS_META.find((m) => m.key === snsEditKey))}
+                  {!snsEditKey && snsPicking && (
+                    <SnsPickGrid>
+                      {unregistered.map((m) => (
+                        <SnsPickBtn key={m.key} type="button" onClick={() => { setSnsEditKey(m.key); setSnsDraft(""); setSnsPicking(false); }}>
+                          <m.Icon size={18} color={m.color} />{m.label}
+                        </SnsPickBtn>
+                      ))}
+                    </SnsPickGrid>
+                  )}
+                  {!snsEditKey && unregistered.length > 0 && (
+                    <SnsAddBtn type="button" onClick={() => setSnsPicking((v) => !v)}>
+                      {snsPicking ? "닫기" : <><IoAddOutline size={19} />채널 추가</>}
+                    </SnsAddBtn>
+                  )}
+                  {snsEditKey && <SnsHint>주소 형식이 아니어도 저장 시 자동으로 정리됩니다</SnsHint>}
+                </AccountCard>
+              );
+            })()}
 
             {/* 포트폴리오·SNS — 타인: 채널 버튼 (각 채널 고유 컬러) */}
             {isViewingOther && activeSns.length > 0 && (
@@ -1440,6 +1504,8 @@ const AccountLabel = styled.div`
 const AccountInput = styled.input`
   flex: 1;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   padding: 11px 12px;
   font-size: 16px;
   border: 1px solid ${THEME.border};
@@ -1447,7 +1513,7 @@ const AccountInput = styled.input`
   background: ${THEME.background};
   color: ${THEME.text};
   font-family: inherit;
-  &:focus { outline: none; border-color: ${THEME.primary}; background: ${THEME.surface}; }
+  &:focus { outline: none; border-color: ${THEME.button}; background: ${THEME.surface}; }
 `;
 
 const AccountSaveBtn = styled.button`
@@ -1457,7 +1523,7 @@ const AccountSaveBtn = styled.button`
   font-size: 17px;
   font-weight: 700;
   color: #fff;
-  background: ${({ disabled }) => disabled ? THEME.muted : THEME.primary};
+  background: ${({ disabled }) => disabled ? THEME.muted : THEME.button};
   border: none;
   border-radius: 10px;
   font-family: inherit;
@@ -1556,6 +1622,139 @@ const SnsHint = styled.div`
   font-size: 13px;
   color: ${THEME.muted};
   margin-top: 8px;
+`;
+
+const GRADE_TEXT_COLOR = { rookie: "#545E6B", bronze: "#8D6E63", silver: "#607D8B", gold: "#B7791F", diamond: "#007A33", master: "#DC2626" };
+
+const GradeText = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${({ $color }) => $color};
+  margin: 2px 0 2px;
+`;
+
+const SnsRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  & + & { border-top: 1px solid #EFF1F4; }
+`;
+
+const SnsRowHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+`;
+
+const SnsRowText = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const SnsRowLabel = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const SnsRowUrl = styled.div`
+  font-size: 14px;
+  color: #2b2f36;
+  word-break: break-all;
+  margin-top: 1px;
+`;
+
+const SnsEditLink = styled.button`
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 6px 2px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #2b2f36;
+  cursor: pointer;
+`;
+
+const SnsEditBox = styled.div`
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+`;
+
+const SnsEditBtns = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+`;
+
+const SnsGhostBtn = styled.button`
+  flex: 1;
+  height: 46px;
+  border: 1px solid #D9DDE3;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: ${THEME.text};
+  cursor: pointer;
+`;
+
+const SnsSaveBtn = styled.button`
+  flex: 2;
+  height: 46px;
+  border: none;
+  border-radius: 10px;
+  background: ${({ disabled }) => (disabled ? "#C9CED6" : THEME.button)};
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #fff;
+  cursor: ${({ disabled }) => (disabled ? "default" : "pointer")};
+`;
+
+const SnsPickGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+`;
+
+const SnsPickBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 52px;
+  border: 1px solid #D9DDE3;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: ${THEME.text};
+  word-break: keep-all;
+  cursor: pointer;
+`;
+
+const SnsAddBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 50px;
+  margin-top: 10px;
+  border: 1px dashed ${THEME.primary};
+  border-radius: 10px;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  color: ${THEME.primaryDark};
+  cursor: pointer;
 `;
 
 const SnsBtnRow = styled.div`
@@ -1864,7 +2063,7 @@ const SelectedChip = styled.button`
   padding: 7px 12px;
   border-radius: 8px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -2005,7 +2204,7 @@ const SheetConfirmBtn = styled.button`
   padding: 12px;
   border-radius: 10px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 16px;
   font-weight: 600;
@@ -2097,7 +2296,7 @@ const ChatBtn = styled.button`
   padding: 10px;
   border-radius: 10px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: white;
   font-size: 15px;
   font-weight: 500;
@@ -2174,11 +2373,12 @@ const ReasonRow = styled.div`
 const ReasonChip = styled.button`
   padding: 9px 14px;
   border-radius: 20px;
-  border: 1px solid ${({ $active }) => ($active ? (THEME.primary || "#2571e3") : (THEME.border || "#F0F0F4"))};
-  background: ${({ $active }) => ($active ? (THEME.primary || "#2571e3") : "#fff")};
+  border: 1px solid ${({ $active }) => ($active ? (THEME.button || "#00B84A") : (THEME.border || "#F0F0F4"))};
+  background: ${({ $active }) => ($active ? (THEME.button || "#2571e3") : "#fff")};
   color: ${({ $active }) => ($active ? "#fff" : (THEME.text || "#222"))};
   font-size: 14px; font-weight: 500;
   cursor: pointer;
+  &:focus { outline: none; }
 `;
 const ReportTextarea = styled.textarea`
   width: 100%; min-height: 110px;

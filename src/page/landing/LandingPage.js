@@ -1,296 +1,279 @@
 /**
- * 홈프로 PC 영업 랜딩 (앱 다운로드 유도)
- * - 레퍼런스: classmanage LandingPage 구조 재현 + 홈프로 B2B 톤으로 카피 전면 교체
- * - 대상: 청소·인테리어·설비 등 현장 전문가(프로)끼리 일감을 주고받는 하도급/외주 플랫폼
- * - 디자인 토큰: 퍼플 주조색(#00C74E) + 흰/연회색 교차, 버튼 r10 / 카드 r16, 약한 그림자, 라인 아이콘
- * - PC 기준 + 반응형(모바일 stack). 라우트: /intro
- * - 스크린샷은 실제 앱 캡처 사용 (public/assets/landing/*.png — 화면 바뀌면 재캡처 필요)
+ * 홈프로 사업자 랜딩 /intro — 대표 초안 문구 그대로 (리뷰 9/17)
+ *  히어로 → 01 오더를 주고받다 → 02 소개수수료 → 03 PG 결제 → 04 배상책임보험
+ *  → 홈프로 하나로 → 사업자의 새로운 일하는 방식 → 마무리 [사업자 가입하기]
+ * - 문구는 대표 초안에서 바꾸지 않는다. 화면 캡처는 public/assets/landing/*.png (화면 바뀌면 재캡처)
+ * - PC 기준 + 반응형(900px 이하 세로 쌓기)
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import {
-  FiClipboard, FiCpu, FiUsers, FiMessageSquare, FiMapPin,
-  FiClock, FiShield, FiCheck, FiPlus, FiImage, FiCalendar,
-} from 'react-icons/fi';
+import { FiArrowDown, FiCheck } from 'react-icons/fi';
 
-const APP_STORE_URL = '#'; // TODO: 아이폰 심사 통과 후 App Store 링크
-const PLAY_STORE_URL = '#'; // TODO: 안드로이드 배포 후 Google Play 링크
-
-const STATS = [
-  { num: '33개', label: '전문 분야 카테고리' },
-  { num: 'AI', label: '자동 견적 산출' },
-  { num: '5분', label: '오더 등록부터 견적까지' },
-  { num: '0원', label: '가입·기본 사용 비용' },
-];
-
-const PAIN_POINTS = [
-  { Icon: FiClock, title: '들쭉날쭉한 일감', desc: '바쁠 땐 손이 모자라고, 빌 땐 일이 없어 인력·장비를 놀리고 계셨죠.' },
-  { Icon: FiUsers, title: '급할 때 부를 사람이 없음', desc: '갑자기 인력이 필요한데 믿고 맡길 동종 업계 프로를 찾기가 어렵습니다.' },
-  { Icon: FiShield, title: '처음 보는 외주처는 불안', desc: '일은 받았는데 누구한테 넘겨야 할지, 제대로 마무리될지 확신이 안 섭니다.' },
-];
-
-const FEATURES = [
+const SECTIONS = [
   {
-    Icon: FiClipboard,
-    tag: '오더·견적',
-    color: '#00C74E',
-    title: '일감을 올리면, 동종 프로가 견적을 보냅니다',
-    desc: '하도급 줄 일감을 오더로 등록하세요. 분야가 맞는 프로들이 견적을 보내고, 수락하면 채팅방이 자동으로 열립니다.',
-    shot: '/assets/landing/orders.png',
-    points: ['오더 등록 → 견적 자동 수신', '견적 수락 시 채팅방 자동 생성', '카테고리별 맞춤 접수폼'],
+    id: 'order',
+    no: '01',
+    title: '오더를 주고받다',
+    lead: '필요한 오더를 받고, 내가 가진 오더를 공유하세요.',
+    shot: '/assets/landing/order-create.png',
+    shotAlt: '홈프로 오더 등록 화면',
   },
   {
-    Icon: FiCpu,
-    tag: 'AI 견적',
-    color: '#16A34A',
-    title: '사진과 내용만 넣으면, AI가 예상 견적을 뽑아줍니다',
-    desc: '현장 사진과 작업 내용을 입력하면 AI가 예상 견적 범위를 산출합니다. 견적 기준이 막막할 때 출발점이 되어 줍니다.',
-    shot: '/assets/landing/ai.png',
-    points: ['현장 사진·내용 기반 자동 산출', '분야별 시세 참고', '견적 초안으로 바로 활용'],
-  },
-  {
-    Icon: FiUsers,
-    tag: '오더 배정',
-    color: '#F59E0B',
-    title: '상황에 맞게 골라 호출하세요',
-    desc: '먼저 본 프로에게 빠른배정, 여러 견적을 받아 비교선정, 믿는 프로에게 지정배정까지. 일의 급함과 신뢰도에 맞춰 선택합니다.',
+    id: 'referral',
+    no: '02',
+    title: '내 전문분야가 아닌 오더도 수익으로',
+    lead: '“내가 못 하는 일”이 “내 수익”이 될 수 있습니다.',
     shot: '/assets/landing/myorders.png',
-    points: ['빠른배정 · 비교선정 · 지정배정', '거부·블랙리스트로 안전하게', '완료 후 리뷰로 신뢰 쌓기'],
+    shotAlt: '홈프로 나의 오더현황 화면',
   },
   {
-    Icon: FiCalendar,
-    tag: '일정·채팅',
-    color: '#0EA5E9',
-    title: '진행도 마무리도 한 채팅 안에서',
-    desc: '채팅에서 작업 일정을 공유하고, 캘린더로 기간을 관리하세요. 견적부터 정산까지 모든 대화가 한 곳에 남습니다.',
-    shot: '/assets/landing/chat.png',
-    points: ['채팅에서 일정 공유 · 미니 캘린더', '기간 단위 일정 관리', '읽음 표시 · 계약/정산 연동'],
+    id: 'pay',
+    no: '03',
+    title: '내 고객에게도 간편하게 결제받다',
+    lead: '홈프로 오더뿐만 아니라, 내 개인영업에도 활용하세요.',
+    shot: '/assets/landing/pg.png',
+    shotAlt: '홈프로 PG결제 화면',
+  },
+  {
+    id: 'insurance',
+    no: '04',
+    title: '사고위험도 관리하다',
+    lead: '일은 잘하는 것만큼, 사고에 대비하는 것도 중요합니다.',
+    shot: '/assets/landing/insurance.png',
+    shotAlt: '홈프로 안심케어 화면',
   },
 ];
 
-const PROMO = [
-  { Icon: FiClipboard, grad: 'linear-gradient(135deg, #EFE6FB, #F3EEFE)', shot: '/assets/landing/order-create.png', title: '1분이면 끝나는 오더 등록', desc: '카테고리만 고르면 분야에 맞는 접수폼이 떠요. 사진 몇 장과 내용만 넣으면 끝.' },
-  { Icon: FiImage, grad: 'linear-gradient(135deg, #DBF3E6, #EAF6F0)', shot: '/assets/landing/bizprofile.png', title: '내 작업으로 채우는 비즈프로필', desc: '시공 사진과 이력으로 내 전문성을 보여주고, 더 좋은 일감으로 연결되세요.' },
-  { Icon: FiMapPin, grad: 'linear-gradient(135deg, #FCEFD9, #FEF6EA)', shot: '/assets/landing/prolist.png', title: '내 지역 프로와 먼저 연결', desc: '가까운 지역의 프로끼리 우선 매칭돼 이동·소통 부담이 줄어듭니다.' },
+const ONE = [
+  { h: '오더를 받고', s: '새로운 일감을 만나고' },
+  { h: '오더를 공유하고', s: '소개수익을 만들고' },
+  { h: '결제를 받고', s: '내 매출을 직접 정산받고' },
+  { h: '사고에 대비하고', s: '안전하게 사업하세요.' },
 ];
 
-const STEPS = [
-  { no: '01', Icon: FiClipboard, title: '오더 등록', desc: '하도급 줄 일감을 카테고리에 맞춰 등록합니다.' },
-  { no: '02', Icon: FiUsers, title: '견적 비교·선택', desc: '들어온 견적을 비교하고, 맞는 프로를 골라 수락합니다.' },
-  { no: '03', Icon: FiMessageSquare, title: '채팅으로 진행·완료', desc: '일정·작업을 채팅에서 조율하고, 완료 후 리뷰로 마무리합니다.' },
-];
+const WAY = ['오더 공유', '소개수익', 'PG 결제', '직접정산', '배상책임보험'];
 
-const FAQS = [
-  { q: '홈프로는 어떤 서비스인가요?', a: '청소·인테리어·설비 등 현장 전문가(프로)끼리 일감을 주고받는 하도급·외주 연결 플랫폼입니다. 바쁠 땐 일을 나누고, 일이 빌 땐 다른 프로의 일감을 받을 수 있습니다.' },
-  { q: '소비자도 이용할 수 있나요?', a: '홈프로는 전문가(프로) 간 거래에 초점을 둔 B2B 서비스입니다. 현장 일을 하는 사업자·프리랜서 전문가라면 누구나 시작할 수 있습니다.' },
-  { q: '이용 비용이 있나요?', a: '가입과 기본 사용은 무료로 시작할 수 있습니다. 일부 기능은 포인트로 운영되며, 자세한 정책은 앱 안에서 확인할 수 있습니다.' },
-  { q: 'AI 견적은 어떻게 동작하나요?', a: '현장 사진과 작업 내용을 입력하면 AI가 분야별 정보를 참고해 예상 견적 범위를 산출합니다. 최종 견적은 프로가 직접 조정해 보낼 수 있습니다.' },
-  { q: '모바일에서도 쓸 수 있나요?', a: 'iOS·Android 앱과 웹을 모두 지원합니다. 현장에서는 앱으로, 사무실에서는 웹으로 함께 사용할 수 있습니다.' },
-];
+const Flow = ({ items }) => (
+  <FlowBox>
+    {items.map((t, i) => (
+      <React.Fragment key={i}>
+        {i > 0 && <FlowArrow><FiArrowDown /></FlowArrow>}
+        <FlowItem $strong={t.strong}>{t.text}</FlowItem>
+      </React.Fragment>
+    ))}
+  </FlowBox>
+);
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const [openFaq, setOpenFaq] = useState(0);
+  const goSignup = () => navigate('/MobileSignup');
 
-  const goDownload = () =>
-    document.getElementById('download')?.scrollIntoView({ behavior: 'smooth' });
+  const body = {
+    order: (
+      <>
+        <P>
+          내가 직접 수행할 수 있는 오더는 <b>받고</b>,<br />
+          내 전문분야가 아니거나 직접 수행하기 어려운 오더는 <b>다른 전문가에게 공유</b>할 수 있습니다.
+        </P>
+        <TwoCol>
+          <ListBox>
+            <ListTitle>받는 오더</ListTitle>
+            <Bullets>
+              <li><Check><FiCheck /></Check>내 전문분야 오더 확인</li>
+              <li><Check><FiCheck /></Check>지역·업종에 맞는 오더 수신</li>
+              <li><Check><FiCheck /></Check>작업 상담 및 진행</li>
+            </Bullets>
+          </ListBox>
+          <ListBox>
+            <ListTitle>주는 오더</ListTitle>
+            <Bullets>
+              <li><Check><FiCheck /></Check>내가 받은 오더를 다른 전문가에게 공유</li>
+              <li><Check><FiCheck /></Check>내 전문분야가 아닌 일도 놓치지 않고 연결</li>
+              <li><Check><FiCheck /></Check>필요한 전문가에게 빠르게 전달</li>
+            </Bullets>
+          </ListBox>
+        </TwoCol>
+        <Punch>혼자 영업하는 사업자에서<br />서로 오더를 연결하는 사업자로</Punch>
+      </>
+    ),
+    referral: (
+      <>
+        <P>
+          고객에게 받은 오더가<br />
+          내 전문분야가 아니어도 그냥 놓치지 마세요.
+        </P>
+        <P>
+          홈프로에서 적합한 전문가에게 오더를 공유하고<br />
+          <b>소개수수료 수익</b>을 만들 수 있습니다.
+        </P>
+        <SmallTitle>예시</SmallTitle>
+        <Flow items={[
+          { text: '고객이 누수공사를 요청' },
+          { text: '나는 에어컨 전문사업자' },
+          { text: '누수 전문사업자에게 오더 공유' },
+          { text: '전문사업자가 작업 진행' },
+          { text: '소개수수료 수익 발생', strong: true },
+        ]} />
+        <Punch>내가 직접 하지 않아도<br />연결을 통해 새로운 수익을 만드세요.</Punch>
+      </>
+    ),
+    pay: (
+      <>
+        <P>
+          홈프로에서 받은 오더뿐만 아니라<br />
+          <b>사업자가 직접 확보한 고객의 작업대금도</b><br />
+          간편하게 카드결제를 받을 수 있습니다.
+        </P>
+        <Flow items={[
+          { text: '작업 완료' },
+          { text: <>고객에게 <b>카드결제 링크 / 결제창 발송</b></> },
+          { text: '고객 카드결제' },
+          { text: '사업자 본인 계좌로 직접정산', strong: true },
+        ]} />
+        <Punch>내 영업은 내가 하고<br />결제도 간편하게</Punch>
+        <P>
+          홈프로는 사업자의 결제업무를 편리하게 이용할 수 있는<br />
+          <b>PG 결제 인프라</b>를 제공합니다.
+        </P>
+        <Fine>※ 실제 결제·정산 방식 및 이용 조건은 PG사 계약 및 가맹점 심사 조건에 따라 적용됩니다.</Fine>
+      </>
+    ),
+    insurance: (
+      <>
+        <P>
+          작업 중 고객의 재산이나 시설 등에 손해가 발생하면<br />
+          사업자에게 예상하지 못한 비용 부담이 발생할 수 있습니다.
+        </P>
+        <P>
+          홈프로는 사업자가 작업 위험을 관리할 수 있도록<br />
+          <b>도급업자배상책임보험 연계</b>를 제공합니다.
+        </P>
+        <SmallTitle>홈프로 안심전문가</SmallTitle>
+        <CoverTable>
+          <CoverRow><CoverK>배상책임보험</CoverK><CoverV>작업 중 발생할 수 있는 배상책임 위험에 대비</CoverV></CoverRow>
+          <CoverRow><CoverK>물적손해 확대담보</CoverK><CoverV>업종과 상품 조건에 따라 작업대상물 등 관련 위험을 추가 보장할 수 있도록 설계</CoverV></CoverRow>
+          <CoverRow><CoverK>사고 대응 지원</CoverK><CoverV>상품 조건에 따라 사고 발생 시 보험사의 보상절차 및 법률적 대응 지원</CoverV></CoverRow>
+        </CoverTable>
+        <Punch>사고가 없을 때는 든든하게<br />사고가 발생했을 때는 체계적으로</Punch>
+        <Fine>※ 보험의 보장범위·면책사항·가입조건은 실제 보험상품의 약관 및 계약조건에 따릅니다.</Fine>
+      </>
+    ),
+  };
 
   return (
     <Page>
-      {/* 헤더 */}
       <Header>
         <Inner>
           <Nav>
             <Logo onClick={() => navigate('/intro')}>홈프로</Logo>
             <Menu>
-              <a href="#features">핵심 기능</a>
-              <a href="#how">이용 방법</a>
-              <a href="#download">앱 다운로드</a>
-              <a href="#faq">자주 묻는 질문</a>
+              <a href="#order">오더 공유</a>
+              <a href="#referral">소개수익</a>
+              <a href="#pay">PG 결제</a>
+              <a href="#insurance">배상책임보험</a>
             </Menu>
-            <NavBtns>
-              <PrimaryBtn onClick={goDownload}>앱 다운로드</PrimaryBtn>
-            </NavBtns>
+            <PrimaryBtn onClick={goSignup}>사업자 가입하기</PrimaryBtn>
           </Nav>
         </Inner>
       </Header>
 
-      {/* 1. 히어로 */}
+      {/* 히어로 */}
       <Hero>
         <Inner>
           <HeroGrid>
-            <HeroText>
-              <Badge>청소 · 인테리어 · 설비 현장 프로를 위한</Badge>
+            <div>
+              <Kicker>일감을 공유하고, 수익을 만들고, 결제하고, 안전하게 일하는 사업자 플랫폼</Kicker>
               <H1>
-                일감은 나누고, 사람은 채우고.<br />
-                <Accent>홈프로</Accent> 하나로.
+                사업자의 일을 더 쉽게,<br />
+                사업자의 수익을 더 넓게.
               </H1>
               <Lead>
-                현장 프로끼리 일감을 주고받는 곳.<br />
-                바쁠 땐 믿을 프로에게 외주 주고, 빌 땐 하도급 받으세요.
+                홈프로는 전문사업자들이 오더를 공유하고<br />
+                새로운 수익을 만들며,<br />
+                자신의 고객에게 간편하게 결제받고,<br />
+                작업 중 사고 위험까지 관리할 수 있도록 돕습니다.
               </Lead>
               <HeroBtns>
-                <PrimaryBtn $lg onClick={goDownload}>앱 다운로드</PrimaryBtn>
-                <OutlineBtn $lg as="a" href="#features">기능 둘러보기</OutlineBtn>
+                <PrimaryBtn $lg onClick={goSignup}>사업자 가입하기</PrimaryBtn>
+                <OutlineBtn $lg as="a" href="#order">자세히 보기</OutlineBtn>
               </HeroBtns>
-              <SubNote>가입·기본 사용 무료 · iOS · Android 지원</SubNote>
-            </HeroText>
-
-            {/* 폰 — 실제 앱 화면 (형 지시 7/28: 목업 → 실제 화면 교체) */}
+            </div>
             <HeroVisual>
               <Phone>
-                <PhoneNotch />
-                <PhoneScreen>
-                  <PhoneShot src="/assets/landing/orders.png" alt="홈프로 오더목록 화면" loading="lazy" />
-                </PhoneScreen>
+                <PhoneShot src="/assets/landing/orders.png" alt="홈프로 오더목록 화면" />
               </Phone>
             </HeroVisual>
           </HeroGrid>
         </Inner>
       </Hero>
 
-      {/* 2. 통계 바 */}
-      <StatsBar>
-        <Inner>
-          <StatsGrid>
-            {STATS.map((s) => (
-              <Stat key={s.label}>
-                <StatNum>{s.num}</StatNum>
-                <StatLabel>{s.label}</StatLabel>
-              </Stat>
-            ))}
-          </StatsGrid>
-        </Inner>
-      </StatsBar>
+      {/* 01 ~ 04 */}
+      {SECTIONS.map((s, i) => (
+        <Section key={s.id} id={s.id} $alt={i % 2 === 0}>
+          <Inner>
+            <Row $reverse={i % 2 === 1}>
+              <ShotWrap>
+                <Shot src={s.shot} alt={s.shotAlt} />
+              </ShotWrap>
+              <div>
+                <No>{s.no}</No>
+                <H2>{s.title}</H2>
+                <H3>{s.lead}</H3>
+                {body[s.id]}
+              </div>
+            </Row>
+          </Inner>
+        </Section>
+      ))}
 
-      {/* 3. 홍보 (갤러리 + 설명) */}
+      {/* 홈프로 하나로 */}
       <Section>
-        <Inner>
-          <Eyebrow>혼자 다 떠안지 않아도 괜찮아요</Eyebrow>
-          <SectionTitle>일이 몰릴 때도, 비는 날에도 든든하게</SectionTitle>
-          <WhoLead>
-            나눠 줄 일감은 오더로, 받고 싶은 일감은 견적으로.
-            현장 프로끼리 서로의 빈틈을 채워 주는 가장 빠른 방법입니다.
-          </WhoLead>
-          <PromoList>
-            {PROMO.map(({ grad, shot, title, desc }, i) => (
-              <PromoRow key={title} $reverse={i % 2 === 1}>
-                <PromoVisual>
-                  {/* 실제 앱 화면 (형 지시 7/28) */}
-                  <PromoBig $g={grad}>
-                    <PromoShot src={shot} alt={title} loading="lazy" />
-                  </PromoBig>
-                </PromoVisual>
-                <PromoBody>
-                  <PromoTitle>{title}</PromoTitle>
-                  <PromoDesc>{desc}</PromoDesc>
-                </PromoBody>
-              </PromoRow>
+        <Inner $narrow>
+          <CenterTitle>홈프로 하나로</CenterTitle>
+          <OneTable>
+            {ONE.map((o) => (
+              <OneRow key={o.h}>
+                <OneH>{o.h}</OneH>
+                <OneS>{o.s}</OneS>
+              </OneRow>
             ))}
-          </PromoList>
+          </OneTable>
         </Inner>
       </Section>
 
-      {/* 4. 공감 (프로 고민) */}
+      {/* 사업자의 새로운 일하는 방식 */}
       <Section $alt>
         <Inner>
-          <Eyebrow>현장 프로님, 이런 고민 있으셨죠?</Eyebrow>
-          <SectionTitle>일감과 인력 사이, 늘 아슬아슬한 줄타기</SectionTitle>
-          <Cards3>
-            {PAIN_POINTS.map(({ Icon, title, desc }) => (
-              <PainCard key={title}>
-                <PainIcon><Icon /></PainIcon>
-                <PainTitle>{title}</PainTitle>
-                <PainDesc>{desc}</PainDesc>
-              </PainCard>
+          <CenterTitle>사업자의 새로운 일하는 방식</CenterTitle>
+          <Way>
+            {WAY.map((w, i) => (
+              <React.Fragment key={w}>
+                {i > 0 && <WaySep aria-hidden>↔</WaySep>}
+                <WayItem>{w}</WayItem>
+              </React.Fragment>
             ))}
-          </Cards3>
+          </Way>
         </Inner>
       </Section>
 
-      {/* 5. 핵심기능 */}
-      <Section id="features">
-        <Inner>
-          <Eyebrow>핵심 기능</Eyebrow>
-          <SectionTitle>일감을 주고받는 데 필요한 모든 것</SectionTitle>
-          <FeatureList>
-            {FEATURES.map((f, i) => (
-              <FeatureRow key={f.title} $reverse={i % 2 === 1}>
-                <FeatureVisual>
-                  {/* 실제 앱 화면 (형 지시 7/28) */}
-                  <ShotFrame $c={f.color}>
-                    <ShotImg src={f.shot} alt={f.title} loading="lazy" />
-                  </ShotFrame>
-                </FeatureVisual>
-                <FeatureBody>
-                  <FeatureTag $c={f.color}>{f.tag}</FeatureTag>
-                  <FeatureTitle>{f.title}</FeatureTitle>
-                  <FeatureDesc>{f.desc}</FeatureDesc>
-                  <PointList>
-                    {f.points.map((pt) => (
-                      <li key={pt}><Check $c={f.color}><FiCheck /></Check>{pt}</li>
-                    ))}
-                  </PointList>
-                </FeatureBody>
-              </FeatureRow>
-            ))}
-          </FeatureList>
-        </Inner>
-      </Section>
-
-      {/* 6. 이용 방법 (3스텝) */}
-      <Section id="how" $alt>
-        <Inner>
-          <Eyebrow>이렇게 이용해요</Eyebrow>
-          <SectionTitle>등록부터 완료까지, 단 3단계</SectionTitle>
-          <Steps>
-            {STEPS.map(({ no, Icon, title, desc }) => (
-              <StepCard key={no}>
-                <StepNo>{no}</StepNo>
-                <StepIcon><Icon /></StepIcon>
-                <StepTitle>{title}</StepTitle>
-                <StepDesc>{desc}</StepDesc>
-              </StepCard>
-            ))}
-          </Steps>
-        </Inner>
-      </Section>
-
-      {/* 7. 앱 다운로드 CTA */}
-      <Download id="download">
-        <Inner>
-          <DownloadTitle>지금 바로 시작해보세요</DownloadTitle>
-          <DownloadLead>
-            가입 비용 없이 무료로 시작. 현장에서는 앱으로, 사무실에서는 웹으로.
-          </DownloadLead>
-          <StoreBtns>
-            <StoreBtn href={APP_STORE_URL}>App Store</StoreBtn>
-            <StoreBtn href={PLAY_STORE_URL}>Google Play</StoreBtn>
-          </StoreBtns>
-        </Inner>
-      </Download>
-
-      {/* 8. FAQ */}
-      <Section id="faq">
+      {/* 마무리 */}
+      <Closing>
         <Inner $narrow>
-          <Eyebrow>자주 묻는 질문</Eyebrow>
-          <SectionTitle>궁금한 점이 있으신가요?</SectionTitle>
-          <FaqList>
-            {FAQS.map((f, i) => (
-              <FaqItem key={f.q}>
-                <FaqQ onClick={() => setOpenFaq(openFaq === i ? -1 : i)}>
-                  <span>{f.q}</span>
-                  <FaqToggle $open={openFaq === i}><FiPlus /></FaqToggle>
-                </FaqQ>
-                {openFaq === i && <FaqA>{f.a}</FaqA>}
-              </FaqItem>
-            ))}
-          </FaqList>
+          <ClosingBrand>홈프로</ClosingBrand>
+          <ClosingTitle>사업자의 일과 수익을 연결합니다.</ClosingTitle>
+          <ClosingText>
+            오더를 받는 곳에서<br />
+            오더를 만들고,<br />
+            수익을 만들고,<br />
+            결제하고,<br />
+            위험까지 관리하는 곳으로.
+          </ClosingText>
+          <ClosingCta>지금 홈프로에서 시작하세요.</ClosingCta>
+          <ClosingBtn onClick={goSignup}>사업자 가입하기</ClosingBtn>
         </Inner>
-      </Section>
+      </Closing>
 
-      {/* Footer */}
       <Footer>
         <Inner>
           <FootTop>
@@ -301,7 +284,7 @@ const LandingPage = () => {
               <a href="/legal/location">위치기반서비스약관</a>
             </FootLinks>
           </FootTop>
-          <FootCopy>© {2026} 홈프로. All rights reserved.</FootCopy>
+          <FootCopy>© 2026 홈프로. All rights reserved.</FootCopy>
         </Inner>
       </Footer>
     </Page>
@@ -310,690 +293,207 @@ const LandingPage = () => {
 
 export default LandingPage;
 
-/* ============ design tokens ============ */
-const PRIMARY = '#00C74E';
-const INK = '#1F2937';
-const SUB = '#6B7280';
-const LINE = '#EEEAFB';
+/* ============ tokens ============ */
+const PRIMARY = '#00963F';
+const INK = '#14181F';
+const BODY = '#2b2f36';
+const LINE = '#dfe3e8';
 const ALT_BG = '#F7F8FA';
-const RADIUS_CARD = '16px';
-const RADIUS_BTN = '10px';
-const SHADOW = '0 2px 10px rgba(31, 24, 64, 0.06)';
 
 const Page = styled.div`
   background: #fff;
   color: ${INK};
   font-size: 18px;
   overflow-x: hidden;
+  word-break: keep-all;
 `;
 
 const Inner = styled.div`
   width: 100%;
-  max-width: ${({ $narrow }) => ($narrow ? '900px' : '1400px')};
+  max-width: ${({ $narrow }) => ($narrow ? '960px' : '1280px')};
   margin: 0 auto;
   padding: 0 56px;
-  @media (min-width: 1700px) {
-    max-width: ${({ $narrow }) => ($narrow ? '1000px' : '1640px')};
-  }
-  @media (max-width: 900px) { padding: 0 32px; }
+  box-sizing: border-box;
+  @media (max-width: 900px) { padding: 0 28px; }
   @media (max-width: 600px) { padding: 0 20px; }
 `;
 
 /* Header */
 const Header = styled.header`
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid ${LINE};
 `;
-
 const Nav = styled.nav`
-  height: 62px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
 `;
-
-const Logo = styled.div`
-  font-size: 23px;
-  font-weight: 800;
-  color: ${PRIMARY};
-  cursor: pointer;
-  letter-spacing: -0.5px;
-`;
-
+const Logo = styled.div` font-size: 24px; font-weight: 800; color: ${PRIMARY}; cursor: pointer; `;
 const Menu = styled.div`
-  display: flex;
-  gap: 30px;
-  a {
-    font-size: 17px;
-    font-weight: 500;
-    color: #4B5563;
-    text-decoration: none;
-    &:hover { color: ${PRIMARY}; }
-  }
+  display: flex; gap: 30px;
+  a { font-size: 17px; font-weight: 600; color: ${BODY}; text-decoration: none; &:hover { color: ${PRIMARY}; } }
   @media (max-width: 900px) { display: none; }
 `;
 
-const NavBtns = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-`;
-
 const PrimaryBtn = styled.button`
-  border: none;
-  cursor: pointer;
-  background: ${PRIMARY};
-  color: #fff;
-  font-weight: 700;
-  font-size: ${({ $lg }) => ($lg ? '16px' : '14.5px')};
-  padding: ${({ $lg }) => ($lg ? '14px 26px' : '10px 18px')};
-  border-radius: ${RADIUS_BTN};
-  text-decoration: none;
-  display: inline-block;
-  transition: background 0.15s, transform 0.12s;
-  &:hover { background: #6A48F0; transform: translateY(-1px); }
-  &:active { transform: translateY(0); }
+  border: none; cursor: pointer; background: ${PRIMARY}; color: #fff; font-weight: 700; font-family: inherit;
+  font-size: ${({ $lg }) => ($lg ? '18px' : '15px')};
+  padding: ${({ $lg }) => ($lg ? '16px 30px' : '11px 18px')};
+  border-radius: 10px; text-decoration: none; display: inline-block; white-space: nowrap;
+  &:hover { background: #007A33; }
 `;
-
 const OutlineBtn = styled.button`
-  border: 1.5px solid #D7CEF7;
-  cursor: pointer;
-  background: #fff;
-  color: #4B3A8A;
-  font-weight: 700;
-  font-size: ${({ $lg }) => ($lg ? '16px' : '14.5px')};
-  padding: ${({ $lg }) => ($lg ? '13px 26px' : '9px 18px')};
-  border-radius: ${RADIUS_BTN};
-  text-decoration: none;
-  display: inline-block;
+  border: 1px solid ${LINE}; cursor: pointer; background: #fff; color: ${INK}; font-weight: 700; font-family: inherit;
+  font-size: ${({ $lg }) => ($lg ? '18px' : '15px')};
+  padding: ${({ $lg }) => ($lg ? '15px 30px' : '10px 18px')};
+  border-radius: 10px; text-decoration: none; display: inline-block;
   &:hover { border-color: ${PRIMARY}; color: ${PRIMARY}; }
 `;
 
 /* Hero */
-const Hero = styled.section`
-  background: linear-gradient(180deg, #F4F1FF 0%, #fff 100%);
-  padding: 80px 0 88px;
-`;
-
+const Hero = styled.section` padding: 84px 0 92px; background: #fff; `;
 const HeroGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 48px;
-  align-items: center;
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    gap: 40px;
-    text-align: center;
-  }
+  display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: center;
+  @media (max-width: 900px) { grid-template-columns: 1fr; gap: 44px; }
 `;
-
-const HeroText = styled.div``;
-
-const Badge = styled.span`
-  display: inline-block;
-  background: #EDE7FE;
-  color: ${PRIMARY};
-  font-size: 16px;
-  font-weight: 700;
-  padding: 7px 15px;
-  border-radius: 999px;
-  margin-bottom: 22px;
-`;
-
+const Kicker = styled.p` font-size: 19px; font-weight: 700; color: ${PRIMARY}; line-height: 1.5; margin-bottom: 18px; `;
 const H1 = styled.h1`
-  font-size: 46px;
-  line-height: 1.25;
-  font-weight: 800;
-  color: #111827;
-  letter-spacing: -1.2px;
-  margin-bottom: 20px;
-  @media (max-width: 900px) { font-size: 33px; }
+  font-size: 50px; line-height: 1.25; font-weight: 800; color: ${INK}; letter-spacing: -0.02em; margin-bottom: 24px;
+  @media (max-width: 900px) { font-size: 34px; }
 `;
-
-const Accent = styled.span`color: ${PRIMARY};`;
-
 const Lead = styled.p`
-  font-size: 20px;
-  line-height: 1.7;
-  color: ${SUB};
-  margin-bottom: 30px;
-  @media (max-width: 900px) { font-size: 18px; br { display: none; } }
+  font-size: 20px; line-height: 1.75; color: ${BODY}; margin-bottom: 34px;
+  @media (max-width: 600px) { font-size: 17px; }
 `;
-
-const HeroBtns = styled.div`
-  display: flex;
-  gap: 12px;
-  @media (max-width: 900px) { justify-content: center; }
-`;
-
-const SubNote = styled.p`
-  margin-top: 16px;
-  font-size: 16px;
-  color: #5A6472;
-`;
-
-/* 폰 목업 */
-const HeroVisual = styled.div`
-  display: flex;
-  justify-content: center;
-`;
-
+const HeroBtns = styled.div` display: flex; gap: 12px; flex-wrap: wrap; `;
+const HeroVisual = styled.div` display: flex; justify-content: center; `;
 const Phone = styled.div`
-  position: relative;
-  width: 270px;
-  height: 540px;
-  background: #1E1832;
-  border-radius: 38px;
-  padding: 12px;
-  box-shadow: 0 30px 60px rgba(45, 31, 90, 0.25);
+  width: 290px; height: 600px; background: #1b1f27; border-radius: 40px; padding: 12px; box-sizing: border-box;
+  box-shadow: 0 24px 50px rgba(20, 24, 31, 0.18);
 `;
-
-const PhoneNotch = styled.div`
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 120px;
-  height: 22px;
-  background: #1E1832;
-  border-radius: 0 0 14px 14px;
-  z-index: 2;
-`;
-
-const PhoneScreen = styled.div`
-  width: 100%;
-  height: 100%;
-  background: #1E1832;
-  border-radius: 28px;
-  overflow: hidden;
-  /* 노치가 앱 헤더를 가리지 않도록 상태바 높이만큼 아래에서 시작 */
-  padding-top: 22px;
-  box-sizing: border-box;
-`;
-
-/* 실제 앱 캡처 — 폰 프레임 안을 가득 채우고 상단부터 보여준다 */
 const PhoneShot = styled.img`
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
+  display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; border-radius: 30px;
 `;
 
-
-
-
-
-
-
-
-/* Stats */
-const StatsBar = styled.section`
-  background: ${PRIMARY};
-  padding: 34px 0;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  @media (max-width: 700px) { grid-template-columns: repeat(2, 1fr); gap: 28px; }
-`;
-
-const Stat = styled.div`text-align: center;`;
-
-const StatNum = styled.p`
-  font-size: 34px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -1px;
-  @media (max-width: 900px) { font-size: 30px; }
-`;
-
-const StatLabel = styled.p`
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.85);
-  margin-top: 4px;
-`;
-
-/* Section */
+/* 01~04 */
 const Section = styled.section`
-  padding: 84px 0;
-  background: ${({ $alt }) => ($alt ? ALT_BG : '#fff')};
+  padding: 92px 0; background: ${({ $alt }) => ($alt ? ALT_BG : '#fff')};
+  @media (max-width: 900px) { padding: 64px 0; }
 `;
-
-const Eyebrow = styled.p`
-  text-align: center;
-  font-size: 17px;
-  font-weight: 700;
-  color: ${PRIMARY};
-  margin-bottom: 12px;
-`;
-
-const SectionTitle = styled.h2`
-  text-align: center;
-  font-size: 32px;
-  font-weight: 800;
-  color: #111827;
-  letter-spacing: -0.8px;
-  margin-bottom: 50px;
-  @media (max-width: 900px) { font-size: 27px; }
-`;
-
-/* 홍보 (갤러리 + 설명) */
-const WhoLead = styled.p`
-  text-align: center;
-  font-size: 19px;
-  line-height: 1.7;
-  color: ${SUB};
-  max-width: 640px;
-  margin: -34px auto 46px;
-  @media (max-width: 900px) { font-size: 15.5px; }
-`;
-
-const PromoList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 56px;
-`;
-
-const PromoRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 56px;
-  align-items: center;
+const Row = styled.div`
+  display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 72px; align-items: start;
   direction: ${({ $reverse }) => ($reverse ? 'rtl' : 'ltr')};
   & > * { direction: ltr; }
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    direction: ltr;
-    gap: 24px;
-    text-align: center;
-  }
+  @media (max-width: 900px) { grid-template-columns: 1fr; gap: 36px; direction: ltr; }
 `;
-
-const PromoVisual = styled.div``;
-
-const PromoBig = styled.div`
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: ${RADIUS_CARD};
-  background: ${({ $g }) => $g};
-  border: 1px solid ${LINE};
-  box-shadow: 0 14px 40px rgba(45, 31, 90, 0.1);
-  overflow: hidden;
-  padding: 22px 0 0;
+const ShotWrap = styled.div`
+  display: flex; justify-content: center; position: sticky; top: 100px;
+  @media (max-width: 900px) { position: static; order: 2; }
 `;
-
-/* 실제 앱 캡처 — 배경 그라데이션 위에 폰 화면을 얹는다 */
-const PromoShot = styled.img`
-  display: block;
-  width: 42%;
-  min-width: 180px;
-  max-height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  border-radius: 14px 14px 0 0;
-  border: 1px solid rgba(45, 31, 90, 0.12);
-  border-bottom: none;
-  box-shadow: 0 10px 30px rgba(45, 31, 90, 0.18);
+const Shot = styled.img`
+  display: block; width: 300px; max-width: 100%; border-radius: 22px; border: 1px solid ${LINE};
+  box-shadow: 0 16px 40px rgba(20, 24, 31, 0.12);
 `;
-
-const PromoBody = styled.div``;
-
-const PromoTitle = styled.h3`
-  font-size: 30px;
-  font-weight: 800;
-  color: #111827;
-  letter-spacing: -0.6px;
-  line-height: 1.35;
-  margin-bottom: 14px;
-  @media (max-width: 900px) { font-size: 25px; }
+const No = styled.div` font-size: 22px; font-weight: 800; color: ${PRIMARY}; margin-bottom: 10px; `;
+const H2 = styled.h2`
+  font-size: 38px; font-weight: 800; line-height: 1.3; color: ${INK}; letter-spacing: -0.02em; margin-bottom: 14px;
+  @media (max-width: 900px) { font-size: 29px; }
 `;
-
-const PromoDesc = styled.p`
-  font-size: 17.5px;
-  line-height: 1.7;
-  color: ${SUB};
-  @media (max-width: 900px) { font-size: 18px; }
+const H3 = styled.h3`
+  font-size: 23px; font-weight: 700; line-height: 1.45; color: ${INK}; margin-bottom: 26px;
+  @media (max-width: 900px) { font-size: 20px; }
 `;
-
-/* Pain */
-const Cards3 = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
-  @media (max-width: 900px) { grid-template-columns: 1fr; }
+const P = styled.p`
+  font-size: 18px; line-height: 1.8; color: ${BODY}; margin-bottom: 18px;
+  b { color: ${INK}; font-weight: 700; }
+  @media (max-width: 600px) { font-size: 17px; }
 `;
-
-const PainCard = styled.div`
+const TwoCol = styled.div`
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 26px 0 8px;
+  @media (max-width: 600px) { grid-template-columns: 1fr; }
+`;
+const ListBox = styled.div` background: #fff; border: 1px solid ${LINE}; border-radius: 12px; padding: 22px 22px 20px; `;
+const ListTitle = styled.div` font-size: 19px; font-weight: 800; color: ${INK}; margin-bottom: 14px; `;
+const Bullets = styled.ul`
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px;
+  li { display: flex; gap: 10px; font-size: 17px; line-height: 1.5; color: ${BODY}; }
+`;
+const Check = styled.span` color: ${PRIMARY}; font-size: 18px; flex-shrink: 0; margin-top: 2px; display: inline-flex; `;
+const SmallTitle = styled.div` font-size: 19px; font-weight: 800; color: ${INK}; margin: 28px 0 14px; `;
+const FlowBox = styled.div`
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 22px 0 8px;
+`;
+const FlowItem = styled.div`
+  font-size: 18px; line-height: 1.5; padding: 13px 20px; border-radius: 10px; min-width: 300px; box-sizing: border-box;
+  border: 1px solid ${({ $strong }) => ($strong ? PRIMARY : LINE)};
   background: #fff;
-  border: 1px solid ${LINE};
-  border-radius: ${RADIUS_CARD};
-  padding: 32px 26px;
-  box-shadow: ${SHADOW};
+  color: ${({ $strong }) => ($strong ? PRIMARY : BODY)}; font-weight: ${({ $strong }) => ($strong ? 800 : 500)};
+  b { color: ${INK}; font-weight: 700; }
+  @media (max-width: 600px) { min-width: 0; width: 100%; font-size: 17px; }
+`;
+const FlowArrow = styled.div` color: ${PRIMARY}; font-size: 18px; padding-left: 24px; display: flex; `;
+const Punch = styled.p`
+  font-size: 25px; font-weight: 800; line-height: 1.5; color: ${INK}; margin: 34px 0 22px; letter-spacing: -0.01em;
+  @media (max-width: 900px) { font-size: 21px; }
+`;
+const Fine = styled.p` font-size: 15px; line-height: 1.6; color: ${BODY}; margin-top: 18px; `;
+const CoverTable = styled.div` border: 1px solid ${LINE}; border-radius: 12px; background: #fff; overflow: hidden; `;
+const CoverRow = styled.div`
+  display: grid; grid-template-columns: 190px 1fr;
+  & + & { border-top: 1px solid ${LINE}; }
+  @media (max-width: 600px) { grid-template-columns: 1fr; }
+`;
+const CoverK = styled.div` padding: 18px 20px; font-size: 17px; font-weight: 800; color: ${INK}; background: #f3f4f7; `;
+const CoverV = styled.div` padding: 18px 20px; font-size: 17px; line-height: 1.6; color: ${BODY}; `;
+
+/* 홈프로 하나로 */
+const CenterTitle = styled.h2`
+  text-align: center; font-size: 38px; font-weight: 800; color: ${INK}; letter-spacing: -0.02em; margin-bottom: 44px;
+  @media (max-width: 900px) { font-size: 29px; margin-bottom: 32px; }
+`;
+const OneTable = styled.div` border-top: 2px solid ${INK}; `;
+const OneRow = styled.div`
+  display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 20px; padding: 24px 8px; border-bottom: 1px solid ${LINE};
+  @media (max-width: 600px) { grid-template-columns: 1fr; gap: 6px; padding: 18px 4px; }
+`;
+const OneH = styled.div` font-size: 25px; font-weight: 800; color: ${INK}; @media (max-width: 600px) { font-size: 21px; } `;
+const OneS = styled.div` font-size: 21px; font-weight: 600; color: ${PRIMARY}; @media (max-width: 600px) { font-size: 18px; } `;
+
+/* 새로운 일하는 방식 */
+const Way = styled.div`
+  display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+  @media (max-width: 900px) { flex-direction: column; gap: 8px; }
+`;
+const WayItem = styled.div`
+  font-size: 21px; font-weight: 800; color: ${INK}; background: #fff; border: 1px solid ${LINE}; border-radius: 12px;
+  padding: 20px 26px; min-width: 150px; text-align: center; box-sizing: border-box;
+  @media (max-width: 900px) { width: 100%; max-width: 360px; font-size: 19px; padding: 16px; }
+`;
+const WaySep = styled.div`
+  font-size: 22px; color: ${PRIMARY}; font-weight: 700;
+  @media (max-width: 900px) { transform: rotate(90deg); }
 `;
 
-const PainIcon = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px; height: 50px;
-  border-radius: 13px;
-  background: #EDE7FE;
-  color: ${PRIMARY};
-  font-size: 26px;
-  margin-bottom: 18px;
+/* 마무리 */
+const Closing = styled.section` background: #1b1f27; color: #fff; padding: 96px 0; text-align: center; `;
+const ClosingBrand = styled.div` font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 12px; `;
+const ClosingTitle = styled.h2`
+  font-size: 40px; font-weight: 800; line-height: 1.3; letter-spacing: -0.02em; margin-bottom: 30px;
+  @media (max-width: 900px) { font-size: 29px; }
 `;
-
-const PainTitle = styled.h3`
-  font-size: 21px;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 10px;
-`;
-
-const PainDesc = styled.p`
-  font-size: 17px;
-  line-height: 1.7;
-  color: ${SUB};
-`;
-
-/* Features */
-const FeatureList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 60px;
-`;
-
-const FeatureRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 56px;
-  align-items: center;
-  direction: ${({ $reverse }) => ($reverse ? 'rtl' : 'ltr')};
-  & > * { direction: ltr; }
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    direction: ltr;
-    gap: 28px;
-  }
-`;
-
-const FeatureVisual = styled.div``;
-const FeatureBody = styled.div``;
-
-/* 기능 섹션 — 실제 앱 캡처 (기능색 배경 위에 폰 화면) */
-const ShotFrame = styled.div`
-  width: 100%;
-  aspect-ratio: 16 / 11;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  border-radius: ${RADIUS_CARD};
-  background: ${({ $c }) => `linear-gradient(160deg, ${$c}1F, ${$c}0A)`};
-  border: 1px solid ${LINE};
-  box-shadow: 0 14px 40px rgba(45, 31, 90, 0.1);
-  overflow: hidden;
-  padding-top: 26px;
-`;
-
-const ShotImg = styled.img`
-  display: block;
-  width: 40%;
-  min-width: 176px;
-  max-height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  border-radius: 14px 14px 0 0;
-  border: 1px solid rgba(45, 31, 90, 0.12);
-  border-bottom: none;
-  box-shadow: 0 12px 32px rgba(45, 31, 90, 0.2);
-`;
-
-
-
-
-
-
-const FeatureTag = styled.span`
-  display: inline-block;
-  background: ${({ $c }) => `${$c}14`};
-  color: ${({ $c }) => $c};
-  font-size: 15px;
-  font-weight: 700;
-  padding: 6px 13px;
-  border-radius: 999px;
-  margin-bottom: 16px;
-`;
-
-const FeatureTitle = styled.h3`
-  font-size: 29px;
-  font-weight: 800;
-  color: #111827;
-  margin-bottom: 14px;
-  letter-spacing: -0.6px;
-  line-height: 1.35;
-`;
-
-const FeatureDesc = styled.p`
-  font-size: 16.5px;
-  line-height: 1.7;
-  color: ${SUB};
-  margin-bottom: 24px;
-`;
-
-const PointList = styled.ul`
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 13px;
-  li {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    font-size: 18px;
-    font-weight: 600;
-    color: #374151;
-  }
-`;
-
-const Check = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  background: ${({ $c }) => `${$c}1A`};
-  color: ${({ $c }) => $c};
-  font-size: 16px;
-  flex-shrink: 0;
-`;
-
-/* Steps */
-const Steps = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
-  @media (max-width: 900px) { grid-template-columns: 1fr; }
-`;
-
-const StepCard = styled.div`
-  position: relative;
-  background: #fff;
-  border: 1px solid ${LINE};
-  border-radius: ${RADIUS_CARD};
-  padding: 34px 28px;
-  box-shadow: ${SHADOW};
-  text-align: center;
-`;
-
-const StepNo = styled.span`
-  display: block;
-  font-size: 17px;
-  font-weight: 800;
-  color: ${PRIMARY};
-  letter-spacing: 1px;
-  margin-bottom: 14px;
-`;
-
-const StepIcon = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px; height: 56px;
-  border-radius: 16px;
-  background: #EDE7FE;
-  color: ${PRIMARY};
-  font-size: 28px;
-  margin-bottom: 18px;
-`;
-
-const StepTitle = styled.h3`
-  font-size: 21px;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 10px;
-`;
-
-const StepDesc = styled.p`
-  font-size: 17px;
-  line-height: 1.7;
-  color: ${SUB};
-`;
-
-/* Download */
-const Download = styled.section`
-  background: linear-gradient(135deg, ${PRIMARY} 0%, #4BD980 100%);
-  padding: 84px 0;
-  text-align: center;
-  color: #fff;
-`;
-
-const DownloadTitle = styled.h2`
-  font-size: 34px;
-  font-weight: 800;
-  letter-spacing: -0.8px;
-  margin-bottom: 16px;
-  @media (max-width: 900px) { font-size: 28px; }
-`;
-
-const DownloadLead = styled.p`
-  font-size: 20px;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.92);
-  margin-bottom: 32px;
-  @media (max-width: 900px) { font-size: 18px; }
-`;
-
-const StoreBtns = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 22px;
-  flex-wrap: wrap;
-`;
-
-const StoreBtn = styled.a`
-  background: #1E1832;
-  color: #fff;
-  font-weight: 700;
-  font-size: 18px;
-  padding: 14px 30px;
-  border-radius: ${RADIUS_BTN};
-  text-decoration: none;
-  &:hover { background: #000; }
-`;
-
-/* FAQ */
-const FaqList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-`;
-
-const FaqItem = styled.div`
-  border: 1px solid ${LINE};
-  border-radius: ${RADIUS_CARD};
-  background: #fff;
-  overflow: hidden;
-`;
-
-const FaqQ = styled.button`
-  width: 100%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 22px;
-  font-size: 19px;
-  font-weight: 700;
-  color: #1F2937;
-  text-align: left;
-`;
-
-const FaqToggle = styled.span`
-  display: inline-flex;
-  color: ${PRIMARY};
-  font-size: 22px;
-  transition: transform 0.2s;
-  transform: rotate(${({ $open }) => ($open ? '135deg' : '0')});
-`;
-
-const FaqA = styled.div`
-  padding: 0 22px 22px;
-  font-size: 15.5px;
-  line-height: 1.75;
-  color: ${SUB};
+const ClosingText = styled.p` font-size: 22px; font-weight: 700; line-height: 1.75; color: #eef0f3; margin-bottom: 36px; `;
+const ClosingCta = styled.p` font-size: 21px; font-weight: 600; color: #eef0f3; margin-bottom: 20px; `;
+const ClosingBtn = styled.button`
+  border: none; cursor: pointer; background: #fff; color: ${INK}; font-family: inherit;
+  font-size: 19px; font-weight: 800; padding: 18px 40px; border-radius: 10px;
+  &:hover { background: #eef0f3; }
 `;
 
 /* Footer */
-const Footer = styled.footer`
-  background: #1E1832;
-  color: #fff;
-  padding: 48px 0 40px;
-`;
-
-const FootTop = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding-bottom: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-`;
-
-const FootLogo = styled.div`
-  font-size: 22px;
-  font-weight: 800;
-  color: #fff;
-`;
-
+const Footer = styled.footer` background: #fff; border-top: 1px solid ${LINE}; padding: 40px 0 36px; `;
+const FootTop = styled.div` display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; `;
+const FootLogo = styled.div` font-size: 21px; font-weight: 800; color: ${PRIMARY}; `;
 const FootLinks = styled.div`
-  display: flex;
-  gap: 22px;
-  flex-wrap: wrap;
-  a {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.7);
-    text-decoration: none;
-    &:hover { color: #fff; }
-  }
+  display: flex; gap: 22px; flex-wrap: wrap;
+  a { font-size: 15px; color: ${BODY}; text-decoration: none; &:hover { color: ${PRIMARY}; } }
 `;
-
-const FootCopy = styled.p`
-  margin-top: 22px;
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.5);
-`;
+const FootCopy = styled.p` margin-top: 18px; font-size: 14px; color: ${BODY}; `;

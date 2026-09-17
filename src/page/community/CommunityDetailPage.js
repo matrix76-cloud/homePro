@@ -1,12 +1,12 @@
 /* eslint-disable */
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoHeartOutline, IoHeart, IoSendOutline } from "react-icons/io5";
+import { IoHeartOutline, IoHeart, IoSendOutline, IoChatbubbleOutline, IoPersonCircle } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { getPostById, toggleLike, checkLiked, getComments, addComment } from "../../service/CommunityService";
+import { getPostById, toggleLike, checkLiked, getComments, addComment, increaseViewCount } from "../../service/CommunityService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 
 const CommunityDetailPage = () => {
@@ -26,6 +26,10 @@ const CommunityDetailPage = () => {
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState(null); // { id, authorName }
   const [loading, setLoading] = useState(true);
+  const commentInputRef = useRef(null);
+
+  // 조회수 — 글을 열 때 한 번 (많이 본 글 순위용)
+  useEffect(() => { if (postId) increaseViewCount(postId); }, [postId]);
 
   useEffect(() => {
     if (!postId) return;
@@ -94,12 +98,16 @@ const CommunityDetailPage = () => {
     <SimpleBackLayout NAME="커뮤니티" hideFooter>
       <PageWrap>
         <ContentArea>
-          {/* 상단 메타 */}
-          <MetaRow>
-            <Badge>{post.type === "notice" ? "이벤트/공지" : "자유"}</Badge>
-            <MetaDate>{formatDate(post.createdAt)}</MetaDate>
-          </MetaRow>
-          {post.authorName && <AuthorRow>{post.authorName}</AuthorRow>}
+          {/* 작성자 줄 (커뮤니티 시안 2번, 형 9/18) */}
+          <AuthorLine>
+            <IoPersonCircle size={40} color="#C9CED6" />
+            <div>
+              <AuthorName>{post.authorName || (post.type === "notice" ? "홈프로" : "익명")}</AuthorName>
+              <AuthorSub>
+                {post.type === "notice" ? "이벤트/공지 · " : ""}{formatDate(post.createdAt)}{post.viewCount ? ` · 조회 ${post.viewCount}` : ""}
+              </AuthorSub>
+            </div>
+          </AuthorLine>
 
           {/* 본문 */}
           <Title>{post.title}</Title>
@@ -114,13 +122,17 @@ const CommunityDetailPage = () => {
             </ImageList>
           )}
 
-          {/* 하트 버튼 */}
-          <LikeRow>
-            <LikeBtn onClick={handleLike}>
-              {liked ? <IoHeart size={22} color={THEME.danger} /> : <IoHeartOutline size={22} color={THEME.muted} />}
-              <LikeCount $liked={liked}>{likeCount}</LikeCount>
-            </LikeBtn>
-          </LikeRow>
+          {/* 좋아요 · 댓글 버튼 (시안 2번) */}
+          <ActionRow>
+            <ActionBtn type="button" $on={liked} onClick={handleLike}>
+              {liked ? <IoHeart size={20} color={THEME.primary} /> : <IoHeartOutline size={20} color={THEME.text} />}
+              좋아요 {likeCount}
+            </ActionBtn>
+            <ActionBtn type="button" onClick={() => commentInputRef.current?.focus()}>
+              <IoChatbubbleOutline size={19} color={THEME.text} />
+              댓글 {post.commentCount || 0}
+            </ActionBtn>
+          </ActionRow>
 
           {/* 댓글 섹션 */}
           <CommentSection>
@@ -164,10 +176,11 @@ const CommunityDetailPage = () => {
           )}
           <InputRow>
             <CommentInput
+              ref={commentInputRef}
               placeholder="댓글을 입력하세요"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
+              onKeyDown={(e) => { if (e.nativeEvent.isComposing || e.keyCode === 229) return; if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
             />
             <SendBtn onClick={handleAddComment} disabled={!commentText.trim()}>
               <IoSendOutline size={20} color={commentText.trim() ? THEME.primary : THEME.muted} />
@@ -196,33 +209,22 @@ const ContentArea = styled.div`
   padding-bottom: 80px;
 `;
 
-const MetaRow = styled.div`
+const AuthorLine = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
 `;
 
-const Badge = styled.div`
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 20px;
-  background: ${THEME.purpleLight};
-  color: ${THEME.purple};
-  font-size: 13px;
-  font-weight: 400;
-`;
-
-const MetaDate = styled.div`
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.muted};
-`;
-
-const AuthorRow = styled.div`
+const AuthorName = styled.div`
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: ${THEME.text};
-  margin-top: 10px;
+`;
+
+const AuthorSub = styled.div`
+  font-size: 13px;
+  color: #2b2f36;
+  margin-top: 1px;
 `;
 
 const Title = styled.div`
@@ -256,28 +258,34 @@ const PostImage = styled.img`
   object-fit: cover;
 `;
 
-const LikeRow = styled.div`
+const ActionRow = styled.div`
+  display: flex;
+  gap: 8px;
   margin-top: 20px;
-  padding: 16px 0;
-  border-top: 1px solid ${THEME.border};
-  border-bottom: 1px solid ${THEME.border};
+  padding-bottom: 20px;
+  border-bottom: 8px solid ${THEME.background};
+  margin-left: -16px;
+  margin-right: -16px;
+  padding-left: 16px;
+  padding-right: 16px;
 `;
 
-const LikeBtn = styled.button`
+const ActionBtn = styled.button`
+  flex: 1;
+  height: 48px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  &:active { opacity: 0.6; }
-`;
-
-const LikeCount = styled.span`
+  border-radius: 10px;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : "#D9DDE3")};
+  background: #fff;
+  color: ${({ $on }) => ($on ? THEME.primaryDark : THEME.text)};
   font-size: 16px;
-  font-weight: 600;
-  color: ${({ $liked }) => ($liked ? THEME.danger : THEME.muted)};
+  font-weight: ${({ $on }) => ($on ? 700 : 600)};
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.7; }
 `;
 
 const CommentSection = styled.div`

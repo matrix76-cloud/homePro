@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect, useCallback, useContext } from "react";
+import EmptyOrders from "../../components/EmptyOrders";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { IoLocationOutline } from "react-icons/io5";
@@ -74,9 +75,10 @@ const OrderListPage = () => {
         {loading ? (
           <EmptyState><EmptyText>불러오는 중...</EmptyText></EmptyState>
         ) : orders.length === 0 ? (
-          <EmptyState>
-            <EmptyText>등록된 요청이 없습니다.<br />새로운 요청이 들어오면 알려드릴게요!</EmptyText>
-          </EmptyState>
+          <EmptyOrders
+            title="등록된 요청이 없어요"
+            desc="새 요청이 들어오면 여기에 바로 보입니다."
+          />
         ) : (
           <>
             {orders.filter((o) => !(o.hiddenBy || []).includes(uid) && !["결제", "완료", "리뷰", "취소"].includes(o.orderStatus)).map((order) => {

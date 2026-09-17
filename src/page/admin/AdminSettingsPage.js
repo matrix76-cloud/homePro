@@ -1017,7 +1017,7 @@ const ToggleSwitch = styled.div`
     width: 44px;
     height: 24px;
     border-radius: 12px;
-    background: ${(props) => (props.$active ? THEME.primary : THEME.border)};
+    background: ${(props) => (props.$active ? THEME.button : THEME.border)};
     cursor: pointer;
     position: relative;
     transition: background 0.2s;
@@ -1124,7 +1124,7 @@ const SaveButton = styled.button`
     align-items: center;
     gap: 6px;
     padding: 10px 20px;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     color: #fff;
     border: none;
     border-radius: 4px;
@@ -1193,7 +1193,7 @@ const TestBtnRow = styled.div`
 const TestBtn = styled.button`
     padding: 10px 20px;
     border-radius: 4px;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     color: #fff;
     font-size: 16px;
     font-weight: 600;

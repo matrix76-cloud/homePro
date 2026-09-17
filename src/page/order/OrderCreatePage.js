@@ -47,11 +47,64 @@ function resizeAndCompress(file) {
 }
 
 const Section = styled.div`
+  margin: 16px 16px 0;
+  padding: 0;
+`;
+
+const CatCellGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+`;
+
+const CatCell = styled.button`
+  min-height: 62px;
+  padding: 14px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  word-break: keep-all;
+  line-height: 1.35;
+  border-radius: 10px;
+  border: 1px solid ${THEME.border};
   background: ${THEME.surface};
-  margin: 12px 12px 0;
-  padding: 20px;
-  border-radius: 16px;
-  box-shadow: ${THEME.cardShadow};
+  color: ${THEME.text};
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+  &:focus { outline: none; }
+`;
+
+const PickedRow = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: calc(100% - 32px);
+  margin: 16px 16px 0;
+  padding: 13px 14px;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:focus { outline: none; }
+`;
+
+const PickedText = styled.span`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const PickedEdit = styled.span`
+  font-size: 14px;
+  color: ${THEME.primary};
+  flex-shrink: 0;
 `;
 
 const Label = styled.div`
@@ -74,19 +127,23 @@ const ChipGrid = styled.div`
 `;
 
 const Chip = styled.button`
-  padding: 8px 16px;
-  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 8px;
   font-size: 15px;
+  line-height: 1.35;
+  word-break: keep-all;
   font-family: inherit;
   cursor: pointer;
-  white-space: nowrap;
   border: 1px solid ${({ $selected }) => ($selected ? THEME.primary : THEME.border)};
-  background: ${({ $selected }) => ($selected ? THEME.primary : THEME.surface)};
-  color: ${({ $selected }) => ($selected ? "#fff" : THEME.text)};
-  font-weight: 400;
-  &:active {
-    opacity: 0.8;
-  }
+  background: ${({ $selected }) => ($selected ? `${THEME.primary}15` : THEME.surface)};
+  color: ${({ $selected }) => ($selected ? THEME.primary : THEME.text)};
+  font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
+  &:active { opacity: 0.8; }
+  &:focus { outline: none; }
 `;
 
 const TextArea = styled.textarea`
@@ -151,7 +208,7 @@ const SubmitButton = styled.button`
   width: 100%;
   padding: 16px;
   margin-top: 12px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -160,7 +217,7 @@ const SubmitButton = styled.button`
   cursor: pointer;
   font-family: inherit;
   &:active {
-    background: ${THEME.primaryDark};
+    background: ${THEME.buttonDark};
   }
   &:disabled {
     background: #ccc;
@@ -1201,34 +1258,30 @@ export const OrderCreateContent = () => {
 
   return (
     <>
-      {/* 1. 카테고리 선택 — 직관적 평면 나열, 선택 시 바로 아래 접수폼 */}
-      {!categoryId && (
+      {/* 1. 카테고리 선택 — AI 견적과 같은 세 칸 그리드 (대표 9/17) */}
+      {!categoryId && !selectedCategory && (
         <Section>
           <Label>카테고리 선택</Label>
-          {!selectedCategory ? (
-            CATEGORIES.filter((cat) => !cat.proOnly).map((cat) => (
-              <CatAccordion key={cat.id}>
-                <CatAccordionHeader onClick={() => {
-                  // (기존: worker_call 은 작업자요청 탭으로 리다이렉트했으나,
-                  //  대표 사양서 7/28 로 팀원.기술자 구인 접수폼이 생기면서 폼 진입으로 변경.
-                  //  리다이렉트가 남아 있으면 그 접수폼에 도달 자체가 불가 — 검수에서 발견)
-                  setSelectedCategory(cat.id);
-                  resetForm();
-                }}>
-                  <CatAccordionLabel>{cat.name}</CatAccordionLabel>
-                  <CatAccordionArrow>▼</CatAccordionArrow>
-                </CatAccordionHeader>
-              </CatAccordion>
-            ))
-          ) : (
-            <CatAccordion>
-              <CatAccordionHeader $active onClick={() => { setSelectedCategory(""); resetForm(); }}>
-                <CatAccordionLabel>{category?.name}</CatAccordionLabel>
-                <CatAccordionArrow>▲</CatAccordionArrow>
-              </CatAccordionHeader>
-            </CatAccordion>
-          )}
+          <CatCellGrid>
+            {CATEGORIES.filter((cat) => !cat.proOnly).map((cat) => (
+              <CatCell
+                key={cat.id}
+                type="button"
+                onClick={() => { setSelectedCategory(cat.id); resetForm(); }}
+              >
+                {cat.name}
+              </CatCell>
+            ))}
+          </CatCellGrid>
         </Section>
+      )}
+
+      {/* 고른 카테고리는 한 줄로 접어 둔다 */}
+      {!categoryId && selectedCategory && (
+        <PickedRow type="button" onClick={() => { setSelectedCategory(""); resetForm(); }}>
+          <PickedText>{category?.name}</PickedText>
+          <PickedEdit>수정</PickedEdit>
+        </PickedRow>
       )}
 
       {/* 카테고리 선택 후 동적 폼 */}
@@ -2124,7 +2177,7 @@ const HelpCloseBtn = styled.button`
   width: 100%;
   margin-top: 16px;
   padding: 12px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   border: none;
   border-radius: 10px;

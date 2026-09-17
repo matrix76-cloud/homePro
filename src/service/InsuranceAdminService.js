@@ -67,7 +67,7 @@ export const PURPOSE_LABELS = {
 
 export const CLAIM_STATUS = {
     received: { label: "접수", color: "#b45309", weight: 700 },
-    in_progress: { label: "진행 중", color: "#1d4ed8", weight: 700 },
+    in_progress: { label: "진행 중", color: "#00B84A", weight: 700 },
     done: { label: "완료", color: "#15803d", weight: 700 },
 };
 

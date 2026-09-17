@@ -9,6 +9,7 @@ import { subscribeChatRooms } from "../../service/ChatService";
 import { getOrderById } from "../../service/OrderService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
+import { MOBILEMAINMENU } from "../../utility/constants";
 
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
@@ -99,12 +100,17 @@ const MobileChatpage = () => {
   const OPEN_CATEGORIES = ["전체", "오더", "인력", "기술교육", "매매양도", "자재.장비"];
   const [openCat, setOpenCat] = useState("전체");
 
+  const catStat = (c) => {
+    const list = c === "전체" ? normalRooms : normalRooms.filter((r) => catOfRoom(r) === c);
+    return { count: list.length, unread: list.some((r) => getUnread(r) > 0) };
+  };
+
   const visibleRooms = activeTab === "open"
     ? (openCat === "전체" ? openRooms : openRooms.filter((r) => r.openCategory === openCat))
     : (normalCat === "전체" ? normalRooms : normalRooms.filter((r) => catOfRoom(r) === normalCat));
 
   return (
-    <MainListLayout NAME="채팅" footerType="CHAT" hideBack>
+    <MainListLayout NAME="채팅" footerType={MOBILEMAINMENU.CHAT} hideBack hideActions>
       {activeTab === "open" ? (
         <CatTabRow>
           {OPEN_CATEGORIES.map((c) => (
@@ -114,13 +120,18 @@ const MobileChatpage = () => {
           ))}
         </CatTabRow>
       ) : (
-        <CatTabRow>
-          {NORMAL_CATEGORIES.map((c) => (
-            <CatTab key={c} $active={normalCat === c} onClick={() => setNormalCat(c)}>
-              {c}
-            </CatTab>
-          ))}
-        </CatTabRow>
+        <CatChipRow>
+          {NORMAL_CATEGORIES.filter((c) => c !== "전체").map((c) => {
+            const st = catStat(c);
+            const on = normalCat === c;
+            return (
+              <CatChip key={c} $active={on} onClick={() => setNormalCat(on ? "전체" : c)}>
+                {st.unread && <CatDot />}
+                {c} <CatCount $active={on}>{st.count}</CatCount>
+              </CatChip>
+            );
+          })}
+        </CatChipRow>
       )}
       <RoomList>
         {loading ? (
@@ -129,8 +140,25 @@ const MobileChatpage = () => {
           </EmptyState>
         ) : visibleRooms.length === 0 ? (
           <EmptyState>
-            <IoChatbubbleEllipsesOutline size={40} color={THEME.muted} />
-            <EmptyText>{activeTab === "open" ? "개설된 오픈채팅방이 없습니다" : "채팅방이 없습니다"}</EmptyText>
+            <EmptyIcon><IoChatbubbleEllipsesOutline size={30} color={THEME.primary} /></EmptyIcon>
+            {normalCat !== "전체" && normalRooms.length > 0 ? (
+              <>
+                <EmptyTitle>{normalCat} 대화는 아직 없어요</EmptyTitle>
+                <EmptyText>다른 갈래에는 대화가 {normalRooms.length}개 있습니다.</EmptyText>
+                <EmptyBtnRow>
+                  <EmptyGhost type="button" onClick={() => setNormalCat("전체")}>전체 보기</EmptyGhost>
+                </EmptyBtnRow>
+              </>
+            ) : (
+              <>
+                <EmptyTitle>아직 시작된 대화가 없어요</EmptyTitle>
+                <EmptyText>오더를 접수하거나 맡으면 상대와 이야기할 방이 여기에 생깁니다.</EmptyText>
+                <EmptyBtnRow>
+                  <EmptyGhost type="button" onClick={() => navigate("/MobileMain")}>오더 둘러보기</EmptyGhost>
+                  <EmptyPrimary type="button" onClick={() => navigate("/order/create")}>예약접수 하기</EmptyPrimary>
+                </EmptyBtnRow>
+              </>
+            )}
           </EmptyState>
         ) : activeTab === "open" ? (
           visibleRooms.map((room) => {
@@ -181,24 +209,29 @@ const MobileChatpage = () => {
                   )}
                 </Avatar>
                 <RoomInfo>
-                  <RoomNameRow>
-                    <RoomName>{room.orderId && getOrderTitle(room.orderId) ? getOrderTitle(room.orderId) : getRoomDisplayName(room)}</RoomName>
-                    {room.orderId && getOrderCategoryName(room.orderId) && (
-                      <OrderCatTag onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${room.orderId}`); }}>
-                        {getOrderCategoryName(room.orderId)} ›
-                      </OrderCatTag>
-                    )}
-                    {room.roomType === "brokerage" && <OrderCatTag as="span">공동중개</OrderCatTag>}
-                  </RoomNameRow>
-                  {room.orderId && getOrderTitle(room.orderId) && <SubName>{getRoomDisplayName(room)}</SubName>}
-                  <LastMessage>{room.lastMessage || "대화를 시작해보세요"}</LastMessage>
+                  <RoomTopLine>
+                    <RoomKind
+                      as={room.orderId && getOrderCategoryName(room.orderId) ? "button" : "span"}
+                      onClick={(e) => {
+                        if (!room.orderId || !getOrderCategoryName(room.orderId)) return;
+                        e.stopPropagation(); navigate(`/order/detail/${room.orderId}`);
+                      }}
+                    >
+                      {room.orderId && getOrderCategoryName(room.orderId)
+                        ? getOrderCategoryName(room.orderId) + " ›"
+                        : room.roomType === "brokerage" ? "공동중개" : "채팅"}
+                    </RoomKind>
+                    <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
+                  </RoomTopLine>
+                  <RoomName>{room.orderId && getOrderTitle(room.orderId) ? getOrderTitle(room.orderId) : getRoomDisplayName(room)}</RoomName>
+                  <RoomBottomLine>
+                    <LastMessage>
+                      {room.orderId && getOrderTitle(room.orderId) ? getRoomDisplayName(room) + " · " : ""}
+                      {room.lastMessage || "대화를 시작해보세요"}
+                    </LastMessage>
+                    {unread > 0 && <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>}
+                  </RoomBottomLine>
                 </RoomInfo>
-                <RoomMeta>
-                  <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
-                  {unread > 0 && (
-                    <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>
-                  )}
-                </RoomMeta>
               </RoomItem>
             );
           })
@@ -218,6 +251,96 @@ export default MobileChatpage;
 const RoomList = styled.div`
   padding: 0 12px;
   min-height: 320px;
+`;
+
+const CatChipRow = styled.div`
+  display: flex;
+  gap: 5px;
+  padding: 12px;
+  flex-wrap: nowrap;
+  border-bottom: 1px solid ${THEME.border};
+`;
+
+const CatChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 4px;
+  border-radius: 8px;
+  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  background: ${({ $active }) => ($active ? `${THEME.primary}15` : THEME.surface)};
+  color: ${({ $active }) => ($active ? THEME.primaryDark : "#2b2f36")};
+  font-size: 14px;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+  &:focus { outline: none; }
+`;
+
+const CatCount = styled.b`
+  font-weight: 700;
+  color: ${({ $active }) => ($active ? THEME.primaryDark : THEME.muted)};
+`;
+
+const CatDot = styled.span`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${THEME.button};
+  flex-shrink: 0;
+`;
+
+const EmptyIcon = styled.div`
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: ${THEME.purpleLight};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const EmptyTitle = styled.div`
+  font-size: 17px;
+  font-weight: 700;
+  color: ${THEME.text};
+  word-break: keep-all;
+`;
+
+const EmptyBtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+`;
+
+const EmptyGhost = styled.button`
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  &:focus { outline: none; }
+`;
+
+const EmptyPrimary = styled.button`
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: none;
+  background: ${THEME.button};
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  &:focus { outline: none; }
 `;
 
 const CatTabRow = styled.div`
@@ -249,8 +372,9 @@ const EmptyState = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 80px 0;
+  text-align: center;
+  gap: 10px;
+  padding: 60px 24px;
 `;
 
 const EmptyText = styled.p`
@@ -312,11 +436,36 @@ const RoomName = styled.p`
   font-weight: 700;
   color: ${THEME.text};
   margin: 0;
+  line-height: 1.4;
+  word-break: keep-all;
+`;
+
+const RoomTopLine = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+const RoomKind = styled.span`
+  font-size: 13px;
+  color: ${THEME.muted};
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: ${({ as }) => (as === "button" ? "pointer" : "default")};
+  white-space: nowrap;
   min-width: 0;
-  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  &:focus { outline: none; }
+`;
+
+const RoomBottomLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 const CatTag = styled.span`
@@ -367,7 +516,7 @@ const OpenFab = styled.button`
   bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   right: calc(50% - 163px);
   padding: 10px 18px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -412,7 +561,7 @@ const UnreadBadge = styled.span`
   min-width: 20px;
   height: 20px;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 13px;
   font-weight: 700;

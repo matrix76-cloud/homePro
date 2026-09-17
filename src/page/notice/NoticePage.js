@@ -48,9 +48,11 @@ const NoticePage = () => {
                             <NoticeItem key={n.id}>
                                 <NoticeRow onClick={() => toggle(n.id)}>
                                     <NoticeLeft>
-                                        <Badge $type={n.badge}>{n.badge || "공지"}</Badge>
+                                        <NoticeMeta>{n.badge || "공지"} · {formatDate(n.createdAt)}</NoticeMeta>
                                         <NoticeTitle>{n.title}</NoticeTitle>
-                                        <NoticeDate>{formatDate(n.createdAt)}</NoticeDate>
+                                        {!isOpen && n.content && (
+                                            <NoticeLead>{String(n.content).split("\n")[0]}</NoticeLead>
+                                        )}
                                     </NoticeLeft>
                                     {isOpen
                                         ? <IoChevronUp size={18} color={THEME.muted} />
@@ -107,35 +109,28 @@ const NoticeLeft = styled.div`
     margin-right: 12px;
 `;
 
-const Badge = styled.span`
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 20px;
+/* 딱지 대신 종류와 날짜를 한 줄 글씨로 (대표 9/17 시안 1번) */
+const NoticeMeta = styled.div`
     font-size: 13px;
-    font-weight: 400;
-    margin-bottom: 6px;
-    background: ${({ $type }) =>
-        $type === "이벤트" ? "#FEF3C7" :
-        $type === "안내" ? THEME.purpleLight :
-        THEME.purpleLight};
-    color: ${({ $type }) =>
-        $type === "이벤트" ? "#D97706" :
-        $type === "안내" ? THEME.purple :
-        THEME.primary};
+    color: ${THEME.muted};
 `;
 
 const NoticeTitle = styled.div`
     font-size: 17px;
-    font-weight: 400;
+    font-weight: 700;
     color: ${THEME.text};
     line-height: 1.4;
+    margin-top: 4px;
     word-break: keep-all;
 `;
 
-const NoticeDate = styled.div`
-    font-size: 14px;
-    color: ${THEME.muted};
-    margin-top: 4px;
+/* 열지 않아도 무슨 내용인지 보이게 첫 줄만 */
+const NoticeLead = styled.div`
+    font-size: 15px;
+    color: #2b2f36;
+    line-height: 1.6;
+    margin-top: 5px;
+    word-break: keep-all;
 `;
 
 const NoticeBody = styled.div`

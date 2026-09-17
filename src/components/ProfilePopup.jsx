@@ -58,7 +58,7 @@ const tsMs = (v) => (v?.toDate ? v.toDate().getTime() : v?.seconds ? v.seconds *
 const catName = (id) => CATEGORIES.find((c) => c.id === id)?.shortName || "";
 
 // 미리 아는 정보(fallback)로 즉시 표시 + uid 있으면 상세 조회로 보강
-const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
+const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = false }) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const myUid = userData?.uid;
@@ -163,10 +163,13 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
     catch (e) { window.prompt("계좌번호를 복사하세요", text); }
   };
 
+  const Shell = asPage ? PageShell : Overlay;
+  const Inner = asPage ? PageBox : Box;
+
   return (
-    <Overlay onClick={onClose}>
-      <Box onClick={(e) => e.stopPropagation()}>
-        <CloseBtn onClick={onClose} aria-label="닫기"><IoCloseOutline size={24} /></CloseBtn>
+    <Shell onClick={asPage ? undefined : onClose}>
+      <Inner onClick={asPage ? undefined : ((e) => e.stopPropagation())}>
+        {!asPage && <CloseBtn onClick={onClose} aria-label="닫기"><IoCloseOutline size={24} /></CloseBtn>}
         <Head>
           {photo ? <Avatar src={photo} alt={name} /> : <AvatarPh><IoPersonCircleOutline size={54} color={THEME.muted} /></AvatarPh>}
           <HeadInfo>
@@ -334,7 +337,7 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
             <ActionBtn type="button" onClick={handleReport}>블랙리스트 신고</ActionBtn>
           </ActionRow>
         )}
-      </Box>
+      </Inner>
 
       {/* 증명서·포트폴리오 크게 보기 */}
       {imageView && (
@@ -346,7 +349,7 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose }) => {
           <BigImg src={imageView.url} alt={imageView.title} onClick={(e) => e.stopPropagation()} />
         </ImgOverlay>
       )}
-    </Overlay>
+    </Shell>
   );
 };
 
@@ -371,10 +374,19 @@ const CloseBtn = styled.button`
   position: absolute; top: 12px; right: 12px; z-index: 1;
   background: none; border: none; cursor: pointer; color: ${THEME.muted}; padding: 4px;
 `;
+/* 페이지로 열 때 — 덮개 없이 화면 전체를 쓴다 */
+const PageShell = styled.div`
+  background: #fff;
+  min-height: 100%;
+`;
+const PageBox = styled.div`
+  display: flex; flex-direction: column;
+  background: #fff;
+`;
 const Head = styled.div`
   flex-shrink: 0;
   display: flex; align-items: center; gap: 14px;
-  padding: 22px 48px 16px 20px; border-bottom: 1px solid ${LINE};
+  padding: 22px 20px 16px; border-bottom: 1px solid ${LINE};
 `;
 const Avatar = styled.img`
   width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
@@ -388,7 +400,7 @@ const Name = styled.div` font-size: 20px; font-weight: 700; color: ${THEME.text}
 const Company = styled.div` font-size: 15px; color: ${THEME.textSecondary}; margin-top: 2px; `;
 const MetaRow = styled.div` display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; `;
 const GradeChip = styled.span`
-  font-size: 14px; font-weight: 600; color: #fff; background: ${THEME.primary};
+  font-size: 14px; font-weight: 600; color: #fff; background: ${THEME.button};
   padding: 2px 8px; border-radius: 6px;
 `;
 const RatingWrap = styled.span`

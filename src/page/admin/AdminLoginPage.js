@@ -29,7 +29,7 @@ const Input = styled.input`
     &:focus { border-color: ${THEME.primary}; }
 `;
 const Btn = styled.button`
-    width: 100%; padding: 12px; background: ${THEME.primary}; color: #fff;
+    width: 100%; padding: 12px; background: ${THEME.button}; color: #fff;
     border: none; border-radius: 4px; font-size: 17px; font-weight: 600; cursor: pointer;
     &:disabled { opacity: 0.5; }
 `;

@@ -602,7 +602,7 @@ const SubmitBar = styled.div`
   box-shadow: 0 -1px 4px rgba(0,0,0,0.06); z-index: 100;
 `;
 const SubmitBtn = styled.button`
-  width: 100%; height: 52px; background: ${THEME.primary}; color: #fff; border: none; border-radius: 10px;
+  width: 100%; height: 52px; background: ${THEME.button}; color: #fff; border: none; border-radius: 10px;
   font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit;
   &:disabled { background: #b8c0ca; }
 `;
@@ -629,7 +629,7 @@ const SheetOutline = styled.button`
   font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
 `;
 const SheetPrimary = styled.button`
-  flex: 1; height: 48px; border-radius: 10px; border: none; background: ${THEME.primary}; color: #fff;
+  flex: 1; height: 48px; border-radius: 10px; border: none; background: ${THEME.button}; color: #fff;
   font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;
 `;
 const SheetClose = styled.button`

@@ -334,8 +334,8 @@ const DistFilterBtn = styled.button`
   gap: 4px;
   padding: 6px 12px;
   border-radius: 18px;
-  border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
-  background: ${({ $active }) => $active ? THEME.primary : THEME.surface};
+  border: 1px solid ${({ $active }) => $active ? THEME.button : THEME.border};
+  background: ${({ $active }) => $active ? THEME.button : THEME.surface};
   color: ${({ $active }) => $active ? "#fff" : THEME.textSecondary};
   font-size: 14px;
   font-weight: 500;

@@ -388,14 +388,14 @@ const ApplicantActions = styled.div`
 `;
 const ChatBtn = styled.button`
   padding: 8px 16px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   border: none;
   border-radius: 20px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  &:active { background: ${THEME.primaryDark}; }
+  &:active { background: ${THEME.buttonDark}; }
   &:disabled { opacity: 0.5; }
 `;
 const ResponseTextarea = styled.textarea`
@@ -415,14 +415,14 @@ const ResponseTextarea = styled.textarea`
 const PrimaryBtn = styled.button`
   width: 100%;
   padding: 14px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   border: none;
   border-radius: 10px;
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
-  &:active { background: ${THEME.primaryDark}; }
+  &:active { background: ${THEME.buttonDark}; }
   &:disabled { background: #ccc; }
 `;
 const SecondaryBtn = styled.button`

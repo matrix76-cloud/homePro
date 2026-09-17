@@ -142,7 +142,7 @@ const Header = styled.div`
 const Title = styled.h1`
   font-size: 24px;
   margin: 0 0 4px;
-  color: #00A341;
+  color: #007A33;
 `;
 const Sub = styled.div`
   font-size: 15px;
@@ -176,7 +176,7 @@ const UrlBtn = styled.button`
   padding: 8px 14px;
   font-size: 14px;
   font-weight: 700;
-  background: #00C74E;
+  background: #00963F;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -200,7 +200,7 @@ const SectionTitle = styled.h3`
   color: #444;
   margin: 18px 0 10px;
   padding-bottom: 6px;
-  border-bottom: 2px solid #E6F9EE;
+  border-bottom: 2px solid #F1EAF6;
 `;
 const Grid = styled.div`
   display: grid;
@@ -216,7 +216,7 @@ const Card = styled.button`
   cursor: pointer;
   transition: all 0.15s;
   &:hover:not(:disabled) {
-    border-color: #00C74E;
+    border-color: #00963F;
     box-shadow: 0 2px 8px rgba(37, 113, 227, 0.15);
   }
   &:disabled {
@@ -229,7 +229,7 @@ const Tag = styled.div`
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: ${({ $type }) => ($type === "pro" ? "#00C74E" : $type === "pool" ? "#9CA3AF" : "#3B82F6")};
+  background: ${({ $type }) => ($type === "pro" ? "#00963F" : $type === "pool" ? "#9CA3AF" : "#3B82F6")};
   padding: 2px 8px;
   border-radius: 10px;
   margin-bottom: 6px;
@@ -251,6 +251,6 @@ const SubMeta = styled.div`
 `;
 const Loading = styled.div`
   font-size: 13px;
-  color: #00C74E;
+  color: #00963F;
   margin-top: 4px;
 `;

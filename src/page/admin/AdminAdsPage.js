@@ -101,7 +101,7 @@ const PrimaryBtn = styled.button`
     font-size: 16px;
     font-weight: 600;
     color: #fff;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -130,7 +130,7 @@ const EditBtn = styled.button`
     border-radius: 4px;
     cursor: pointer;
     margin-right: 6px;
-    &:hover { background: ${THEME.primary}; color: #fff; }
+    &:hover { background: ${THEME.button}; color: #fff; }
 `;
 
 const Table = styled.table`

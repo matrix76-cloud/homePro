@@ -231,7 +231,7 @@ const BaseBtn = styled.button`
 
 const PrimaryBtn = styled(BaseBtn)`
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
 `;
 

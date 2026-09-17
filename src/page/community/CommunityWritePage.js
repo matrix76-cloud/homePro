@@ -270,7 +270,7 @@ const SubmitBtn = styled.button`
   padding: 16px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 18px;
   font-weight: 600;

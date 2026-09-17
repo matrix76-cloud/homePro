@@ -33,6 +33,12 @@ const MAX_ATTEMPTS = 5;          // 코드 오입력 허용 횟수
 // 하드코딩 폴백을 두면 이관 후에도 옛 계정으로 문자가 계속 나가므로 두지 않는다.
 const { solapi } = require("./config");
 
+// 문자 발송을 못 쓰는 동안 화면 확인용 테스트 번호 (대표 9/16 요청).
+// 이 번호만 문자를 보내지 않고 고정 코드로 통과시킨다. 솔라피가 열리면 TEST_PHONE 환경변수를 지워 끈다.
+const TEST_PHONE_E164 = process.env.TEST_PHONE || "+821010001000";
+const TEST_PHONE_CODE = process.env.TEST_PHONE_CODE || "111111";
+const isTestPhone = (e164) => !!TEST_PHONE_E164 && e164 === TEST_PHONE_E164;
+
 const db = () => admin.firestore();
 const nowSec = () => Math.floor(Date.now() / 1000);
 const sha256 = (v) => crypto.createHash("sha256").update(String(v)).digest("hex");
@@ -118,8 +124,8 @@ exports.requestPhoneCode = onCall({ region: REGION }, async (request) => {
         throw new HttpsError("resource-exhausted", "발송 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요.");
     }
 
-    // 코드 생성 — 암호학적 난수
-    const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+    // 코드 생성 — 암호학적 난수 (테스트 번호는 고정 코드)
+    const code = isTestPhone(e164) ? TEST_PHONE_CODE : String(crypto.randomInt(0, 1000000)).padStart(6, "0");
     const salt = crypto.randomBytes(16).toString("hex");
 
     await ref.set({
@@ -138,9 +144,14 @@ exports.requestPhoneCode = onCall({ region: REGION }, async (request) => {
     }, { merge: true });
 
     try {
+        if (isTestPhone(e164)) {
+            // 테스트 번호 — 문자를 보내지 않는다. 코드는 TEST_PHONE_CODE 고정
+            console.log("[phoneAuth] 테스트 번호 요청 — 문자 발송 건너뜀");
+        } else {
         // label 은 서버 상수로 고정 — 클라이언트 값을 통과시키면 발신 문구 일부를
         // 임의 문자열로 바꿔 보낼 수 있다(스미싱 악용 소지, 검수 7/28)
         await sendSms(e164.replace(/^\+82/, "0"), code, "홈프로");
+        }
     } catch (e) {
         console.error("SMS 발송 실패:", e.message);
         throw new HttpsError("unavailable", "문자 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.");

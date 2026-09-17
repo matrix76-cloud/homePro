@@ -482,7 +482,7 @@ const Dot = styled.span`
 const StepLine = styled.div`
   flex: 1;
   height: 2px;
-  background: ${({ $done }) => ($done ? THEME.primary : THEME.border)};
+  background: ${({ $done }) => ($done ? THEME.button : THEME.border)};
 `;
 
 const NoticeCard = styled.div`
@@ -622,13 +622,13 @@ const PrimaryBtn = styled.button`
   padding: 15px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 17px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  &:active { background: ${THEME.primaryDark}; }
+  &:active { background: ${THEME.buttonDark}; }
 `;
 
 const SecondaryBtn = styled.button`
@@ -833,7 +833,7 @@ const SubmitBtn = styled.button`
   padding: 16px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 17px;
   font-weight: 700;

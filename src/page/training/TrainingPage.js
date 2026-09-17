@@ -263,6 +263,6 @@ const Disclaimer = styled.div` margin-top: 14px; font-size: 13px; color: ${THEME
 const Fab = styled.button`
   position: fixed; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); z-index: 90;
   display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 22px; border-radius: 10px;
-  border: none; background: ${THEME.primary}; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
+  border: none; background: ${THEME.button}; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
   font-family: inherit; box-shadow: 0 6px 20px rgba(0,0,0,0.18); &:active { opacity: 0.85; }
 `;

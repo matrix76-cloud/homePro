@@ -339,7 +339,7 @@ export default AdminProApprovalPage;
 const Wrap = styled.div``;
 const Header = styled.div`display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;`;
 const Title = styled.h1`font-size: 24px; font-weight: 700; color: ${THEME.text}; margin: 0;`;
-const RefreshBtn = styled.button`padding: 8px 16px; font-size: 15px; font-weight: 600; color: ${THEME.primary}; background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 4px; cursor: pointer; &:hover { background: ${THEME.background}; }`;
+const RefreshBtn = styled.button`padding: 8px 16px; font-size: 15px; font-weight: 600; color: ${THEME.button}; background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 4px; cursor: pointer; &:hover { background: ${THEME.background}; }`;
 
 const TabBar = styled.div`display: flex; gap: 4px; margin-bottom: 16px;`;
 const TabItem = styled.a`
@@ -354,7 +354,7 @@ const TabCount = styled.span`font-size: 13px; font-weight: 600; color: ${p => p.
 
 const SearchBar = styled.div`position: relative; margin-bottom: 16px; max-width: 360px;`;
 const SearchIcon = styled.span`position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: ${THEME.muted}; pointer-events: none;`;
-const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
+const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.button}; }`;
 
 const EmptyMsg = styled.div`text-align: center; padding: 60px 0; color: ${THEME.muted}; font-size: 16px;`;
 
@@ -365,7 +365,7 @@ const Td = styled.td`padding: 10px 14px; font-size: 15px; color: ${THEME.text}; 
 const Tr = styled.tr`cursor: pointer; &:hover { background: ${THEME.background}; }`;
 
 const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: ${p => p.$color || "#fff"}; background: ${p => p.$bg || THEME.muted};`;
-const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${p => p.$bg || THEME.primary}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
+const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${p => p.$bg || THEME.button}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
 
 const PaginationRow = styled.div`display: flex; justify-content: center; align-items: center; gap: 12px; padding: 16px 0;`;
 const PageBtn = styled.button`padding: 6px 14px; font-size: 15px; font-weight: 600; border: 1px solid ${THEME.border}; border-radius: 4px; background: #fff; color: ${THEME.text}; cursor: pointer; &:disabled { opacity: 0.4; }`;

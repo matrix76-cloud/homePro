@@ -175,7 +175,7 @@ const ToggleSwitch = styled.div`
   width: 46px;
   height: 26px;
   border-radius: 13px;
-  background: ${({ $on }) => ($on ? THEME.primary : THEME.border)};
+  background: ${({ $on }) => ($on ? THEME.button : THEME.border)};
   position: relative;
   cursor: pointer;
   flex-shrink: 0;

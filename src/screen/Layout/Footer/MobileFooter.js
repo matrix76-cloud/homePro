@@ -165,7 +165,7 @@ const MobileFooter = ({ type }) => {
                       minWidth: 16,
                       height: 16,
                       borderRadius: 8,
-                      background: THEME.primary,
+                      background: THEME.button,
                       color: "#fff",
                       fontSize: 13,
                       fontWeight: 700,

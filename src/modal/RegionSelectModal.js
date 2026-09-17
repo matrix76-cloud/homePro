@@ -228,7 +228,7 @@ const PrimaryBtn = styled.button`
   height: 46px;
   border-radius: 12px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 16px;
   font-weight: 400;

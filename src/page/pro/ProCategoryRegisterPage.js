@@ -888,9 +888,9 @@ const Chip = styled.div`
     font-weight: 400;
     cursor: pointer;
     transition: all 0.15s;
-    background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
+    background: ${({ $active }) => ($active ? THEME.button : THEME.surface)};
     color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
-    border: 1.5px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+    border: 1.5px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
     &:active {
         opacity: 0.8;
     }
@@ -1173,7 +1173,7 @@ const ActionBtn = styled.button`
     padding: 16px;
     border: none;
     border-radius: 10px;
-    background: ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+    background: ${({ $active }) => ($active ? THEME.button : THEME.border)};
     color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
     font-size: 18px;
     font-weight: 400;

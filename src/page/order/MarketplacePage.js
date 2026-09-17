@@ -285,7 +285,7 @@ const Fab = styled.button`
   padding: 0 24px;
   border: none;
   border-radius: 8px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 16px;
   font-weight: 700;

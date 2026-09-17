@@ -67,7 +67,7 @@ const PrimaryBtn = styled.button`
   height: 52px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary || "#00C74E"};
+  background: ${THEME.button || "#00963F"};
   color: #fff;
   font-size: 16px;
   font-weight: 700;

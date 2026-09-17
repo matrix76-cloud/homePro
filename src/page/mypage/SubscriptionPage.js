@@ -219,15 +219,15 @@ const Label = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text
 const CheckRow = styled.div` display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 4px 0 10px; `;
 const CheckBox = styled.div`
   width: 22px; height: 22px; flex: none; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-  border: 1.5px solid ${({ $on }) => ($on ? THEME.primary : "#C9CED6")}; background: ${({ $on }) => ($on ? THEME.primary : "#fff")};
+  border: 1.5px solid ${({ $on }) => ($on ? THEME.button : "#C9CED6")}; background: ${({ $on }) => ($on ? THEME.button : "#fff")};
   color: #fff; font-size: 14px; font-weight: 800;
 `;
 const CheckText = styled.div` font-size: 15px; line-height: 1.5; color: ${THEME.text}; word-break: keep-all; `;
 const Radio = styled.div` display: flex; align-items: center; gap: 10px; padding: 9px 0; cursor: pointer; `;
 const RadioDot = styled.div`
   width: 20px; height: 20px; border-radius: 50%; flex: none;
-  border: 1.5px solid ${({ $on }) => ($on ? THEME.primary : "#C9CED6")};
-  background: ${({ $on }) => ($on ? `radial-gradient(circle, ${THEME.primary} 45%, #fff 50%)` : "#fff")};
+  border: 1.5px solid ${({ $on }) => ($on ? THEME.button : "#C9CED6")};
+  background: ${({ $on }) => ($on ? `radial-gradient(circle, ${THEME.button} 45%, #fff 50%)` : "#fff")};
 `;
 const RadioText = styled.div` font-size: 15px; color: ${THEME.text}; `;
 const InputRow = styled.div` display: flex; align-items: center; gap: 8px; margin-top: 4px; `;
@@ -244,7 +244,7 @@ const Row = styled.div`
 const Warn = styled.div` font-size: 14px; color: ${THEME.danger}; margin-top: 6px; `;
 const Notice = styled.div` font-size: 14px; line-height: 1.55; color: ${THEME.textSecondary}; padding: 0 4px 12px; word-break: keep-all; `;
 const SubmitBtn = styled.button`
-  width: 100%; height: 52px; border: none; border-radius: 10px; background: ${THEME.primary}; color: #fff; font-size: 17px; font-weight: 700;
+  width: 100%; height: 52px; border: none; border-radius: 10px; background: ${THEME.button}; color: #fff; font-size: 17px; font-weight: 700;
   font-family: inherit; cursor: pointer; &:disabled { opacity: 0.5; cursor: not-allowed; } &:active { opacity: 0.85; }
 `;
 const BottomSpacer = styled.div` height: 40px; `;

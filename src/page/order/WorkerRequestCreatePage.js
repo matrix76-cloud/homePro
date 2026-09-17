@@ -280,11 +280,12 @@ const Chip = styled.button`
   padding: 6px 12px;
   font-size: 14px;
   font-weight: 600;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  border: 1px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
   border-radius: 16px;
-  background: ${({ $active }) => ($active ? THEME.primary : "#fff")};
+  background: ${({ $active }) => ($active ? THEME.button : "#fff")};
   color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
   cursor: pointer;
+  &:focus { outline: none; }
 `;
 
 const Input = styled.input`
@@ -329,7 +330,7 @@ const SubmitBtn = styled.button`
   font-size: 18px;
   font-weight: 700;
   color: #fff;
-  background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
+  background: ${({ disabled }) => (disabled ? THEME.muted : THEME.button)};
   border: none;
   border-radius: 10px;
   cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};

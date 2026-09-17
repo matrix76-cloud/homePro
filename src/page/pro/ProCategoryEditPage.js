@@ -303,9 +303,9 @@ const LoadingWrap = styled.div`padding: 60px 0; text-align: center; color: ${THE
 const Section = styled.div`background: ${THEME.surface}; border-radius: 16px; padding: 20px; box-shadow: ${THEME.cardShadow};`;
 const SectionTitle = styled.div`font-size: 19px; font-weight: 700; color: ${THEME.text}; letter-spacing: -0.03em; margin-bottom: 14px;`;
 const ChipWrap = styled.div`display: flex; flex-wrap: wrap; gap: 8px;`;
-const Chip = styled.div`padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 400; cursor: pointer; background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)}; color: ${({ $active }) => ($active ? "#fff" : THEME.text)}; border: ${({ $active }) => ($active ? "none" : `1.5px solid ${THEME.border}`)}; &:active { opacity: 0.8; }`;
-const StyledInput = styled.input`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
-const StyledTextarea = styled.textarea`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; resize: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
+const Chip = styled.div`padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 400; cursor: pointer; background: ${({ $active }) => ($active ? THEME.button : THEME.surface)}; color: ${({ $active }) => ($active ? "#fff" : THEME.text)}; border: ${({ $active }) => ($active ? "none" : `1.5px solid ${THEME.border}`)}; &:active { opacity: 0.8; }`;
+const StyledInput = styled.input`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.button}; } &::placeholder { color: ${THEME.muted}; }`;
+const StyledTextarea = styled.textarea`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; resize: none; box-sizing: border-box; &:focus { border-color: ${THEME.button}; } &::placeholder { color: ${THEME.muted}; }`;
 const CharCount = styled.div`text-align: right; font-size: 14px; color: ${THEME.muted}; margin-top: 6px;`;
 const SmallText = styled.div`font-size: 15px; font-weight: 400; color: ${THEME.muted};`;
 
@@ -313,7 +313,7 @@ const SmallText = styled.div`font-size: 15px; font-weight: 400; color: ${THEME.m
 const CertSection = styled.div`margin-top: 14px; display: flex; flex-direction: column; gap: 10px;`;
 const CertCard = styled.div`display: flex; flex-direction: column; gap: 10px;`;
 const CertCardHeader = styled.div`display: flex; align-items: center; gap: 8px; margin-bottom: 10px;`;
-const CertNameInput = styled.input`flex: 1; padding: 10px 12px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 16px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.primary}; } &::placeholder { color: ${THEME.muted}; }`;
+const CertNameInput = styled.input`flex: 1; padding: 10px 12px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 16px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.button}; } &::placeholder { color: ${THEME.muted}; }`;
 const RemoveBtn = styled.button`background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 24px; height: 24px; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
 const CertPhotoArea = styled.div`width: 100%; min-height: 100px; border: 1.5px dashed ${THEME.border}; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; background: ${THEME.background}; &:active { opacity: 0.8; }`;
 const CertPhotoPreview = styled.img`width: 100%; height: auto; max-height: 200px; object-fit: contain;`;
@@ -335,8 +335,8 @@ const PhotoRemoveBtn = styled.button`position: absolute; top: 4px; right: 4px; b
 const PhotoAddBtn = styled.div`aspect-ratio: 1; border: 1.5px dashed ${THEME.border}; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; &:active { background: ${THEME.surface}; }`;
 
 /* region */
-const RegionSelectBtn = styled.button`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; background: ${THEME.surface}; cursor: pointer; box-sizing: border-box; display: flex; align-items: center; gap: 8px; &:active { border-color: ${THEME.primary}; }`;
+const RegionSelectBtn = styled.button`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; background: ${THEME.surface}; cursor: pointer; box-sizing: border-box; display: flex; align-items: center; gap: 8px; &:active { border-color: ${THEME.button}; }`;
 const RegionBtnText = styled.span`color: ${({ $hasValue }) => ($hasValue ? THEME.text : THEME.muted)}; font-weight: 400;`;
 
 /* action */
-const ActionBtn = styled.button`width: 100%; padding: 16px; border: none; border-radius: 10px; background: ${({ $active }) => ($active ? THEME.primary : THEME.border)}; color: ${({ $active }) => ($active ? "#fff" : THEME.muted)}; font-size: 18px; font-weight: 400; font-family: inherit; cursor: ${({ $active }) => ($active ? "pointer" : "default")}; &:active { opacity: ${({ $active }) => ($active ? 0.9 : 1)}; }`;
+const ActionBtn = styled.button`width: 100%; padding: 16px; border: none; border-radius: 10px; background: ${({ $active }) => ($active ? THEME.button : THEME.border)}; color: ${({ $active }) => ($active ? "#fff" : THEME.muted)}; font-size: 18px; font-weight: 400; font-family: inherit; cursor: ${({ $active }) => ($active ? "pointer" : "default")}; &:active { opacity: ${({ $active }) => ($active ? 0.9 : 1)}; }`;

@@ -20,13 +20,21 @@ export const AIEstimateContent = () => {
   const [result, setResult] = useState(null);
   const [showDetail, setShowDetail] = useState(true);
   const [expandedGroup, setExpandedGroup] = useState(null);
-  const [showReasoning, setShowReasoning] = useState(false);
   const [toast, setToast] = useState("");
+  // 한 화면에 칸을 다 펼치지 않고 단계로 넘어간다 (대표 9/17)
+  //  1 카테고리 · 2 세부 항목 · 3 공간과 면적 · 4 자세히(선택)
+  //  세부 항목이 없는 카테고리는 2를 건너뛴다
+  const [step, setStep] = useState(1);
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); }, []);
 
   const category = useMemo(() => CATEGORIES.find((c) => c.id === selectedCat), [selectedCat]);
   const hasSubcategories = category?.subcategories?.length > 0;
+
+  // 실제로 지나가는 단계만 (대표 9/17 — 세부 항목은 별도 화면)
+  const flow = useMemo(() => (hasSubcategories ? [1, 2, 3, 4] : [1, 3, 4]), [hasSubcategories]);
+  const stepIdx = Math.max(0, flow.indexOf(step));
+  const goNext = () => setStep(flow[Math.min(stepIdx + 1, flow.length - 1)]);
 
   const toggleSub = (sub) => {
     setSelectedSubs((prev) =>
@@ -63,32 +71,49 @@ export const AIEstimateContent = () => {
 
   return (
     <PageWrap>
-        {/* 카테고리 선택 — 예약접수와 동일한 평면 나열 (대표 지시 7/28) */}
+        {/* 진행 막대는 빼기로 함 (형 9/17) */}
+
+        {/* 지난 단계는 접어 고른 값만 한 줄로 (대표 9/17) */}
+        {selectedCat && step >= 2 && (
+          <DoneRow onClick={() => setStep(1)}>
+            <DoneText>
+              {CATEGORIES.find((c) => c.id === selectedCat)?.name}
+              {step >= 3 && selectedSubs.length > 0 ? " · " + selectedSubs.join(", ") : ""}
+              {step >= 4 && spaceType ? " · " + spaceType : ""}
+              {step >= 4 && area ? " · " + area : ""}
+            </DoneText>
+            <DoneEdit>수정</DoneEdit>
+          </DoneRow>
+        )}
+
+        {/* 카테고리 선택 — 세 칸 그리드 (대표 9/17 시안 2번) */}
+        {step < 2 && !result && (
         <Section>
           <Label>카테고리 선택</Label>
-          {!selectedCat ? (
-            CATEGORIES.filter((cat) => !cat.proOnly).map((cat) => (
-              <CatAccordion key={cat.id}>
-                <CatAccordionHeader onClick={() => { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }}>
-                  <CatAccordionLabel>{cat.name}</CatAccordionLabel>
-                  <CatAccordionArrow>▼</CatAccordionArrow>
-                </CatAccordionHeader>
-              </CatAccordion>
-            ))
-          ) : (
-            <CatAccordion>
-              <CatAccordionHeader $active onClick={() => { setSelectedCat(""); setSelectedSubs([]); setSpaceType(""); setResult(null); }}>
-                <CatAccordionLabel>{CATEGORIES.find((c) => c.id === selectedCat)?.name}</CatAccordionLabel>
-                <CatAccordionArrow>▲</CatAccordionArrow>
-              </CatAccordionHeader>
-            </CatAccordion>
-          )}
+          <CatCellGrid>
+            {CATEGORIES.filter((cat) => !cat.proOnly).map((cat) => (
+              <CatCell
+                key={cat.id}
+                type="button"
+                $active={selectedCat === cat.id}
+                onClick={() => {
+                  const sub = cat.subcategories?.length > 0;
+                  if (selectedCat !== cat.id) { setSelectedCat(cat.id); setSelectedSubs([]); setSpaceType(""); setResult(null); }
+                  setStep(sub ? 2 : 3);
+                }}
+              >
+                {cat.name}
+              </CatCell>
+            ))}
+          </CatCellGrid>
         </Section>
+        )}
 
         {/* 세부 항목 선택 */}
-        {selectedCat && hasSubcategories && (
+        {selectedCat && step === 2 && hasSubcategories && !result && (
           <Section>
             <Label>세부 항목 선택</Label>
+            <SubHint>해당하는 항목을 모두 골라 주세요. 여러 개 고를 수 있습니다.</SubHint>
             <CatGrid>
               {category.subcategories.map((sub) => (
                 <CatChip
@@ -104,7 +129,7 @@ export const AIEstimateContent = () => {
         )}
 
         {/* 공간유형 */}
-        {selectedCat && (
+        {selectedCat && step === 3 && !result && (
           <Section>
             <Label>공간유형</Label>
             <CatGrid>
@@ -122,7 +147,7 @@ export const AIEstimateContent = () => {
         )}
 
         {/* 면적 */}
-        {selectedCat && (
+        {selectedCat && step === 3 && !result && (
           <Section>
             <Label>면적 (선택)</Label>
             <AreaInput
@@ -134,7 +159,7 @@ export const AIEstimateContent = () => {
         )}
 
         {/* 작업 설명 */}
-        {selectedCat && (
+        {selectedCat && step >= 4 && !result && (
           <Section>
             <Label>작업 내용 (선택)</Label>
             <TextArea
@@ -146,8 +171,27 @@ export const AIEstimateContent = () => {
           </Section>
         )}
 
+        {/* 다음 단계로 (대표 9/17) */}
+        {selectedCat && !result && step >= 2 && step < 4 && (
+          <StepRow>
+            <StepHint>
+              {step === 2 ? "고르지 않고 넘어가도 견적은 나옵니다." : "공간과 면적을 넣으면 금액이 더 정확해집니다."}
+            </StepHint>
+            <StepBtnRow>
+              {step === 3 && (
+                <StepGhostBtn type="button" onClick={handleAnalyze} disabled={analyzing}>
+                  이대로 견적 받기
+                </StepGhostBtn>
+              )}
+              <StepNextBtn type="button" onClick={goNext}>
+                다음
+              </StepNextBtn>
+            </StepBtnRow>
+          </StepRow>
+        )}
+
         {/* 분석 버튼 */}
-        {selectedCat && !result && (
+        {selectedCat && !result && step >= 4 && (
           <AnalyzeBtn onClick={handleAnalyze} disabled={analyzing}>
             {analyzing ? (
               <>
@@ -184,6 +228,22 @@ export const AIEstimateContent = () => {
                 </TotalPriceCol>
               </TotalRow>
 
+              {result.reasoning && (
+                <WhyBox>
+                  <WhyTitle>이렇게 계산했습니다</WhyTitle>
+                  <WhyText>{result.reasoning}</WhyText>
+                </WhyBox>
+              )}
+
+              {result.estimate.priceFactors?.length > 0 && (
+                <FactorBox>
+                  <FactorTitle>이럴 때 금액이 달라집니다</FactorTitle>
+                  {result.estimate.priceFactors.map((f, i) => (
+                    <FactorItem key={i}>{f}</FactorItem>
+                  ))}
+                </FactorBox>
+              )}
+
               <DetailToggle onClick={() => setShowDetail(!showDetail)}>
                 항목별 내역 {showDetail ? <IoChevronUp size={16} /> : <IoChevronDown size={16} />}
               </DetailToggle>
@@ -216,16 +276,7 @@ export const AIEstimateContent = () => {
                 </TipBox>
               )}
 
-              {result.reasoning && (
-                <>
-                  <DetailToggle onClick={() => setShowReasoning(!showReasoning)} style={{ marginTop: 8 }}>
-                    산출 근거 {showReasoning ? <IoChevronUp size={16} /> : <IoChevronDown size={16} />}
-                  </DetailToggle>
-                  {showReasoning && <ReasoningBox>{result.reasoning}</ReasoningBox>}
-                </>
-              )}
-
-              <Disclaimer>* AI 예상 견적은 참고용이며, 실제 비용은 현장 상황에 따라 달라질 수 있습니다.</Disclaimer>
+              <Disclaimer>실제 금액은 현장을 확인한 뒤 달라질 수 있습니다. 부가세는 별도입니다.</Disclaimer>
             </ResultCard>
 
             <RealEstimateBtn onClick={handleRealEstimate}>실제 견적 요청하기</RealEstimateBtn>
@@ -294,7 +345,7 @@ const PageWrap = styled.div`
 `;
 
 const HeaderCard = styled.div`
-  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.primaryDark});
+  background: linear-gradient(135deg, ${THEME.button}, ${THEME.buttonDark});
   padding: 28px 20px;
   border-radius: 16px;
   display: flex;
@@ -331,11 +382,35 @@ const HeaderDesc = styled.div`
 `;
 
 const Section = styled.div`
-  background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  margin-top: 12px;
-  box-shadow: ${THEME.cardShadow};
+  padding: 4px 4px 0;
+  margin-top: 14px;
+`;
+
+const CatCellGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+`;
+
+const CatCell = styled.button`
+  min-height: 62px;
+  padding: 14px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  word-break: keep-all;
+  line-height: 1.35;
+  border-radius: 10px;
+  border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
+  background: ${({ $active }) => $active ? `${THEME.primary}15` : THEME.surface};
+  color: ${({ $active }) => $active ? THEME.primary : THEME.text};
+  font-size: 15px;
+  font-weight: ${({ $active }) => $active ? 700 : 500};
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
+  &:focus { outline: none; }
 `;
 
 const Label = styled.div`
@@ -344,6 +419,13 @@ const Label = styled.div`
   color: ${THEME.text};
   margin-bottom: 12px;
   letter-spacing: -0.02em;
+`;
+
+const SubHint = styled.div`
+  font-size: 14px;
+  color: #2b2f36;
+  line-height: 1.6;
+  margin: -6px 0 12px;
 `;
 
 const CatGroupLabel = styled.div`
@@ -391,30 +473,31 @@ const CatAccordionArrow = styled.span`
 const CatGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px 0;
+  gap: 10px;
+  padding: 10px 0 2px;
 `;
 
 const CatChip = styled.button`
   display: flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 6px;
-  padding: 8px 10px;
-  white-space: nowrap;
-  justify-content: flex-start;
-  border-radius: 6px;
+  min-height: 52px;
+  padding: 13px 14px;
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.35;
+  border-radius: 8px;
   border: 1px solid ${({ $active }) => $active ? THEME.primary : THEME.border};
   background: ${({ $active }) => $active ? `${THEME.primary}15` : THEME.surface};
   color: ${({ $active }) => $active ? THEME.primary : THEME.text};
-  font-size: 13px;
-  font-weight: ${({ $active }) => $active ? 600 : 400};
+  font-size: 15px;
+  font-weight: ${({ $active }) => $active ? 700 : 500};
   font-family: inherit;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
   &:active { opacity: 0.8; }
+  &:focus { outline: none; }
 `;
 
 const CatChipIcon = styled.span`
@@ -457,12 +540,90 @@ const Spinner = styled.div`
   animation: ${spin} 0.7s linear infinite;
 `;
 
+/* 단계 진행 (대표 9/17) */
+/* 지난 단계 요약 줄 (대표 9/17) */
+const DoneRow = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: calc(100% - 8px);
+  margin: 14px 4px 6px;
+  padding: 13px 14px;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+`;
+
+const DoneText = styled.span`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const DoneEdit = styled.span`
+  flex-shrink: 0;
+  font-size: 14px;
+  color: ${THEME.primaryDark};
+`;
+
+const StepRow = styled.div`
+  margin: 8px 4px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const StepHint = styled.div`
+  font-size: 14px;
+  color: #2b2f36;
+  line-height: 1.6;
+`;
+
+const StepBtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const StepNextBtn = styled.button`
+  flex: 1.4;
+  height: 52px;
+  border: none;
+  border-radius: 10px;
+  background: ${THEME.button};
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+`;
+
+const StepGhostBtn = styled.button`
+  flex: 1;
+  height: 52px;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  background: ${THEME.surface};
+  color: ${THEME.text};
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  &:disabled { opacity: 0.5; }
+`;
+
 const AnalyzeBtn = styled.button`
-  margin: 20px 0 0;
+  margin: 20px 4px 0;
   padding: 16px;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(135deg, ${THEME.primary}, ${THEME.purple});
+  background: linear-gradient(135deg, ${THEME.button}, ${THEME.purple});
   color: #fff;
   font-size: 18px;
   font-weight: 400;
@@ -622,6 +783,53 @@ const InfoValue = styled.div`
   color: ${THEME.text};
 `;
 
+const WhyBox = styled.div`
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid ${THEME.primary};
+  background: ${THEME.primary}12;
+`;
+
+const WhyTitle = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.primaryDark};
+  margin-bottom: 6px;
+`;
+
+const WhyText = styled.div`
+  font-size: 15px;
+  color: #2b2f36;
+  line-height: 1.65;
+  word-break: keep-all;
+`;
+
+const FactorBox = styled.div`
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+`;
+
+const FactorTitle = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 6px;
+`;
+
+const FactorItem = styled.div`
+  font-size: 15px;
+  color: #2b2f36;
+  line-height: 1.65;
+  word-break: keep-all;
+  padding-left: 12px;
+  position: relative;
+  &::before { content: "·"; position: absolute; left: 2px; }
+`;
+
 const TipBox = styled.div`
   display: flex;
   gap: 8px;
@@ -657,7 +865,7 @@ const RealEstimateBtn = styled.button`
   padding: 16px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 18px;
   font-weight: 400;

@@ -2,7 +2,7 @@ import { THEME } from '../config/homeproConfig';
 
 export const BUTTON_COLORS = {
     primary: {
-        background: THEME.primary,
+        background: THEME.button,
         hover: THEME.primaryDark,
         text: '#ffffff',
     },

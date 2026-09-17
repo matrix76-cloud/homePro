@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect, useContext } from "react";
+import EmptyOrders from "../../components/EmptyOrders";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
@@ -65,7 +66,7 @@ const STATUS_DESC = {
 // 상태별 색상 통일 (대표 지시 7/23): 접수=보라계열(형 보라금지 룰과 충돌 → 확인 전까지 블루 유지)
 // 배정=노랑 / 완료=현재(초록) / 취소=붉은 / 대기=회색 / 선정대기=연노랑
 const STATUS_STYLE = {
-  "접수":     { bg: "#8B5CF6", color: "#fff" },   // 보라계열 (대표 지시)
+  "접수":     { bg: THEME.primary, color: "#fff" },  // 강조 초록 (9/17 색 변경 — 원래 대표 지시는 보라계열)
   "대기":     { bg: "#9CA3AF", color: "#fff" },   // 회색
   // 대표 9/15 리뷰: 선정대기 = 기존 배정 색, 배정 = 노랑, 완료 = 파랑
   "선정대기": { bg: "#F59E0B", color: "#fff" },   // 기존 배정 색(주황빛 노랑)
@@ -405,9 +406,11 @@ export const MyOrdersContent = () => {
             <EmptyText>불러오는 중...</EmptyText>
           </EmptyWrap>
         ) : filtered.length === 0 ? (
-          <EmptyWrap>
-            <EmptyText>해당 상태의 오더가 없어요.</EmptyText>
-          </EmptyWrap>
+          <EmptyOrders
+            title="해당 상태의 오더가 없어요"
+            desc={"다른 상태를 눌러 보시거나,\n새 오더를 접수해 보세요."}
+            showCreate
+          />
         ) : (
           filtered.map((order) => {
             const cat = CATEGORIES.find((c) => c.id === order.categoryId);
@@ -965,7 +968,7 @@ const UnreadBadge = styled.span`
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -1017,12 +1020,12 @@ const VARIANT_COLORS = {
   danger: "#EF4444",
   success: "#10B981",
   warning: "#F59E0B",
-  primary: "#00C74E",
+  primary: "#00963F",
 };
 
 const ActionBtn = styled.button`
   border: 1px solid ${({ $variant }) => VARIANT_COLORS[$variant] || THEME.primary};
-  background: ${({ $variant }) => (VARIANT_COLORS[$variant] || THEME.primary) + "10"};
+  background: ${({ $variant }) => (VARIANT_COLORS[$variant] || THEME.button) + "10"};
   color: ${({ $variant }) => VARIANT_COLORS[$variant] || THEME.primary};
   font-size: 15px;
   font-weight: 500;
@@ -1091,11 +1094,12 @@ const ViewToggleBtn = styled.button`
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid ${THEME.border};
+  border: 1px solid ${(p) => (p.$active ? THEME.button : THEME.border)};
   border-radius: 8px;
-  background: ${(p) => p.$active ? THEME.primary : "#fff"};
+  background: ${(p) => p.$active ? THEME.button : "#fff"};
   color: ${(p) => p.$active ? "#fff" : THEME.muted};
   cursor: pointer;
+  &:focus { outline: none; }
 `;
 
 /* ─── 취소요청 모달 ─── */
@@ -1159,8 +1163,8 @@ const ReasonRadio = styled.div`
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid ${(p) => p.$selected ? THEME.primary : THEME.border};
-  background: ${(p) => p.$selected ? THEME.primary : "transparent"};
+  border: 2px solid ${(p) => p.$selected ? THEME.button : THEME.border};
+  background: ${(p) => p.$selected ? THEME.button : "transparent"};
   flex-shrink: 0;
 `;
 
@@ -1241,7 +1245,7 @@ const ConfirmBtn = styled.button`
   font-size: 17px;
   font-weight: 700;
   color: #fff;
-  background: ${(p) => p.disabled ? THEME.muted : THEME.primary};
+  background: ${(p) => p.disabled ? THEME.muted : THEME.button};
   border: none;
   border-radius: 10px;
   cursor: ${(p) => p.disabled ? "not-allowed" : "pointer"};
@@ -1312,7 +1316,7 @@ const CalDayNum = styled.div`
 
 const CalDot = styled.div`
   font-size: 13px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   padding: 1px 4px;
   border-radius: 4px;

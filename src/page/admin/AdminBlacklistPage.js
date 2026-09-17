@@ -218,7 +218,7 @@ export default AdminBlacklistPage;
 const Wrap = styled.div``;
 const Header = styled.div`display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;`;
 const Title = styled.h1`font-size: 24px; font-weight: 700; color: ${THEME.text}; margin: 0;`;
-const RefreshBtn = styled.button`padding: 8px 16px; font-size: 15px; font-weight: 600; color: ${THEME.primary}; background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 4px; cursor: pointer; &:hover { background: ${THEME.background}; }`;
+const RefreshBtn = styled.button`padding: 8px 16px; font-size: 15px; font-weight: 600; color: ${THEME.button}; background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 4px; cursor: pointer; &:hover { background: ${THEME.background}; }`;
 
 const TabBar = styled.div`display: flex; gap: 4px; margin-bottom: 16px;`;
 const TabItem = styled.a`
@@ -240,7 +240,7 @@ const Td = styled.td`padding: 10px 14px; font-size: 15px; color: ${THEME.text}; 
 const Tr = styled.tr`cursor: pointer; &:hover { background: ${THEME.background}; }`;
 
 const Badge = styled.span`display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #fff; background: ${p => p.$bg || THEME.muted};`;
-const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${p => p.$bg || THEME.primary}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
+const ActionBtn = styled.button`padding: 4px 10px; font-size: 14px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px; color: #fff; background: ${p => p.$bg || THEME.button}; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
 
 const Overlay = styled.div`position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000;`;
 const Modal = styled.div`background: #fff; border-radius: 6px; width: 600px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.18);`;

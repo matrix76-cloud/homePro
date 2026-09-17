@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoHeartOutline, IoChatbubbleOutline } from "react-icons/io5";
+import { IoHeartOutline, IoChatbubbleOutline, IoEyeOutline, IoCreateOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { getPosts } from "../../service/CommunityService";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
@@ -40,6 +40,19 @@ const CommunityPage = () => {
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
   };
 
+  // 많이 본 글 3개 — 이번 주 글이 3개 미만이면 받아온 글 전체에서 고른다 (시안 4번, 형 9/18)
+  const WEEK_MS = 7 * 24 * 3600 * 1000;
+  const toMs = (ts) => (ts?.toMillis ? ts.toMillis() : ts ? new Date(ts).getTime() : 0);
+  const weekPosts = posts.filter((p) => Date.now() - toMs(p.createdAt) < WEEK_MS);
+  const popularPool = weekPosts.length >= 3 ? weekPosts : posts;
+  const popularTitle = weekPosts.length >= 3 ? "이번 주 많이 본 글" : "많이 본 글";
+  const score = (p) => (p.viewCount || 0) * 1000 + (p.likeCount || 0) + (p.commentCount || 0);
+  const popular = type === "free" && posts.length >= 4
+    ? [...popularPool].sort((x, y) => score(y) - score(x)).slice(0, 3)
+    : [];
+
+  const goPost = (post) => !post.id.startsWith("default_") && navigate(`/community/${post.id}`);
+
   return (
     <MainListLayout NAME="커뮤니티" hideFooter>
       <PageWrap>
@@ -50,44 +63,53 @@ const CommunityPage = () => {
         ) : posts.length === 0 ? (
           <EmptyWrap><EmptyText>게시글이 없습니다</EmptyText></EmptyWrap>
         ) : (
-          <ListWrap>
-            {posts.map((post) => (
-              <PostCard key={post.id} onClick={() => !post.id.startsWith("default_") && navigate(`/community/${post.id}`)}>
-                <PostBadge>{activeTab === "이벤트/공지" ? "이벤트/공지" : "자유"}</PostBadge>
-                <PostTitle>{post.title}</PostTitle>
-                <PostContent>{post.content}</PostContent>
-                {post.images && post.images.length > 0 && (
-                  <ThumbRow>
-                    {post.images.slice(0, 3).map((url, i) => (
-                      <Thumb key={i}>
-                        <ThumbImg src={url} alt="" />
-                        {i === 2 && post.images.length > 3 && (
-                          <ThumbMore>+{post.images.length - 3}</ThumbMore>
-                        )}
-                      </Thumb>
-                    ))}
-                  </ThumbRow>
-                )}
-                <PostFooter>
-                  <PostDate>{formatDate(post.createdAt)}</PostDate>
-                  {type === "free" && (
-                    <PostMeta>
-                      <MetaItem><IoHeartOutline size={14} color={THEME.muted} />{post.likeCount || 0}</MetaItem>
-                      <MetaItem><IoChatbubbleOutline size={14} color={THEME.muted} />{post.commentCount || 0}</MetaItem>
-                    </PostMeta>
+          <>
+            {popular.length > 0 && (
+              <PopularCard>
+                <PopularTitle>{popularTitle}</PopularTitle>
+                {popular.map((post, i) => (
+                  <PopularRow key={post.id} onClick={() => goPost(post)}>
+                    <PopularNo>{i + 1}</PopularNo>
+                    <PopularText>{post.title}</PopularText>
+                    <PopularView>
+                      {post.viewCount ? <><IoEyeOutline size={15} />{post.viewCount}</> : <><IoHeartOutline size={15} />{post.likeCount || 0}</>}
+                    </PopularView>
+                  </PopularRow>
+                ))}
+              </PopularCard>
+            )}
+            {popular.length > 0 && <SectionLabel>최신 글</SectionLabel>}
+            <ListWrap>
+              {posts.map((post) => (
+                <PostRow key={post.id} onClick={() => goPost(post)}>
+                  <PostMain>
+                    <PostTitle>{post.title}</PostTitle>
+                    <PostInfo>
+                      {post.authorName && <span>{post.authorName}</span>}
+                      <span>{formatDate(post.createdAt)}</span>
+                      {type === "free" && (
+                        <>
+                          <MetaItem><IoHeartOutline size={15} />{post.likeCount || 0}</MetaItem>
+                          <MetaItem><IoChatbubbleOutline size={15} />{post.commentCount || 0}</MetaItem>
+                        </>
+                      )}
+                    </PostInfo>
+                  </PostMain>
+                  {post.images && post.images.length > 0 && (
+                    <Thumb>
+                      <ThumbImg src={post.images[0]} alt="" />
+                      {post.images.length > 1 && <ThumbMore>+{post.images.length - 1}</ThumbMore>}
+                    </Thumb>
                   )}
-                </PostFooter>
-                {type === "free" && post.authorName && (
-                  <AuthorName>{post.authorName}</AuthorName>
-                )}
-              </PostCard>
-            ))}
-          </ListWrap>
+                </PostRow>
+              ))}
+            </ListWrap>
+          </>
         )}
 
         {type === "free" && (
           <WriteBtn onClick={() => navigate("/community/write")}>
-            게시글 쓰기
+            <IoCreateOutline size={19} />글쓰기
           </WriteBtn>
         )}
       </PageWrap>
@@ -107,56 +129,104 @@ const PageWrap = styled.div`
   position: relative;
 `;
 
-const ListWrap = styled.div`
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+const PopularCard = styled.div`
+  margin: 12px 12px 0;
+  padding: 14px 16px 6px;
+  background: ${THEME.surface};
+  border-radius: 14px;
 `;
 
-const PostCard = styled.div`
+const PopularTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 4px;
+`;
+
+const PopularRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  & + & { border-top: 1px solid #F2F4F7; }
+`;
+
+const PopularNo = styled.span`
+  width: 16px;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: ${THEME.primary};
+`;
+
+const PopularText = styled.span`
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: ${THEME.text};
+  line-height: 1.4;
+  word-break: keep-all;
+`;
+
+const PopularView = styled.span`
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  color: #2b2f36;
+`;
+
+const SectionLabel = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+  padding: 18px 16px 8px;
+`;
+
+const ListWrap = styled.div`
   background: ${THEME.surface};
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: ${THEME.cardShadow};
+  margin-top: 0;
+  padding-bottom: 90px;
+`;
+
+const PostRow = styled.div`
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #EFF1F4;
   cursor: pointer;
   &:active { background: ${THEME.background}; }
 `;
 
-const PostBadge = styled.div`
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 20px;
-  background: ${THEME.primary};
-  color: #fff;
-  font-size: 13px;
-  font-weight: 400;
-  margin-bottom: 10px;
+const PostMain = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 
 const PostTitle = styled.div`
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: ${THEME.text};
   line-height: 1.4;
-  letter-spacing: -0.02em;
+  word-break: keep-all;
 `;
 
-const PostContent = styled.div`
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.muted};
-  margin-top: 6px;
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const ThumbRow = styled.div`
+const PostInfo = styled.div`
   display: flex;
-  gap: 6px;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #2b2f36;
+`;
+
+const MetaItem = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 `;
 
 const Thumb = styled.div`
@@ -178,49 +248,14 @@ const ThumbImg = styled.img`
 
 const ThumbMore = styled.div`
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  right: 0;
+  bottom: 0;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
-`;
-
-const PostFooter = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-`;
-
-const PostDate = styled.div`
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.muted};
-`;
-
-const PostMeta = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-`;
-
-const MetaItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.muted};
-`;
-
-const AuthorName = styled.div`
-  font-size: 14px;
-  font-weight: 400;
-  color: ${THEME.textSecondary};
-  margin-top: 6px;
+  border-radius: 8px 0 0 0;
 `;
 
 const EmptyWrap = styled.div`
@@ -238,18 +273,23 @@ const EmptyText = styled.div`
 
 const WriteBtn = styled.button`
   position: fixed;
-  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
-  right: calc(50% - 163px);
-  padding: 10px 18px;
-  border-radius: 4px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(50% - 184px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 50px;
+  padding: 0 18px;
+  border-radius: 12px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   font-family: inherit;
-  box-shadow: 0 4px 12px rgba(37, 113, 227, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
   cursor: pointer;
   z-index: 100;
   &:active { opacity: 0.85; }
+  @media (max-width: 400px) { right: 16px; }
 `;

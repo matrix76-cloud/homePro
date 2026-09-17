@@ -447,13 +447,13 @@ const PrimaryBtn = styled.button`
   height: 52px;
   border: none;
   border-radius: 8px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 17px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  &:active { background: ${THEME.primaryDark}; }
+  &:active { background: ${THEME.buttonDark}; }
   &:disabled { background: #b8bec7; cursor: not-allowed; }
 `;
 const OutlineBtn = styled.button`

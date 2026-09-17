@@ -116,7 +116,7 @@ const BrokeragePage = () => {
   };
 
   return (
-    <MainListLayout NAME="공동중개" footerType="brokerage" hideBack>
+    <MainListLayout NAME="공동중개" footerType="brokerage" hideBack hideActions>
       <Wrap>
         <NoticeBar>개업 공인중개사 전용 공동중개 라운지 · 글쓰기/읽기 무료</NoticeBar>
 
@@ -146,10 +146,10 @@ const BrokeragePage = () => {
           <Empty>{tab === "mine" ? "내가 등록한 글이 없어요." : "아직 등록된 글이 없어요. 첫 글을 등록해보세요."}</Empty>
         ) : (
           filtered.map((p) => (
-            <Card key={p.id} onClick={() => setSelected(p)} style={{ cursor: "pointer" }}>
+            <Card key={p.id} onClick={() => navigate(`/brokerage/${p.id}`)} style={{ cursor: "pointer" }}>
               <CardTop>
                 <TypeTag $listing={p.type === "listing"}>{p.type === "listing" ? "매물공유" : "손님공유"}</TypeTag>
-                <span style={{ fontSize: 14, fontWeight: 700, color: p.status === "closed" ? THEME.muted : "#15803d" }}>{p.status === "closed" ? "거래종료" : "진행중"}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: p.status === "closed" ? THEME.muted : THEME.primary }}>{p.status === "closed" ? "거래종료" : "진행중"}</span>
                 <RegionText><IoLocationOutline size={13} /> {p.region}</RegionText>
                 <TimeText>{timeAgo(p.createdAt)}</TimeText>
               </CardTop>
@@ -182,43 +182,6 @@ const BrokeragePage = () => {
         </Disclaimer>
       </Wrap>
 
-      {/* 상세 시트 — 조건 확인 → [전화하기] [채팅하기] → 연결 시점에 자율 협의·책임 고지 (대표 9/10) */}
-      {selected && (
-        <SheetOverlay onClick={() => setSelected(null)}>
-          <Sheet onClick={(e) => e.stopPropagation()}>
-            <SheetHandle />
-            <SheetHead>
-              <TypeTag $listing={selected.type === "listing"}>{selected.type === "listing" ? "매물공유" : "손님공유"}</TypeTag>
-              <span style={{ fontSize: 14, fontWeight: 700, color: selected.status === "closed" ? THEME.muted : "#15803d" }}>{selected.status === "closed" ? "거래종료" : "진행중"}</span>
-              <span style={{ flex: 1 }} />
-              <SheetClose onClick={() => setSelected(null)}>닫기</SheetClose>
-            </SheetHead>
-            <SheetTitle>{selected.oneLine}</SheetTitle>
-            <SheetRow><span>지역</span><b>{selected.region || "-"}</b></SheetRow>
-            <SheetRow><span>매물 종류</span><b>{selected.dealType || "-"}</b></SheetRow>
-            <SheetRow><span>거래 형태</span><b>{selected.contractType || "-"}</b></SheetRow>
-            <SheetRow><span>금액</span><b>{selected.price || "-"}</b></SheetRow>
-            <SheetRow><span>등록</span><b>{selected.authorCompany} · {timeAgo(selected.createdAt)}</b></SheetRow>
-            {selected.detail && <SheetDetail>{selected.detail}</SheetDetail>}
-            {selected.type === "demand" && !isBroker ? (
-              <SheetNote>손님공유 상세·연결은 인증 공인중개사만 할 수 있습니다.</SheetNote>
-            ) : selected.authorUid === uid ? (
-              <SheetNote>내가 등록한 글입니다. [내 글] 탭에서 거래 종료를 관리할 수 있습니다.</SheetNote>
-            ) : selected.status === "closed" ? (
-              <SheetNote>거래가 종료된 글입니다.</SheetNote>
-            ) : (
-              <>
-                <SheetActions>
-                  <OutlineBtn style={{ flex: 1, height: 46 }} onClick={() => callAuthor(selected)}>전화하기</OutlineBtn>
-                  <ChatBtn style={{ flex: 1, height: 46, justifyContent: "center" }} onClick={() => startChat(selected)}><IoChatbubbleEllipsesOutline size={16} /> 채팅하기</ChatBtn>
-                </SheetActions>
-                <SheetNote>전화·채팅으로 연결되는 순간부터는 중개사 간 자율 협의이며, 계약 진행과 중개 사고의 책임은 당사자에게 있습니다. 홈프로는 연결까지만 합니다.</SheetNote>
-              </>
-            )}
-          </Sheet>
-        </SheetOverlay>
-      )}
-
       <Fab onClick={() => (isBroker ? navigate("/brokerage/create") : askRegister())}>
         <IoAddCircle size={20} /> 등록
       </Fab>
@@ -241,7 +204,9 @@ const TabRow = styled.div`
 const TabBtn = styled.button`
   flex: 1 0 auto; height: 40px; padding: 0 10px; border-radius: 10px; font-size: 15px; font-weight: ${({ $active }) => ($active ? 600 : 400)};
   white-space: nowrap; line-height: 1; cursor: pointer; font-family: inherit;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
+  /* 선택된 탭은 테두리 없이 면만 (형 9/17) */
+  border: 1px solid ${({ $active }) => ($active ? "transparent" : THEME.border)};
+  outline: none;
   background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
 `;
@@ -251,7 +216,7 @@ const Card = styled.div`
 const CardTop = styled.div` display: flex; align-items: center; gap: 8px; `;
 const TypeTag = styled.span`
   font-size: 14px; font-weight: 700; color: #fff; padding: 2px 10px; border-radius: 6px;
-  background: ${({ $listing }) => ($listing ? "#0EA5A0" : THEME.primary)};
+  background: ${({ $listing }) => ($listing ? THEME.primary : THEME.primaryDark)}; /* 보라 칩 (형 9/17) */
 `;
 const RegionText = styled.span` display: inline-flex; align-items: center; gap: 3px; font-size: 12.5px; color: ${THEME.muted}; flex: 1; `;
 const TimeText = styled.span` font-size: 14px; color: ${THEME.muted}; `;
@@ -274,7 +239,8 @@ const FilterChips = styled.div` display: flex; gap: 6px; `;
 const FilterChip = styled.button`
   flex: 1; height: 36px; border-radius: 10px; font-size: 14px; font-family: inherit; cursor: pointer;
   border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  background: ${({ $active }) => ($active ? "#e9f8ee" : THEME.surface)}; color: ${THEME.text}; font-weight: ${({ $active }) => ($active ? 700 : 400)};
+  background: ${({ $active }) => ($active ? `${THEME.primary}15` : THEME.surface)}; color: ${({ $active }) => ($active ? THEME.primaryDark : THEME.text)}; font-weight: ${({ $active }) => ($active ? 700 : 400)};
+  &:focus { outline: none; }
 `;
 const SheetOverlay = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; `;
 const Sheet = styled.div` width: 100%; max-width: 400px; max-height: 84vh; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 10px 18px 28px; `;
@@ -301,6 +267,6 @@ const Disclaimer = styled.div` margin-top: 14px; font-size: 13px; color: ${THEME
 const Fab = styled.button`
   position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%); z-index: 50;
   display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 22px; border-radius: 24px;
-  border: none; background: ${THEME.primary}; color: #fff; font-size: 17px; font-weight: 600; cursor: pointer;
+  border: none; background: ${THEME.button}; color: #fff; font-size: 17px; font-weight: 600; cursor: pointer;
   font-family: inherit; box-shadow: 0 6px 20px rgba(0,0,0,0.18);
 `;

@@ -557,6 +557,24 @@ export async function signOutUser() {
     return true;
 }
 
+
+/**
+ * 회원 탈퇴 (대표 9/17)
+ *   Firestore 사용자 문서에 탈퇴 표시를 남기고 로그인 정보를 정리한다.
+ *   기록은 남기되 다시 로그인해도 들어올 수 없게 막는다.
+ *   실제 계정 삭제는 관리자가 확인 후 처리한다 (진행 중 오더·정산 확인이 필요하기 때문).
+ */
+export async function withdrawUser(uid, reason = "") {
+    if (!uid) throw new Error("로그인 정보가 없습니다.");
+    await setDoc(doc(db, "users", uid), {
+        withdrawn: true,
+        withdrawnAt: serverTimestamp(),
+        withdrawReason: reason || "",
+    }, { merge: true });
+    await signOutUser();
+    return true;
+}
+
 export function watchAuthState(onChange) {
     const auth = getAuthInstance();
 

@@ -19,7 +19,7 @@ import { parseDisplayName } from "../../utility/regionUtils";
 /* ─── 플레이스홀더 색상 ─── */
 const PH_COLORS = [
   `linear-gradient(135deg, ${THEME.purpleLight} 0%, ${THEME.primaryLight} 100%)`,
-  "linear-gradient(135deg, #E6F9EE 0%, #C4B5FD 100%)",
+  "linear-gradient(135deg, #F1EAF6 0%, #C4B5FD 100%)",
   "linear-gradient(135deg, #D1FAE5 0%, #6EE7B7 100%)",
   "linear-gradient(135deg, #FEF3C7 0%, #FCD34D 100%)",
   "linear-gradient(135deg, #FCE7F3 0%, #F9A8D4 100%)",
@@ -254,7 +254,7 @@ const SortBtn = styled.button`
   font-size: 14px;
   font-weight: 400;
   font-family: inherit;
-  background: ${({ $active }) => ($active ? THEME.primary : "transparent")};
+  background: ${({ $active }) => ($active ? THEME.button : "transparent")};
   color: ${({ $active }) => ($active ? "#fff" : THEME.muted)};
   cursor: pointer;
   &:active { opacity: 0.7; }
@@ -447,7 +447,7 @@ const HeaderReqBtn = styled.button`
   padding: 7px 14px;
   border-radius: 10px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 400;

@@ -1429,7 +1429,7 @@ const ReviewOpenBtn = styled.button`
   padding: 6px 12px;
   border-radius: 8px;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 14px;
   font-weight: 700;
@@ -1478,8 +1478,8 @@ const StatusStepBtn = styled.button`
   border-radius: 8px;
   font-size: 15px;
   font-weight: 700;
-  border: 1px solid ${({ $active, $enabled }) => $active ? THEME.primary : $enabled ? THEME.primary : "#E0E0E0"};
-  background: ${({ $active }) => $active ? THEME.primary : "#fff"};
+  border: 1px solid ${({ $active, $enabled }) => $active ? THEME.button : $enabled ? THEME.primary : "#E0E0E0"};
+  background: ${({ $active }) => $active ? THEME.button : "#fff"};
   color: ${({ $active, $enabled }) => $active ? "#fff" : $enabled ? THEME.primary : "#999"};
   cursor: ${({ $enabled }) => $enabled ? "pointer" : "default"};
   opacity: 1;
@@ -1492,7 +1492,7 @@ const StatusStepBtn = styled.button`
 const ORDER_STATUS_COLORS = {
   "접수": "#3B82F6",
   "등록": "#3B82F6",
-  "배정": "#00C74E",
+  "배정": "#00963F",
   "선정대기": "#F59E0B",
   "업체선택대기": "#F59E0B",
   "완료": "#10B981",
@@ -1529,7 +1529,7 @@ const StatusActionBtn = styled.button`
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  background: ${({ $color }) => $color || THEME.primary};
+  background: ${({ $color }) => $color || THEME.button};
   color: #fff;
   &:active { opacity: 0.8; }
 `;
@@ -2031,7 +2031,7 @@ const DownloadIcon = styled.div`
 const ScheduleBubble = styled.div`
   padding: 12px 14px;
   border-radius: ${({ $isMine }) => ($isMine ? "14px 14px 4px 14px" : "14px 14px 14px 4px")};
-  background: ${({ $isMine }) => ($isMine ? THEME.primaryDark : THEME.surface)};
+  background: ${({ $isMine }) => ($isMine ? THEME.buttonDark : THEME.surface)};
   box-shadow: ${({ $isMine }) => ($isMine ? "none" : "0 1px 3px rgba(0,0,0,0.04)")};
   min-width: 180px;
 `;

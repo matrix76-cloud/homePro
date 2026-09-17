@@ -52,7 +52,6 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
 import { GradeBadge } from "../../utility/gradeUtils";
 import { getAccessTier, getTierDelaySec, getAcceptRemainSec, formatAcceptRemain, TIER_LABEL } from "../../utility/tierUtils";
-import ProfilePopup from "../../components/ProfilePopup";
 
 const STATUS_BADGE = {
   "접수": { bg: THEME.purple, text: "#fff" },
@@ -103,7 +102,6 @@ const OrderDetailPage = () => {
   const [applicants, setApplicants] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [profilePopup, setProfilePopup] = useState(null); // { uid, fallbackName, fallbackPhoto }
   const [matchedProInfo, setMatchedProInfo] = useState(null); // 배정된 홈프로 프로필(접수자 시점)
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
@@ -774,7 +772,7 @@ const OrderDetailPage = () => {
             <SectionTitle>배정 홈프로</SectionTitle>
             <ApplicantCard
               style={{ cursor: "pointer" }}
-              onClick={() => setProfilePopup({ uid: order.matchedProUid, fallbackName: matchedProInfo?.nickname || matchedProInfo?.name, fallbackPhoto: matchedProInfo?.profileImage || matchedProInfo?.photoURL })}
+              onClick={() => navigate(`/profile/${order.matchedProUid}`, { state: { fallbackName: matchedProInfo?.nickname || matchedProInfo?.name, fallbackPhoto: matchedProInfo?.profileImage || matchedProInfo?.photoURL } })}
             >
               <ApplicantTop>
                 {(matchedProInfo?.profileImage || matchedProInfo?.photoURL) ? (
@@ -925,13 +923,13 @@ const OrderDetailPage = () => {
                   <input ref={receiptInputRef} type="file" accept="image/*" style={{ display: "none" }}
                     onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; handleReferralSent(f); }} />
                 </ActionRow>
-                <PayNote style={{ marginTop: 6 }}>송금증이 없으면 <button type="button" onClick={() => handleReferralSent(null)} style={{ background: "none", border: "none", padding: 0, color: THEME.primary, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>첨부 없이 입금 완료</button></PayNote>
+                <PayNote style={{ marginTop: 6 }}>송금증이 없으면 <button type="button" onClick={() => handleReferralSent(null)} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>첨부 없이 입금 완료</button></PayNote>
               </>
             ) : (
               <>
                 <ConditionRow><ConditionLabel>받을 금액</ConditionLabel><ConditionValue>{referralFeeInfo.amount.toLocaleString()}원</ConditionValue></ConditionRow>
                 {payAccount === null ? (
-                  <PayNote $warn>정산계좌가 없어 홈프로가 송금할 수 없습니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.primary, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
+                  <PayNote $warn>정산계좌가 없어 홈프로가 송금할 수 없습니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
                 ) : (
                   <PayNote>홈프로가 캐시백을 송금하면 입금 확인 요청이 옵니다.</PayNote>
                 )}
@@ -1059,7 +1057,7 @@ const OrderDetailPage = () => {
         {!isOwner && (order.writer || order.writerPhoto) && (
           <DetailSection>
             <SectionTitle>접수자 프로필</SectionTitle>
-            <ApplicantCard style={{ cursor: "pointer" }} onClick={() => setProfilePopup({ uid: order.createdBy, fallbackName: order.writer, fallbackPhoto: order.writerPhoto })}>
+            <ApplicantCard style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${order.createdBy}`, { state: { fallbackName: order.writer, fallbackPhoto: order.writerPhoto } })}>
               <ApplicantTop>
                 {order.writerPhoto ? (
                   <QuoteAvatar src={order.writerPhoto} alt={order.writer || "접수자"} />
@@ -1084,7 +1082,7 @@ const OrderDetailPage = () => {
             {quotes.map((q) => (
               <QuoteCard key={q.id}>
                 <ApplicantTop>
-                  <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setProfilePopup({ uid: q.proUid, fallbackName: q.proName, fallbackPhoto: q.proPhoto })}>
+                  <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate(`/profile/${q.proUid}`, { state: { fallbackName: q.proName, fallbackPhoto: q.proPhoto } })}>
                   {q.proPhoto ? (
                     <QuoteAvatar src={q.proPhoto} alt={q.proName} />
                   ) : (
@@ -1133,7 +1131,7 @@ const OrderDetailPage = () => {
             {applicants.map((app) => (
               <ApplicantCard key={app.proUid}>
                 <ApplicantTop>
-                  <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setProfilePopup({ uid: app.proUid, fallbackName: app.proName, fallbackPhoto: app.proProfile })}>
+                  <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate(`/profile/${app.proUid}`, { state: { fallbackName: app.proName, fallbackPhoto: app.proProfile } })}>
                   {app.proProfile ? (
                     <QuoteAvatar src={app.proProfile} alt={app.proName} />
                   ) : (
@@ -1309,16 +1307,6 @@ const OrderDetailPage = () => {
           </>
         )}
       </FixedBottom>
-
-      {/* 프로필 팝업 (접수자/홈프로 클릭) */}
-      {profilePopup && (
-        <ProfilePopup
-          uid={profilePopup.uid}
-          fallbackName={profilePopup.fallbackName}
-          fallbackPhoto={profilePopup.fallbackPhoto}
-          onClose={() => setProfilePopup(null)}
-        />
-      )}
 
       {/* 취소 사유 선택 모달 */}
       {showCancelModal && (
@@ -1597,7 +1585,7 @@ const DetailText = styled.div`
 `;
 
 /* ── 활동 이력 ── */
-const LOG_DOT_COLORS = { cancel: "#EF4444", quote: "#00C74E", select: "#00C74E", accept: "#10B981", apply: "#3B82F6", status: "#F59E0B" };
+const LOG_DOT_COLORS = { cancel: "#EF4444", quote: "#00963F", select: "#00963F", accept: "#10B981", apply: "#3B82F6", status: "#F59E0B" };
 const LogRow = styled.div`
   display: flex;
   gap: 10px;
@@ -1877,7 +1865,7 @@ const QuoteAcceptBtn = styled.button`
   padding: 8px 20px;
   border: none;
   border-radius: 8px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -2029,7 +2017,7 @@ const SheetSubmitBtn = styled.button`
   padding: 14px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 18px;
   font-weight: 600;
@@ -2045,7 +2033,7 @@ const PrimaryCTA = styled.button`
   height: 48px;
   border-radius: 10px;
   border: none;
-  background: ${({ $locked }) => ($locked ? "#E5E7EB" : THEME.primary)};
+  background: ${({ $locked }) => ($locked ? "#E5E7EB" : THEME.button)};
   color: ${({ $locked }) => ($locked ? THEME.muted : "#fff")};
   font-size: 18px;
   font-weight: 600;
@@ -2089,8 +2077,8 @@ const ContactBtn = styled.button`
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  border: 1px solid ${({ $primary }) => ($primary ? THEME.primary : THEME.border)};
-  background: ${({ $primary }) => ($primary ? THEME.primary : THEME.surface)};
+  border: 1px solid ${({ $primary }) => ($primary ? THEME.button : THEME.border)};
+  background: ${({ $primary }) => ($primary ? THEME.button : THEME.surface)};
   color: ${({ $primary }) => ($primary ? "#fff" : THEME.text)};
   &:active { opacity: 0.85; }
 `;
@@ -2180,7 +2168,7 @@ const SelectProBtn = styled.button`
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -2221,8 +2209,8 @@ const CancelRadio = styled.div`
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid ${({ $selected }) => $selected ? THEME.primary : "#D1D5DB"};
-  background: ${({ $selected }) => $selected ? THEME.primary : "#fff"};
+  border: 2px solid ${({ $selected }) => $selected ? THEME.button : "#D1D5DB"};
+  background: ${({ $selected }) => $selected ? THEME.button : "#fff"};
   flex-shrink: 0;
   position: relative;
   &::after {
@@ -2251,7 +2239,7 @@ const CancelConfirmBtn = styled.button`
   padding: 14px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 18px;
   font-weight: 600;

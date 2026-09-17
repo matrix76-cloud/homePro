@@ -451,7 +451,7 @@ const SubmitBtn = styled.button`
   height: 52px;
   border: none;
   border-radius: 8px;
-  background: ${({ disabled }) => (disabled ? THEME.muted : THEME.primary)};
+  background: ${({ disabled }) => (disabled ? THEME.muted : THEME.button)};
   color: #fff;
   font-size: 17px;
   font-weight: 700;
@@ -501,7 +501,7 @@ const GateBtn = styled.button`
   padding: 0 24px;
   border: none;
   border-radius: 8px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 16px;
   font-weight: 700;

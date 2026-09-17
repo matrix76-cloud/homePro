@@ -17,7 +17,7 @@ const twinkle = keyframes`
 /* 스플래시 배경 — 브랜드 초록으로 전환 (대표님 지시 7/28: 초록 중심).
    로고 심볼도 같은 초록이라, 배경은 한 톤 깊게 잡아 심볼이 떠 보이게 한다.
    (직전까지는 보라 심볼에 맞춘 보라 배경이었음 — 심볼이 초록으로 바뀌면서 함께 전환) */
-const SPLASH_BG = "#00A341";
+const SPLASH_BG = "#007A33";
 
 const Container = styled.div`
   display: flex;
@@ -88,9 +88,10 @@ const MobileSplashpage = () => {
       if (resolving.current) return;
       resolving.current = true;
 
+      // 비회원도 홈부터 둘러본다. 로그인은 필요한 메뉴에서 유도 (대표 9/17)
       if (!user?.uid) {
         setTimeout(() => {
-          navigate("/MobileLogin", { replace: true });
+          navigate("/MobileMain", { replace: true });
         }, 1500);
         return;
       }
@@ -128,10 +129,25 @@ const MobileSplashpage = () => {
             intro: profile.intro || "",
           },
         });
-        navigate("/MobileMain", { replace: true });
+        // 방금 가입을 마쳤으면 완료 안내를 한 번 보여 준다 (대표 9/17)
+        try {
+          if (sessionStorage.getItem("homepro.justSignedUp") === "1") {
+            sessionStorage.removeItem("homepro.justSignedUp");
+            navigate("/welcome", { replace: true });
+            return;
+          }
+        } catch (e) { /* 저장소를 못 써도 홈으로 가면 된다 */ }
+
+        // 로그인 전에 보려던 화면이 있으면 그리로 (대표 9/17)
+        let next = "";
+        try {
+          next = sessionStorage.getItem("homepro.afterLogin") || "";
+          if (next) sessionStorage.removeItem("homepro.afterLogin");
+        } catch (e) { /* 저장소를 못 써도 홈으로 가면 된다 */ }
+        navigate(next && next.startsWith("/") ? next : "/MobileMain", { replace: true });
       } catch (err) {
         console.error("Splash 분기 실패:", err);
-        navigate("/MobileLogin", { replace: true });
+        navigate("/MobileMain", { replace: true });
       }
     });
 

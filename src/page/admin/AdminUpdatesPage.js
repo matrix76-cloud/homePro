@@ -196,7 +196,7 @@ const Textarea = styled.textarea`
 
 const SubmitButton = styled.button`
   padding: 10px 0;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   border: none;
   border-radius: 4px;

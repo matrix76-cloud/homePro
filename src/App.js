@@ -34,11 +34,15 @@ import RequireAdmin from "./components/guards/RequireAdmin";
 import AdminLayout from "./components/admin/AdminLayout";
 
 /* Pages */
+import ColorLab from "./dev/ColorLab";
+import IconLab from "./dev/IconLab";
+import DesignLab from "./dev/DesignLab";
 import MobileSplashpage from "./page/main/MobileSplashpage";
 import MobileLoginpage from "./page/main/MobileLoginpage";
 import MobileSignuppage from "./page/main/MobileSignuppage";
 import MobileLinkPhonepage from "./page/main/MobileLinkPhonepage";
 import MobileSetNicknamepage from "./page/main/MobileSetNicknamepage";
+import WelcomePage from "./page/main/WelcomePage";
 import MobileMainpage from "./page/main/MobileMainpage";
 import MobileConfigpage from "./page/main/MobileConfigpage";
 import MobileChatpage from "./page/main/MobileChatpage";
@@ -73,6 +77,10 @@ import InsAdminClaimsPage from "./page/insurance-admin/InsAdminClaimsPage";
 import InsAdminSettingsPage from "./page/insurance-admin/InsAdminSettingsPage";
 import AdminPaymentsPage from "./page/admin/AdminPaymentsPage";
 import PaymentHistoryPage from "./page/mypage/PaymentHistoryPage";
+import PgPaymentPage from "./page/mypage/PgPaymentPage";
+import PgLinkPage from "./page/pay/PgLinkPage";
+import BrokerageDetailPage from "./page/main/BrokerageDetailPage";
+import ProfileViewPage from "./page/profile/ProfileViewPage";
 import BrokeragePage from "./page/main/BrokeragePage";
 import BrokerageCreatePage from "./page/main/BrokerageCreatePage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
@@ -304,6 +312,9 @@ const AnimatedRoutes = () => {
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/insurance-admin") ||
     location.pathname.startsWith("/review") ||
+    location.pathname.startsWith("/lab") ||
+    location.pathname.startsWith("/iconlab") ||
+    location.pathname.startsWith("/colorlab") ||
     location.pathname === "/intro";
   const Wrapper = isFullWidth ? FullContainer : Container;
 
@@ -317,13 +328,23 @@ const AnimatedRoutes = () => {
           <Route path="/" element={<Navigate to="/MobileSplash" replace />} />
           <Route path="/intro" element={<LandingPage />} />
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
+          {/* 홈 — 비회원도 둘러볼 수 있다. 로그인한 사람만 전화번호 단계를 거친다 (대표 9/17) */}
+          <Route element={<RequirePhone onlyIfLoggedIn />}>
+            <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
+          </Route>
           <Route path="/MobileLogin" element={wrap(<MobileLoginpage />)} />
           <Route path="/MobileSignup" element={wrap(<MobileSignuppage />)} />
           <Route path="/MobileFindAccount" element={wrap(<MobileFindAccountpage />)} />
           <Route path="/legal/terms" element={wrap(<TermsPage />)} />
           <Route path="/legal/privacy" element={wrap(<PrivacyPage />)} />
           <Route path="/legal/location" element={wrap(<LocationTermsPage />)} />
+          {/* 고객용 PG 결제링크 — 로그인 없이 (대표 리뷰 9/17) */}
+          <Route path="/pg/:id" element={wrap(<PgLinkPage />)} />
           <Route path="/seed-login" element={<SeedLoginPage />} />
+          {/* 색 시안 랩 (대표 9/17) */}
+          <Route path="/colorlab" element={<ColorLab />} />
+          <Route path="/iconlab" element={<IconLab />} />
+          <Route path="/lab" element={<DesignLab />} />
 
           {/* 리뷰 허브 (/review, /review-table) — 배포 공유용(Firestore). 어디서든 접속해 리뷰 */}
           <Route path="/review" element={<React.Suspense fallback={null}><AuthReview /></React.Suspense>} />
@@ -336,11 +357,12 @@ const AnimatedRoutes = () => {
             <Route path="/MobileLinkPhone" element={wrap(<MobileLinkPhonepage />)} />
             <Route path="/MobileSetNickname" element={wrap(<MobileSetNicknamepage />)} />
             <Route path="/ReferralInput" element={wrap(<ReferralInputPage />)} />
+            {/* 가입 완료 안내 (대표 9/17) */}
+            <Route path="/welcome" element={wrap(<WelcomePage />)} />
 
             {/* 전화번호 미등록이면 /MobileLinkPhone 으로 (형 지시 7/28 — 전화번호 단계 복원).
                 번호가 계정 통합의 기준키라, 이 단계를 건너뛰면 같은 사람이 여러 계정으로 갈라진다. */}
             <Route element={<RequirePhone />}>
-            <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
             <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
             <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
             <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
@@ -365,6 +387,8 @@ const AnimatedRoutes = () => {
             <Route>
               <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
               <Route path="/brokerage/create" element={wrap(<BrokerageCreatePage />)} />
+              <Route path="/brokerage/:id" element={wrap(<BrokerageDetailPage />)} />
+            <Route path="/profile/:uid" element={wrap(<ProfileViewPage />)} />
             </Route>
             <Route path="/training" element={wrap(<TrainingPage />)} />
             <Route path="/training/create" element={wrap(<TrainingCreatePage />)} />
@@ -404,6 +428,7 @@ const AnimatedRoutes = () => {
             <Route path="/marketplace/:marketplaceId" element={wrap(<MarketplaceDetailPage />)} />
             <Route path="/subscription" element={wrap(<SubscriptionPage />)} />
             <Route path="/mypage/payments" element={wrap(<PaymentHistoryPage />)} />
+            <Route path="/mypage/pg" element={wrap(<PgPaymentPage />)} />
 
             {/* Search */}
             <Route path="/search" element={wrap(<SearchPage />)} />

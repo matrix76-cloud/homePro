@@ -108,7 +108,7 @@ const InsurancePage = () => {
   if (step === "identity") {
     const p = plans?.[plan];
     return (
-      <MainListLayout NAME="안심케어" footerType="insurance" hideBack>
+      <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
         <Wrap $bottom={130}>
           <Card>
             <CardTitle>본인 확인</CardTitle>
@@ -153,7 +153,7 @@ const InsurancePage = () => {
 
   /* ───────── 홈 ───────── */
   return (
-    <MainListLayout NAME="안심케어" footerType="insurance" hideBack>
+    <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
       <Wrap $bottom={120}>
         <Hero>
           <HeroRow>
@@ -164,11 +164,10 @@ const InsurancePage = () => {
           <HeroSub>사업자(수급인)가 청소·시공·공사 등 맡은 일(도급 작업)을 수행하는 과정에서 발생하는 제3자의 신체 부상이나 재물 파손 사고에 대한 법률상 손해배상책임을 보장해 주는 사업자 전용 안전 보험입니다.</HeroSub>
         </Hero>
 
-        {/* 사고 접수는 안심케어를 열면 바로 보이게 (대표 9/15 리뷰) · 셀프보장등록은 예약접수에서 이리로 옮김 */}
-        <BtnRow style={{ marginBottom: 12 }}>
-          <GhostBtn type="button" onClick={() => navigate("/insurance/claim")}>사고 접수</GhostBtn>
-          <GhostBtn type="button" onClick={() => navigate("/order/create?self=1")}>셀프보장등록</GhostBtn>
-        </BtnRow>
+        {/* 셀프보장등록은 한 줄 전체로 (형 리뷰 9/16) · 예약접수에서 이리로 옮겨온 버튼 */}
+        <GhostBtn type="button" style={{ marginBottom: 12 }} onClick={() => navigate("/order/create?self=1")}>
+          셀프보장등록
+        </GhostBtn>
 
         <Card>
           <TitleRow>
@@ -253,6 +252,11 @@ const InsurancePage = () => {
             <KVRow><K>자기부담금</K><V>{coverage?.deductibleText || "30만원 (공통)"}</V></KVRow>
           </KV>
         </Card>
+
+        {/* 사고 접수 — 보장 내용 바로 아래 (형 리뷰 9/16 '형2' 핀 위치) */}
+        <GhostBtn type="button" style={{ marginBottom: 12 }} onClick={() => navigate("/insurance/claim")}>
+          사고 접수
+        </GhostBtn>
 
         <Card>
           <CardTitle>보장이 적용되려면</CardTitle>

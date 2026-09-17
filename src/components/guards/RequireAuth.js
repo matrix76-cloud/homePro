@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import LoginPrompt from "./LoginPrompt";
 
 const ONBOARDING_PATHS = ["/MobileLinkPhone", "/MobileSetNickname"];
 
@@ -15,8 +16,9 @@ const RequireAuth = () => {
     // 신규가입 온보딩 퍼널이 끊긴다 (심화점검 5 발견). 로딩으로 취급.
     if (currentUser && !userData) return null;
 
+    // 비회원 — 홈은 둘러볼 수 있고, 로그인이 필요한 화면에 들어오면 여기서 가입을 권한다 (대표 9/17)
     if (!isLoggedIn) {
-        return <Navigate to="/MobileLogin" state={{ from: location.pathname }} replace />;
+        return <LoginPrompt />;
     }
 
     // 온보딩 페이지 접근 차단: 이미 설정 완료한 사용자는 메인으로

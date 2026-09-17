@@ -27,7 +27,7 @@ const MenuItem = styled(NavLink)`
     border-radius: 4px; font-size: 16px; color: #55606E; text-decoration: none;
     margin-bottom: 2px; transition: all 0.15s;
     &:hover { background: rgba(255,255,255,0.06); color: #E2E8F0; }
-    &.active { background: ${THEME.primary}; color: #fff; font-weight: 600; }
+    &.active { background: ${THEME.button}; color: #fff; font-weight: 600; }
     svg { font-size: 20px; flex-shrink: 0; }
 `;
 
@@ -57,7 +57,7 @@ const SubMenuItem = styled(NavLink)`
     font-size: 15px; color: #55606E; text-decoration: none;
     border-radius: 4px; margin-bottom: 1px; transition: all 0.15s;
     &:hover { background: rgba(255,255,255,0.06); color: #E2E8F0; }
-    &.active { color: ${THEME.primaryLight}; font-weight: 600; background: rgba(37,99,235,0.12); }
+    &.active { color: ${THEME.buttonLight}; font-weight: 600; background: rgba(37,99,235,0.12); }
 `;
 
 

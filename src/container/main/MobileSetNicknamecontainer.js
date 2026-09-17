@@ -224,6 +224,8 @@ export default function MobileSetNicknamecontainer() {
                 }
             }
 
+            // 가입 완료 안내를 한 번 보여 주기 위한 표시 (스플래시가 읽고 지운다)
+            try { sessionStorage.setItem("homepro.justSignedUp", "1"); } catch (e) { }
             // SplashPage로 돌려서 전화번호 등 나머지 분기 처리
             nav("/MobileSplash", { replace: true });
         } catch (e) {
@@ -241,7 +243,7 @@ export default function MobileSetNicknamecontainer() {
             <Desc>{isBiz ? "다른 사용자에게 보여질 업체명이에요" : "다른 사용자에게 보여질 이름이에요"}</Desc>
 
             <Card>
-                <Field style={{ marginBottom: 16 }}>
+                <Field style={{ marginBottom: 30 }}>
                     <Label>회원유형</Label>
                     <TypeRow>
                         {/* 사업자회원 왼쪽 · 일반고객 오른쪽 (대표 지시 7/24) */}
@@ -313,19 +315,17 @@ export default function MobileSetNicknamecontainer() {
                 </Field>
                 )}
 
-                <Field style={{ marginTop: 16 }}>
-                    <LabelRow>
-                        <Label>추천인 코드 (선택)</Label>
-                    </LabelRow>
+                <ReferralBox style={{ marginTop: 30 }}>
+                    <ReferralTitle>추천인 코드가 있으신가요</ReferralTitle>
                     <Input
                         type="text"
-                        placeholder="추천인 코드가 있다면 입력하세요"
+                        placeholder={`코드를 넣으면 ${referralSignupReward.toLocaleString()}P를 드립니다`}
                         value={referralInput}
                         onChange={(e) => setReferralInput(e.target.value)}
                         disabled={busy}
                     />
-                    <HelperText>선택사항입니다. 코드를 입력하면 추천인과 회원님 모두 {referralSignupReward.toLocaleString()}P가 적립됩니다</HelperText>
-                </Field>
+                    <HelperText>선택사항입니다. 추천인과 회원님 모두 {referralSignupReward.toLocaleString()}P가 적립됩니다</HelperText>
+                </ReferralBox>
 
                 <BtnRow>
                     <PrimaryBtn type="button" onClick={handleComplete} disabled={busy || (isBiz ? !companyName.trim() : (!nickname.trim() || nickStatus === "taken" || nickStatus === "checking"))}>
@@ -342,8 +342,10 @@ export default function MobileSetNicknamecontainer() {
 const Wrap = styled.div`
   min-height: 100vh;
   background: ${THEME.background};
-  padding: 26px 20px;
+  padding: 30px 20px 28px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 `;
 
 const Title = styled.div`
@@ -362,20 +364,23 @@ const Desc = styled.div`
 `;
 
 const Card = styled.div`
-  margin-top: 16px;
+  margin-top: 22px;
   width: 100%;
   max-width: 420px;
   box-sizing: border-box;
   background: ${THEME.surface};
   border-radius: 16px;
-  padding: 20px;
+  padding: 26px 22px 24px;
   box-shadow: ${THEME.cardShadow};
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 `;
 
 const Field = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 `;
 
 const LabelRow = styled.div`
@@ -386,20 +391,20 @@ const LabelRow = styled.div`
 
 const TypeRow = styled.div`
   display: flex;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 12px;
+  margin-top: 4px;
 `;
 
 const TypeBtn = styled.button`
   flex: 1;
-  height: 46px;
+  height: 52px;
   border-radius: 10px;
   font-size: 17px !important;
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
+  border: 1px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
+  background: ${({ $active }) => ($active ? THEME.button : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : "rgba(17,24,39,0.7)")};
   &:disabled { opacity: 0.6; cursor: not-allowed; }
   &:active { transform: translateY(1px); }
@@ -433,7 +438,7 @@ const Input = styled.input`
   width: 100%;
   border: none;
   border-bottom: 1px solid rgba(15, 23, 42, 0.12);
-  padding: 10px 40px 10px 0;
+  padding: 14px 40px 14px 0;
   font-size: 18px !important;
   outline: none;
   background: transparent;
@@ -496,8 +501,25 @@ const Preview = styled.div`
   }
 `;
 
+/* 추천인 코드 강조 (대표 9/17 시안 2번) */
+const ReferralBox = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid ${THEME.primary};
+  border-radius: 12px;
+  padding: 16px;
+`;
+
+const ReferralTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
 const BtnRow = styled.div`
-  margin-top: 16px;
+  margin-top: auto;
+  padding-top: 28px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -508,14 +530,14 @@ const PrimaryBtn = styled.button`
   max-width: 360px;
   margin: 0 auto;
   border-radius: 10px;
-  padding: 13px 14px;
+  padding: 16px 14px;
   font-size: 18px !important;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #ffffff;
   font-weight: 400;
 

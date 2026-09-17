@@ -369,7 +369,7 @@ const Fab = styled.button`
   padding: 0 22px;
   border: none;
   border-radius: 4px;
-  background: ${THEME.primary}; // 다른 교육.장터 탭의 등록 버튼과 같은 색
+  background: ${THEME.button}; // 다른 교육.장터 탭의 등록 버튼과 같은 색
   color: #fff;
   font-size: 16px;
   font-weight: 700;

@@ -13,7 +13,7 @@ import { SEED_ACCOUNTS, ensureAdminSession } from './reviewAuth'
 //   · 기록판은 게시판 하나(screenId='board') — 화면별로 나누지 않는다(형 지시 9/13 "콤보 다 없애도 돼"). 어느 화면인지는 스샷이 말해 준다.
 //   · 폰 위 계정 콤보도 없앰 — 칸마다 권장 계정(접수자 a1 / 홈프로 b1·b2·b3)만 글씨로 적어 두고, 로그인 화면에 직접 친다.
 const ALL = DOMAINS.flatMap((d) => d.screens.map((s) => ({ ...s, domain: d.key })))
-const CORAL = '#00C74E'
+const CORAL = '#00963F'
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)

@@ -303,7 +303,7 @@ const WeekBarRow = styled.div`
 
 const CalBar = styled.div`
   grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 13px;
   font-weight: 600;

@@ -60,9 +60,10 @@ exports.aiEstimate = onCall({ region: REGION, timeoutSeconds: 60 }, async (reque
       { "name": "항목명", "price": 금액, "note": "설명" }
     ],
     "timeEstimate": "예상 소요시간",
-    "tip": "고객에게 도움되는 팁"
+    "tip": "고객에게 도움되는 팁",
+    "priceFactors": ["금액이 달라지는 조건 2~3개, 한 줄씩"]
   },
-  "reasoning": "견적 산출 근거 설명"
+  "reasoning": "이 금액이 나온 근거를 두 문장 이내로"
 }
 \`\`\`
 
@@ -84,6 +85,8 @@ exports.aiEstimate = onCall({ region: REGION, timeoutSeconds: 60 }, async (reque
 - 금액은 원(₩) 단위
 - 인건비 + 자재비 + 출장비 포함
 - 부가세 별도 안내
+- reasoning 은 무엇을 기준으로 계산했는지 두 문장 이내로, 고객이 읽는 말로
+- priceFactors 는 현장에서 금액이 올라가거나 내려가는 조건을 2~3개, 각 30자 이내
 - 반드시 순수 JSON만 응답 (설명 텍스트 없이)`;
 
     const project = process.env.GCLOUD_PROJECT;

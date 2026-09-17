@@ -35,7 +35,7 @@ const MainListLayout = (props) => {
         name={props.NAME}
         hideBack={props.hideBack}
         onSearchClick={props.onSearchClick || (() => navigate("/search"))}
-        hideActions={!props.hideBack}
+        hideActions={props.hideActions !== undefined ? props.hideActions : !props.hideBack}
         location={props.location}
       />
       <Main $hideFooter={props.hideFooter}>{props.children}</Main>

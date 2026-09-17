@@ -302,8 +302,8 @@ const TypeBtn = styled.button`
   font-weight: 400;
   cursor: pointer;
   font-family: inherit;
-  border: 1px solid ${({ $active }) => ($active ? THEME.primary : THEME.border)};
-  background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
+  border: 1px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
+  background: ${({ $active }) => ($active ? THEME.button : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : "rgba(17,24,39,0.7)")};
   &:active { transform: translateY(1px); }
 `;
@@ -319,7 +319,7 @@ const PrimaryBtn = styled.button`
   min-width: 0;
   height: 48px;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   border: none;
   color: #fff;
   font-size: 17px !important;

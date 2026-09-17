@@ -7,6 +7,7 @@ import { db } from "../../api/config";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../config/homeproConfig";
+import { IoGiftOutline } from "react-icons/io5";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { getAllPointRules, POINT_RULE_ORDER } from "../../service/PointService";
 import { GRADE_ORDER, calcGrade, GradeProgressBar } from "../../utility/gradeUtils";
@@ -89,7 +90,7 @@ const ReviewIcon = () => (
 const RULE_STYLE = {
   signup:             { icon: WelcomeIcon, bg: "#ECFDF5", accent: "#10B981" },
   referral_invite:    { icon: InviteIcon, bg: "#ECFDF5", accent: "#10B981" },
-  referral_signup:    { icon: GiftIcon,   bg: "#E6F9EE", accent: "#10B981" },
+  referral_signup:    { icon: GiftIcon,   bg: "#F1EAF6", accent: "#10B981" },
   profile_complete:   { icon: ProfileIcon, bg: "#F4F5F7", accent: "#2F3A47" },
   order_create:       { icon: OrderIcon,  bg: "#EFF6FF", accent: "#3B82F6" },
   order_complete:     { icon: CheckIcon,  bg: "#ECFDF5", accent: "#10B981" },
@@ -108,6 +109,13 @@ const RULE_STYLE = {
 };
 
 /* 지급 조건 안내 문구 (대표 확정 조건표 2026-07-30) — 금액만으로는 조건이 안 보이는 항목에만 */
+/* 포인트를 쓰는 곳 (대표 9/17) */
+const POINT_USES = [
+  { label: "구독료 내기", note: "월 16,500원을 포인트로 대신 낼 수 있어요", cost: "16,500P" },
+  { label: "기술전수 공고 등록", note: "교육생 모집 글을 올릴 때", cost: "20,000P" },
+  { label: "오더 대금 맡기기", note: "작업 금액을 포인트로 미리 맡길 때", cost: "금액만큼" },
+];
+
 const RULE_NOTE = {
   signup: "가입 시 자동 적립",
   referral_invite: "내 코드로 가입 시",
@@ -129,6 +137,7 @@ const ReferralPointsPage = () => {
   const [totalPoints, setTotalPoints] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
   const [rules, setRules] = useState({});
+  const [wayTab, setWayTab] = useState("earn"); // 모으는 방법 / 쓰는 곳
   const [gradeRules, setGradeRules] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -191,26 +200,33 @@ const ReferralPointsPage = () => {
           <TotalAmount>{totalPoints.toLocaleString()}P</TotalAmount>
         </TotalCard>
 
-        {/* 포인트 안내 — 가로 스크롤 카드 슬라이드 */}
-        {activeRules.length > 0 && (
-          <SlideSection>
-            <SlideTitle>이렇게 포인트를 받을 수 있어요</SlideTitle>
-            <SlideRow>
-              {activeRules.map(([key, rule]) => {
-                const style = RULE_STYLE[key] || { icon: null, bg: THEME.background, accent: THEME.primary };
-                const IconComp = style.icon;
-                return (
-                  <SlideCard key={key} $bg={style.bg}>
-                    {IconComp && <IconComp />}
-                    <SlideAmount $accent={style.accent}>+{rule.amount.toLocaleString()}P</SlideAmount>
-                    <SlideLabel>{rule.label}</SlideLabel>
-                    {RULE_NOTE[key] && <SlideNote>{RULE_NOTE[key]}</SlideNote>}
-                  </SlideCard>
-                );
-              })}
-            </SlideRow>
-          </SlideSection>
-        )}
+        {/* 모으는 방법 · 쓰는 곳 (대표 9/17 시안 3번) */}
+        <WayTabRow>
+          <WayTab $on={wayTab === "earn"} onClick={() => setWayTab("earn")}>모으는 방법</WayTab>
+          <WayTab $on={wayTab === "use"} onClick={() => setWayTab("use")}>쓰는 곳</WayTab>
+        </WayTabRow>
+
+        <WayList>
+          {wayTab === "earn"
+            ? activeRules.map(([key, rule]) => (
+                <WayItem key={key}>
+                  <WayLeft>
+                    <WayLabel>{rule.label}</WayLabel>
+                    {RULE_NOTE[key] && <WayNote>{RULE_NOTE[key]}</WayNote>}
+                  </WayLeft>
+                  <WayAmount>+{rule.amount.toLocaleString()}P</WayAmount>
+                </WayItem>
+              ))
+            : POINT_USES.map((u) => (
+                <WayItem key={u.label}>
+                  <WayLeft>
+                    <WayLabel>{u.label}</WayLabel>
+                    <WayNote>{u.note}</WayNote>
+                  </WayLeft>
+                  <WayAmount $use>{u.cost}</WayAmount>
+                </WayItem>
+              ))}
+        </WayList>
 
         {/* 나의 등급 카드는 삭제 (대표 9/15 리뷰) */}
 
@@ -220,7 +236,10 @@ const ReferralPointsPage = () => {
           <EmptyWrap><EmptyText>불러오는 중...</EmptyText></EmptyWrap>
         ) : history.length === 0 ? (
           <EmptyWrap>
-            <EmptyText>아직 포인트 내역이 없어요</EmptyText>
+            <EmptyIcon><IoGiftOutline size={28} color={THEME.primary} /></EmptyIcon>
+            <EmptyTitle>아직 쌓인 포인트가 없어요</EmptyTitle>
+            <EmptyText>친구를 초대하면 가입하는 순간 포인트가 들어옵니다.</EmptyText>
+            <EmptyBtn type="button" onClick={() => navigate("/MobileMain?tab=assets")}>친구 초대하고 받기</EmptyBtn>
           </EmptyWrap>
         ) : (
           <HistoryList>
@@ -249,25 +268,94 @@ const Wrap = styled.div`
   min-height: 100%;
 `;
 
+/* 색 면을 빼고 한 줄로 (대표 9/17 시안 1번) */
 const TotalCard = styled.div`
-  background: ${THEME.primary};
-  border-radius: 16px;
-  padding: 24px 20px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  padding: 16px;
   margin-top: 12px;
-  text-align: center;
+`;
+
+const WayTabRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 10px;
+`;
+
+const WayTab = styled.button`
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 8px;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : THEME.border)};
+  background: ${({ $on }) => ($on ? `${THEME.primary}15` : THEME.surface)};
+  color: ${({ $on }) => ($on ? THEME.primaryDark : "#2b2f36")};
+  font-size: 15px;
+  font-weight: ${({ $on }) => ($on ? 700 : 500)};
+  font-family: inherit;
+  cursor: pointer;
+  &:focus { outline: none; }
+`;
+
+/* 안내와 내역이 화면을 절반씩 나눠 갖고 각자 스크롤한다 (대표 9/17) */
+const WayList = styled.div`
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  overflow-y: auto;
+  max-height: calc((100vh - 330px) / 2);
+  min-height: 150px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const WayItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  & + & { border-top: 1px solid #F0F2F5; }
+`;
+
+const WayLeft = styled.div`
+  min-width: 0;
+`;
+
+const WayLabel = styled.div`
+  font-size: 15px;
+  font-weight: 500;
+  color: ${THEME.text};
+  word-break: keep-all;
+`;
+
+const WayNote = styled.div`
+  font-size: 13px;
+  color: ${THEME.muted};
+  margin-top: 2px;
+  word-break: keep-all;
+`;
+
+const WayAmount = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${({ $use }) => ($use ? THEME.text : THEME.primaryDark)};
+  flex-shrink: 0;
 `;
 
 const TotalLabel = styled.div`
-  font-size: 16px;
-  font-weight: 400;
-  color: rgba(255,255,255,0.8);
+  font-size: 15px;
+  color: #2b2f36;
 `;
 
 const TotalAmount = styled.div`
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 700;
-  color: #fff;
-  margin-top: 6px;
+  color: ${THEME.text};
 `;
 
 const SlideSection = styled.div`
@@ -339,9 +427,14 @@ const SectionTitle = styled.div`
 
 const HistoryList = styled.div`
   background: ${THEME.surface};
-  border-radius: 16px;
-  box-shadow: ${THEME.cardShadow};
-  overflow: hidden;
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  overflow-y: auto;
+  max-height: calc((100vh - 330px) / 2);
+  min-height: 150px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 `;
 
 const HistoryItem = styled.div`
@@ -384,12 +477,49 @@ const EmptyWrap = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  gap: 8px;
+  text-align: center;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  padding: 34px 20px;
+  min-height: 150px;
+`;
+
+const EmptyIcon = styled.div`
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: ${THEME.primary}15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const EmptyTitle = styled.div`
+  font-size: 17px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-top: 2px;
+`;
+
+const EmptyBtn = styled.button`
+  margin-top: 6px;
+  padding: 13px 20px;
+  border: none;
+  border-radius: 8px;
+  background: ${THEME.button};
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  &:focus { outline: none; }
 `;
 
 const EmptyText = styled.div`
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 400;
   color: ${THEME.textSecondary};
 `;
 

@@ -93,14 +93,14 @@ export const PrimaryBtn = styled.button`
   padding: 16px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 17px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   &:disabled { opacity: 0.5; cursor: default; }
-  &:active:not(:disabled) { background: ${THEME.primaryDark}; }
+  &:active:not(:disabled) { background: ${THEME.buttonDark}; }
 `;
 
 export const GhostBtn = styled.button`

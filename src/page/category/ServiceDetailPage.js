@@ -169,7 +169,7 @@ const PageWrap = styled.div`
 const HeroArea = styled.div`
   width: 100%;
   height: 220px;
-  background: linear-gradient(135deg, ${THEME.purpleLight} 0%, ${THEME.primaryLight} 50%, ${THEME.primary} 100%);
+  background: linear-gradient(135deg, ${THEME.purpleLight} 0%, ${THEME.buttonLight} 50%, ${THEME.button} 100%);
 `;
 
 const HeroPlaceholder = styled.div`
@@ -493,7 +493,7 @@ const RequestBtn = styled.button`
   padding: 14px;
   border: none;
   border-radius: 10px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 18px;
   font-weight: 700;

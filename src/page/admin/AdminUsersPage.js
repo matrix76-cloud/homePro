@@ -683,7 +683,7 @@ const SubTitle = styled.p`font-size: 15px; color: ${THEME.muted}; margin: 0;`;
 
 const SearchBar = styled.div`position: relative; margin-bottom: 16px; max-width: 360px;`;
 const SearchIcon = styled.span`position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: ${THEME.muted}; font-size: 17px; pointer-events: none;`;
-const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.primary}; }`;
+const SearchInput = styled.input`width: 100%; padding: 9px 12px 9px 36px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 16px; outline: none; background: #fff; &:focus { border-color: ${THEME.button}; }`;
 
 const TableWrap = styled.div`background: #fff; border-radius: 4px; overflow-x: auto; box-shadow: ${THEME.cardShadow};`;
 const Table = styled.table`width: 100%; border-collapse: collapse; min-width: 900px;`;
@@ -696,7 +696,7 @@ const ActionBtn = styled.button`
     padding: 4px 10px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; margin-right: 4px; white-space: nowrap;
     border: ${({ $outline }) => ($outline ? `1px solid ${THEME.muted}` : "none")};
     color: ${({ $outline }) => ($outline ? THEME.textSecondary : "#fff")};
-    background: ${({ $outline, $bg }) => ($outline ? "#fff" : $bg || THEME.primary)};
+    background: ${({ $outline, $bg }) => ($outline ? "#fff" : $bg || THEME.button)};
     &:hover { opacity: 0.85; }
 `;
 
@@ -740,7 +740,7 @@ const FL = styled.div`width: 100px; flex-shrink: 0; color: ${THEME.muted}; font-
 const FV = styled.div`color: ${THEME.text}; word-break: break-all;`;
 const Divider = styled.div`height: 1px; background: ${THEME.border}; margin: 16px 0;`;
 const ModalInput = styled.input`width: 100%; padding: 8px 10px; border: 1px solid ${THEME.border}; border-radius: 4px; font-size: 15px; outline: none; &:focus { border-color: ${THEME.primary}; }`;
-const SmallActionBtn = styled.button`padding: 8px 18px; font-size: 15px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; color: #fff; background: ${THEME.primary}; white-space: nowrap; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
+const SmallActionBtn = styled.button`padding: 8px 18px; font-size: 15px; font-weight: 600; border: none; border-radius: 4px; cursor: pointer; color: #fff; background: ${THEME.button}; white-space: nowrap; &:hover { opacity: 0.85; } &:disabled { opacity: 0.5; }`;
 
 // ─── Mini table (tabs) ───
 

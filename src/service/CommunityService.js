@@ -34,6 +34,15 @@ export async function getPostById(postId) {
   return { id: snap.id, ...snap.data() };
 }
 
+/** 조회수 +1 — 상세를 열 때 (커뮤니티 시안 4번 "많이 본 글", 형 9/18) */
+export async function increaseViewCount(postId) {
+  try {
+    await updateDoc(doc(db, "community_posts", postId), { viewCount: increment(1) });
+  } catch (e) {
+    console.warn("조회수 반영 실패:", e.message);
+  }
+}
+
 /** 게시글 생성 */
 export async function createPost({ title, content, images = [], type, authorUid, authorName }) {
   const docRef = await addDoc(postsRef, {

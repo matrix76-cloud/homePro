@@ -383,7 +383,7 @@ const EditBtn = styled.button`
     padding: 14px;
     border: none;
     border-radius: 10px;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     color: #fff;
     font-size: 17px;
     font-weight: 400;

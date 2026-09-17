@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -92,6 +92,39 @@ export default function MobileLinkPhonecontainer() {
         return codeSent && !phoneVerified && codeInput.trim().length === 6 && !otpBusy && !busy;
     }, [codeSent, phoneVerified, codeInput, otpBusy, busy]);
 
+    // 인증번호 입력 다이얼로그 (대표 9/16 리뷰) — 전송하면 6칸 입력창이 바로 뜬다
+    const [otpOpen, setOtpOpen] = useState(false);
+    const otpRefs = useRef([]);
+    const otpDigits = codeInput.padEnd(6, " ").slice(0, 6).split("");
+
+    const setOtpDigit = (idx, ch) => {
+        const cur = codeInput.padEnd(6, " ").slice(0, 6).split("");
+        cur[idx] = ch || " ";
+        setCodeInput(onlyDigits(cur.join("")).slice(0, 6));
+        if (ch && idx < 5) otpRefs.current[idx + 1]?.focus();
+    };
+
+    const handleOtpKeyDown = (idx, e) => {
+        if (e.key === "Backspace" && !otpDigits[idx].trim() && idx > 0) {
+            otpRefs.current[idx - 1]?.focus();
+        }
+    };
+
+    const handleOtpPaste = (e) => {
+        const text = onlyDigits(e.clipboardData?.getData("text") || "").slice(0, 6);
+        if (!text) return;
+        e.preventDefault();
+        setCodeInput(text);
+        otpRefs.current[Math.min(text.length, 5)]?.focus();
+    };
+
+    // 6자리가 채워지면 바로 확인 (대표 9/16 리뷰)
+    useEffect(() => {
+        if (!otpOpen || codeInput.length !== 6 || otpBusy || phoneVerified) return;
+        handleVerifyOtp();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [codeInput, otpOpen]);
+
     // 인증번호 요청 — 코드 생성·발송은 서버가 한다
     const handleSendOtp = async () => {
         if (!canSendOtp) return;
@@ -105,7 +138,8 @@ export default function MobileLinkPhonecontainer() {
             setVerificationToken("");
             setCodeInput("");
             setSecondsLeft(res?.resendAfterSec || 30);
-            window.alert("인증번호를 전송했습니다. 문자 메시지를 확인해 주세요.");
+            setOtpOpen(true);
+            setTimeout(() => otpRefs.current[0]?.focus(), 50);
         } catch (err) {
             window.alert(phoneAuthErrorMessage(err));
         } finally {
@@ -126,9 +160,11 @@ export default function MobileLinkPhonecontainer() {
             const res = await verifyPhoneCode(sentToE164, codeInput.trim());
             setVerificationToken(res?.verificationToken || "");
             setPhoneVerified(true);
-            window.alert("전화번호 인증이 완료되었습니다.");
+            setOtpOpen(false);
         } catch (err) {
             window.alert(phoneAuthErrorMessage(err));
+            setCodeInput("");
+            setTimeout(() => otpRefs.current[0]?.focus(), 50);
         } finally {
             setOtpBusy(false);
         }
@@ -181,7 +217,8 @@ export default function MobileLinkPhonecontainer() {
             await refreshUser();
             if (result?.merged) {
                 window.alert("같은 번호로 가입된 계정이 있어 하나로 연결했습니다.");
-                nav("/MobileMain", { replace: true });
+                try { sessionStorage.setItem("homepro.justSignedUp", "1"); } catch (e) { }
+                nav("/welcome", { replace: true });
             } else {
                 nav("/ReferralInput", { replace: true });
             }
@@ -195,8 +232,12 @@ export default function MobileLinkPhonecontainer() {
 
     return (
         <Wrap>
-            <Title>전화번호 등록</Title>
-            <Desc>연락 받을 전화번호를 입력해주세요.</Desc>
+            <Title>전화번호 입력</Title>
+
+            <WhyBox>
+                전화번호는 카카오·구글 로그인과 아이디 로그인을 한 계정으로 묶는 기준입니다.
+                오더 연락에도 쓰입니다.
+            </WhyBox>
 
             <Card>
                 <Field>
@@ -225,33 +266,48 @@ export default function MobileLinkPhonecontainer() {
                     <HelperText>본인의 휴대폰 번호를 입력해주세요.</HelperText>
                 </Field>
 
-                {/* 인증번호 입력 — 서버가 발급하고 서버가 대조한다 */}
+                {/* 인증번호는 다이얼로그에서 받는다 (대표 9/16 리뷰) */}
                 {codeSent && !phoneVerified && (
                     <Field>
-                        <LabelRow>
-                            <Label htmlFor="otp">인증번호</Label>
-                            <RequiredMark>*</RequiredMark>
-                        </LabelRow>
-                        <InlineRow>
-                            <Input
-                                id="otp"
-                                type="tel"
-                                inputMode="numeric"
-                                placeholder="인증번호 6자리"
-                                value={codeInput}
-                                onChange={(e) => setCodeInput(onlyDigits(e.target.value).slice(0, 6))}
-                                disabled={busy || otpBusy}
-                            />
-                            <SmallBtn type="button" onClick={handleVerifyOtp} disabled={!canVerifyOtp}>
-                                {otpBusy ? "확인중..." : "확인"}
-                            </SmallBtn>
-                        </InlineRow>
-                        <HelperText>문자로 받은 인증번호를 입력해주세요. (3분 이내)</HelperText>
+                        <HelperText>문자로 받은 인증번호 6자리를 입력해 주세요. (3분 이내)</HelperText>
+                        <SmallBtn type="button" onClick={() => { setOtpOpen(true); setTimeout(() => otpRefs.current[0]?.focus(), 50); }} disabled={busy || otpBusy}>
+                            인증번호 입력하기
+                        </SmallBtn>
                     </Field>
                 )}
 
                 {phoneVerified && (
                     <VerifiedPill>전화번호 인증이 완료되었습니다.</VerifiedPill>
+                )}
+
+                {otpOpen && !phoneVerified && (
+                    <OtpOverlay onClick={() => setOtpOpen(false)}>
+                        <OtpSheet onClick={(e) => e.stopPropagation()}>
+                            <OtpTitle>인증번호 입력</OtpTitle>
+                            <OtpDesc>{phone}로 보낸 6자리 숫자를 입력해 주세요.</OtpDesc>
+                            <OtpBoxRow onPaste={handleOtpPaste}>
+                                {[0, 1, 2, 3, 4, 5].map((i) => (
+                                    <OtpBox
+                                        key={i}
+                                        ref={(el) => { otpRefs.current[i] = el; }}
+                                        type="tel"
+                                        inputMode="numeric"
+                                        maxLength={1}
+                                        value={otpDigits[i].trim()}
+                                        onChange={(e) => setOtpDigit(i, onlyDigits(e.target.value).slice(-1))}
+                                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                                        disabled={otpBusy}
+                                    />
+                                ))}
+                            </OtpBoxRow>
+                            <OtpStatus>{otpBusy ? "확인 중입니다..." : secondsLeft > 0 ? `재전송은 ${secondsLeft}초 뒤에 할 수 있어요` : "번호가 오지 않으면 재전송해 주세요"}</OtpStatus>
+                            <OtpBtnRow>
+                                <OtpGhostBtn type="button" onClick={() => setOtpOpen(false)} disabled={otpBusy}>닫기</OtpGhostBtn>
+                                <OtpGhostBtn type="button" onClick={handleSendOtp} disabled={otpBusy || secondsLeft > 0}>재전송</OtpGhostBtn>
+                                <OtpPrimaryBtn type="button" onClick={handleVerifyOtp} disabled={!canVerifyOtp}>확인</OtpPrimaryBtn>
+                            </OtpBtnRow>
+                        </OtpSheet>
+                    </OtpOverlay>
                 )}
 
                 <BtnRow>
@@ -291,6 +347,21 @@ const Wrap = styled.div`
   background: ${THEME.background};
   padding: 26px 20px;
   box-sizing: border-box;
+`;
+
+/* 번호가 왜 필요한지 먼저 알려 주는 안내 (대표 9/17 시안 2번) */
+const WhyBox = styled.div`
+  margin-top: 16px;
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #2b2f36;
 `;
 
 const Card = styled.div`
@@ -437,6 +508,102 @@ const WarnPill = styled.div`
   font-weight: 400;
 `;
 
+/* 인증번호 입력 다이얼로그 (대표 9/16 리뷰) */
+const OtpOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const OtpSheet = styled.div`
+  width: 100%;
+  max-width: 380px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 24px 20px 20px;
+  box-sizing: border-box;
+`;
+
+const OtpTitle = styled.div`
+  font-size: 19px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const OtpDesc = styled.div`
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #2b2f36;
+`;
+
+const OtpBoxRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin: 22px 0 14px;
+`;
+
+const OtpBox = styled.input`
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+  border: 1px solid #d9dde3;
+  border-radius: 10px;
+  background: #ffffff;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: ${THEME.text};
+  font-family: inherit;
+  box-sizing: border-box;
+  &:focus { outline: none; border-color: ${THEME.primary}; }
+  &:disabled { background: #f3f5f8; }
+`;
+
+const OtpStatus = styled.div`
+  font-size: 14px;
+  color: #2b2f36;
+  min-height: 20px;
+`;
+
+const OtpBtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+`;
+
+const OtpGhostBtn = styled.button`
+  flex: 1;
+  height: 48px;
+  border: 1px solid #d9dde3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: ${THEME.text};
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  &:disabled { opacity: 0.5; cursor: default; }
+`;
+
+const OtpPrimaryBtn = styled.button`
+  flex: 1.2;
+  height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: ${THEME.button};
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  &:disabled { opacity: 0.5; cursor: default; }
+`;
+
 const BtnRow = styled.div`
   margin-top: 16px;
   display: flex;
@@ -462,7 +629,7 @@ const BaseWideBtn = styled.button`
 
 const PrimaryBtn = styled(BaseWideBtn)`
   border: none;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #ffffff;
   font-weight: 400;
 `;

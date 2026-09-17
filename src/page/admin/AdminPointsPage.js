@@ -99,7 +99,7 @@ const AddBtn = styled.button`
     border-radius: 4px;
     cursor: pointer;
     color: #fff;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     &:hover {
         opacity: 0.85;
     }
@@ -290,7 +290,7 @@ const ModalBtn = styled.button`
     border-radius: 4px;
     cursor: pointer;
     color: #fff;
-    background: ${({ $bg }) => $bg || THEME.primary};
+    background: ${({ $bg }) => $bg || THEME.button};
     &:disabled {
         opacity: 0.5;
         cursor: default;
@@ -439,7 +439,7 @@ const PolicySaved = styled.span`
 `;
 const PolicySaveBtn = styled.button`
     padding: 10px 22px;
-    background: ${THEME.primary};
+    background: ${THEME.button};
     color: #fff;
     border: none;
     border-radius: 8px;

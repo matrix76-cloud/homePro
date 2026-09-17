@@ -66,6 +66,7 @@ const SegBtn = styled.button`
   background: ${({ $active }) => ($active ? THEME.primary : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
   &:active { opacity: 0.85; }
+  &:focus { outline: none; }
 `;
 
 const SegBody = styled.div`

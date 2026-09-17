@@ -416,7 +416,7 @@ const BarRow = styled.div`
 
 const Bar = styled.div`
   grid-column: ${({ $col, $colEnd }) => `${$col} / ${$colEnd}`};
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -502,5 +502,5 @@ const CompleteBtn = styled.button`
   font-size: 19px;
   font-weight: 400;
   cursor: ${({ disabled }) => disabled ? "default" : "pointer"};
-  &:active { background: ${({ disabled }) => disabled ? THEME.border : THEME.primaryDark}; }
+  &:active { background: ${({ disabled }) => disabled ? THEME.border : THEME.buttonDark}; }
 `;

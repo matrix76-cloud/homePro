@@ -8,7 +8,7 @@ import { loginAsSeed, getSavedAcct } from './reviewAuth'
 
 const FONT = "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif"
 const C = { ink: '#2b3440', ink2: '#3a4351', gray: '#566070', gray2: '#98a2b0', line: '#e6e9ee', bg: '#f7f8fa', card: '#fff' }
-const GREEN = '#00C74E'
+const GREEN = '#00963F'
 const BY_STYLE = { 형: { ink: '#2b3440', bg: '#fff', line: '#e6e9ee' }, 대표님: { ink: '#c05621', bg: '#fffaf6', line: '#f5d3c6' }, 카스: { ink: '#3b6ea5', bg: '#f4f8fd', line: '#d3e2f5' } }
 const SCREEN_ID = 'order-create'
 const SRC = '/order/create'

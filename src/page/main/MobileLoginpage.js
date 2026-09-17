@@ -1,6 +1,7 @@
 /* eslint-disable */
 import React, { useState, useContext, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { IoEyeOutline, IoEyeOffOutline } from "react-icons/io5";
+import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { signInWithCustomToken } from "firebase/auth";
 import { UserContext } from "../../context/User";
@@ -10,6 +11,72 @@ import { auth } from "../../api/config";
 import { THEME, APP_NAME } from "../../config/homeproConfig";
 
 const DEV_BYPASS_IDS = ["test1", "test3"];
+
+const SOCIAL_LABEL = {"kakao":"카카오","google":"구글","apple":"애플"};
+
+/* 소셜 인증 진행 화면 — 로그인 폼과 섞이지 않게 화면 전체를 쓴다 (대표 9/16 리뷰) */
+const PendingWrap = styled.div`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 0 24px;
+  background: #ffffff;
+  text-align: center;
+`;
+
+const PendingSpinner = styled.div`
+  width: 34px;
+  height: 34px;
+  border: 3px solid #e4e8ee;
+  border-top-color: ${THEME.primary};
+  border-radius: 50%;
+  animation: pendingSpin 0.9s linear infinite;
+  @keyframes pendingSpin { to { transform: rotate(360deg); } }
+`;
+
+const PendingTitle = styled.div`
+  font-size: 19px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+
+const PendingDesc = styled.div`
+  font-size: 15px;
+  line-height: 1.6;
+  color: #2b2f36;
+  white-space: pre-line;
+`;
+
+/* 비밀번호 보기 버튼 (대표 9/17) */
+const PwWrap = styled.div`
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  margin-bottom: 12px;
+  display: flex;
+  input {
+    margin-bottom: 0;
+    max-width: none;
+  }
+`;
+
+const PwToggle = styled.button`
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 4px;
+  line-height: 0;
+  color: #545E6B;
+  cursor: pointer;
+`;
 
 const Container = styled.div`
   display: flex;
@@ -55,7 +122,7 @@ const LoginButton = styled.button`
   width: 100%;
   max-width: 340px;
   padding: 14px;
-  background: ${THEME.primary};
+  background: ${THEME.button};
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -65,7 +132,7 @@ const LoginButton = styled.button`
   font-family: inherit;
   margin-bottom: 12px;
   &:active {
-    background: ${THEME.primaryDark};
+    background: ${THEME.buttonDark};
   }
 `;
 
@@ -154,6 +221,8 @@ const SignupLink = styled.span`
   }
 `;
 
+export const AFTER_LOGIN_KEY = "homepro.afterLogin";
+
 const MobileLoginpage = () => {
   const navigate = useNavigate();
   const { dispatch } = useContext(UserContext);
@@ -161,6 +230,16 @@ const MobileLoginpage = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false); // 비밀번호 보기 (대표 9/17)
+  // 비회원이 보호 화면에서 넘어온 경우, 로그인 뒤 그 화면으로 돌려보낸다 (대표 9/17)
+  const { state: navState } = useLocation();
+  useEffect(() => {
+    const from = navState?.from;
+    if (!from) return;
+    try { sessionStorage.setItem(AFTER_LOGIN_KEY, from); } catch (e) { /* 저장 못 해도 로그인은 진행 */ }
+  }, [navState]);
+  // 소셜 인증 진행 중에는 로그인 폼 대신 전체 화면 안내를 보여 준다 (대표 9/16 리뷰)
+  const [socialPending, setSocialPending] = useState("");
   const [toast, setToast] = useState("");
 
   const showToast = (msg) => {
@@ -193,8 +272,10 @@ const MobileLoginpage = () => {
 
   // 앱: 소셜 로그인 중 WebView가 리로드된 경우 — 남겨둔 진행 표시를 보고 결과를 이어받아 마무리
   useEffect(() => {
-    if (!isInRnWebView() || !readPendingSignin()) return;
+    const pending = isInRnWebView() ? readPendingSignin() : null;
+    if (!pending) return;
     setLoading(true);
+    setSocialPending(pending.provider || "");
     resumeNativeSocialSignIn()
       .then((res) => {
         if (res?.success) {
@@ -202,9 +283,10 @@ const MobileLoginpage = () => {
           return;
         }
         if (res && !res.success) setError(res.error_message || "소셜 로그인에 실패했습니다.");
+        setSocialPending("");
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setSocialPending(""); setLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -255,6 +337,7 @@ const MobileLoginpage = () => {
 
   const handleSocialLogin = async (provider) => {
     setLoading(true);
+    setSocialPending(provider);
     setError("");
     try {
       const res = await signInWithSocial({ provider });
@@ -267,9 +350,25 @@ const MobileLoginpage = () => {
       console.error("소셜 로그인 실패:", err);
       setError(err.message || "소셜 로그인에 실패했습니다.");
     } finally {
+      setSocialPending("");
       setLoading(false);
     }
   };
+
+  // 소셜 인증 진행 화면 — 로그인 폼을 가리고 단독 화면으로 보여 준다
+  if (socialPending) {
+    const label = SOCIAL_LABEL[socialPending] || "소셜";
+    return (
+      <PendingWrap>
+        <PendingSpinner />
+        <PendingTitle>{label} 로그인 중입니다</PendingTitle>
+        <PendingDesc>
+          {label} 인증 화면에서 로그인을 마치면 자동으로 돌아옵니다.{"\n"}
+          잠시만 기다려 주세요.
+        </PendingDesc>
+      </PendingWrap>
+    );
+  }
 
   return (
     <Container>
@@ -283,13 +382,19 @@ const MobileLoginpage = () => {
         onChange={(e) => setLoginId(e.target.value)}
         autoComplete="username"
       />
-      <Input
-        type="password"
-        placeholder="비밀번호"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleEmailLogin()}
-      />
+      <PwWrap>
+        <Input
+          type={showPw ? "text" : "password"}
+          placeholder="비밀번호"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleEmailLogin()}
+          style={{ paddingRight: 46 }}
+        />
+        <PwToggle type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}>
+          {showPw ? <IoEyeOffOutline size={21} /> : <IoEyeOutline size={21} />}
+        </PwToggle>
+      </PwWrap>
 
       {error && <ErrorText>{error}</ErrorText>}
 
