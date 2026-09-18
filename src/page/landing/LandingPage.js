@@ -5,10 +5,11 @@
  * - 문구는 대표 초안에서 바꾸지 않는다. 화면 캡처는 public/assets/landing/*.png (화면 바뀌면 재캡처)
  * - PC 기준 + 반응형(900px 이하 세로 쌓기)
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { FiArrowDown, FiCheck } from 'react-icons/fi';
+import { db } from '../../api/config';
 
 const SECTIONS = [
   {
@@ -65,8 +66,32 @@ const Flow = ({ items }) => (
   </FlowBox>
 );
 
+// 사업자 정보 — 관리자 설정(settings/companyInfo)이 기준. 불러오기 전·실패 시엔 아래 값으로 표시
+const COMPANY_FALLBACK = {
+  companyName: '(주)윈플래닛',
+  ceo: '박신영',
+  privacyOfficer: '박성우',
+  address: '서울시 종로구 종로19, B동 1422호(종로1가, 르메이에르 종로타운1)',
+  bizNumber: '696-87-02440',
+  mailOrderNo: '2021-서울종로-1936',
+  phone: '1555-3364',
+  email: 'homepro3364@gmail.com',
+};
+
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [company, setCompany] = useState(COMPANY_FALLBACK);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const snap = await getDoc(doc(db, 'settings', 'companyInfo'));
+        if (!cancelled && snap.exists()) setCompany({ ...COMPANY_FALLBACK, ...snap.data() });
+      } catch (e) { /* 실패하면 기본값 그대로 */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const goSignup = () => navigate('/MobileSignup');
 
   const body = {
@@ -284,7 +309,18 @@ const LandingPage = () => {
               <a href="/legal/location">위치기반서비스약관</a>
             </FootLinks>
           </FootTop>
-          <FootCopy>© 2026 홈프로. All rights reserved.</FootCopy>
+          <FootInfo>
+            <span>상호명 : {company.companyName}</span>
+            <span>대표이사 : {company.ceo}</span>
+            {company.privacyOfficer && <span>개인정보책임관리자 : {company.privacyOfficer}</span>}
+            <span>사업자등록번호 : {company.bizNumber}</span>
+            {company.mailOrderNo && <span>통신판매번호 : {company.mailOrderNo}</span>}
+            <span>직업정보제공사업 신고번호 : {company.jobInfoNo || '(신고전)'}</span>
+            <span>주소 : {company.address}</span>
+            {company.phone && <span>고객센터 : {company.phone}</span>}
+            {company.email && <span>이메일 : {company.email}</span>}
+          </FootInfo>
+          <FootCopy>© 2026 {company.companyName || '홈프로'}. All rights reserved.</FootCopy>
         </Inner>
       </Footer>
     </Page>
@@ -495,5 +531,10 @@ const FootLogo = styled.div` font-size: 21px; font-weight: 800; color: ${PRIMARY
 const FootLinks = styled.div`
   display: flex; gap: 22px; flex-wrap: wrap;
   a { font-size: 15px; color: ${BODY}; text-decoration: none; &:hover { color: ${PRIMARY}; } }
+`;
+const FootInfo = styled.div`
+  margin-top: 22px; padding-top: 20px; border-top: 1px solid ${LINE};
+  display: flex; flex-wrap: wrap; gap: 8px 24px;
+  span { font-size: 14px; line-height: 1.6; color: ${BODY}; word-break: keep-all; }
 `;
 const FootCopy = styled.p` margin-top: 18px; font-size: 14px; color: ${BODY}; `;
