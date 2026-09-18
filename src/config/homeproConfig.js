@@ -58,6 +58,8 @@ export const THEME = {
     buttonDark: "#009B3E",     // 버튼 눌림
     buttonLight: "#E6F7EE",    // 버튼 연배경
     accent: "#F59E0B",         // 포인트 (골드/오렌지 — 파이 심볼 계열)
+    logoPurple: "#653A80",     // 로고 보라 — 오더목록 "접수" 상태 글자 (대표 9/18)
+    logoPurpleDark: "#52306A", // 로고 보라 눌림
     plum: "#00963F",           // 강조 초록 (레거시 키)
     plumLight: "#E6F7EE",      // 강조 연배경
     purple: "#00B84A",        // (레거시 키) 메인 CTA = 버튼 초록
