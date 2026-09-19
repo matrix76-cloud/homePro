@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useState, useContext, useEffect } from "react";
-import { IoEyeOutline, IoEyeOffOutline } from "react-icons/io5";
+import { IoEyeOutline, IoEyeOffOutline, IoCheckmark } from "react-icons/io5";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { signInWithCustomToken } from "firebase/auth";
@@ -8,6 +8,7 @@ import { UserContext } from "../../context/User";
 import { signInWithSocial, signInWithEmailPassword, consumeKakaoRedirectIfAny, resumeNativeSocialSignIn } from "../../service/AuthService";
 import { isInRnWebView, readPendingSignin } from "../../bridge/webviewBridge";
 import { auth } from "../../api/config";
+import usePcWide from "../../hooks/usePcWide";
 import { THEME, APP_NAME } from "../../config/homeproConfig";
 
 const DEV_BYPASS_IDS = ["test1", "test3"];
@@ -224,6 +225,7 @@ const SignupLink = styled.span`
 export const AFTER_LOGIN_KEY = "homepro.afterLogin";
 
 const MobileLoginpage = () => {
+  const pcWide = usePcWide();
   const navigate = useNavigate();
   const { dispatch } = useContext(UserContext);
   const [loginId, setLoginId] = useState("");
@@ -370,6 +372,75 @@ const MobileLoginpage = () => {
     );
   }
 
+  // PC 폭 — 좌우 분할(왼쪽 소개 면 + 오른쪽 520 폼). 기능은 폰 화면과 같다 (시안 랩 pclogin 1번, 형 9/19)
+  if (pcWide) {
+    return (
+      <PcWrap>
+        <PcLeft>
+          <PcBrand onClick={() => navigate("/intro")}>{APP_NAME}</PcBrand>
+          <PcCopy>
+            <PcHeadline>사업자의 일을 더 쉽게,<br />사업자의 수익을 더 넓게.</PcHeadline>
+            <PcPoints>
+              {PC_POINTS.map((t) => (
+                <li key={t}><IoCheckmark size={21} />{t}</li>
+              ))}
+            </PcPoints>
+          </PcCopy>
+          <PcFootNote>고객센터 1555-3364</PcFootNote>
+        </PcLeft>
+        <PcRight>
+          <PcForm>
+            <PcTitle>로그인</PcTitle>
+            <PcSub>홈프로 계정으로 계속합니다.</PcSub>
+            <PcInput
+              type="text"
+              placeholder="아이디"
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
+              autoComplete="username"
+            />
+            <PwWrap>
+              <PcInput
+                type={showPw ? "text" : "password"}
+                placeholder="비밀번호"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                  if (e.key === "Enter") handleEmailLogin();
+                }}
+                style={{ paddingRight: 46 }}
+              />
+              <PwToggle type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}>
+                {showPw ? <IoEyeOffOutline size={21} /> : <IoEyeOutline size={21} />}
+              </PwToggle>
+            </PwWrap>
+            {error && <ErrorText>{error}</ErrorText>}
+            <PcLoginBtn onClick={handleEmailLogin} disabled={loading}>
+              {loading ? "로그인 중..." : "로그인 하기"}
+            </PcLoginBtn>
+            <FindRow>
+              <FindLink onClick={() => navigate("/MobileFindAccount?tab=find_id")}>아이디 찾기</FindLink>
+              <FindDivider />
+              <FindLink onClick={() => navigate("/MobileFindAccount?tab=reset_pw")}>비밀번호 찾기</FindLink>
+            </FindRow>
+            <Divider>또는</Divider>
+            <PcSocialCol>
+              <PcSocialBtn $bg="#FEE500" $color="#1F2937" onClick={() => handleSocialLogin("kakao")}>카카오로 계속하기</PcSocialBtn>
+              <PcSocialBtn $bg="#fff" $color="#14181F" $line onClick={() => handleSocialLogin("google")}>Google 로 계속하기</PcSocialBtn>
+              <PcSocialBtn $bg="#000" $color="#fff" onClick={() => handleSocialLogin("apple")}>Apple 로 계속하기</PcSocialBtn>
+            </PcSocialCol>
+            <SignupRow>
+              아직 계정이 없으신가요?{" "}
+              <SignupLink onClick={() => navigate("/MobileSignup")}>회원가입</SignupLink>
+            </SignupRow>
+          </PcForm>
+        </PcRight>
+        {toast && <Toast>{toast}</Toast>}
+      </PcWrap>
+    );
+  }
+
   return (
     <Container>
       <Logo>{APP_NAME}</Logo>
@@ -465,4 +536,59 @@ const Toast = styled.div`
     80% { opacity: 1; }
     100% { opacity: 0; }
   }
+`;
+
+/* ===== PC 폭 로그인 — 좌우 분할 ===== */
+const PC_POINTS = ["오더를 받고, 공유하고", "소개수익을 만들고", "내 고객에게 카드결제를 받고", "사고위험까지 관리합니다"];
+
+const PcWrap = styled.div`
+  min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) 520px; background: #fff; word-break: keep-all;
+`;
+const PcLeft = styled.div`
+  background: #E6F7EE; padding: 52px 64px; box-sizing: border-box; display: flex; flex-direction: column;
+`;
+const PcBrand = styled.div` font-size: 28px; font-weight: 800; color: #00963F; cursor: pointer; align-self: flex-start; `;
+const PcCopy = styled.div` margin: auto 0; `;
+const PcHeadline = styled.h2`
+  font-size: 40px; font-weight: 800; line-height: 1.35; letter-spacing: -0.02em; color: #14181F; margin: 0;
+`;
+const PcPoints = styled.ul`
+  list-style: none; padding: 0; margin: 32px 0 0; display: grid; gap: 15px;
+  li { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 600; color: #14181F; }
+  svg { color: #00963F; flex: 0 0 auto; }
+`;
+const PcFootNote = styled.div` font-size: 15px; color: #2b2f36; `;
+const PcRight = styled.div`
+  padding: 40px 56px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+`;
+const PcForm = styled.div`
+  width: 100%; max-width: 408px;
+  /* 폰 화면과 같이 쓰는 부품 — PC 폼 폭에 맞춰 늘리고 글씨를 검정 계열로 */
+  ${PwWrap} { max-width: none; margin-bottom: 10px; }
+  ${FindRow} { justify-content: center; margin: 16px 0 0; }
+  ${FindLink} { font-size: 15px; color: #14181F; &:hover { color: #00963F; } }
+  ${Divider} { max-width: none; margin: 22px 0 18px; color: #2b2f36; }
+  ${ErrorText} { text-align: left; margin: 2px 0 10px; }
+  ${SignupRow} { text-align: center; color: #14181F; }
+  ${SignupLink} { font-weight: 700; }
+`;
+const PcTitle = styled.h3` font-size: 28px; font-weight: 800; color: #14181F; margin: 0; `;
+const PcSub = styled.div` font-size: 16px; color: #2b2f36; margin: 8px 0 28px; `;
+const PcInput = styled.input`
+  width: 100%; height: 54px; padding: 0 16px; margin-bottom: 10px; box-sizing: border-box;
+  border: 1px solid #dfe3e8; border-radius: 10px; font-size: 16px; font-family: inherit; color: #14181F; background: #fff; outline: none;
+  &:focus { border-color: #00963F; }
+  &::placeholder { color: #8a919c; }
+`;
+const PcLoginBtn = styled.button`
+  width: 100%; height: 54px; margin-top: 4px; border: none; border-radius: 10px; cursor: pointer;
+  background: #00963F; color: #fff; font-size: 17px; font-weight: 700; font-family: inherit;
+  &:hover { background: #007A33; }
+  &:disabled { opacity: 0.6; cursor: default; }
+`;
+const PcSocialCol = styled.div` display: grid; gap: 9px; `;
+const PcSocialBtn = styled.button`
+  height: 52px; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: 700; font-family: inherit;
+  background: ${({ $bg }) => $bg}; color: ${({ $color }) => $color};
+  border: ${({ $line }) => ($line ? "1px solid #dfe3e8" : "none")};
 `;

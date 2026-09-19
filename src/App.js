@@ -8,6 +8,7 @@ import styled, { createGlobalStyle } from "styled-components";
 import { UserContext } from "./context/User";
 import { AuthProvider } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
+import usePcWide from "./hooks/usePcWide";
 import { attachMessageListener, postToRN, sendNavState } from "./bridge/webviewBridge";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -312,7 +313,10 @@ const AnimatedRoutes = () => {
     }
   });
 
+  // PC 폭에서는 로그인 화면이 좌우 분할 전폭으로 뜬다 (폰·앱은 그대로 폭 400)
+  const pcWide = usePcWide();
   const isFullWidth =
+    (pcWide && location.pathname === "/MobileLogin") ||
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/insurance-admin") ||
     location.pathname.startsWith("/review") ||

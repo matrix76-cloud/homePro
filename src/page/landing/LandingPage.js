@@ -2,7 +2,9 @@
  * 홈프로 사업자 랜딩 /intro — 대표 초안 문구 그대로 (리뷰 9/17)
  *  히어로 → 01 오더를 주고받다 → 02 소개수수료 → 03 PG 결제 → 04 배상책임보험
  *  → 홈프로 하나로 → 사업자의 새로운 일하는 방식 → 마무리 [사업자 가입하기]
- * - 문구는 대표 초안에서 바꾸지 않는다. 화면 캡처는 public/assets/landing/*.png (화면 바뀌면 재캡처)
+ * - 문구는 대표 초안에서 바꾸지 않는다.
+ * - 그림: 폰 목업을 쓰지 않는다(형 9/19). 진짜 화면은 첫 화면의 한 장(orders.png)뿐이고,
+ *   01~04 는 화면 조각을 새로 그린 것 — LandingArt.js (시안 랩 /lab?tab=landing 첫 화면 2번 + 섹션 1번)
  * - PC 기준 + 반응형(900px 이하 세로 쌓기)
  */
 import React, { useEffect, useState } from 'react';
@@ -10,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { FiArrowDown, FiCheck } from 'react-icons/fi';
 import { db } from '../../api/config';
+import { PIECES, HeroScreenWithPieces } from './LandingArt';
 
 const SECTIONS = [
   {
@@ -17,32 +20,24 @@ const SECTIONS = [
     no: '01',
     title: '오더를 주고받다',
     lead: '필요한 오더를 받고, 내가 가진 오더를 공유하세요.',
-    shot: '/assets/landing/order-create.png',
-    shotAlt: '홈프로 오더 등록 화면',
   },
   {
     id: 'referral',
     no: '02',
     title: '내 전문분야가 아닌 오더도 수익으로',
     lead: '“내가 못 하는 일”이 “내 수익”이 될 수 있습니다.',
-    shot: '/assets/landing/myorders.png',
-    shotAlt: '홈프로 나의 오더현황 화면',
   },
   {
     id: 'pay',
     no: '03',
     title: '내 고객에게도 간편하게 결제받다',
     lead: '홈프로 오더뿐만 아니라, 내 개인영업에도 활용하세요.',
-    shot: '/assets/landing/pg.png',
-    shotAlt: '홈프로 PG결제 화면',
   },
   {
     id: 'insurance',
     no: '04',
     title: '사고위험도 관리하다',
     lead: '일은 잘하는 것만큼, 사고에 대비하는 것도 중요합니다.',
-    shot: '/assets/landing/insurance.png',
-    shotAlt: '홈프로 안심케어 화면',
   },
 ];
 
@@ -229,9 +224,7 @@ const LandingPage = () => {
               </HeroBtns>
             </div>
             <HeroVisual>
-              <Phone>
-                <PhoneShot src="/assets/landing/orders.png" alt="홈프로 오더목록 화면" />
-              </Phone>
+              <HeroScreenWithPieces />
             </HeroVisual>
           </HeroGrid>
         </Inner>
@@ -242,9 +235,7 @@ const LandingPage = () => {
         <Section key={s.id} id={s.id} $alt={i % 2 === 0}>
           <Inner>
             <Row $reverse={i % 2 === 1}>
-              <ShotWrap>
-                <Shot src={s.shot} alt={s.shotAlt} />
-              </ShotWrap>
+              <ShotWrap>{PIECES[s.id]}</ShotWrap>
               <div>
                 <No>{s.no}</No>
                 <H2>{s.title}</H2>
@@ -413,13 +404,6 @@ const Lead = styled.p`
 `;
 const HeroBtns = styled.div` display: flex; gap: 12px; flex-wrap: wrap; `;
 const HeroVisual = styled.div` display: flex; justify-content: center; `;
-const Phone = styled.div`
-  width: 290px; height: 600px; background: #1b1f27; border-radius: 40px; padding: 12px; box-sizing: border-box;
-  box-shadow: 0 24px 50px rgba(20, 24, 31, 0.18);
-`;
-const PhoneShot = styled.img`
-  display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; border-radius: 30px;
-`;
 
 /* 01~04 */
 const Section = styled.section`
@@ -435,10 +419,6 @@ const Row = styled.div`
 const ShotWrap = styled.div`
   display: flex; justify-content: center; position: sticky; top: 100px;
   @media (max-width: 900px) { position: static; order: 2; }
-`;
-const Shot = styled.img`
-  display: block; width: 300px; max-width: 100%; border-radius: 22px; border: 1px solid ${LINE};
-  box-shadow: 0 16px 40px rgba(20, 24, 31, 0.12);
 `;
 const No = styled.div` font-size: 22px; font-weight: 800; color: ${PRIMARY}; margin-bottom: 10px; `;
 const H2 = styled.h2`

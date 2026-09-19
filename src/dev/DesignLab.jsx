@@ -26,6 +26,7 @@ import { TableCases, ChatCases, ChatFilterCases, ChatEmptyCases } from "./ListLa
 import { BrokerDetailCases } from "./BrokerLab";
 import { NoticeCases } from "./NoticeLab";
 import { PointPageCases, PointEmptyCases } from "./PointLab";
+import { LandingHeroCases, LandingArtCases, PcLoginCases } from "./LandingLab";
 
 const sortByNo = (a, b) => a.no - b.no;
 
@@ -51,6 +52,8 @@ const TABS = [
   { key: "broker", label: "공동중개 상세" },
   { key: "notice", label: "공지사항" },
   { key: "point", label: "포인트 화면" },
+  { key: "landing", label: "랜딩 그림" },
+  { key: "pclogin", label: "PC 로그인" },
 ];
 
 const DesignLab = () => {
@@ -297,6 +300,33 @@ const DesignLab = () => {
                 <CardNote>{c.note}</CardNote>
                 {c.render()}
               </Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "landing" && (
+        <>
+          <SectionNote>랜딩(/intro)에서 폰 목업을 걷어낸 시안입니다. 첫 화면 그림과 섹션 그림을 따로 골라 주셔도 됩니다. 0번이 지금 화면입니다.</SectionNote>
+          <GroupTitle>첫 화면 오른쪽 그림</GroupTitle>
+          <Grid $min={900}>
+            {[...LandingHeroCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
+            ))}
+          </Grid>
+          <GroupTitle>01~04 섹션 옆 그림</GroupTitle>
+          <Grid $min={900}>
+            {[...LandingArtCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "pclogin" && (
+        <>
+          <SectionNote>PC 폭(900 이상)에서 보이는 로그인 화면입니다. 폰·앱에서는 지금 로그인 화면 그대로입니다. 도우미 PC 로그인의 좌우 분할 틀을 참고했습니다. 0번이 지금 화면입니다.</SectionNote>
+          <Grid $min={1100}>
+            {[...PcLoginCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
             ))}
           </Grid>
         </>
