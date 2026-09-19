@@ -15,6 +15,10 @@ import "react-toastify/dist/ReactToastify.css";
 // 앱(RN 셸) 기준 "첫 화면" — 여기서 뒤로가기는 앱 종료 흐름(두 번 눌러 종료)으로 간다
 const APP_ROOT_PATHS = ["/", "/MobileSplash", "/MobileLogin", "/MobileMain", "/intro"];
 
+// 대표 도메인 접속 여부 — 이 주소로 온 사람에겐 인트로(/intro)가 첫 화면이다
+const IS_BRAND_DOMAIN =
+  typeof window !== "undefined" && /(^|\.)tryhomepro\.com$/i.test(window.location.hostname);
+
 // 푸시 data → 이동할 화면. 서버(onNotificationSend)가 data 에 type·orderId·roomId 를 실어 보낸다
 function pushTargetPath(d = {}) {
   if (d.deeplink && String(d.deeplink).startsWith("/")) return String(d.deeplink);
@@ -325,7 +329,8 @@ const AnimatedRoutes = () => {
         <PushToastStyle />
         <Routes location={location} key={location.pathname}>
           {/* Public - 인증 불필요 */}
-          <Route path="/" element={<Navigate to="/MobileSplash" replace />} />
+          {/* 대표 도메인(tryhomepro.com)으로 들어오면 인트로가 첫 화면. 앱(WebView)·web.app 은 그대로 스플래시 */}
+          <Route path="/" element={<Navigate to={IS_BRAND_DOMAIN ? "/intro" : "/MobileSplash"} replace />} />
           <Route path="/intro" element={<LandingPage />} />
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
           {/* 홈 — 비회원도 둘러볼 수 있다. 로그인한 사람만 전화번호 단계를 거친다 (대표 9/17) */}
