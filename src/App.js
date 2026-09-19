@@ -102,6 +102,7 @@ import BrokeragePage from "./page/main/BrokeragePage";
 import BrokerageCreatePage from "./page/main/BrokerageCreatePage";
 import SeedLoginPage from "./page/test/SeedLoginPage";
 import LandingPage from "./page/landing/LandingPage";
+import AppDownloadPage from "./page/landing/AppDownloadPage";
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
@@ -371,13 +372,14 @@ const AnimatedRoutes = () => {
     location.pathname.startsWith("/lab") ||
     location.pathname.startsWith("/iconlab") ||
     location.pathname.startsWith("/colorlab") ||
+    location.pathname === "/app" ||
     location.pathname === "/intro";
   let Wrapper = isFullWidth ? FullContainer : Container;
 
   // PC 위 메뉴 — 관리자·리뷰·시안·결제 링크(고객용)·로그인·스플래시에는 달지 않는다
   const p = location.pathname;
   const pcBare =
-    p === "/" || p === "/MobileLogin" || p === "/MobileSignup" || p === "/MobileFindAccount" || p === "/MobileSplash" || p === "/seed-login" ||
+    p === "/" || p === "/app" || p === "/MobileLogin" || p === "/MobileSignup" || p === "/MobileFindAccount" || p === "/MobileSplash" || p === "/seed-login" ||
     p.startsWith("/admin") || p.startsWith("/insurance-admin") || p.startsWith("/review") ||
     p.startsWith("/lab") || p.startsWith("/iconlab") || p.startsWith("/colorlab") || p.startsWith("/pg/");
   // 홍보 화면(/intro)은 위 메뉴, 그 밖의 앱 화면은 왼쪽 세로 메뉴 틀 (시안 랩 pcshell 3번)
@@ -408,6 +410,8 @@ const AnimatedRoutes = () => {
           {/* 대표 도메인(tryhomepro.com)으로 들어오면 인트로가 첫 화면. 앱(WebView)·web.app 은 그대로 스플래시 */}
           <Route path="/" element={<RootRedirect />} />
           <Route path="/intro" element={<LandingPage />} />
+          {/* 앱 다운로드 이동 페이지 — 랜딩 QR 이 가리키는 곳. 폰이면 기종에 맞는 스토어로 보낸다 */}
+          <Route path="/app" element={<AppDownloadPage />} />
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
           {/* 홈 — 비회원도 둘러볼 수 있다. 로그인한 사람만 전화번호 단계를 거친다 (대표 9/17) */}
           <Route element={<RequirePhone onlyIfLoggedIn />}>

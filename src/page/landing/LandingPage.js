@@ -13,6 +13,9 @@ import styled from 'styled-components';
 import { FiArrowDown, FiCheck } from 'react-icons/fi';
 import { db } from '../../api/config';
 import { PIECES, HeroScreenWithPieces } from './LandingArt';
+import { FaApple, FaGooglePlay } from 'react-icons/fa';
+import { getAppLinks } from '../../service/AppLinkService';
+import { StoreLink } from './AppDownloadPage';
 import usePcWide from '../../hooks/usePcWide';
 import { PC_HEADER_H } from '../../components/pc/PcHeader';
 
@@ -87,6 +90,8 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const pcWide = usePcWide(); // PC 에서는 앱 공통 위 메뉴(PcHeader)가 이 페이지 헤더를 대신한다
   const [company, setCompany] = useState(COMPANY_FALLBACK);
+  const [appLinks, setAppLinks] = useState({ androidUrl: '', iosUrl: '' });
+  useEffect(() => { let alive = true; getAppLinks().then((l) => alive && setAppLinks(l)); return () => { alive = false; }; }, []);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -298,6 +303,30 @@ const LandingPage = () => {
         </Inner>
       </Section>
 
+      {/* 앱 다운로드 — QR 은 /app(기종에 맞는 스토어로 보내는 이동 페이지)을 가리킨다 (형 9/20) */}
+      <Section id="app">
+        <Inner>
+          <AppRow>
+            <div>
+              <H2>홈프로 앱으로 더 빠르게</H2>
+              <H3>새 오더 알림을 바로 받고, 현장에서 바로 확인하세요.</H3>
+              <P>
+                안드로이드와 아이폰 모두 같은 계정으로 쓰실 수 있습니다.<br />
+                PC 에서는 이 웹에서 그대로 이용하실 수 있습니다.
+              </P>
+              <AppStores>
+                <StoreLink label="Google Play" sub="안드로이드" icon={<FaGooglePlay />} url={appLinks.androidUrl} />
+                <StoreLink label="App Store" sub="아이폰" icon={<FaApple />} url={appLinks.iosUrl} />
+              </AppStores>
+            </div>
+            <AppQrBox>
+              <img src="/assets/landing/app-qr.svg" alt="홈프로 앱 다운로드 QR" />
+              <AppQrText><b>휴대폰 카메라로 찍어 보세요</b>기종에 맞는 스토어로 이동합니다.</AppQrText>
+            </AppQrBox>
+          </AppRow>
+        </Inner>
+      </Section>
+
       {/* 마무리 */}
       <Closing>
         <Inner $narrow>
@@ -437,6 +466,23 @@ const PhotoImg = styled.div`
   @media (max-width: 600px) { height: 120px; }
 `;
 const PhotoLabel = styled.div` font-size: 18px; font-weight: 700; color: ${INK}; margin-top: 12px; @media (max-width: 600px) { font-size: 16px; } `;
+
+/* 앱 다운로드 */
+const AppRow = styled.div`
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 72px; align-items: center;
+  @media (max-width: 900px) { grid-template-columns: 1fr; gap: 0; }
+`;
+const AppStores = styled.div`
+  display: grid; grid-template-columns: repeat(2, minmax(0, 240px)); gap: 12px; margin-top: 30px;
+  @media (max-width: 600px) { grid-template-columns: 1fr; }
+`;
+/* QR 은 PC 에서만 — 폰에서는 자기 화면의 QR 을 찍을 수 없으니 위 스토어 버튼만 남긴다 */
+const AppQrBox = styled.div`
+  background: #fff; border: 1px solid ${LINE}; border-radius: 16px; padding: 30px 30px 26px; text-align: center; box-sizing: border-box;
+  img { display: block; width: 200px; height: 200px; margin: 0 auto; }
+  @media (max-width: 900px) { display: none; }
+`;
+const AppQrText = styled.div` font-size: 15px; line-height: 1.6; color: ${BODY}; margin-top: 18px; b { display: block; font-size: 17px; color: ${INK}; margin-bottom: 2px; } `;
 
 /* 01~04 */
 const Section = styled.section`
