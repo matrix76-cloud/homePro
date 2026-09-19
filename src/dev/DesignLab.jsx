@@ -27,6 +27,7 @@ import { BrokerDetailCases } from "./BrokerLab";
 import { NoticeCases } from "./NoticeLab";
 import { PointPageCases, PointEmptyCases } from "./PointLab";
 import { LandingHeroCases, LandingArtCases, PcLoginCases } from "./LandingLab";
+import { PcShellCases, LandingPhotoCases } from "./PcShellLab";
 
 const sortByNo = (a, b) => a.no - b.no;
 
@@ -54,6 +55,8 @@ const TABS = [
   { key: "point", label: "포인트 화면" },
   { key: "landing", label: "랜딩 그림" },
   { key: "pclogin", label: "PC 로그인" },
+  { key: "pcshell", label: "PC 틀" },
+  { key: "landingphoto", label: "랜딩 실사" },
 ];
 
 const DesignLab = () => {
@@ -300,6 +303,26 @@ const DesignLab = () => {
                 <CardNote>{c.note}</CardNote>
                 {c.render()}
               </Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "pcshell" && (
+        <>
+          <SectionNote>로그인한 뒤 PC 에서 보이는 화면의 틀입니다. 홈(오더목록)을 기준으로 그렸습니다. 폰·앱은 지금 화면 그대로입니다. 0번이 지금 화면입니다.</SectionNote>
+          <Grid $min={1100}>
+            {[...PcShellCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "landingphoto" && (
+        <>
+          <SectionNote>로그인 전 홈(홍보 화면)입니다. 위 메뉴는 실제 메뉴로 바뀌고 홍보는 '홈'에서만 보입니다. 사진은 시안용 무료 사진이며, 실제 현장 사진을 받으면 바꿉니다. 0번이 지금 화면입니다.</SectionNote>
+          <Grid $min={1100}>
+            {[...LandingPhotoCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
             ))}
           </Grid>
         </>
