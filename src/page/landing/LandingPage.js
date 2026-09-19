@@ -93,6 +93,7 @@ const LandingPage = () => {
     return () => { cancelled = true; };
   }, []);
   const goSignup = () => navigate('/MobileSignup');
+  const goLogin = () => navigate('/MobileLogin');
 
   const body = {
     order: (
@@ -198,7 +199,10 @@ const LandingPage = () => {
               <a href="#pay">PG 결제</a>
               <a href="#insurance">배상책임보험</a>
             </Menu>
-            <PrimaryBtn onClick={goSignup}>사업자 가입하기</PrimaryBtn>
+            <HeaderBtns>
+              <OutlineBtn onClick={goLogin}>로그인</OutlineBtn>
+              <PrimaryBtn onClick={goSignup}>사업자 가입하기</PrimaryBtn>
+            </HeaderBtns>
           </Nav>
         </Inner>
       </Header>
@@ -368,6 +372,13 @@ const Menu = styled.div`
   display: flex; gap: 30px;
   a { font-size: 17px; font-weight: 600; color: ${BODY}; text-decoration: none; &:hover { color: ${PRIMARY}; } }
   @media (max-width: 900px) { display: none; }
+`;
+
+/* 헤더 오른쪽 — 로그인 · 가입. 좁은 폭에서도 둘 다 보인다 */
+const HeaderBtns = styled.div`
+  display: flex; align-items: center; gap: 8px;
+  button { white-space: nowrap; }
+  @media (max-width: 600px) { gap: 6px; button { padding-left: 14px; padding-right: 14px; } }
 `;
 
 const PrimaryBtn = styled.button`
