@@ -47,6 +47,7 @@ export const PcSidebar = () => {
       <SideFoot>
         <FootLink onClick={() => navigate("/notice")}>공지사항</FootLink>
         <FootLink onClick={() => navigate("/support")}>고객센터</FootLink>
+        <FootLink onClick={() => navigate("/app")}>앱 다운로드</FootLink>
         <FootLink onClick={() => navigate("/intro")}>홈프로 소개</FootLink>
       </SideFoot>
     </Side>

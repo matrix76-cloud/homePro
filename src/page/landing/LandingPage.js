@@ -10,7 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { FiArrowDown, FiCheck } from 'react-icons/fi';
+import { FiArrowDown, FiArrowRight, FiCheck } from 'react-icons/fi';
 import { db } from '../../api/config';
 import { PIECES, HeroScreenWithPieces } from './LandingArt';
 import { FaApple, FaGooglePlay } from 'react-icons/fa';
@@ -217,6 +217,11 @@ const LandingPage = () => {
             </HeaderBtns>
           </Nav>
         </Inner>
+        {/* 폰으로 보는 사람용 — QR 을 찍을 수 없으니 헤더 바로 아래에 앱 받기 줄을 둔다 (형 9/20) */}
+        <AppBar onClick={() => navigate('/app')}>
+          <span>홈프로 앱으로 더 빠르게</span>
+          <b>앱 받기 <FiArrowRight /></b>
+        </AppBar>
       </Header>
       )}
 
@@ -304,7 +309,7 @@ const LandingPage = () => {
       </Section>
 
       {/* 앱 다운로드 — QR 은 /app(기종에 맞는 스토어로 보내는 이동 페이지)을 가리킨다 (형 9/20) */}
-      <Section id="app">
+      <Section id="app" style={{ scrollMarginTop: 68 }}>
         <Inner>
           <AppRow>
             <div>
@@ -466,6 +471,18 @@ const PhotoImg = styled.div`
   @media (max-width: 600px) { height: 120px; }
 `;
 const PhotoLabel = styled.div` font-size: 18px; font-weight: 700; color: ${INK}; margin-top: 12px; @media (max-width: 600px) { font-size: 16px; } `;
+
+/* 폰 폭 헤더 아래 앱 받기 줄 — 폭 900 아래(폰·태블릿)에서만 */
+const AppBar = styled.button`
+  display: none;
+  @media (max-width: 900px) {
+    display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box;
+    border: none; border-top: 1px solid ${LINE}; background: #E6F7EE; cursor: pointer; font-family: inherit;
+    padding: 12px 28px; font-size: 15px; color: ${INK};
+    b { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: #007A33; }
+  }
+  @media (max-width: 600px) { padding: 12px 20px; }
+`;
 
 /* 앱 다운로드 */
 const AppRow = styled.div`

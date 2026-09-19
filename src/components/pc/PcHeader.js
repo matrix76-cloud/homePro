@@ -32,6 +32,13 @@ const PcHeader = () => {
   const loggedIn = !!(isLoggedIn ?? userData);
   const name = userData?.companyName || userData?.nickname || userData?.name || "";
 
+  // 랜딩에서는 QR 이 있는 섹션으로 내려가고, 그 밖에서는 이동 페이지(/app)로
+  const goApp = () => {
+    const el = path === "/intro" ? document.getElementById("app") : null;
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    else navigate("/app");
+  };
+
   const items = loggedIn ? MENU : [{ label: "홈", to: "/intro", match: (p) => p === "/intro" }, ...MENU];
 
   return (
@@ -42,6 +49,7 @@ const PcHeader = () => {
           {items.map((m) => (
             <NavItem key={m.label} $on={m.match(path, tab)} onClick={() => navigate(m.to)}>{m.label}</NavItem>
           ))}
+          <NavItem $on={path === "/app"} onClick={goApp}>앱 다운로드</NavItem>
         </Nav>
         {loggedIn ? (
           <Right>
