@@ -134,12 +134,15 @@ const PageWrap = styled.div`
   flex-direction: column;
   min-height: 100%;
   background: ${THEME.surface};
+  /* PC — 폭 760 글쓰기 상자, 등록 버튼은 바닥 고정 대신 상자 아래 오른쪽에 */
+  .pc-mode & { background: #F7F8FA; padding: 30px 32px 80px; box-sizing: border-box; }
 `;
 
 const FormArea = styled.div`
   flex: 1;
   padding: 20px 16px;
   padding-bottom: 80px;
+  .pc-mode & { flex: none; width: 100%; max-width: 760px; box-sizing: border-box; background: #fff; border: 1px solid #dfe3e8; border-bottom: none; padding: 30px 32px 28px; }
 `;
 
 const Label = styled.div`
@@ -149,6 +152,7 @@ const Label = styled.div`
   margin-bottom: 8px;
   margin-top: 16px;
   &:first-child { margin-top: 0; }
+  .pc-mode & { font-size: 15px; font-weight: 700; margin-top: 24px; margin-bottom: 9px; &:first-child { margin-top: 0; } }
 `;
 
 const TitleInput = styled.input`
@@ -164,6 +168,7 @@ const TitleInput = styled.input`
   outline: none;
   &::placeholder { color: ${THEME.muted}; }
   &:focus { border-color: ${THEME.primary}; }
+  .pc-mode & { box-sizing: border-box; background: #fff; border-width: 1px; border-color: #dfe3e8; border-radius: 8px; &:focus { border-color: ${THEME.primary}; } }
 `;
 
 const ContentArea = styled.textarea`
@@ -182,16 +187,19 @@ const ContentArea = styled.textarea`
   line-height: 1.6;
   &::placeholder { color: ${THEME.muted}; }
   &:focus { border-color: ${THEME.primary}; }
+  .pc-mode & { box-sizing: border-box; min-height: 360px; background: #fff; border-width: 1px; border-color: #dfe3e8; border-radius: 8px; &:focus { border-color: ${THEME.primary}; } }
 `;
 
 const ImageSection = styled.div`
   margin-top: 16px;
+  .pc-mode & { margin-top: 24px; }
 `;
 
 const ImageHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  .pc-mode & { justify-content: flex-start; gap: 16px; & > div { margin: 0; } }
 `;
 
 const ImageAddBtn = styled.button`
@@ -208,6 +216,7 @@ const ImageAddBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.8; }
+  .pc-mode & { background: #fff; border: 1px solid #dfe3e8; color: #14181F; font-weight: 700; padding: 9px 14px; &:hover { border-color: #14181F; } }
 `;
 
 const HiddenInput = styled.input`
@@ -222,6 +231,7 @@ const PreviewRow = styled.div`
   -webkit-overflow-scrolling: touch;
   padding-bottom: 4px;
   &::-webkit-scrollbar { display: none; }
+  .pc-mode & { flex-wrap: wrap; overflow: visible; img { width: 120px; height: 120px; border-radius: 0; } }
 `;
 
 const PreviewWrap = styled.div`
@@ -263,6 +273,10 @@ const SubmitBar = styled.div`
   background: ${THEME.surface};
   border-top: 1px solid ${THEME.border};
   z-index: 100;
+  .pc-mode & {
+    position: static; transform: none; width: 100%; max-width: 760px; box-sizing: border-box; z-index: auto;
+    border: 1px solid #dfe3e8; padding: 16px 32px; display: flex; justify-content: flex-end;
+  }
 `;
 
 const SubmitBtn = styled.button`
@@ -278,4 +292,5 @@ const SubmitBtn = styled.button`
   cursor: pointer;
   &:active { opacity: 0.85; }
   &:disabled { background: ${THEME.border}; color: ${THEME.muted}; cursor: default; }
+  .pc-mode & { width: auto; min-width: 160px; padding: 13px 24px; font-size: 16px; font-weight: 700; &:disabled { color: #2b2f36; } }
 `;

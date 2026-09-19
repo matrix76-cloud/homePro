@@ -8,6 +8,7 @@ import { THEME } from "../../config/homeproConfig";
 import TrainingPage from "../training/TrainingPage";
 import MarketplacePage from "../order/MarketplacePage";
 import SuppliesPage from "../supplies/SuppliesPage";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const SEGMENTS = [
   { key: "training", label: "기술교육" },
@@ -52,6 +53,8 @@ const SegRow = styled.div`
   gap: 8px;
   padding: 10px 12px 4px;
   background: ${THEME.background};
+  /* PC: 한 박스로 묶인 탭 */
+  ${pcOnly`gap: 0; padding: 0; margin: 24px 32px 0; width: 480px; border: 1px solid #d5d9e0; background: #fff;`}
 `;
 
 const SegBtn = styled.button`
@@ -67,6 +70,11 @@ const SegBtn = styled.button`
   color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
   &:active { opacity: 0.85; }
   &:focus { outline: none; }
+  ${pcOnly`
+    flex: 1 1 0; height: 46px; border-radius: 0; border: none; color: ${PC.ink};
+    background: ${({ $active }) => ($active ? PC.head : "#fff")}; font-weight: ${({ $active }) => ($active ? 700 : 400)};
+    & + & { border-left: 1px solid #d5d9e0; }
+  `}
 `;
 
 const SegBody = styled.div`

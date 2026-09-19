@@ -11,6 +11,8 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { getAccessTier } from "../../utility/tierUtils";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC, PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 import {
   PG_STEPS, PG_STATUS_LABEL, PG_SETTLE_LABEL, PG_KIND, stepIndex,
   createPgRequest, issuePgLink, cancelPgRequest, listMyPgRequests, listMyOrdersForPg, pgLinkUrl,
@@ -27,6 +29,7 @@ const PgPaymentPage = () => {
   const subscribed = getAccessTier(userData) === "tier0";
   const sellerName = userData?.bizName || userData?.companyName || userData?.nickname || userData?.name || "";
 
+  const pcWide = usePcWide();
   const [tab, setTab] = useState("create");
   const [rows, setRows] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -116,6 +119,7 @@ const PgPaymentPage = () => {
             <Panel>
               {tab === "create" ? (
                 <>
+                  <FormGrid>
                   <Field>
                     <Label>청구 종류</Label>
                     <Choice>
@@ -151,12 +155,49 @@ const PgPaymentPage = () => {
                     <Label>결제 내용 (선택)</Label>
                     <Input value={form.memo} onChange={(e) => set("memo", e.target.value)} placeholder="예: 에어컨 분해청소 2대" />
                   </Field>
+                  </FormGrid>
 
                   <PrimaryBtn type="button" disabled={!canSubmit || busy} onClick={submit}>
                     {busy ? "만드는 중..." : "결제 요청 만들기"}
                   </PrimaryBtn>
                   <Note>※ 실제 결제·정산 방식 및 이용 조건은 PG사 계약 및 가맹점 심사 조건에 따라 적용됩니다.</Note>
                 </>
+              ) : pcWide ? (
+                <PcTable $minH={360}>
+                  <PcTHead $cols={PG_COLS}><span>생성</span><span>고객</span><span>금액</span><span>종류 · 내용</span><span>상태</span><span>진행</span></PcTHead>
+                  {rows === null && <PcEmpty><b>불러오는 중...</b></PcEmpty>}
+                  {rows !== null && rows.length === 0 && <PcEmpty><b>아직 만든 결제 요청이 없습니다.</b><span>결제 요청을 만들면 이곳에서 링크를 발급하고 보낼 수 있습니다.</span></PcEmpty>}
+                  {(rows || []).map((r) => {
+                    const idx = stepIndex(r);
+                    const canceled = r.status === "canceled";
+                    const next = PG_STEPS[idx + 1];
+                    return (
+                      <React.Fragment key={r.id}>
+                        <PcTRow $cols={PG_COLS} $click={false}>
+                          <span>{fmt(toDate(r.createdAt))}</span>
+                          <b>{r.customerName}</b>
+                          <b>{Number(r.amount).toLocaleString()}원</b>
+                          <span>{PG_KIND[r.kind]?.label}{r.orderTitle ? ` · ${r.orderTitle}` : ""}{r.memo ? ` · ${r.memo}` : ""}</span>
+                          <span style={{ color: STATUS_COLOR[r.status] || PC.ink, fontWeight: 700 }}>
+                            {PG_STATUS_LABEL[r.status] || r.status}{r.status === "paid" && r.settleStatus ? ` · ${PG_SETTLE_LABEL[r.settleStatus]}` : ""}
+                          </span>
+                          <span>{canceled ? "-" : `${Math.max(idx + 1, 0)} / ${PG_STEPS.length} 단계${next ? ` · 다음: ${next.label}` : ""}`}</span>
+                        </PcTRow>
+                        {(r.status === "requested" || r.status === "link_issued") && (
+                          <PcActionStrip>
+                            {r.status === "link_issued" && <LinkBox>{pgLinkUrl(r.id)}</LinkBox>}
+                            <BtnRow>
+                              {r.status === "requested" && <PrimaryBtn type="button" onClick={() => issue(r)}>링크 발급</PrimaryBtn>}
+                              {r.status === "link_issued" && <PrimaryBtn type="button" onClick={() => sms(r)}>문자로 보내기</PrimaryBtn>}
+                              {r.status === "link_issued" && <GhostBtn type="button" onClick={() => copy(r)}>링크 복사</GhostBtn>}
+                              <GhostBtn type="button" onClick={() => cancel(r)}>취소</GhostBtn>
+                            </BtnRow>
+                          </PcActionStrip>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </PcTable>
               ) : rows === null ? (
                 <Empty>불러오는 중...</Empty>
               ) : rows.length === 0 ? (
@@ -214,53 +255,54 @@ const PgPaymentPage = () => {
 
 export default PgPaymentPage;
 
-const Wrap = styled.div` padding: 16px 16px 48px; background: ${THEME.background}; min-height: 100%; box-sizing: border-box; `;
-const Intro = styled.div` background: #fff; border: 1px solid #d9dde3; border-radius: 12px; padding: 16px; margin-bottom: 14px; `;
-const IntroTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 8px; `;
-const IntroText = styled.div` font-size: 15px; line-height: 1.6; color: ${THEME.textSecondary}; word-break: keep-all; `;
-const Flow = styled.div` display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 12px; font-size: 14px; color: ${THEME.text}; `;
+const PG_COLS = "120px minmax(120px, 0.9fr) 130px minmax(200px, 1.6fr) minmax(130px, 0.9fr) minmax(190px, 1.2fr)";
+const Wrap = styled.div` padding: 16px 16px 48px; background: ${THEME.background}; min-height: 100%; box-sizing: border-box;  ${pcOnly`max-width: 1180px; margin: 0 auto; padding: 28px 32px 60px; word-break: keep-all;`} `;
+const Intro = styled.div` background: #fff; border: 1px solid #d9dde3; border-radius: 12px; padding: 16px; margin-bottom: 14px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 18px;`} `;
+const IntroTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 8px;  ${pcOnly`font-size: 18px; font-weight: 800;`} `;
+const IntroText = styled.div` font-size: 15px; line-height: 1.6; color: ${THEME.textSecondary}; word-break: keep-all;  ${pcOnly`color: ${PC.body}; max-width: 900px;`} `;
+const Flow = styled.div` display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 12px; font-size: 14px; color: ${THEME.text};  ${pcOnly`font-size: 15px; margin-top: 16px;`} `;
 const FlowStep = styled.span` font-weight: 600; word-break: keep-all; `;
 const FlowArrow = styled.span` color: ${THEME.muted}; `;
-const Gate = styled.div` background: #fff; border: 1px solid #d9dde3; border-radius: 12px; padding: 20px 16px; `;
+const Gate = styled.div` background: #fff; border: 1px solid #d9dde3; border-radius: 12px; padding: 20px 16px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px;`} `;
 const GateTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 8px; `;
-const GateText = styled.div` font-size: 15px; line-height: 1.6; color: ${THEME.textSecondary}; margin-bottom: 16px; word-break: keep-all; `;
-const Tabs = styled.div` display: flex; border: 1px solid #d9dde3; background: #fff; margin-bottom: 12px; `;
+const GateText = styled.div` font-size: 15px; line-height: 1.6; color: ${THEME.textSecondary}; margin-bottom: 16px; word-break: keep-all;  ${pcOnly`color: ${PC.body};`} `;
+const Tabs = styled.div` display: flex; border: 1px solid #d9dde3; background: #fff; margin-bottom: 12px;  ${pcOnly`display: inline-flex; border-color: ${PC.line}; margin-bottom: 16px;`} `;
 const TabBtn = styled.button`
   flex: 1; height: 48px; border: none; font-family: inherit; font-size: 15px; cursor: pointer; color: ${THEME.text};
   background: ${({ $on }) => ($on ? "#e9ecf1" : "#fff")}; font-weight: ${({ $on }) => ($on ? 700 : 500)};
   & + & { border-left: 1px solid #d9dde3; }
-`;
+ ${pcOnly`flex: none; padding: 0 30px;`} `;
 const Panel = styled.div` min-height: 520px; `;
-const Field = styled.div` margin-bottom: 16px; `;
+const Field = styled.div` margin-bottom: 16px;  ${pcOnly`margin-bottom: 0; min-width: 0;`} `;
 const Label = styled.div` font-size: 15px; font-weight: 700; color: ${THEME.text}; margin-bottom: 8px; `;
-const Help = styled.div` font-size: 14px; color: ${THEME.textSecondary}; margin-top: 6px; word-break: keep-all; `;
+const Help = styled.div` font-size: 14px; color: ${THEME.textSecondary}; margin-top: 6px; word-break: keep-all;  ${pcOnly`color: ${PC.body};`} `;
 const Warn = styled.div` font-size: 14px; color: ${THEME.danger}; margin-top: 6px; `;
 const Input = styled.input`
   width: 100%; box-sizing: border-box; height: 52px; padding: 0 14px; font-size: 16px; font-family: inherit;
   border: 1px solid #d9dde3; border-radius: 10px; background: #fff; color: ${THEME.text};
   &:focus { outline: none; border-color: ${THEME.primary}; }
-`;
+ ${pcOnly`height: 46px; border-color: ${PC.line};`} `;
 const Select = styled.select`
   width: 100%; height: 52px; padding: 0 12px; font-size: 16px; font-family: inherit;
   border: 1px solid #d9dde3; border-radius: 10px; background: #fff; color: ${THEME.text};
-`;
+ ${pcOnly`height: 46px; border-color: ${PC.line};`} `;
 const Choice = styled.div` display: flex; gap: 8px; `;
 const ChoiceBtn = styled.button`
   flex: 1; min-height: 52px; padding: 8px; font-size: 15px; font-family: inherit; cursor: pointer; word-break: keep-all; border-radius: 10px;
   border: 1px solid ${({ $on }) => ($on ? THEME.button : "#d9dde3")}; background: #fff;
   color: ${({ $on }) => ($on ? THEME.primary : THEME.text)}; font-weight: ${({ $on }) => ($on ? 700 : 500)};
-`;
+ ${pcOnly`min-height: 46px;`} `;
 const PrimaryBtn = styled.button`
   width: 100%; min-height: 52px; border: none; border-radius: 10px; background: ${THEME.button}; color: #fff;
   font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
   &:disabled { background: #c9ced6; cursor: default; }
-`;
+ ${pcOnly`width: auto; min-height: 46px; padding: 0 28px;`} `;
 const GhostBtn = styled.button`
   width: 100%; min-height: 52px; border: 1px solid #d9dde3; border-radius: 10px; background: #fff; color: ${THEME.text};
   font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
-`;
-const BtnRow = styled.div` display: flex; gap: 8px; margin-top: 12px; & > *:first-child { flex: 2; } & > * { flex: 1; } `;
-const Note = styled.div` font-size: 13px; color: ${THEME.textSecondary}; margin-top: 12px; line-height: 1.5; word-break: keep-all; `;
+ ${pcOnly`width: auto; min-height: 46px; padding: 0 22px;`} `;
+const BtnRow = styled.div` display: flex; gap: 8px; margin-top: 12px; & > *:first-child { flex: 2; } & > * { flex: 1; }  ${pcOnly`justify-content: flex-start; margin-top: 0; & > *, & > *:first-child { flex: none; }`} `;
+const Note = styled.div` font-size: 13px; color: ${THEME.textSecondary}; margin-top: 12px; line-height: 1.5; word-break: keep-all;  ${pcOnly`font-size: 14px; color: ${PC.body}; margin-top: 16px;`} `;
 const Empty = styled.div` padding: 60px 20px; text-align: center; font-size: 16px; color: ${THEME.muted}; `;
 const Card = styled.div` background: #fff; border: 1px solid #d9dde3; border-radius: 12px; padding: 16px; margin-bottom: 10px; `;
 const Top = styled.div` display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; `;
@@ -273,7 +315,13 @@ const Step = styled.div`
   color: ${({ $done, $now }) => ($done || $now ? THEME.text : THEME.muted)}; font-weight: ${({ $now }) => ($now ? 700 : 500)};
 `;
 const StepBar = styled.div` height: 4px; border-radius: 2px; margin-bottom: 5px; background: ${({ $done }) => ($done ? THEME.button : "#e3e6eb")}; `;
-const LinkBox = styled.div` margin-top: 12px; padding: 12px; background: ${THEME.background}; border: 1px solid #d9dde3; border-radius: 10px; font-size: 14px; color: ${THEME.text}; word-break: break-all; `;
+const LinkBox = styled.div` margin-top: 12px; padding: 12px; background: ${THEME.background}; border: 1px solid #d9dde3; border-radius: 10px; font-size: 14px; color: ${THEME.text}; word-break: break-all;  ${pcOnly`margin-top: 0; flex: 1; min-width: 0; background: #fff; border-color: ${PC.line}; border-radius: 0; font-size: 15px;`} `;
+/* 입력 묶음 — 폰에서는 없는 것과 같고(display: contents), PC 에서는 한 줄 3칸 */
+const FormGrid = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 26px; background: #fff; border: 1px solid ${PC.line}; padding: 28px 30px; margin-bottom: 22px; align-items: start; @media (max-width: 1040px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }`}
+`;
+const PcActionStrip = styled.div` display: flex; align-items: center; gap: 12px; padding: 12px 24px 16px; background: ${PC.hover}; `;
 const Toast = styled.div`
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   max-width: 360px; width: calc(100% - 40px); padding: 14px 16px; background: #1b1f27; color: #fff; font-size: 15px; border-radius: 10px; text-align: center; z-index: 50;

@@ -15,6 +15,8 @@ import {
   normalizeTraining, computeStatus, recruitText, eduDateText, priceInfo, timeAgo,
   callTrainer, chatTrainer,
 } from "./trainingShared";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC, PcFilterRow, PcField } from "../../pc/pcKit";
 
 const TABS = [
   { key: "all", label: "교육 찾기" },
@@ -24,6 +26,7 @@ const STATUS_FILTERS = ["전체", "모집중", "마감임박", "마감·완료"]
 
 const TrainingPage = ({ embedded } = {}) => {
   const navigate = useNavigate();
+  const pcWide = usePcWide(); // PC: 탭 + 필터를 한 줄 상자로, 목록은 3칸 카드 그리드
   const { userData } = useAuth();
   const { user } = useContext(UserContext);
   const uid = userData?.uid || user?.USERS_ID;
@@ -91,13 +94,52 @@ const TrainingPage = ({ embedded } = {}) => {
       <Wrap>
         <NoticeBar>교육 목록·상세 열람과 전화·채팅 문의는 모두 무료입니다. 교육 공고 등록은 20,000 H-포인트가 필요합니다.</NoticeBar>
 
+        {pcWide && (
+          <PcFilterRow>
+            <TabBar>
+              {TABS.map((t) => (
+                <TabBtn key={t.key} $active={tab === t.key} onClick={() => setTab(t.key)}>{t.label}</TabBtn>
+              ))}
+            </TabBar>
+            {tab === "all" && (
+              <>
+                <PcField $w={190}><label>분야</label>
+                  <select value={cat} onChange={(e) => setCat(e.target.value)}>
+                    <option value="전체">전체</option>
+                    {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                </PcField>
+                <PcField><label>지역</label>
+                  <select value={sido} onChange={(e) => setSido(e.target.value)}>
+                    <option value="전국">전국</option>
+                    {SIDO_LIST.map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                </PcField>
+                <PcField><label>상태</label>
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                    {STATUS_FILTERS.map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                </PcField>
+                <PcField><label>정렬</label>
+                  <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                    <option value="latest">최신순</option>
+                    <option value="deadline">마감임박순</option>
+                  </select>
+                </PcField>
+              </>
+            )}
+          </PcFilterRow>
+        )}
+
+        {!pcWide && (
         <TabBar>
           {TABS.map((t) => (
             <TabBtn key={t.key} $active={tab === t.key} onClick={() => setTab(t.key)}>{t.label}</TabBtn>
           ))}
         </TabBar>
+        )}
 
-        {tab === "all" && (
+        {!pcWide && tab === "all" && (
           <FilterBox>
             <CatRow>
               {["전체", ...CATEGORIES.map((c) => c.key)].map((k) => {
@@ -123,6 +165,7 @@ const TrainingPage = ({ embedded } = {}) => {
           </FilterBox>
         )}
 
+        <ListGrid>
         {loading ? (
           <Empty>불러오는 중...</Empty>
         ) : filtered.length === 0 ? (
@@ -172,6 +215,7 @@ const TrainingPage = ({ embedded } = {}) => {
             );
           })
         )}
+        </ListGrid>
 
         <Disclaimer>
           홈프로는 교육 정보 제공 및 연결 서비스만 제공하며, 교육 품질·계약 조건·비용·교육 결과에 대한 책임은 교육 개설자에게 있습니다.
@@ -188,18 +232,28 @@ const TrainingPage = ({ embedded } = {}) => {
 export default TrainingPage;
 
 /* ===================== styles ===================== */
-const Wrap = styled.div` padding: 10px 12px 96px; background: ${THEME.background}; min-height: 60vh; `;
+const Wrap = styled.div` padding: 10px 12px 96px; background: ${THEME.background}; min-height: 60vh;
+  ${pcOnly`padding: 18px 32px 80px; box-sizing: border-box; word-break: keep-all;`}
+`;
+// 폰: 영향 없는 빈 틀 / PC: 3칸 카드 그리드 (필터를 바꿔도 높이가 흔들리지 않게 최소 높이)
+const ListGrid = styled.div`
+  ${pcOnly`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-content: start; min-height: 420px;`}
+`;
 const NoticeBar = styled.div`
   padding: 11px 14px; background: ${THEME.surface}; border: 1px solid #e3e6ec; border-radius: 10px;
   font-size: 14px; color: #2b2f36; margin-bottom: 10px; line-height: 1.5; word-break: keep-all;
+  ${pcOnly`border-radius: 0; border-color: ${PC.line}; padding: 13px 20px; font-size: 15px; color: ${PC.ink}; margin-bottom: 16px;`}
 `;
 // 탭바 기준 스타일 — 하나의 박스 · 사이 세로선 · 열린 탭은 연회색 면 + 굵은 글씨
-const TabBar = styled.div` display: flex; border: 1px solid #d5d9e0; background: ${THEME.surface}; margin-bottom: 10px; `;
+const TabBar = styled.div` display: flex; border: 1px solid #d5d9e0; background: ${THEME.surface}; margin-bottom: 10px;
+  ${pcOnly`width: 260px; margin: 0 8px 0 0; flex: none;`}
+`;
 const TabBtn = styled.button`
   flex: 1; height: 44px; border: none; font-family: inherit; font-size: 15px; cursor: pointer;
   background: ${({ $active }) => ($active ? "#e9ecf1" : THEME.surface)};
   color: ${THEME.text}; font-weight: ${({ $active }) => ($active ? 700 : 400)};
   & + & { border-left: 1px solid #d5d9e0; }
+  ${pcOnly`height: 42px;`}
 `;
 const FilterBox = styled.div` display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; `;
 const CatRow = styled.div`
@@ -220,12 +274,16 @@ const FilterSelect = styled.select`
 `;
 const Card = styled.div`
   background: ${THEME.surface}; border: 1px solid #eceef2; border-radius: 12px; padding: 14px 14px 12px; margin-bottom: 10px; cursor: pointer;
+  ${pcOnly`
+    margin: 0; border-radius: 0; border-color: ${PC.line}; padding: 18px 18px 14px; display: flex; flex-direction: column; min-width: 0;
+    &:hover { border-color: ${PC.ink}; }
+  `}
 `;
 const CardTop = styled.div` display: flex; align-items: center; gap: 8px; margin-bottom: 10px; `;
 const StatusText = styled.span` font-size: 14px; font-weight: 700; `;
 const RecruitText = styled.span` font-size: 13px; color: #2b2f36; flex: 1; `;
 const TimeText = styled.span` font-size: 13px; color: ${THEME.muted}; `;
-const CardBody = styled.div` display: flex; gap: 12px; `;
+const CardBody = styled.div` display: flex; gap: 12px; ${pcOnly`gap: 14px; flex: 1;`} `;
 const Thumb = styled.div`
   flex: none; width: 88px; height: 88px; border-radius: 8px; overflow: hidden; background: #eef0f3;
   display: flex; align-items: center; justify-content: center;
@@ -236,12 +294,14 @@ const CardInfo = styled.div` flex: 1; min-width: 0; `;
 const CardTitle = styled.div`
   font-size: 17px; font-weight: 700; color: ${THEME.text}; line-height: 1.35; word-break: keep-all;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px;
+  ${pcOnly`display: block; overflow: visible; -webkit-line-clamp: unset;`}
 `;
 const TagText = styled.span` color: ${THEME.primaryDark}; margin-right: 4px; `;
 const InfoLine = styled.div`
   display: flex; align-items: center; gap: 4px; font-size: 14px; color: #2b2f36; line-height: 1.5;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   svg { flex: none; color: ${THEME.muted}; }
+  ${pcOnly`white-space: normal; overflow: visible; align-items: flex-start; font-size: 15px; svg { margin-top: 4px; }`}
 `;
 const PriceLine = styled.div` display: flex; align-items: baseline; gap: 6px; margin-top: 4px; flex-wrap: wrap; `;
 const PriceMain = styled.span` font-size: 16px; font-weight: 700; color: ${THEME.text}; `;
@@ -250,7 +310,9 @@ const CardFoot = styled.div`
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-top: 12px; padding-top: 11px; border-top: 1px solid #eceef2;
 `;
-const Author = styled.div` font-size: 14px; font-weight: 600; color: ${THEME.text}; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; `;
+const Author = styled.div` font-size: 14px; font-weight: 600; color: ${THEME.text}; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  ${pcOnly`white-space: normal; overflow: visible; font-size: 15px;`}
+`;
 const MineText = styled.span` font-size: 14px; color: ${THEME.muted}; flex: none; `;
 const FootBtns = styled.div` display: flex; gap: 6px; flex: none; `;
 const OutlineBtn = styled.button`
@@ -258,11 +320,17 @@ const OutlineBtn = styled.button`
   border: 1px solid #d5d9e0; background: ${THEME.surface}; color: ${THEME.text}; font-size: 14px; font-weight: 600;
   cursor: pointer; font-family: inherit; &:active { background: #f3f4f6; }
 `;
-const Empty = styled.div` padding: 60px 20px; text-align: center; font-size: 16px; color: #2b2f36; `;
-const Disclaimer = styled.div` margin-top: 14px; font-size: 13px; color: ${THEME.muted}; line-height: 1.6; word-break: keep-all; `;
+const Empty = styled.div` padding: 60px 20px; text-align: center; font-size: 16px; color: #2b2f36;
+  ${pcOnly`grid-column: 1 / -1; background: #fff; border: 1px solid ${PC.line}; padding: 120px 20px; font-size: 17px; font-weight: 700; color: ${PC.ink};`}
+`;
+const Disclaimer = styled.div` margin-top: 14px; font-size: 13px; color: ${THEME.muted}; line-height: 1.6; word-break: keep-all;
+  ${pcOnly`color: ${PC.body}; margin-top: 16px;`}
+`;
 const Fab = styled.button`
   position: fixed; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); z-index: 90;
   display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 22px; border-radius: 10px;
   border: none; background: ${THEME.button}; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
   font-family: inherit; box-shadow: 0 6px 20px rgba(0,0,0,0.18); &:active { opacity: 0.85; }
+  /* PC: 떠 있는 버튼 대신 제목 줄(위 52px 줄) 오른쪽 버튼 */
+  ${pcOnly`top: 6px; bottom: auto; left: auto; right: 24px; transform: none; z-index: 1000; height: 40px; padding: 0 18px; font-weight: 700; box-shadow: none; background: ${PC.primary};`}
 `;

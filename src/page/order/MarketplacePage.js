@@ -15,6 +15,7 @@ import {
   MARKET_COLLECTION, CATEGORIES, STATUSES, getCategory, getCategoryKey, getStatus,
   premiumText, rentText, includesSummary, regionText, timeAgo, TabBox, TabItem,
 } from "./MarketplaceShared";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const MarketplacePage = ({ embedded } = {}) => {
   const navigate = useNavigate();
@@ -65,12 +66,16 @@ const MarketplacePage = ({ embedded } = {}) => {
   return (
     <Wrapper {...wrapperProps}>
       <Wrap>
+        {/* 폰: 영향 없는 틀(display: contents) / PC: 분류 탭 + 지역·상태를 한 줄 필터 상자로 */}
+        <FilterLine>
+        <TabSlot>
         <TabBox>
           <TabItem $active={cat === "all"} onClick={() => setCat("all")}>전체</TabItem>
           {CATEGORIES.map((c) => (
             <TabItem key={c.key} $active={cat === c.key} onClick={() => setCat(c.key)}>{c.chipLabel}</TabItem>
           ))}
         </TabBox>
+        </TabSlot>
 
         {cat !== "all" && <CatDesc>{CATEGORIES.find((c) => c.key === cat)?.desc}</CatDesc>}
 
@@ -84,6 +89,7 @@ const MarketplacePage = ({ embedded } = {}) => {
             {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
           </Select>
         </FilterRow>
+        </FilterLine>
 
         <ListArea>
           {loading ? (
@@ -137,6 +143,19 @@ const Wrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
   padding: 12px 16px 110px;
+  ${pcOnly`padding: 18px 32px 80px; box-sizing: border-box; word-break: keep-all;`}
+`;
+
+const FilterLine = styled.div`
+  display: contents;
+  ${pcOnly`
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
+    background: #fff; border: 1px solid ${PC.line}; padding: 16px 20px;
+  `}
+`;
+const TabSlot = styled.div`
+  display: contents;
+  ${pcOnly`display: block; flex: 0 0 560px; button { font-size: 15px; }`}
 `;
 
 const CatDesc = styled.div`
@@ -145,12 +164,14 @@ const CatDesc = styled.div`
   line-height: 1.55;
   color: ${THEME.textSecondary};
   word-break: keep-all;
+  ${pcOnly`order: 3; flex: 1 0 100%; margin-top: 0; font-size: 15px; color: ${PC.body};`}
 `;
 
 const FilterRow = styled.div`
   display: flex;
   gap: 8px;
   margin-top: 10px;
+  ${pcOnly`margin: 0 0 0 auto; flex: 0 0 340px; gap: 12px;`}
 `;
 
 const Select = styled.select`
@@ -164,6 +185,7 @@ const Select = styled.select`
   color: ${THEME.text};
   font-size: 15px;
   font-family: inherit;
+  ${pcOnly`height: 44px; border-color: ${PC.line}; border-radius: 8px;`}
 `;
 
 const ListArea = styled.div`
@@ -172,6 +194,8 @@ const ListArea = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* PC: 3칸 카드 그리드 */
+  ${pcOnly`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-content: start; margin-top: 18px; min-height: 420px;`}
 `;
 
 const Card = styled.div`
@@ -181,6 +205,11 @@ const Card = styled.div`
   cursor: pointer;
   opacity: ${({ $done }) => ($done ? 0.75 : 1)};
   &:active { background: #fafbfc; }
+  ${pcOnly`
+    border-color: ${PC.line}; padding: 20px 20px 18px; display: flex; flex-direction: column; min-width: 0;
+    &:hover { border-color: ${PC.ink}; }
+    & > *:nth-last-child(2) { margin-bottom: auto; } /* 카드 높이가 달라도 버튼은 바닥에 */
+  `}
 `;
 
 const TopLine = styled.div`
@@ -203,6 +232,7 @@ const MetaText = styled.span`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  ${pcOnly`overflow: visible; white-space: normal; font-size: 14px; color: ${PC.body};`}
 `;
 
 const Title = styled.div`
@@ -258,6 +288,8 @@ const CtaBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { background: #f3f4f6; }
+  /* PC: 카드 높이가 달라도 버튼은 카드 바닥에 맞춘다 */
+  ${pcOnly`margin-top: 16px; border-radius: 8px; &:hover { border-color: ${PC.ink}; }`}
 `;
 
 const Empty = styled.div`
@@ -265,6 +297,7 @@ const Empty = styled.div`
   padding: 80px 20px;
   font-size: 16px;
   color: ${THEME.muted};
+  ${pcOnly`grid-column: 1 / -1; background: #fff; border: 1px solid ${PC.line}; padding: 120px 20px; font-size: 17px; font-weight: 700; color: ${PC.ink};`}
 `;
 
 const Notice = styled.div`
@@ -273,6 +306,7 @@ const Notice = styled.div`
   line-height: 1.6;
   color: ${THEME.muted};
   word-break: keep-all;
+  ${pcOnly`color: ${PC.body};`}
 `;
 
 const Fab = styled.button`
@@ -292,4 +326,6 @@ const Fab = styled.button`
   font-family: inherit;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   cursor: pointer;
+  /* PC: 떠 있는 버튼 대신 제목 줄(위 52px 줄) 오른쪽 버튼 */
+  ${pcOnly`top: 6px; bottom: auto; left: auto; right: 24px; transform: none; z-index: 1000; height: 40px; padding: 0 18px; border-radius: 10px; box-shadow: none; background: ${PC.primary};`}
 `;

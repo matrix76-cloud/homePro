@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const LS_KEY = "homepro.appSettings";
 
@@ -68,6 +69,8 @@ const AppSettingsPage = () => {
 
   return (
     <SimpleBackLayout NAME="앱 설정" onBack={() => navigate(-1)}>
+      {/* PC: 세 묶음을 한 줄 3칸으로. 폰에서는 display: contents */}
+      <PcShell>
       <SectionCard>
         <SectionTitle>알림 설정</SectionTitle>
         <ToggleRow>
@@ -120,6 +123,7 @@ const AppSettingsPage = () => {
           <ToggleSwitch $on={settings.darkMode} onClick={() => toggle("darkMode")} />
         </ToggleRow>
       </SectionCard>
+      </PcShell>
 
       <BottomSpacer />
     </SimpleBackLayout>
@@ -128,12 +132,18 @@ const AppSettingsPage = () => {
 
 export default AppSettingsPage;
 
+const PcShell = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 40px; word-break: keep-all; @media (max-width: 1100px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }`}
+`;
+
 const SectionCard = styled.div`
   margin: 12px 12px 0;
   background: ${THEME.surface};
   border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 24px 26px; box-sizing: border-box;`}
 `;
 
 const SectionTitle = styled.div`
@@ -142,6 +152,7 @@ const SectionTitle = styled.div`
   color: ${THEME.text};
   letter-spacing: -0.03em;
   margin-bottom: 6px;
+  ${pcOnly`font-size: 18px; font-weight: 800; margin-bottom: 10px;`}
 `;
 
 const ToggleRow = styled.div`
@@ -169,6 +180,7 @@ const ToggleDesc = styled.div`
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 3px;
+  ${pcOnly`font-size: 15px; color: ${PC.body}; line-height: 1.5;`}
 `;
 
 const ToggleSwitch = styled.div`
@@ -210,6 +222,7 @@ const TimeLabel = styled.div`
   font-weight: 500;
   color: ${THEME.textSecondary};
   margin-bottom: 6px;
+  ${pcOnly`color: ${PC.ink}; font-weight: 700;`}
 `;
 
 const TimeInput = styled.input`
@@ -225,6 +238,7 @@ const TimeInput = styled.input`
   box-sizing: border-box;
   background: ${THEME.surface};
   &:focus { border-color: ${THEME.primary}; }
+  ${pcOnly`height: 46px; padding: 0 12px; border-width: 1px; border-color: ${PC.line};`}
 `;
 
 const TimeDash = styled.div`

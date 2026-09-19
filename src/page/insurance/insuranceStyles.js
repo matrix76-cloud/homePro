@@ -2,8 +2,12 @@
  * 보험·결제 화면 공통 스타일 (에이전트 B 소유 — InsurancePage 기존 스타일을 그대로 뽑아 공유)
  * 규칙: 이모지 금지 · 좌측 색 테두리 바 금지 · 연배경+진글씨 뱃지 금지 · 보라 금지 · 본문 15px 이상 · 알약 금지
  */
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { THEME } from "../../config/homeproConfig";
+
+/* PC 전용 — 보험 화면(Wrap 에 className="ins-pc" 를 단 화면) 안에서만 먹는다.
+   결제 화면(page/pay)도 이 파일을 쓰지만 ins-pc 를 달지 않으므로 영향이 없다. 폰·앱에는 .pc-mode 가 없어 적용되지 않는다. */
+const pc = (...a) => css`.pc-mode .ins-pc & { ${css(...a)} }`;
 
 export const Wrap = styled.div`
   padding: 12px;
@@ -12,6 +16,7 @@ export const Wrap = styled.div`
   flex-direction: column;
   gap: 12px;
   min-height: 560px;
+  .pc-mode &.ins-pc { max-width: 1180px; margin: 0 auto; padding: 30px 32px 80px; gap: 20px; box-sizing: border-box; color: #14181F; }
 `;
 
 export const Card = styled.div`
@@ -19,12 +24,14 @@ export const Card = styled.div`
   border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pc`border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 24px 26px;`}
 `;
 
 export const CardTitle = styled.div`
   font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
+  ${pc`font-size: 18px; font-weight: 800;`}
 `;
 
 export const CardText = styled.div`
@@ -33,6 +40,7 @@ export const CardText = styled.div`
   line-height: 1.7;
   color: ${THEME.textSecondary};
   word-break: keep-all;
+  ${pc`color: #2b2f36;`}
 `;
 
 export const CardNote = styled.div`
@@ -41,6 +49,7 @@ export const CardNote = styled.div`
   line-height: 1.6;
   color: ${THEME.muted};
   word-break: keep-all;
+  ${pc`color: #2b2f36;`}
 `;
 
 export const PageTitle = styled.div`
@@ -56,6 +65,7 @@ export const PageSub = styled.div`
   color: ${THEME.textSecondary};
   line-height: 1.6;
   word-break: keep-all;
+  ${pc`color: #2b2f36; max-width: 640px;`}
 `;
 
 /* 라벨·값 한 줄 표 */
@@ -79,6 +89,7 @@ export const K = styled.div`
   flex-shrink: 0;
   color: ${THEME.muted};
   font-weight: 600;
+  ${pc`width: 110px; color: #14181F; font-weight: 700;`}
 `;
 export const V = styled.div`
   flex: 1;
@@ -86,6 +97,7 @@ export const V = styled.div`
   font-weight: ${({ $bold }) => ($bold ? 700 : 500)};
   font-size: ${({ $big }) => ($big ? "19px" : "15px")};
   word-break: break-all;
+  ${pc`word-break: keep-all;`}
 `;
 
 export const PrimaryBtn = styled.button`
@@ -101,6 +113,7 @@ export const PrimaryBtn = styled.button`
   cursor: pointer;
   &:disabled { opacity: 0.5; cursor: default; }
   &:active:not(:disabled) { background: ${THEME.buttonDark}; }
+  ${pc`padding: 14px 20px; font-size: 16px; &:hover:not(:disabled) { background: ${THEME.buttonDark}; }`}
 `;
 
 export const GhostBtn = styled.button`
@@ -116,6 +129,7 @@ export const GhostBtn = styled.button`
   cursor: pointer;
   &:disabled { opacity: 0.5; cursor: default; }
   &:active:not(:disabled) { background: ${THEME.background}; }
+  ${pc`padding: 13px 18px; font-size: 15px; font-weight: 700; border-color: #dfe3e8; &:hover:not(:disabled) { border-color: #14181F; }`}
 `;
 
 export const SmallBtn = styled.button`
@@ -168,6 +182,7 @@ export const Toast = styled.div`
   max-width: 320px;
   text-align: center;
   word-break: keep-all;
+  .pc-mode & { bottom: 40px; max-width: 420px; }
 `;
 
 export const Notice = styled.div`
@@ -180,6 +195,7 @@ export const Notice = styled.div`
   color: ${({ $danger }) => ($danger ? THEME.danger : THEME.text)};
   font-weight: ${({ $danger }) => ($danger ? 600 : 500)};
   word-break: keep-all;
+  ${pc`border-color: #dfe3e8; border-radius: 0;`}
 `;
 
 export const Label = styled.label`
@@ -232,6 +248,7 @@ export const Hint = styled.div`
   color: ${THEME.muted};
   line-height: 1.5;
   word-break: keep-all;
+  ${pc`color: #2b2f36; font-size: 14px;`}
 `;
 
 /* 선택 카드 (가입 유형·오더 선택·라디오) */
@@ -247,6 +264,7 @@ export const SelectCard = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:disabled { opacity: 0.55; cursor: default; }
+  ${pc`border-radius: 0; box-shadow: none; padding: 20px 22px; border-width: ${({ $on }) => ($on ? "2px" : "1px")}; border-color: ${({ $on }) => ($on ? THEME.primary : "#dfe3e8")}; &:hover:not(:disabled) { border-color: ${({ $on }) => ($on ? THEME.primary : "#14181F")}; }`}
 `;
 
 export const SelectTitleRow = styled.div`
@@ -272,12 +290,14 @@ export const SelectDesc = styled.div`
   line-height: 1.6;
   color: ${THEME.textSecondary};
   word-break: keep-all;
+  ${pc`color: #2b2f36;`}
 `;
 export const SelectMeta = styled.div`
   margin-top: 6px;
   font-size: 14px;
   color: ${THEME.muted};
   line-height: 1.5;
+  ${pc`color: #2b2f36;`}
 `;
 
 export const CheckRow = styled.label`
@@ -319,6 +339,7 @@ export const ListSub = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   font-weight: 500;
+  ${pc`color: #2b2f36;`}
 `;
 export const ListRight = styled.div`
   font-size: 15px;
@@ -333,6 +354,7 @@ export const Empty = styled.div`
   text-align: center;
   font-size: 15px;
   color: ${THEME.muted};
+  ${pc`color: #14181F; padding: 40px 0;`}
 `;
 
 export const Centered = styled.div`
@@ -358,6 +380,7 @@ export const PhotoGrid = styled.div`
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 10px;
+  ${pc`grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px;`}
 `;
 export const PhotoCell = styled.div`
   position: relative;
@@ -400,6 +423,7 @@ export const RadioGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+  ${pc`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;`}
 `;
 export const RadioCard = styled.label`
   display: flex;
@@ -421,4 +445,21 @@ export const StepText = styled.div`
   color: ${THEME.textSecondary};
   line-height: 1.6;
   word-break: keep-all;
+`;
+
+/* ===== PC 배치 부품 (보험 화면 전용) ===== */
+// 좌우 2단: 왼쪽 내용 + 오른쪽 고정 패널. 본문 단이 좁아지면(창 폭 1240 아래) 한 단으로 접는다
+export const PcCols = styled.div`
+  display: grid; grid-template-columns: minmax(0, 1fr) ${({ $side }) => $side || 360}px; gap: 24px; align-items: start;
+  @media (max-width: 1240px) { grid-template-columns: minmax(0, 1fr); }
+`;
+export const PcStack = styled.div` display: flex; flex-direction: column; gap: 20px; min-width: 0; `;
+// 스크롤해도 따라온다 (기준은 본문 단 안쪽이라 헤더 높이는 더하지 않는다)
+export const PcSide = styled.div`
+  position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  @media (max-width: 1240px) { position: static; }
+`;
+export const PcBtnLine = styled.div`
+  display: flex; justify-content: flex-end; gap: 10px;
+  & > button { width: auto; min-width: 180px; }
 `;

@@ -11,6 +11,7 @@ import { IoGiftOutline } from "react-icons/io5";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { getAllPointRules, POINT_RULE_ORDER } from "../../service/PointService";
 import { GRADE_ORDER, calcGrade, GradeProgressBar } from "../../utility/gradeUtils";
+import usePcWide from "../../hooks/usePcWide";
 
 /* ── 카테고리별 아이콘 SVG + 배경색 ── */
 const InviteIcon = () => (
@@ -130,6 +131,7 @@ const RULE_NOTE = {
 
 const ReferralPointsPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const uid = user?.USERS_ID || userData?.uid;
@@ -192,7 +194,7 @@ const ReferralPointsPage = () => {
     });
 
   return (
-    <SimpleBackLayout name="포인트 내역" onBack={() => navigate(-1)}>
+    <SimpleBackLayout name="포인트 내역" NAME={pcWide ? "포인트 내역" : undefined} onBack={() => navigate(-1)}>
       <Wrap>
         {/* 총 보유 포인트 */}
         <TotalCard>
@@ -243,6 +245,7 @@ const ReferralPointsPage = () => {
           </EmptyWrap>
         ) : (
           <HistoryList>
+            {pcWide && <PcHead><span>내용</span><span>날짜</span><span style={{ textAlign: "right" }}>포인트</span></PcHead>}
             {history.map((h) => (
               <HistoryItem key={h.id}>
                 <HistoryLeft>
@@ -263,10 +266,24 @@ const ReferralPointsPage = () => {
 
 export default ReferralPointsPage;
 
+const PC_COLS = "minmax(0, 1fr) 140px 150px";
+
 const Wrap = styled.div`
   padding: 0 12px 20px;
   min-height: 100%;
+  /* PC — 왼쪽 포인트 내역 표 · 오른쪽(380) 보유 포인트와 모으는 방법/쓰는 곳 */
+  .pc-mode & {
+    max-width: 1180px; margin: 0 auto; padding: 30px 32px 80px; box-sizing: border-box; min-height: 0;
+    display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto auto auto 1fr; gap: 0 24px; align-items: start;
+    @media (max-width: 1240px) { grid-template-columns: minmax(0, 1fr); }
+  }
 `;
+const PcHead = styled.div`
+  display: grid; grid-template-columns: ${PC_COLS}; gap: 12px; padding: 14px 24px; background: #e9ecf1;
+  font-size: 15px; font-weight: 700; color: #14181F;
+`;
+const pcRight = (row) => `grid-column: 2; grid-row: ${row}; @media (max-width: 1240px) { grid-column: 1; grid-row: auto; }`;
+const pcLeft = (row) => `grid-column: 1; grid-row: ${row}; @media (max-width: 1240px) { grid-row: auto; }`;
 
 /* 색 면을 빼고 한 줄로 (대표 9/17 시안 1번) */
 const TotalCard = styled.div`
@@ -278,12 +295,15 @@ const TotalCard = styled.div`
   border-radius: 12px;
   padding: 16px;
   margin-top: 12px;
+  .pc-mode & { ${pcRight(1)} margin-top: 0; border-color: #dfe3e8; border-radius: 0; padding: 20px 24px; }
 `;
 
 const WayTabRow = styled.div`
   display: flex;
   gap: 8px;
   margin: 14px 0 10px;
+  /* PC — 한 상자로 묶은 탭 */
+  .pc-mode & { ${pcRight(2)} gap: 0; margin: 20px 0 0; border: 1px solid #dfe3e8; border-bottom: none; background: #fff; }
 `;
 
 const WayTab = styled.button`
@@ -298,6 +318,11 @@ const WayTab = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:focus { outline: none; }
+  .pc-mode & {
+    border: none; border-radius: 0; padding: 13px 0; font-size: 16px; color: #14181F;
+    background: ${({ $on }) => ($on ? "#e9ecf1" : "#fff")}; font-weight: ${({ $on }) => ($on ? 800 : 500)};
+    & + & { border-left: 1px solid #dfe3e8; }
+  }
 `;
 
 /* 안내와 내역이 화면을 절반씩 나눠 갖고 각자 스크롤한다 (대표 9/17) */
@@ -311,6 +336,7 @@ const WayList = styled.div`
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
+  .pc-mode & { ${pcRight(3)} max-height: none; overflow: visible; border-color: #dfe3e8; border-radius: 0; min-height: 360px; }
 `;
 
 const WayItem = styled.div`
@@ -320,6 +346,7 @@ const WayItem = styled.div`
   gap: 12px;
   padding: 13px 14px;
   & + & { border-top: 1px solid #F0F2F5; }
+  .pc-mode & { padding: 14px 20px; & + & { border-top-color: #dfe3e8; } }
 `;
 
 const WayLeft = styled.div`
@@ -338,6 +365,7 @@ const WayNote = styled.div`
   color: ${THEME.muted};
   margin-top: 2px;
   word-break: keep-all;
+  .pc-mode & { color: #2b2f36; font-size: 14px; }
 `;
 
 const WayAmount = styled.div`
@@ -423,6 +451,7 @@ const SectionTitle = styled.div`
   margin-top: 20px;
   margin-bottom: 8px;
   padding-left: 4px;
+  .pc-mode & { display: none; } /* PC 는 제목 줄과 표 머리가 대신한다 */
 `;
 
 const HistoryList = styled.div`
@@ -435,6 +464,7 @@ const HistoryList = styled.div`
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
+  .pc-mode & { ${pcLeft("1 / span 4")} max-height: none; overflow: visible; border-color: #dfe3e8; border-radius: 0; min-height: 420px; }
 `;
 
 const HistoryItem = styled.div`
@@ -444,17 +474,20 @@ const HistoryItem = styled.div`
   padding: 16px 20px;
   border-bottom: 1px solid ${THEME.border};
   &:last-child { border-bottom: none; }
+  .pc-mode & { display: grid; grid-template-columns: ${PC_COLS}; gap: 12px; padding: 15px 24px; border-bottom: none; border-top: 1px solid #dfe3e8; }
 `;
 
 const HistoryLeft = styled.div`
   flex: 1;
   min-width: 0;
+  .pc-mode & { display: contents; }
 `;
 
 const HistoryReason = styled.div`
   font-size: 17px;
   font-weight: 500;
   color: ${THEME.text};
+  .pc-mode & { font-size: 16px; font-weight: 700; word-break: keep-all; }
 `;
 
 const HistoryDate = styled.div`
@@ -462,6 +495,7 @@ const HistoryDate = styled.div`
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
+  .pc-mode & { margin-top: 0; font-size: 16px; color: #14181F; }
 `;
 
 const HistoryAmount = styled.div`
@@ -470,6 +504,7 @@ const HistoryAmount = styled.div`
   color: ${({ $type }) => $type === "earn" ? THEME.primary : $type === "use" ? THEME.danger : THEME.text};
   flex-shrink: 0;
   margin-left: 12px;
+  .pc-mode & { margin-left: 0; text-align: right; font-size: 17px; }
 `;
 
 const EmptyWrap = styled.div`
@@ -484,6 +519,7 @@ const EmptyWrap = styled.div`
   border-radius: 12px;
   padding: 34px 20px;
   min-height: 150px;
+  .pc-mode & { ${pcLeft("1 / span 4")} border-color: #dfe3e8; border-radius: 0; min-height: 420px; box-sizing: border-box; }
 `;
 
 const EmptyIcon = styled.div`

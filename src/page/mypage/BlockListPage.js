@@ -11,6 +11,8 @@ import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoTrashOutline, IoPersonCircleOutline } from "react-icons/io5";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC, PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const BlockListPage = () => {
   const navigate = useNavigate();
@@ -19,6 +21,7 @@ const BlockListPage = () => {
   const uid = user?.uid || userData?.uid;
   const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const pcWide = usePcWide();
 
   useEffect(() => {
     if (!uid) return;
@@ -62,7 +65,26 @@ const BlockListPage = () => {
         <NoticeBox>
           거부 등록한 사용자와는 오더 공유 및 수락이 거부됩니다. 오해로 등록한 경우 언제든 해제할 수 있습니다.
         </NoticeBox>
-        {loading ? (
+        {pcWide ? (
+          <PcTable>
+            <PcTHead $cols={BLOCK_COLS}><span>사용자</span><span>거부 사유</span><span>거부 등록일</span><span>관리</span></PcTHead>
+            {loading && <PcEmpty><b>불러오는 중...</b></PcEmpty>}
+            {!loading && blocks.length === 0 && <PcEmpty><b>거부 등록된 사용자가 없습니다.</b><span>상대 프로필에서 거부 등록을 하면 이곳에 표시됩니다.</span></PcEmpty>}
+            {blocks.map((block) => (
+              <PcTRow key={block.id} $cols={BLOCK_COLS} $click={false}>
+                <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <BlockAvatar>
+                    {block.targetPhoto ? <img src={block.targetPhoto} alt="" /> : <IoPersonCircleOutline size={44} color={THEME.muted} />}
+                  </BlockAvatar>
+                  <b>{block.targetName}</b>
+                </span>
+                <span>{block.reason || "-"}</span>
+                <span>{block.createdAt?.toDate?.() ? block.createdAt.toDate().toLocaleDateString() : "-"}</span>
+                <span><UnblockBtn onClick={() => handleUnblock(block.blockedUid)}><IoTrashOutline size={18} />해제</UnblockBtn></span>
+              </PcTRow>
+            ))}
+          </PcTable>
+        ) : loading ? (
           <EmptyText>불러오는 중...</EmptyText>
         ) : blocks.length === 0 ? (
           <EmptyText>거부 등록된 사용자가 없습니다.</EmptyText>
@@ -99,9 +121,11 @@ const BlockListPage = () => {
 
 export default BlockListPage;
 
+const BLOCK_COLS = "minmax(220px, 1.2fr) minmax(240px, 2fr) 150px 120px";
 const PageWrap = styled.div`
   padding: 16px 12px;
   min-height: 60vh;
+  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; word-break: keep-all;`}
 `;
 const NoticeBox = styled.div`
   font-size: 13px; color: ${THEME.muted}; line-height: 1.55;
@@ -109,6 +133,7 @@ const NoticeBox = styled.div`
   border-radius: 16px;
   padding: 14px 16px;
   margin-bottom: 12px;
+  ${pcOnly`font-size: 15px; color: ${PC.ink}; border-radius: 0; border-color: ${PC.line}; padding: 16px 20px; margin-bottom: 18px;`}
 `;
 const EmptyText = styled.div`
   text-align: center; color: #555; padding: 40px 0; font-size: 16px;

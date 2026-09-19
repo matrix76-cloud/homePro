@@ -204,6 +204,8 @@ const spin = keyframes`
 `;
 
 const Wrap = styled.div`
+  /* PC 좌우 분할의 오른쪽 단 — 가운데 세로 정렬, 넉넉한 여백, 글씨 키움 */
+  .pc-mode & { min-height: 100%; padding: 40px 56px; justify-content: center; box-sizing: border-box; }
   min-height: 100vh;
   padding: 28px 12px 18px;
   background: #fff;
@@ -214,6 +216,7 @@ const Wrap = styled.div`
 `;
 
 const Head = styled.div`
+  .pc-mode & { align-items: flex-start; margin-top: 0; }
   width: 100%;
   max-width: 420px;
   margin-top: 14px;
@@ -226,6 +229,7 @@ const Head = styled.div`
 `;
 
 const H1 = styled.div`
+  .pc-mode & { font-size: 28px !important; font-weight: 800; align-self: flex-start; }
   font-size: 22px !important;
   font-weight: 400;
   letter-spacing: -0.03em;
@@ -250,6 +254,7 @@ const Field = styled.div`
 `;
 
 const Label = styled.div`
+  .pc-mode & { font-size: 15px !important; font-weight: 700; color: #14181F; }
   font-size: 12.5px !important;
   font-weight: 400;
   letter-spacing: -0.02em;

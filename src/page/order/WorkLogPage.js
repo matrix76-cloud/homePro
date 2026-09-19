@@ -22,6 +22,8 @@ import {
   IoCameraOutline, IoLocationOutline, IoTimeOutline, IoCloseOutline,
   IoCheckmarkCircle, IoAlertCircleOutline, IoShieldCheckmarkOutline,
 } from "react-icons/io5";
+import { pcOnly, PC } from "../../pc/pcKit";
+import usePcWide from "../../hooks/usePcWide";
 
 const MAX_PHOTOS = 5;
 
@@ -55,6 +57,7 @@ const WorkLogPage = () => {
   const [preparing, setPreparing] = useState(false);
   const fileRef = useRef(null);
   const [viewer, setViewer] = useState(null);
+  const pcWide = usePcWide(); // PC — 왼쪽 기록(타임라인) / 오른쪽 고정 패널(오더 요약·단계·실행 버튼). 내용·핸들러는 같다
 
   const showToast = useCallback((m) => { setToast(m); setTimeout(() => setToast(""), 2200); }, []);
 
@@ -215,10 +218,8 @@ const WorkLogPage = () => {
     );
   }
 
-  return (
-    <SimpleBackLayout NAME="현장기록" hideFooter>
-      <Wrap>
-        {/* 오더 요약 */}
+  // 화면 조각 — 폰은 위에서 아래로, PC 는 좌우 2단으로 같은 조각을 놓는다
+  const summaryEl = (
         <Card>
           <OrderTitle>{order.title || order.categoryName || "오더"}</OrderTitle>
           {order.address && <OrderSub>{order.address}</OrderSub>}
@@ -234,8 +235,8 @@ const WorkLogPage = () => {
             </Step>
           </StepRow>
         </Card>
-
-        {/* 증빙 안내 */}
+  );
+  const noticeEl = (
         <NoticeCard>
           <NoticeHead>
             <IoShieldCheckmarkOutline size={17} color={THEME.plum} />
@@ -246,8 +247,9 @@ const WorkLogPage = () => {
             작업 전(Before)과 작업 후(After) 사진을 같은 위치에서 찍어 주세요.
           </NoticeText>
         </NoticeCard>
-
-        {/* 타임라인 */}
+  );
+  const timelineEl = (
+    <>
         {logs.length === 0 ? (
           <EmptyCard>
             <EmptyTitle>아직 등록된 현장기록이 없습니다</EmptyTitle>
@@ -290,8 +292,10 @@ const WorkLogPage = () => {
             ))}
           </Timeline>
         )}
-
-        {/* 액션 */}
+    </>
+  );
+  const actionsEl = (
+    <>
         {canWrite && (
           <ActionArea>
             {!checkIn ? (
@@ -310,7 +314,34 @@ const WorkLogPage = () => {
             체크아웃까지 완료되었습니다. 기록은 수정할 수 없습니다.
           </DoneNote>
         )}
-      </Wrap>
+    </>
+  );
+
+  return (
+    <SimpleBackLayout NAME="현장기록" hideFooter>
+      {pcWide ? (
+        <PcCols>
+          <PcMain>
+            {noticeEl}
+            {timelineEl}
+          </PcMain>
+          <PcSide>
+            {summaryEl}
+            {actionsEl}
+          </PcSide>
+        </PcCols>
+      ) : (
+        <Wrap>
+          {/* 오더 요약 */}
+          {summaryEl}
+          {/* 증빙 안내 */}
+          {noticeEl}
+          {/* 타임라인 */}
+          {timelineEl}
+          {/* 액션 */}
+          {actionsEl}
+        </Wrap>
+      )}
 
       <input
         ref={fileRef}
@@ -426,6 +457,15 @@ const Wrap = styled.div`
   min-height: 520px;
 `;
 
+/* PC 좌우 2단 — pcWide 일 때만 그려진다 */
+const PcCols = styled.div`
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start;
+  max-width: 1180px; margin: 0 auto; padding: 28px 32px 60px; box-sizing: border-box; word-break: keep-all; min-height: 520px;
+`;
+const PcMain = styled.div` display: flex; flex-direction: column; gap: 16px; min-width: 0; `;
+const PcSide = styled.div` position: sticky; top: 24px; display: flex; flex-direction: column; gap: 14px; `;
+const pcCard = pcOnly`border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 24px 26px;`;
+
 const Placeholder = styled.div`
   padding: 60px 20px;
   text-align: center;
@@ -438,6 +478,7 @@ const Card = styled.div`
   border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcCard}
 `;
 
 const OrderTitle = styled.div`
@@ -452,6 +493,7 @@ const OrderSub = styled.div`
   font-size: 15px;
   color: ${THEME.muted};
   word-break: keep-all;
+  ${pcOnly`color: ${PC.ink};`}
 `;
 
 const StepRow = styled.div`
@@ -490,6 +532,7 @@ const NoticeCard = styled.div`
   border-radius: 16px;
   padding: 16px 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcCard}
 `;
 
 const NoticeHead = styled.div`
@@ -515,6 +558,7 @@ const EmptyCard = styled.div`
   box-shadow: ${THEME.cardShadow};
   padding: 44px 24px;
   text-align: center;
+  ${pcCard}
 `;
 
 const EmptyTitle = styled.div`
@@ -529,6 +573,7 @@ const EmptyDesc = styled.div`
   color: ${THEME.muted};
   line-height: 1.6;
   word-break: keep-all;
+  ${pcOnly`color: ${PC.ink};`}
 `;
 
 const Timeline = styled.div`
@@ -542,6 +587,7 @@ const LogCard = styled.div`
   border-radius: 16px;
   padding: 16px 18px;
   box-shadow: ${THEME.cardShadow};
+  ${pcCard}
 `;
 
 const LogHead = styled.div`
@@ -561,6 +607,7 @@ const LogTime = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   flex-shrink: 0;
+  ${pcOnly`font-size: 15px; color: ${PC.ink};`}
 `;
 
 const LogMeta = styled.div`
@@ -568,6 +615,7 @@ const LogMeta = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
+  ${pcOnly`flex-direction: row; flex-wrap: wrap; gap: 6px 28px;`}
 `;
 
 const MetaLine = styled.div`
@@ -576,6 +624,7 @@ const MetaLine = styled.div`
   gap: 5px;
   font-size: 14px;
   color: ${THEME.muted};
+  ${pcOnly`font-size: 15px; color: ${PC.body};`}
 `;
 
 const LogNote = styled.div`
@@ -593,6 +642,7 @@ const PhotoStrip = styled.div`
   gap: 8px;
   overflow-x: auto;
   &::-webkit-scrollbar { display: none; }
+  ${pcOnly`flex-wrap: wrap; overflow-x: visible; gap: 10px;`}
 `;
 
 const Thumb = styled.img`
@@ -603,18 +653,21 @@ const Thumb = styled.img`
   flex-shrink: 0;
   background: ${THEME.background};
   cursor: pointer;
+  ${pcOnly`width: 132px; height: 132px; border-radius: 0; border: 1px solid ${PC.line}; box-sizing: border-box;`}
 `;
 
 const LogBy = styled.div`
   margin-top: 10px;
   font-size: 13px;
   color: ${THEME.muted};
+  ${pcOnly`font-size: 14px; color: ${PC.body};`}
 `;
 
 const ActionArea = styled.div`
   display: flex;
   gap: 8px;
   margin-top: 4px;
+  ${pcOnly`flex-direction: column; gap: 10px; margin-top: 0;`}
 `;
 
 const PrimaryBtn = styled.button`
@@ -653,6 +706,7 @@ const DoneNote = styled.div`
   padding: 14px;
   font-size: 15px;
   color: ${THEME.textSecondary};
+  ${pcOnly`justify-content: flex-start; align-items: flex-start; padding: 4px 2px; color: ${PC.ink}; line-height: 1.5;`}
 `;
 
 /* ── 시트 ── */
@@ -665,6 +719,7 @@ const SheetBg = styled.div`
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  ${pcOnly`align-items: center;`}
 `;
 
 const Sheet = styled.div`
@@ -675,6 +730,7 @@ const Sheet = styled.div`
   padding: 20px 20px calc(24px + env(safe-area-inset-bottom, 0px));
   max-height: 88vh;
   overflow-y: auto;
+  ${pcOnly`width: 560px; max-width: calc(100% - 48px); border-radius: 12px; padding: 26px 28px 28px; box-sizing: border-box;`}
 `;
 
 const SheetHead = styled.div`
@@ -745,6 +801,7 @@ const PhotoSlot = styled.div`
   position: relative;
   width: 84px;
   height: 84px;
+  ${pcOnly`width: 96px; height: 96px;`}
 `;
 
 const SlotImg = styled.img`
@@ -783,6 +840,7 @@ const AddSlot = styled.div`
   gap: 2px;
   cursor: pointer;
   background: ${THEME.background};
+  ${pcOnly`width: 96px; height: 96px;`}
 `;
 
 const SlotHint = styled.div`

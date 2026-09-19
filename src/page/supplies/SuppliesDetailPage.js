@@ -16,6 +16,7 @@ import {
   SUPPLIES_COL, isLegacy, tradeLabel, categoryLabel, conditionLabel, formatPrice,
   dealMethodText, formatDate, LINE, ACTIVE_FACE, INK_BUTTON, DONE_COLOR,
 } from "./suppliesConstants";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const SuppliesDetailPage = () => {
   const { id } = useParams();
@@ -28,6 +29,12 @@ const SuppliesDetailPage = () => {
   const [photoIdx, setPhotoIdx] = useState(0);
   const [busy, setBusy] = useState(false);
   const toastTimer = useRef(null);
+  const slidesRef = useRef(null);
+  // PC 는 마우스로 옆으로 밀기 어려워 이전·다음 버튼으로 사진을 넘긴다 (버튼은 PC 에서만 보인다)
+  const moveSlide = (dir) => {
+    const el = slidesRef.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
+  };
 
   const showToast = (msg) => {
     setToast(msg);
@@ -145,6 +152,7 @@ const SuppliesDetailPage = () => {
             {images.length ? (
               <>
                 <Slides
+                  ref={slidesRef}
                   onScroll={(e) => {
                     const w = e.currentTarget.clientWidth || 1;
                     setPhotoIdx(Math.round(e.currentTarget.scrollLeft / w));
@@ -157,6 +165,12 @@ const SuppliesDetailPage = () => {
                   ))}
                 </Slides>
                 {images.length > 1 && <Counter>{photoIdx + 1} / {images.length}</Counter>}
+                {images.length > 1 && (
+                  <SlideNav>
+                    <button type="button" onClick={() => moveSlide(-1)} disabled={photoIdx === 0}>이전 사진</button>
+                    <button type="button" onClick={() => moveSlide(1)} disabled={photoIdx >= images.length - 1}>다음 사진</button>
+                  </SlideNav>
+                )}
               </>
             ) : (
               <NoPhoto>
@@ -223,8 +237,20 @@ const SuppliesDetailPage = () => {
         <Caution>
           홈프로는 회원 간 직거래를 연결하는 공간이며 거래에 개입하거나 보증하지 않습니다. 물품 상태와 작동 여부는 직접 확인한 뒤 거래해주세요.
         </Caution>
-      </PageWrap>
 
+      {/* 폰: 영향 없는 틀(display: contents, 버튼 바는 그대로 화면 바닥 고정) / PC: 오른쪽 고정 패널 */}
+      <Side>
+        <SideSummary>
+          <TopLine>
+            <TypeText $type={data.tradeType}>{legacy ? "업체" : tradeLabel(data.tradeType)}</TypeText>
+            <StateText $done={isDone}>{legacy ? "" : isDone ? "거래완료" : "거래중"}</StateText>
+          </TopLine>
+          {!legacy && <SidePrice $free={data.tradeType === "free"}>{formatPrice(data)}</SidePrice>}
+          {!legacy && data.tradeType !== "free" && <SideRow><span>가격 조정</span><b>{data.negotiable ? "네고 가능" : "제안 불가"}</b></SideRow>}
+          {!legacy && <SideRow><span>거래 방법</span><b>{dealMethodText(data) || "-"}</b></SideRow>}
+          <SideRow><span>지역</span><b>{data.location || "-"}</b></SideRow>
+          <SideRow><span>{legacy ? "업체" : "등록자"}</span><b>{legacy ? displayTitle : data.authorName || "홈프로 회원"}</b></SideRow>
+        </SideSummary>
       <BottomBar>
         {isAuthor ? (
           <OutlineBtn type="button" onClick={toggleDone} disabled={busy} style={{ flex: 1 }}>
@@ -243,6 +269,8 @@ const SuppliesDetailPage = () => {
           </>
         )}
       </BottomBar>
+      </Side>
+      </PageWrap>
     </SimpleBackLayout>
   );
 };
@@ -254,6 +282,39 @@ const PageWrap = styled.div`
   padding: 0 0 100px;
   background: ${THEME.background};
   min-height: 100%;
+  /* PC: 좌우 2단 — 왼쪽 내용 / 오른쪽 고정 패널 */
+  ${pcOnly`
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 24px; align-items: start; align-content: start;
+    min-height: 0; padding: 24px 32px 80px; box-sizing: border-box; word-break: keep-all;
+  `}
+`;
+
+const Side = styled.div`
+  display: contents;
+  ${pcOnly`
+    display: block; grid-column: 2; grid-row: 1 / span 40; position: sticky; top: 24px; /* 나머지 자식은 자동으로 왼쪽 칸에 쌓인다 */
+    background: #fff; border: 1px solid ${PC.line}; padding: 24px 24px 22px; box-sizing: border-box;
+  `}
+`;
+const SideSummary = styled.div` display: none; ${pcOnly`display: block;`} `;
+const SidePrice = styled.div`
+  font-size: 24px; font-weight: 800; margin: 6px 0 14px; line-height: 1.35;
+  color: ${({ $free }) => ($free ? THEME.primaryDark : PC.ink)};
+`;
+const SideRow = styled.div`
+  display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid ${PC.line}; font-size: 15px; color: ${PC.ink};
+  span { flex: none; } b { font-weight: 700; text-align: right; line-height: 1.45; }
+`;
+const SlideNav = styled.div`
+  display: none;
+  ${pcOnly`
+    display: flex; gap: 8px; position: absolute; left: 12px; bottom: 12px;
+    button {
+      height: 36px; padding: 0 14px; border: 1px solid ${PC.line}; background: #fff; color: ${PC.ink};
+      font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+      &:disabled { opacity: 0.5; cursor: default; }
+    }
+  `}
 `;
 
 const Gallery = styled.div`
@@ -262,6 +323,7 @@ const Gallery = styled.div`
   aspect-ratio: 1 / 1;
   max-height: 400px;
   background: #eef0f3;
+  ${pcOnly`aspect-ratio: auto; height: 420px; max-height: none; border: 1px solid ${PC.line}; box-sizing: border-box; margin-bottom: 16px; img { object-fit: contain; }`}
 `;
 
 const Slides = styled.div`
@@ -320,6 +382,7 @@ const Section = styled.div`
   border-bottom: 1px solid ${LINE};
   padding: 18px 16px;
   margin-bottom: 8px;
+  ${pcOnly`border: 1px solid ${PC.line}; padding: 26px 28px; margin-bottom: 16px;`}
 `;
 
 const TopLine = styled.div`
@@ -356,6 +419,7 @@ const PriceLine = styled.div`
   align-items: baseline;
   gap: 10px;
   margin-top: 10px;
+  ${pcOnly`display: none;`} /* PC 는 오른쪽 패널에 금액 */
 `;
 
 const Price = styled.span`
@@ -390,6 +454,7 @@ const InfoTable = styled.table`
     word-break: keep-all;
   }
   tr:last-child th, tr:last-child td { border-bottom: none; }
+  ${pcOnly`th, td { font-size: 16px; padding: 13px 16px; } th { width: 140px; }`}
   th {
     width: 96px;
     background: #f4f5f7;
@@ -444,6 +509,7 @@ const SellerMeta = styled.div`
 
 const Caution = styled.div`
   padding: 6px 16px 10px;
+  ${pcOnly`padding: 0 2px; color: ${PC.body};`}
   font-size: 13px;
   line-height: 1.6;
   color: ${THEME.textSecondary};
@@ -471,6 +537,7 @@ const BottomBar = styled.div`
   z-index: 100;
   display: flex;
   gap: 8px;
+  ${pcOnly`position: static; transform: none; width: auto; max-width: none; padding: 16px 0 0; background: none; border-top: 1px solid ${PC.line};`}
 `;
 
 const BaseBtn = styled.button`

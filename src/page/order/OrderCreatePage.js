@@ -20,6 +20,8 @@ import ORDER_FORM_CONFIG, { COMMON_B2B_FIELDS } from "../../config/orderFormConf
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCloseCircle } from "react-icons/io5";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const MAX_PHOTOS = 4;
 const RESIZE_PX = 350;
@@ -49,12 +51,18 @@ function resizeAndCompress(file) {
 const Section = styled.div`
   margin: 16px 16px 0;
   padding: 0;
+  /* PC — 흰 면 + 얇은 테두리 섹션 카드. $half 면 한 줄에 두 장 */
+  ${pcOnly`
+    margin: 0; padding: 24px 26px; background: #fff; border: 1px solid ${PC.line}; box-sizing: border-box; min-width: 0;
+    grid-column: ${({ $half }) => ($half ? "span 1" : "1 / -1")};
+  `}
 `;
 
 const CatCellGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
+  ${pcOnly`grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;`}
 `;
 
 const CatCell = styled.button`
@@ -93,6 +101,7 @@ const PickedRow = styled.button`
   text-align: left;
   cursor: pointer;
   &:focus { outline: none; }
+  ${pcOnly`display: none;`} /* PC 는 왼쪽 요약 단이 대신한다 */
 `;
 
 const PickedText = styled.span`
@@ -112,6 +121,7 @@ const Label = styled.div`
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
+  ${pcOnly`font-size: 18px; font-weight: 800; color: ${PC.ink}; margin-bottom: 16px;`}
 `;
 
 const SubLabel = styled.div`
@@ -124,6 +134,11 @@ const ChipGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  /* PC — 선택 칸을 고른 폭의 그리드로 (넓은 카드에서 5~6칸) */
+  ${pcOnly`
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(${({ $min }) => $min || 128}px, 1fr)); gap: 10px; align-items: stretch;
+    & > div { grid-column: 1 / -1; }
+  `}
 `;
 
 const Chip = styled.button`
@@ -144,9 +159,11 @@ const Chip = styled.button`
   font-weight: ${({ $selected }) => ($selected ? 700 : 500)};
   &:active { opacity: 0.8; }
   &:focus { outline: none; }
+  ${pcOnly`min-height: 56px; padding: 10px 12px; text-align: center; &:hover { border-color: ${THEME.primary}; }`}
 `;
 
 const TextArea = styled.textarea`
+  ${pcOnly`min-height: 220px; padding: 16px; line-height: 1.6;`}
   width: 100%;
   box-sizing: border-box;
   min-height: 100px;
@@ -163,6 +180,7 @@ const TextArea = styled.textarea`
 `;
 
 const Input = styled.input`
+  ${pcOnly`max-width: 420px; height: 48px;`}
   width: 100%;
   box-sizing: border-box;
   padding: 12px;
@@ -222,6 +240,12 @@ const SubmitButton = styled.button`
   &:disabled {
     background: #ccc;
   }
+  ${pcOnly`width: auto; min-width: 240px; margin-top: 0; padding: 14px 28px; font-size: 17px; font-weight: 700; &:hover { background: ${THEME.buttonDark}; }`}
+`;
+
+/* 다음(입력 확인) 버튼 줄 — PC 는 카드 없이 내용 끝 오른쪽 */
+const SubmitSection = styled(Section)`
+  ${pcOnly`background: none; border: none; padding: 8px 0 0; display: flex; justify-content: flex-end;`}
 `;
 
 const PreviewHeader = styled.div`
@@ -233,6 +257,7 @@ const PreviewHeader = styled.div`
   font-size: 19px;
   font-weight: 700;
   color: ${THEME.text};
+  ${pcOnly`display: none;`} /* PC 는 왼쪽 단에 단계 이름이 있다 */
 `;
 const PreviewHint = styled.div`
   margin: 0 12px 8px;
@@ -242,6 +267,7 @@ const PreviewHint = styled.div`
   font-size: 12.5px;
   border-radius: 12px;
   line-height: 1.5;
+  ${pcOnly`grid-column: 1 / -1; margin: 0; padding: 14px 18px; border-radius: 0; font-size: 15px; color: ${PC.ink};`}
 `;
 const PreviewSection = styled.div`
   background: ${THEME.surface};
@@ -249,6 +275,10 @@ const PreviewSection = styled.div`
   padding: 16px 20px;
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`
+    grid-column: 1 / -1; margin: 0; padding: 20px 26px; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line};
+    ${({ $rows }) => ($rows ? "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px;" : "")}
+  `}
 `;
 const PreviewNotice = styled.div`
   margin: 12px 12px 0;
@@ -258,6 +288,7 @@ const PreviewNotice = styled.div`
   font-size: 15px;
   color: ${THEME.textSecondary};
   line-height: 1.6;
+  ${pcOnly`grid-column: 1 / -1; margin: 0; padding: 16px 18px; border-radius: 0; background: #fff; border: 1px solid ${PC.line}; color: ${PC.body};`}
 `;
 const PreviewSectionLabel = styled.div`
   font-size: 15px;
@@ -287,12 +318,14 @@ const PreviewRow = styled.div`
   padding: 10px 0;
   border-bottom: 1px solid ${THEME.border};
   &:last-child { border-bottom: none; }
+  ${pcOnly`padding: 13px 0; &:last-child { border-bottom: 1px solid ${THEME.border}; } grid-column: ${({ $wide }) => ($wide ? "1 / -1" : "auto")};`}
 `;
 const PreviewKey = styled.div`
   flex: 0 0 96px;
   font-size: 15px;
   font-weight: 600;
   color: ${THEME.textSecondary};
+  ${pcOnly`flex: 0 0 132px; font-weight: 700; color: ${PC.ink};`}
 `;
 const PreviewVal = styled.div`
   flex: 1;
@@ -306,6 +339,11 @@ const PreviewActions = styled.div`
   display: flex;
   gap: 8px;
   margin: 16px 12px 32px;
+  /* PC — 전폭 버튼 대신 내용 끝 오른쪽에 내용 폭 버튼 */
+  ${pcOnly`
+    grid-column: 1 / -1; margin: 8px 0 0; justify-content: flex-end; gap: 10px;
+    & > button { flex: 0 0 auto !important; min-width: 150px; margin-top: 0 !important; padding: 14px 26px; font-size: 17px; font-weight: 700; }
+  `}
 `;
 const PreviewSecondaryBtn = styled.button`
   flex: 1;
@@ -327,6 +365,7 @@ const PhotoGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  ${pcOnly`grid-template-columns: repeat(4, minmax(0, 96px)); gap: 10px;`}
 `;
 
 const PhotoBox = styled.div`
@@ -400,6 +439,7 @@ const PhotoHint = styled.div`
   margin-top: 10px;
   font-size: 14px;
   color: ${THEME.textSecondary};
+  ${pcOnly`color: ${PC.body}; line-height: 1.5;`}
 `;
 
 const RemoveBtn = styled.button`
@@ -567,6 +607,8 @@ export const OrderCreateContent = () => {
   const isEdit = !!editOrder;
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
+  const pcShellRef = useRef(null);
+  const pcWide = usePcWide(); // PC — 왼쪽 요약 단 + 오른쪽 단계 내용 (배치만 다르고 상태·핸들러는 같다)
 
   const [selectedCategory, setSelectedCategory] = useState(categoryId || "");
   const [expandedGroup, setExpandedGroup] = useState(null);
@@ -1202,8 +1244,66 @@ export const OrderCreateContent = () => {
     return items;
   })();
 
-  if (step === "preview") {
+  // PC 왼쪽 단 — 지금까지 고른 것 한 줄 요약 + 수정. 폰의 접힌 줄(PickedRow)·다시 선택과 같은 동작을 부른다
+  const pcStepName = step === "preview" ? "입력 내용 확인"
+    : !category ? "카테고리 선택"
+    : (formConfig?.subGroups && activeServices.length === 0) ? "서비스 선택"
+    : (formConfig?.subGroups && selectedSub.length === 0) ? "종목 선택"
+    : "상세 입력";
+  const pcPickedItems = selectedSub.map((k) => (k.includes(":") ? k.split(":")[1] : k)).join(", ");
+  const pcPriceText = (() => {
+    if (!b2bPriceType) return "";
+    const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
+    return `${opt?.label || ""}${b2bPriceAmount ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : ""}`;
+  })();
+  // PC 는 본문 단 안쪽이 스크롤된다 — 단계가 바뀌면 그 단을 맨 위로 (폰의 window.scrollTo 와 같은 역할)
+  useEffect(() => {
+    if (!pcWide) return;
+    let el = pcShellRef.current?.parentElement;
+    while (el && !(el.scrollHeight > el.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+    if (el) el.scrollTop = 0;
+  }, [pcWide, step, selectedCategory]);
+  const pcFrame = (body) => {
+    if (!pcWide) return body;
+    const locked = step === "preview";
     return (
+      <PcShell ref={pcShellRef}>
+        <PcAside>
+          <PcAsideTitle>{isEdit ? "오더 수정" : selfOrder ? "셀프보장등록" : "오더 접수"}</PcAsideTitle>
+          <PcAsideStep>지금 단계 <b>{pcStepName}</b></PcAsideStep>
+          <PcAsideHead>지금까지 고른 것</PcAsideHead>
+          {!category && <PcAsideEmpty>오른쪽에서 카테고리를 고르면 다음 단계로 넘어갑니다.</PcAsideEmpty>}
+          {category && (
+            <PcAsideRow>
+              <span>카테고리</span><b>{category.name}</b>
+              {!categoryId && !locked ? <button type="button" onClick={() => { setSelectedCategory(""); resetForm(); }}>수정</button> : <i />}
+            </PcAsideRow>
+          )}
+          {category && activeServices.length > 0 && (
+            <PcAsideRow>
+              <span>서비스</span><b>{activeServices.join(", ")}</b>
+              {!multiService && !locked ? <button type="button" onClick={() => { setSelectedService(""); setSelectedSub([]); setCustomInput(""); }}>수정</button> : <i />}
+            </PcAsideRow>
+          )}
+          {category && pcPickedItems && (
+            <PcAsideRow>
+              <span>종목</span><b>{pcPickedItems}</b>
+              {!multiService && selectedService && !locked
+                ? <button type="button" onClick={() => { setSelectedSub(selectedSub.filter((k) => !k.startsWith(`${selectedService}:`))); setCustomInput(""); }}>수정</button> : <i />}
+            </PcAsideRow>
+          )}
+          {category && workDate && <PcAsideRow><span>작업날짜</span><b>{workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate}</b><i /></PcAsideRow>}
+          {category && workTimeMode && <PcAsideRow><span>작업시간</span><b>{workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : workTimeMode}</b><i /></PcAsideRow>}
+          {category && address && <PcAsideRow><span>주소</span><b>{addressDetail ? `${address} ${addressDetail}` : address}</b><i /></PcAsideRow>}
+          {category && pcPriceText && <PcAsideRow><span>단가유형</span><b>{pcPriceText}</b><i /></PcAsideRow>}
+        </PcAside>
+        <PcMain>{body}</PcMain>
+      </PcShell>
+    );
+  };
+
+  if (step === "preview") {
+    return pcFrame(
       <>
         <PreviewHeader>{isEdit ? "수정 내용 확인" : "등록 전 입력 내용 확인"}</PreviewHeader>
         <PreviewHint>{isEdit ? "아래 내용으로 수정됩니다. 잘못된 항목은 [뒤로]로 돌아가서 변경하세요." : "아래 내용으로 등록됩니다. 잘못된 항목은 [수정하기]로 돌아가서 변경하세요."}</PreviewHint>
@@ -1229,9 +1329,9 @@ export const OrderCreateContent = () => {
             </PreviewPhotoRow>
           </PreviewSection>
         )}
-        <PreviewSection>
+        <PreviewSection $rows>
           {previewItems.map((it, i) => (
-            <PreviewRow key={i}>
+            <PreviewRow key={i} $wide={it.k === "요청 내용" || String(it.v || "").length > 40}>
               <PreviewKey>{it.k}</PreviewKey>
               <PreviewVal>{it.v || "—"}</PreviewVal>
             </PreviewRow>
@@ -1256,7 +1356,7 @@ export const OrderCreateContent = () => {
     );
   }
 
-  return (
+  return pcFrame(
     <>
       {/* 1. 카테고리 선택 — AI 견적과 같은 세 칸 그리드 (대표 9/17) */}
       {!categoryId && !selectedCategory && (
@@ -1420,6 +1520,7 @@ export const OrderCreateContent = () => {
           {showDetail && detailConfig?.qtyPerSelected && selectedSub.length > 0 && (
             <Section>
               <Label>{detailConfig.qtyPerSelected.label || "수량"}</Label>
+              <FieldsGrid>
               {selectedSub.map((key) => {
                 const name = key.includes(":") ? key.split(":")[1] : key;
                 return (
@@ -1438,6 +1539,7 @@ export const OrderCreateContent = () => {
                   </FieldRow>
                 );
               })}
+              </FieldsGrid>
             </Section>
           )}
 
@@ -1459,6 +1561,7 @@ export const OrderCreateContent = () => {
           {showDetail && detailConfig?.spaceStructure && (
             <Section>
               <Label>{detailConfig.spaceStructure.label || "공간구조"}</Label>
+              <FieldsGrid $n={2}>
               {detailConfig.spaceStructure.fields.map((field) => {
                 const isYesNo = field.includes("여/부");
                 const isEtc = field === "기타" || field.includes("기타");
@@ -1474,7 +1577,7 @@ export const OrderCreateContent = () => {
                         onChange={(e) => setSpaceFields((prev) => ({ ...prev, [field]: e.target.value }))}
                       />
                     ) : (
-                      <ChipGrid>
+                      <ChipGrid $min={52}>
                         {(isYesNo ? ["여", "부"] : ["1", "2", "3", "4", "5"]).map((v) => (
                           <Chip key={v} $selected={String(cur) === v} onClick={() => setVal(v)}>{v}</Chip>
                         ))}
@@ -1483,6 +1586,7 @@ export const OrderCreateContent = () => {
                   </div>
                 );
               })}
+              </FieldsGrid>
             </Section>
           )}
 
@@ -1542,6 +1646,7 @@ export const OrderCreateContent = () => {
             return (
             <Section key={sec.key}>
               <Label>{sec.label}</Label>
+              <FieldsGrid>
               {fields.map((f) => {
                 const val = inputValues[sec.key]?.[f.key] ?? "";
                 const setVal = (v) => setInputValues((prev) => ({
@@ -1557,7 +1662,7 @@ export const OrderCreateContent = () => {
                   );
                 }
                 return (
-                  <FieldRow key={f.key}>
+                  <FieldRow key={f.key} $wide={f.type === "select"} $span2={!["number", "date", "time", "select"].includes(f.type)}>
                     <InputFieldLabel>{f.label}</InputFieldLabel>
                     {f.type === "select" ? (
                       <ChipGrid style={{ flex: 1 }}>
@@ -1580,6 +1685,7 @@ export const OrderCreateContent = () => {
                   </FieldRow>
                 );
               })}
+              </FieldsGrid>
             </Section>
             );
           })}
@@ -1626,7 +1732,7 @@ export const OrderCreateContent = () => {
           </Section>
 
           {/* 현장사진등록 */}
-          <Section>
+          <Section $half>
             <Label>현장사진등록 (선택, 최대 {MAX_PHOTOS}장)</Label>
             <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoAdd} />
             {/* 4칸을 항상 박스로 채워 보여준다 (형 지시 7/28) — 채워진 칸 / + 추가 칸 / 빈 칸 */}
@@ -1668,7 +1774,7 @@ export const OrderCreateContent = () => {
           </Section>
 
           {/* 주소 */}
-          <Section>
+          <Section $half>
             <Label>주소</Label>
             <AddressRow onClick={openDaumPostcode}>
               <AddressText $hasValue={!!address}>{address || "주소를 검색하세요"}</AddressText>
@@ -1682,7 +1788,7 @@ export const OrderCreateContent = () => {
           {/* ─── B2B 거래 조건 필드들 ─── */}
 
           {/* 작업날짜 */}
-          <Section>
+          <Section $half>
             <Label>{COMMON_B2B_FIELDS.workDate.label}</Label>
             <ChipGrid>
               {COMMON_B2B_FIELDS.workDate.options.map((opt) => (
@@ -1695,7 +1801,7 @@ export const OrderCreateContent = () => {
           </Section>
 
           {/* 작업시간 */}
-          <Section>
+          <Section $half>
             <Label>{COMMON_B2B_FIELDS.workTime.label}</Label>
             <ChipGrid>
               {COMMON_B2B_FIELDS.workTime.options.map((opt) => (
@@ -1732,13 +1838,20 @@ export const OrderCreateContent = () => {
           {!selfOrder && (
           <Section>
             <Label>연락처</Label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 16, color: THEME.text }}>
+            <ContactGrid>
+            <div>
+            {pcWide && <div style={{ fontSize: 14, fontWeight: 700, color: "#14181F", margin: "0 0 9px" }}>접수자(본인) — 인증된 번호</div>}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 16, color: THEME.text, ...(pcWide ? { height: 48, boxSizing: "border-box" } : null) }}>
               <span style={{ color: THEME.success }}>✓</span>
               <span style={{ color: THEME.muted }}>접수자(본인)</span>
               <span style={{ fontWeight: 600 }}>{contactPhone || "인증된 번호"}</span>
             </div>
-            <div style={{ fontSize: 15, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
+            </div>
+            <div>
+            <div style={pcWide ? { fontSize: 14, fontWeight: 700, color: "#14181F", margin: "0 0 9px" } : { fontSize: 15, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
             <Input type="tel" placeholder="고객 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+            </div>
+            </ContactGrid>
           </Section>
           )}
 
@@ -1748,7 +1861,7 @@ export const OrderCreateContent = () => {
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.priceType.label}</Label>
               <HelpBtn type="button" onClick={() => setHelpPopup({ title: "단가유형 안내", items: COMMON_B2B_FIELDS.priceType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
             </LabelRow>
-            <ChipGrid style={{ marginTop: 12 }}>
+            <ChipGrid $min={110} style={{ marginTop: 12 }}>
               {COMMON_B2B_FIELDS.priceType.options.filter((opt) => !selfOrder || opt.value === "fixed").map((opt) => (
                 <Chip key={opt.value} $selected={b2bPriceType === opt.value} onClick={() => setB2bPriceType(opt.value)}>{opt.label}</Chip>
               ))}
@@ -1883,7 +1996,7 @@ export const OrderCreateContent = () => {
 
           {/* 보험 조건 — 대표 9/15 카톡 8번. 셀프보장등록·정보공유는 없음 */}
           {!selfOrder && !isInfoType && (
-          <Section>
+          <Section $half>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>도급배상책임보험</Label>
               {/* 안내 문구 = 대표 9/15 리뷰 원문 */}
@@ -1898,7 +2011,7 @@ export const OrderCreateContent = () => {
 
           {/* 홈프로 선택 — 셀프 등록이면 없음 */}
           {!selfOrder && (
-          <Section>
+          <Section $half={!isInfoType}>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.matchType.label}</Label>
               <HelpBtn type="button" onClick={() => setHelpPopup({ title: "홈프로 선택(매칭방식) 안내", items: COMMON_B2B_FIELDS.matchType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
@@ -1923,11 +2036,11 @@ export const OrderCreateContent = () => {
           )}
 
           {/* 등록 버튼 — 미리보기 화면으로 진입 */}
-          <Section>
+          <SubmitSection>
             <SubmitButton disabled={!selectedCategory} onClick={handleGoPreview}>
               다음 (입력 확인)
             </SubmitButton>
-          </Section>
+          </SubmitSection>
         </>
       )}
       {toast && <OrderToast>{toast}</OrderToast>}
@@ -1975,6 +2088,7 @@ const NoticeBox = styled.div`
   color: ${THEME.textSecondary};
   line-height: 1.6;
   white-space: pre-line;
+  ${pcOnly`grid-column: 1 / -1; margin: 0; padding: 16px 20px; border-radius: 0; color: ${PC.ink};`}
 `;
 
 const GroupLabel = styled.div`
@@ -2005,6 +2119,7 @@ const FieldLabel = styled.div`
   font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
+  ${pcOnly`font-weight: 700; color: ${PC.ink}; margin-bottom: 9px;`}
 `;
 
 const FieldInput = styled.input`
@@ -2023,6 +2138,22 @@ const AreaRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+  ${pcOnly`max-width: 460px; & ${ChipGrid} { display: flex; } & ${Chip} { min-width: 64px; }`}
+`;
+
+/* 입력 칸 묶음 — 폰은 그냥 세로, PC 는 한 줄 $n 칸(기본 3) */
+const FieldsGrid = styled.div`
+  ${pcOnly`
+    display: grid; grid-template-columns: repeat(${({ $n }) => $n || 3}, minmax(0, 1fr)); gap: 24px 26px; align-items: start;
+    & > div { margin-top: 0; }
+    & > label { grid-column: 1 / -1; margin-bottom: 0 !important; }
+    & input { max-width: none; }
+  `}
+`;
+
+/* 연락처 두 칸 — PC 에서만 나란히 */
+const ContactGrid = styled.div`
+  ${pcOnly`display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; align-items: end; & input { max-width: none; }`}
 `;
 
 /* 직접 입력 항목 한 줄 (라벨 + 입력칸 + 단위) */
@@ -2031,12 +2162,14 @@ const FieldRow = styled.div`
   align-items: center;
   gap: 10px;
   & + & { margin-top: 10px; }
+  ${pcOnly`flex-wrap: wrap; gap: 9px 10px; min-width: 0; grid-column: ${({ $wide, $span2 }) => ($wide ? "1 / -1" : $span2 ? "span 2" : "auto")};`}
 `;
 
 const InputFieldLabel = styled.div`
   flex: 0 0 96px;
   font-size: 15px;
   color: ${THEME.textSecondary};
+  ${pcOnly`flex: 0 0 100%; font-size: 14px; font-weight: 700; color: ${PC.ink};`}
 `;
 
 const FieldUnit = styled.div`
@@ -2097,6 +2230,7 @@ const TimeSelectRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  ${pcOnly`max-width: 320px;`}
 `;
 
 const TimeSelect = styled.select`
@@ -2255,6 +2389,7 @@ const DirectAssignWrap = styled.div`
 `;
 
 const PhoneInput = styled.input`
+  ${pcOnly`max-width: 420px;`}
   width: 100%;
   box-sizing: border-box;
   padding: 12px;
@@ -2272,6 +2407,7 @@ const DirectDesc = styled.div`
   font-size: 14px;
   color: #555;
   margin-top: 4px;
+  ${pcOnly`color: ${PC.body}; margin-top: 8px;`}
 `;
 
 const OrderToast = styled.div`
@@ -2289,3 +2425,27 @@ const OrderToast = styled.div`
   white-space: nowrap;
   animation: ${toastFadeIn} 0.25s ease-out;
 `;
+
+/* ── PC 좌우 2단 틀 (pcWide 일 때만 그린다) ── */
+const PcShell = styled.div`
+  display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start;
+  width: 100%; max-width: 1180px; margin: 0 auto; padding: 24px 32px 80px; box-sizing: border-box; color: ${PC.ink}; word-break: keep-all;
+  @media (max-width: 1240px) { grid-template-columns: 250px minmax(0, 1fr); gap: 18px; padding: 20px 20px 80px; }
+`;
+const PcMain = styled.div`
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; min-width: 0;
+  @media (max-width: 1100px) { grid-template-columns: minmax(0, 1fr); }
+`;
+const PcAside = styled.aside`
+  position: sticky; top: 24px; background: #fff; border: 1px solid ${PC.line}; padding: 24px 22px; box-sizing: border-box; min-height: 320px;
+`;
+const PcAsideTitle = styled.h1` font-size: 23px; font-weight: 800; margin: 0 0 6px; color: ${PC.ink}; `;
+const PcAsideStep = styled.div` font-size: 15px; color: ${PC.ink}; margin-bottom: 18px; b { font-weight: 800; color: ${PC.primary}; } `;
+const PcAsideHead = styled.div` font-size: 15px; font-weight: 800; color: ${PC.ink}; padding: 14px 0 4px; border-top: 1px solid ${PC.line}; `;
+const PcAsideRow = styled.div`
+  display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 10px 0; font-size: 15px; line-height: 1.45;
+  & + & { border-top: 1px solid ${PC.line}; }
+  span { color: ${PC.body}; } b { font-weight: 700; color: ${PC.ink}; word-break: keep-all; overflow-wrap: anywhere; }
+  button { border: none; background: none; padding: 0; font-family: inherit; font-size: 14px; font-weight: 700; color: ${PC.primary}; cursor: pointer; }
+`;
+const PcAsideEmpty = styled.div` font-size: 15px; color: ${PC.body}; line-height: 1.6; padding: 10px 0 0; `;

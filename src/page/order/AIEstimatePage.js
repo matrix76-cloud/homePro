@@ -7,6 +7,8 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoSparkles, IoChevronDown, IoChevronUp } from "react-icons/io5";
 import { getAiEstimate } from "../../service/AiEstimateService";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 /* 탭 내장용 콘텐츠 컴포넌트 */
 export const AIEstimateContent = () => {
@@ -25,6 +27,7 @@ export const AIEstimateContent = () => {
   //  1 카테고리 · 2 세부 항목 · 3 공간과 면적 · 4 자세히(선택)
   //  세부 항목이 없는 카테고리는 2를 건너뛴다
   const [step, setStep] = useState(1);
+  const pcWide = usePcWide(); // PC — 입력은 왼쪽 요약 + 오른쪽 단계, 결과는 왼쪽 결과 + 오른쪽 요약·다음 행동 (상태·핸들러는 같다)
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); }, []);
 
@@ -69,8 +72,9 @@ export const AIEstimateContent = () => {
 
   const formatPrice = (n) => !n || n === 0 ? "상담 후 결정" : n.toLocaleString() + "원";
 
-  return (
-    <PageWrap>
+  /* 지난 단계 요약 줄 — 폰 전용 (PC 는 왼쪽 단이 대신한다) */
+  const doneRow = (
+    <>
         {/* 진행 막대는 빼기로 함 (형 9/17) */}
 
         {/* 지난 단계는 접어 고른 값만 한 줄로 (대표 9/17) */}
@@ -85,7 +89,12 @@ export const AIEstimateContent = () => {
             <DoneEdit>수정</DoneEdit>
           </DoneRow>
         )}
+    </>
+  );
 
+  /* 입력 단계 */
+  const inputBody = (
+    <>
         {/* 카테고리 선택 — 세 칸 그리드 (대표 9/17 시안 2번) */}
         {step < 2 && !result && (
         <Section>
@@ -206,10 +215,17 @@ export const AIEstimateContent = () => {
             )}
           </AnalyzeBtn>
         )}
+    </>
+  );
 
+  const isSuccess = result?.status === "success" && result.estimate;
+  const isNeedInfo = result?.status === "need_info";
+
+  /* 결과 내용 */
+  const resultBody = (
+    <>
         {/* 결과 — success */}
-        {result?.status === "success" && result.estimate && (
-          <>
+        {isSuccess && (
             <ResultCard>
               <ResultHeader>
                 <ResultIcon><IoSparkles size={20} color={THEME.primary} /></ResultIcon>
@@ -278,15 +294,10 @@ export const AIEstimateContent = () => {
 
               <Disclaimer>실제 금액은 현장을 확인한 뒤 달라질 수 있습니다. 부가세는 별도입니다.</Disclaimer>
             </ResultCard>
-
-            <RealEstimateBtn onClick={handleRealEstimate}>실제 견적 요청하기</RealEstimateBtn>
-            <RetryBtn onClick={() => setResult(null)}>다른 조건으로 다시 분석</RetryBtn>
-          </>
         )}
 
         {/* 결과 — need_info */}
-        {result?.status === "need_info" && (
-          <>
+        {isNeedInfo && (
             <ResultCard>
               <ResultHeader>
                 <ResultIcon><IoSparkles size={20} color={THEME.primary} /></ResultIcon>
@@ -318,11 +329,76 @@ export const AIEstimateContent = () => {
                 </>
               )}
             </ResultCard>
-
-            <RetryBtn onClick={() => setResult(null)}>정보 추가 후 다시 분석</RetryBtn>
-          </>
         )}
+    </>
+  );
 
+  /* 결과 뒤 다음 행동 — 폰은 결과 카드 아래, PC 는 오른쪽 고정 단 */
+  const resultActions = (
+    <>
+        {isSuccess && <RealEstimateBtn onClick={handleRealEstimate}>실제 견적 요청하기</RealEstimateBtn>}
+        {isSuccess && <RetryBtn onClick={() => setResult(null)}>다른 조건으로 다시 분석</RetryBtn>}
+        {isNeedInfo && <RetryBtn onClick={() => setResult(null)}>정보 추가 후 다시 분석</RetryBtn>}
+    </>
+  );
+
+  if (pcWide) {
+    const hasResult = isSuccess || isNeedInfo;
+    const stepName = hasResult ? "견적 결과" : step === 1 ? "카테고리 선택" : step === 2 ? "세부 항목 선택" : step === 3 ? "공간과 면적" : "작업 내용";
+    const summaryRows = (editable) => (
+      <>
+        {!selectedCat && <PcAsideEmpty>오른쪽에서 카테고리를 고르면 다음 단계로 넘어갑니다.</PcAsideEmpty>}
+        {selectedCat && (
+          <PcAsideRow><span>카테고리</span><b>{category?.name}</b>{editable ? <button type="button" onClick={() => setStep(1)}>수정</button> : <i />}</PcAsideRow>
+        )}
+        {selectedCat && hasSubcategories && (editable ? step >= 3 : true) && (
+          <PcAsideRow><span>세부 항목</span><b>{selectedSubs.length ? selectedSubs.join(", ") : "고르지 않음"}</b>{editable ? <button type="button" onClick={() => setStep(2)}>수정</button> : <i />}</PcAsideRow>
+        )}
+        {selectedCat && (editable ? step >= 4 : true) && (
+          <PcAsideRow><span>공간유형</span><b>{spaceType || "고르지 않음"}</b>{editable ? <button type="button" onClick={() => setStep(3)}>수정</button> : <i />}</PcAsideRow>
+        )}
+        {selectedCat && (editable ? step >= 4 : true) && (
+          <PcAsideRow><span>면적</span><b>{area || "입력 안 함"}</b>{editable ? <button type="button" onClick={() => setStep(3)}>수정</button> : <i />}</PcAsideRow>
+        )}
+        {!editable && description.trim() && <PcAsideRow><span>작업 내용</span><b style={{ fontWeight: 500, whiteSpace: "pre-wrap" }}>{description}</b><i /></PcAsideRow>}
+      </>
+    );
+    return (
+      <PcShell $result={hasResult}>
+        {!hasResult && (
+          <PcAside>
+            <PcAsideTitle>견적 조건</PcAsideTitle>
+            <PcAsideStep>지금 단계 <b>{stepName}</b></PcAsideStep>
+            <PcAsideHead>지금까지 고른 것</PcAsideHead>
+            {summaryRows(true)}
+          </PcAside>
+        )}
+        <PcMain>
+          {inputBody}
+          {resultBody}
+        </PcMain>
+        {hasResult && (
+          <PcAside>
+            <PcAsideTitle>견적 요약</PcAsideTitle>
+            {isSuccess && (
+              <PcAsideStep>예상 비용 <b>{formatPrice(result.estimate.minPrice)} ~ {formatPrice(result.estimate.maxPrice)}</b></PcAsideStep>
+            )}
+            <PcAsideHead>입력한 조건</PcAsideHead>
+            {summaryRows(false)}
+            <PcAsideActions>{resultActions}</PcAsideActions>
+          </PcAside>
+        )}
+        {toast && <AIToast>{toast}</AIToast>}
+      </PcShell>
+    );
+  }
+
+  return (
+    <PageWrap>
+        {doneRow}
+        {inputBody}
+        {resultBody}
+        {resultActions}
         {toast && <AIToast>{toast}</AIToast>}
     </PageWrap>
   );
@@ -384,12 +460,14 @@ const HeaderDesc = styled.div`
 const Section = styled.div`
   padding: 4px 4px 0;
   margin-top: 14px;
+  ${pcOnly`margin: 0; padding: 24px 26px; background: #fff; border: 1px solid ${PC.line}; box-sizing: border-box;`}
 `;
 
 const CatCellGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
+  ${pcOnly`grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;`}
 `;
 
 const CatCell = styled.button`
@@ -419,6 +497,7 @@ const Label = styled.div`
   color: ${THEME.text};
   margin-bottom: 12px;
   letter-spacing: -0.02em;
+  ${pcOnly`font-weight: 800; color: ${PC.ink}; margin-bottom: 16px;`}
 `;
 
 const SubHint = styled.div`
@@ -426,6 +505,7 @@ const SubHint = styled.div`
   color: #2b2f36;
   line-height: 1.6;
   margin: -6px 0 12px;
+  ${pcOnly`font-size: 15px; margin: -8px 0 14px;`}
 `;
 
 const CatGroupLabel = styled.div`
@@ -475,6 +555,7 @@ const CatGrid = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   padding: 10px 0 2px;
+  ${pcOnly`grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); padding: 0;`}
 `;
 
 const CatChip = styled.button`
@@ -498,6 +579,7 @@ const CatChip = styled.button`
   cursor: pointer;
   &:active { opacity: 0.8; }
   &:focus { outline: none; }
+  ${pcOnly`min-height: 56px; padding: 10px 12px; &:hover { border-color: ${THEME.primary}; }`}
 `;
 
 const CatChipIcon = styled.span`
@@ -511,6 +593,7 @@ const CatChipIcon = styled.span`
 `;
 
 const TextArea = styled.textarea`
+  ${pcOnly`min-height: 220px; line-height: 1.6;`}
   width: 100%;
   padding: 14px 16px;
   border: 1.5px solid ${THEME.border};
@@ -579,6 +662,8 @@ const StepRow = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* PC — 안내는 왼쪽, 버튼은 내용 끝 오른쪽에 내용 폭으로 */
+  ${pcOnly`margin: 4px 0 0; flex-direction: row; align-items: center; justify-content: space-between; gap: 20px; & button { flex: 0 0 auto; min-width: 150px; padding: 0 24px; }`}
 `;
 
 const StepHint = styled.div`
@@ -635,6 +720,7 @@ const AnalyzeBtn = styled.button`
   gap: 8px;
   &:active { opacity: 0.9; }
   &:disabled { opacity: 0.7; cursor: default; }
+  ${pcOnly`margin: 4px 0 0; align-self: flex-end; min-width: 260px; padding: 15px 28px; font-size: 17px; font-weight: 700;`}
 `;
 
 const ResultCard = styled.div`
@@ -643,6 +729,7 @@ const ResultCard = styled.div`
   border-radius: 16px;
   padding: 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`margin: 0; padding: 28px 30px; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line};`}
 `;
 
 const ResultHeader = styled.div`
@@ -701,6 +788,7 @@ const TotalPriceCol = styled.div`
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  ${pcOnly`flex-direction: row; align-items: baseline; gap: 10px;`}
 `;
 
 const TotalPrice = styled.div`
@@ -875,6 +963,7 @@ const RealEstimateBtn = styled.button`
 `;
 
 const AreaInput = styled.input`
+  ${pcOnly`max-width: 420px; height: 48px;`}
   width: 100%;
   padding: 12px 16px;
   border: 1.5px solid ${THEME.border};
@@ -958,4 +1047,29 @@ const RetryBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { background: ${THEME.background}; }
+`;
+
+/* ── PC 좌우 2단 틀 (pcWide 일 때만 그린다) ── */
+const PcShell = styled.div`
+  display: grid; grid-template-columns: ${({ $result }) => ($result ? "minmax(0, 1fr) 360px" : "300px minmax(0, 1fr)")}; gap: 24px; align-items: start;
+  width: 100%; max-width: 1180px; margin: 0 auto; padding: 24px 32px 80px; box-sizing: border-box; color: ${PC.ink}; word-break: keep-all;
+  @media (max-width: 1240px) { grid-template-columns: ${({ $result }) => ($result ? "minmax(0, 1fr) 300px" : "250px minmax(0, 1fr)")}; gap: 18px; padding: 20px 20px 80px; }
+`;
+const PcMain = styled.div` display: flex; flex-direction: column; gap: 16px; min-width: 0; `;
+const PcAside = styled.aside`
+  position: sticky; top: 24px; background: #fff; border: 1px solid ${PC.line}; padding: 24px 22px; box-sizing: border-box; min-height: 320px;
+`;
+const PcAsideTitle = styled.h1` font-size: 23px; font-weight: 800; margin: 0 0 6px; color: ${PC.ink}; `;
+const PcAsideStep = styled.div` font-size: 15px; color: ${PC.ink}; margin-bottom: 18px; line-height: 1.5; b { font-weight: 800; color: ${PC.primary}; } `;
+const PcAsideHead = styled.div` font-size: 15px; font-weight: 800; color: ${PC.ink}; padding: 14px 0 4px; border-top: 1px solid ${PC.line}; `;
+const PcAsideRow = styled.div`
+  display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 10px 0; font-size: 15px; line-height: 1.45;
+  & + & { border-top: 1px solid ${PC.line}; }
+  span { color: ${PC.body}; } b { font-weight: 700; color: ${PC.ink}; word-break: keep-all; overflow-wrap: anywhere; }
+  button { border: none; background: none; padding: 0; font-family: inherit; font-size: 14px; font-weight: 700; color: ${PC.primary}; cursor: pointer; }
+`;
+const PcAsideEmpty = styled.div` font-size: 15px; color: ${PC.body}; line-height: 1.6; padding: 10px 0 0; `;
+const PcAsideActions = styled.div`
+  display: flex; flex-direction: column; margin-top: 16px; padding-top: 4px; border-top: 1px solid ${PC.line};
+  & > button { width: 100%; font-weight: 700; font-size: 16px; }
 `;

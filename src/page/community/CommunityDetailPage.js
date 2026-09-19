@@ -6,8 +6,9 @@ import { IoHeartOutline, IoHeart, IoSendOutline, IoChatbubbleOutline, IoPersonCi
 import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { getPostById, toggleLike, checkLiked, getComments, addComment, increaseViewCount } from "../../service/CommunityService";
+import { getPostById, toggleLike, checkLiked, getComments, addComment, increaseViewCount, getPosts } from "../../service/CommunityService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import usePcWide from "../../hooks/usePcWide";
 
 const CommunityDetailPage = () => {
   const { postId } = useParams();
@@ -27,6 +28,17 @@ const CommunityDetailPage = () => {
   const [replyTo, setReplyTo] = useState(null); // { id, authorName }
   const [loading, setLoading] = useState(true);
   const commentInputRef = useRef(null);
+  const pcWide = usePcWide();
+  const [related, setRelated] = useState([]);   // PC 오른쪽 단 "다른 글" — 읽기만 한다
+
+  useEffect(() => {
+    if (!pcWide || !post) return;
+    let alive = true;
+    getPosts(post.type || "free")
+      .then((list) => { if (alive) setRelated(list.filter((x) => x.id !== post.id).slice(0, 6)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [pcWide, post?.id, post?.type]);
 
   // 조회수 — 글을 열 때 한 번 (많이 본 글 순위용)
   useEffect(() => { if (postId) increaseViewCount(postId); }, [postId]);
@@ -187,6 +199,36 @@ const CommunityDetailPage = () => {
             </SendBtn>
           </InputRow>
         </InputBar>
+
+        {pcWide && (
+          <PcSide>
+            <PcSideCard>
+              <h2>작성자</h2>
+              <PcAuthor>
+                <IoPersonCircle size={44} color="#C9CED6" />
+                <div>
+                  <b>{post.authorName || (post.type === "notice" ? "홈프로" : "익명")}</b>
+                  <span>{formatDate(post.createdAt)} 작성</span>
+                </div>
+              </PcAuthor>
+              <PcFacts>
+                <div><span>조회</span><b>{post.viewCount || 0}</b></div>
+                <div><span>좋아요</span><b>{likeCount}</b></div>
+                <div><span>댓글</span><b>{post.commentCount || 0}</b></div>
+              </PcFacts>
+              <PcListBtn type="button" onClick={() => navigate("/community")}>목록으로</PcListBtn>
+            </PcSideCard>
+            <PcSideCard>
+              <h2>{post.type === "notice" ? "다른 공지" : "다른 글"}</h2>
+              {related.length === 0 ? <PcNone>다른 글이 없습니다.</PcNone> : related.map((r) => (
+                <PcRelRow key={r.id} onClick={() => navigate(`/community/${r.id}`)}>
+                  <b>{r.title}</b>
+                  <span>{r.authorName ? `${r.authorName} · ` : ""}{formatDate(r.createdAt)}</span>
+                </PcRelRow>
+              ))}
+            </PcSideCard>
+          </PcSide>
+        )}
       </PageWrap>
     </SimpleBackLayout>
   );
@@ -201,13 +243,41 @@ const PageWrap = styled.div`
   flex-direction: column;
   min-height: 100%;
   background: ${THEME.surface};
+  /* PC — 본문 단(760) · 오른쪽 작성자/다른 글(320). 댓글 입력칸은 바닥 고정 대신 본문 단 아래에 놓는다 */
+  .pc-mode & {
+    background: #F7F8FA; padding: 30px 32px 80px; box-sizing: border-box;
+    display: grid; grid-template-columns: minmax(0, 760px) 320px; grid-template-rows: auto auto 1fr; gap: 0 24px; align-items: start;
+    @media (max-width: 1240px) { grid-template-columns: minmax(0, 760px); }
+  }
 `;
 
 const ContentArea = styled.div`
   flex: 1;
   padding: 20px 16px;
   padding-bottom: 80px;
+  .pc-mode & { grid-column: 1; grid-row: 1; background: #fff; border: 1px solid #dfe3e8; border-bottom: none; padding: 32px 36px 28px; }
 `;
+
+/* ===== PC 전용 ===== */
+const PcSide = styled.div`
+  grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 20px; min-width: 0; color: #14181F; word-break: keep-all;
+  @media (max-width: 1240px) { grid-column: 1; grid-row: auto; position: static; margin-top: 24px; }
+`;
+const PcSideCard = styled.section` background: #fff; border: 1px solid #dfe3e8; padding: 22px 24px; h2 { font-size: 18px; font-weight: 800; margin: 0 0 14px; } `;
+const PcAuthor = styled.div` display: flex; align-items: center; gap: 12px; div { display: grid; gap: 3px; } b { font-size: 16px; font-weight: 700; } span { font-size: 14px; color: #2b2f36; } `;
+const PcFacts = styled.div`
+  display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border: 1px solid #dfe3e8;
+  div { display: flex; justify-content: space-between; gap: 6px; padding: 10px 12px; font-size: 14px; } div + div { border-left: 1px solid #dfe3e8; } b { font-weight: 700; }
+`;
+const PcListBtn = styled.button`
+  margin-top: 16px; border: 1px solid #dfe3e8; background: #fff; color: #14181F; border-radius: 10px; padding: 11px 18px; cursor: pointer;
+  font-size: 15px; font-weight: 700; font-family: inherit; &:hover { border-color: #14181F; }
+`;
+const PcRelRow = styled.div`
+  display: grid; gap: 4px; padding: 13px 0; border-top: 1px solid #dfe3e8; cursor: pointer;
+  b { font-size: 15px; font-weight: 700; line-height: 1.45; } span { font-size: 14px; color: #2b2f36; } &:hover b { text-decoration: underline; }
+`;
+const PcNone = styled.div` font-size: 15px; padding: 8px 0 4px; `;
 
 const AuthorLine = styled.div`
   display: flex;
@@ -234,6 +304,7 @@ const Title = styled.div`
   margin-top: 16px;
   line-height: 1.4;
   letter-spacing: -0.03em;
+  .pc-mode & { font-size: 26px; font-weight: 800; margin-top: 22px; word-break: keep-all; }
 `;
 
 const Content = styled.div`
@@ -243,6 +314,7 @@ const Content = styled.div`
   margin-top: 12px;
   line-height: 1.7;
   white-space: pre-line;
+  .pc-mode & { color: #2b2f36; margin-top: 18px; line-height: 1.8; word-break: keep-all; }
 `;
 
 const ImageList = styled.div`
@@ -268,6 +340,7 @@ const ActionRow = styled.div`
   margin-right: -16px;
   padding-left: 16px;
   padding-right: 16px;
+  .pc-mode & { margin: 28px 0 0; padding: 0 0 26px; border-bottom: 1px solid #dfe3e8; }
 `;
 
 const ActionBtn = styled.button`
@@ -286,6 +359,7 @@ const ActionBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.7; }
+  .pc-mode & { flex: none; padding: 0 22px; &:hover { border-color: #14181F; } }
 `;
 
 const CommentSection = styled.div`
@@ -305,6 +379,7 @@ const CommentEmpty = styled.div`
   color: ${THEME.muted};
   text-align: center;
   padding: 20px 0;
+  .pc-mode & { color: #14181F; text-align: left; }
 `;
 
 const CommentItem = styled.div`
@@ -324,6 +399,7 @@ const CommentText = styled.div`
   color: ${THEME.textSecondary};
   margin-top: 4px;
   line-height: 1.4;
+  .pc-mode & { color: #2b2f36; line-height: 1.6; }
 `;
 
 const CommentMeta = styled.div`
@@ -337,6 +413,7 @@ const CommentDate = styled.div`
   font-size: 14px;
   font-weight: 400;
   color: ${THEME.muted};
+  .pc-mode & { color: #2b2f36; }
 `;
 
 const ReplyBtn = styled.button`
@@ -360,6 +437,7 @@ const InputBar = styled.div`
   background: ${THEME.surface};
   border-top: 1px solid ${THEME.border};
   z-index: 100;
+  .pc-mode & { position: static; transform: none; max-width: none; grid-column: 1; grid-row: 2; border: 1px solid #dfe3e8; z-index: auto; }
 `;
 
 const ReplyIndicator = styled.div`
@@ -387,6 +465,7 @@ const InputRow = styled.div`
   align-items: center;
   gap: 8px;
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  .pc-mode & { padding: 16px 36px; }
 `;
 
 const CommentInput = styled.input`
@@ -417,6 +496,7 @@ const SendBtn = styled.button`
   flex-shrink: 0;
   &:active { opacity: 0.6; }
   &:disabled { opacity: 0.5; cursor: default; }
+  .pc-mode & { width: 46px; height: 46px; border-radius: 10px; border: 1px solid #dfe3e8; background: #fff; }
 `;
 
 const LoadingWrap = styled.div`

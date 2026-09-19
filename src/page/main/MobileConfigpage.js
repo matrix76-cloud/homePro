@@ -16,6 +16,8 @@ import { db, storage } from "../../api/config";
 import { compressProfileImage } from "../../utility/imageUtils";
 import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade } from "../../utility/gradeUtils";
 import { IoHelpCircleOutline, IoCloseOutline, IoChevronBack } from "react-icons/io5";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 /* ─── 프로필 카드 ─── (기본 프로필 + 비즈프로필 진입을 한 박스로 — 형 리뷰 7/29) */
 const ProfileCard = styled.div`
@@ -145,6 +147,13 @@ const EditScreen = styled.div`
   flex-direction: column;
   max-width: var(--app-max, 400px);
   margin: 0 auto;
+  ${pcOnly`max-width: none; background: rgba(0,0,0,0.45); align-items: center; justify-content: center;`}
+`;
+
+/* 폰에서는 없는 것과 같다(display: contents). PC 에서만 가운데 창 틀이 된다 */
+const EditPanel = styled.div`
+  display: contents;
+  ${pcOnly`display: flex; flex-direction: column; width: 560px; max-width: calc(100% - 48px); max-height: 88%; background: #fff; border: 1px solid ${PC.line};`}
 `;
 
 const EditHeader = styled.div`
@@ -186,6 +195,7 @@ const EditBody = styled.div`
   flex: 1;
   overflow-y: auto;
   padding: 28px 20px 40px;
+  ${pcOnly`padding: 28px 30px 32px;`}
 `;
 
 const EditPhotoWrap = styled.div`
@@ -451,6 +461,7 @@ const WithdrawOverlay = styled.div`
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  ${pcOnly`align-items: center;`}
 `;
 
 const WithdrawSheet = styled.div`
@@ -462,6 +473,7 @@ const WithdrawSheet = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
+  ${pcOnly`max-width: 480px; border-radius: 0; border: 1px solid ${PC.line}; padding: 28px 30px;`}
 `;
 
 const WithdrawTitle = styled.div`
@@ -924,6 +936,7 @@ const MobileConfigpage = () => {
   const [proCategories] = useAtom(proCategoriesAtom);
   const [showEditModal, setShowEditModal] = useState(false);
   const uid = userData?.uid || user?.USERS_ID;
+  const pcWide = usePcWide();
 
   const nickname = user?.USERINFO?.nickname || userData?.nickname || userData?.name || "사용자";
   const userimg = user?.USERINFO?.userimg || userData?.profileImage || userData?.photoURL || "";
@@ -1070,51 +1083,13 @@ const MobileConfigpage = () => {
     navigate("/MobileLogin", { replace: true });
   };
 
-  return (
-    <MyPageLayout name="마이페이지">
-      {/* 프로필 (기본 프로필 + 비즈프로필을 한 박스로 — 형 리뷰 7/29) */}
-      <ProfileCard>
-        <ProfileTopRow onClick={handleOpenEdit}>
-          <ProfileImgWrap>
-            {userimg ? (
-              <ProfileImg src={userimg} alt="profile" />
-            ) : (
-              <ProfilePlaceholder>
-                <IoPersonCircleOutline size={60} color={THEME.border} />
-              </ProfilePlaceholder>
-            )}
-          </ProfileImgWrap>
-          <ProfileInfo>
-            <ProfileNameRow>
-              <ProfileName>{nickname}</ProfileName>
-              <GradeBadge grade={userData?.grade} size="sm" />
-              <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }}>
-                <IoHelpCircleOutline size={16} color={THEME.muted} />
-              </GradeHelpBtn>
-            </ProfileNameRow>
-            <ProfileSub>
-              {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
-            </ProfileSub>
-            {intro && <ProfileIntro>{intro}</ProfileIntro>}
-          </ProfileInfo>
-        </ProfileTopRow>
-        <ProfileDivider />
-        {/* 프로필·비즈프로필 정리 (대표 9/15 리뷰) — 두 진입을 같은 모양의 버튼 두 개로 나란히, 무엇이 다른지 한 줄로 */}
-        <ProfileActionRow>
-          <ProfileActionBtn type="button" onClick={handleOpenEdit}>
-            <strong>기본 프로필</strong>
-            <span>사진·닉네임·소개</span>
-          </ProfileActionBtn>
-          <ProfileActionBtn type="button" onClick={() => navigate("/biz-profile")}>
-            <strong>비즈프로필</strong>
-            <span>인증·포트폴리오·정산계좌</span>
-          </ProfileActionBtn>
-        </ProfileActionRow>
-      </ProfileCard>
-
+  /* 아래 세 덩어리는 폰·PC 가 같이 쓴다 (PC 에서는 배치만 다르다) */
+  const profileOverlays = (
+    <>
       {/* 프로필 편집 — 창 대신 화면 한 장 (시안 4번, 형 9/18) */}
       {showEditModal && (
         <EditScreen>
+          <EditPanel>
           <EditHeader>
             <EditBackBtn type="button" onClick={() => setShowEditModal(false)} aria-label="뒤로">
               <IoChevronBack size={24} color={THEME.text} />
@@ -1169,6 +1144,7 @@ const MobileConfigpage = () => {
               maxLength={200}
             />
           </EditBody>
+          </EditPanel>
         </EditScreen>
       )}
 
@@ -1203,6 +1179,233 @@ const MobileConfigpage = () => {
           </GradeSheetContent>
         </GradeSheetOverlay>
       )}
+    </>
+  );
+
+  const withdrawSheet = (
+    <>
+      {showWithdraw && (
+        <WithdrawOverlay onClick={() => !withdrawing && setShowWithdraw(false)}>
+          <WithdrawSheet onClick={(e) => e.stopPropagation()}>
+            <WithdrawTitle>정말 탈퇴하시겠어요</WithdrawTitle>
+            <WithdrawDesc>
+              탈퇴하면 보유 포인트와 등급이 모두 사라지고 되돌릴 수 없습니다.
+              진행 중인 오더가 있으면 마무리한 뒤에 탈퇴해 주세요.
+            </WithdrawDesc>
+            <WithdrawDesc>
+              계속하시려면 아래 칸에 <b>{WITHDRAW_WORD}</b> 라고 그대로 입력해 주세요.
+            </WithdrawDesc>
+            <WithdrawInput
+              value={withdrawText}
+              onChange={(e) => setWithdrawText(e.target.value)}
+              placeholder={WITHDRAW_WORD}
+              disabled={withdrawing}
+            />
+            <WithdrawBtnRow>
+              <WithdrawCancel type="button" onClick={() => setShowWithdraw(false)} disabled={withdrawing}>
+                그만두기
+              </WithdrawCancel>
+              <WithdrawGo
+                type="button"
+                onClick={handleWithdraw}
+                disabled={withdrawing || withdrawText.trim() !== WITHDRAW_WORD}
+              >
+                {withdrawing ? "처리 중..." : "탈퇴하기"}
+              </WithdrawGo>
+            </WithdrawBtnRow>
+          </WithdrawSheet>
+        </WithdrawOverlay>
+      )}
+    </>
+  );
+
+  const companyFooter = (
+    <>
+      {companyInfo && (
+        <CompanyFooter>
+          <CompanyTitle>사업자 정보</CompanyTitle>
+              {companyInfo.companyName && <span>상호명 : {companyInfo.companyName}</span>}
+              {(companyInfo.ceo || companyInfo.privacyOfficer) && (
+                <span>
+                  {companyInfo.ceo ? `대표이사 : ${companyInfo.ceo}` : ""}
+                  {companyInfo.ceo && companyInfo.privacyOfficer ? "\u00a0\u00a0\u00a0" : ""}
+                  {companyInfo.privacyOfficer ? `개인정보책임관리자 : ${companyInfo.privacyOfficer}` : ""}
+                </span>
+              )}
+              {companyInfo.address && <span>주소 : {companyInfo.address}</span>}
+              {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
+              {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
+              <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
+              {(companyInfo.phone || companyInfo.email) && (
+                <span>
+                  {companyInfo.phone ? `고객센터 : ${companyInfo.phone}` : ""}
+                  {companyInfo.phone && companyInfo.email ? "\u00a0\u00a0\u00a0" : ""}
+                  {companyInfo.email ? `이메일 : ${companyInfo.email}` : ""}
+                </span>
+              )}
+              <span style={{ marginTop: 6, opacity: 0.75 }}>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</span>
+        </CompanyFooter>
+      )}
+    </>
+  );
+
+  /* ─── PC: 왼쪽 프로필 단 + 오른쪽 주제별 메뉴 타일 (폰 화면은 아래 return 그대로) ─── */
+  if (pcWide) {
+    const isBiz = userData?.userType !== "customer";
+    const tier = getAccessTier(userData);
+    const subLine = tier === "tier0" ? "구독 중 · 0차수" : `미구독 · ${tier === "tier1" ? "1차수 (2만P 보유)" : "2차수"}`;
+    const sections = [
+      {
+        title: "홈프로 활동",
+        items: [
+          { t: "홈프로 리스트", d: "등록된 홈프로를 분야별로 찾아봅니다", to: "/pro/list" },
+          isBiz && { t: "구독 관리", d: subLine, dColor: tier === "tier0" ? "#15803d" : null, to: "/subscription" },
+          isBiz && { t: "사업자도구 · PG결제", d: "결제링크로 고객에게 직접 결제받기", to: "/mypage/pg" },
+          { t: "기술전수 수강생모집", d: "교육 공고를 등록하고 수강생을 모집하세요", to: "/education-market?seg=training&only=1" },
+          { t: "거래장터", d: "양도·매매와 자재·장비 장터를 확인하세요", to: "/education-market?seg=market&only=1" },
+          { t: "커뮤니티", d: "홈프로끼리 묻고 답하는 게시판", to: "/community" },
+        ].filter(Boolean),
+      },
+      {
+        title: "홈프로 가이드",
+        sub: "'이대로만 따라해요!' 홈프로를 위한 안내서",
+        cols: 5,
+        items: [
+          { t: "첫 견적 보내기", d: "이렇게 하면 쉬워요", to: "/guide/1" },
+          { t: "고객 리뷰 늘리기", d: "가장 효과적인 방법", to: "/guide/2" },
+          { t: "홈프로캐시 보상", d: "언제 이루어지나요?", to: "/guide/3" },
+          { t: "프로필 사진", d: "이렇게 찍으세요", to: "/guide/4" },
+          { t: "등급 시스템", d: "포인트로 올리세요", to: "/guide/5" },
+        ],
+      },
+      {
+        title: "차단 관리",
+        items: [
+          { t: "블랙리스트 게시판", d: "신고된 업체를 모두가 볼 수 있는 공개 게시판", to: "/blacklist-board" },
+          { t: "나의 블랙리스트 신고", d: "내가 신고한 건과 처리 상태", to: "/mypage/blacklist" },
+          { t: "나의 거부 목록", d: "오더 공유·수락을 거부한 사용자", to: "/mypage/blocks" },
+        ],
+      },
+      {
+        title: "설정 · 고객지원",
+        items: [
+          { t: "앱 설정", d: "알림·방해 금지 시간·다크모드", to: "/mypage/app-settings" },
+          isBiz && { t: "결제 내역 (구독·보험)", d: "토스로 결제한 구독료와 보험료", to: "/mypage/payments" },
+          { t: "고객센터", d: "자주 묻는 질문과 1:1 문의", to: "/support" },
+          { t: "이용약관", d: "홈프로 서비스 이용약관", to: "/legal/terms" },
+          { t: "개인정보처리방침", d: "개인정보를 다루는 기준", to: "/legal/privacy" },
+          { t: "위치기반서비스 이용약관", d: "위치 정보 이용 기준", to: "/legal/location" },
+          { t: "버전 정보", d: `v${APP_VERSION}`, to: null },
+        ].filter(Boolean),
+      },
+    ];
+    return (
+      <MyPageLayout name="마이페이지">
+        <PcWrap>
+          <PcSide>
+            <PcSideCard>
+              <PcProfileTop onClick={handleOpenEdit}>
+                {userimg ? <ProfileImg src={userimg} alt="profile" style={{ width: 72, height: 72 }} /> : <IoPersonCircleOutline size={72} color={THEME.border} />}
+                <div style={{ minWidth: 0 }}>
+                  <ProfileNameRow>
+                    <PcName>{nickname}</PcName>
+                    <GradeBadge grade={userData?.grade} size="sm" />
+                    <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }} aria-label="등급 안내">
+                      <IoHelpCircleOutline size={18} color={PC.body} />
+                    </GradeHelpBtn>
+                  </ProfileNameRow>
+                  <PcLine>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}{userData?.userType === "business" ? " · 사업자회원" : userData?.userType === "customer" ? " · 일반고객" : ""}</PcLine>
+                </div>
+              </PcProfileTop>
+              {intro && <PcIntro>{intro}</PcIntro>}
+              <PcSideBtns>
+                <PcSideBtn type="button" onClick={handleOpenEdit}><strong>기본 프로필</strong><span>사진·닉네임·소개</span></PcSideBtn>
+                <PcSideBtn type="button" onClick={() => navigate("/biz-profile")}><strong>비즈프로필</strong><span>인증·포트폴리오·정산계좌</span></PcSideBtn>
+              </PcSideBtns>
+            </PcSideCard>
+
+            <PcSideCard>
+              <PcSideHead>
+                <b>정산</b>
+                <PcTextBtn type="button" onClick={() => navigate("/referral/points")}>자세히 보기</PcTextBtn>
+              </PcSideHead>
+              <PcLine style={{ marginBottom: 12 }}>수익과 정산 현황을 확인하세요</PcLine>
+              <PcKv><span>이번달 수익</span><b>0원</b></PcKv>
+              <PcKv><span>정산 대기</span><b>0원</b></PcKv>
+            </PcSideCard>
+          </PcSide>
+
+          <PcMain>
+            {sections.map((sec) => (
+              <PcSection key={sec.title}>
+                <PcSecTitle>{sec.title}{sec.sub && <span>{sec.sub}</span>}</PcSecTitle>
+                <PcTiles $n={sec.cols}>
+                  {sec.items.map((it) => (
+                    <PcTile key={it.t} as={it.to ? "button" : "div"} type={it.to ? "button" : undefined} $static={!it.to} onClick={it.to ? () => navigate(it.to) : undefined}>
+                      <strong>{it.t}</strong>
+                      <span style={it.dColor ? { color: it.dColor, fontWeight: 700 } : null}>{it.d}</span>
+                    </PcTile>
+                  ))}
+                </PcTiles>
+              </PcSection>
+            ))}
+
+            <PcEndRow>
+              <PcTextBtn type="button" style={{ color: THEME.danger }} onClick={handleLogout}>로그아웃</PcTextBtn>
+              <PcTextBtn type="button" onClick={() => { setShowWithdraw(true); setWithdrawText(""); }}>탈퇴하기</PcTextBtn>
+            </PcEndRow>
+            <PcFooterBox>{companyFooter}</PcFooterBox>
+          </PcMain>
+        </PcWrap>
+        {profileOverlays}
+        {withdrawSheet}
+      </MyPageLayout>
+    );
+  }
+
+  return (
+    <MyPageLayout name="마이페이지">
+      {/* 프로필 (기본 프로필 + 비즈프로필을 한 박스로 — 형 리뷰 7/29) */}
+      <ProfileCard>
+        <ProfileTopRow onClick={handleOpenEdit}>
+          <ProfileImgWrap>
+            {userimg ? (
+              <ProfileImg src={userimg} alt="profile" />
+            ) : (
+              <ProfilePlaceholder>
+                <IoPersonCircleOutline size={60} color={THEME.border} />
+              </ProfilePlaceholder>
+            )}
+          </ProfileImgWrap>
+          <ProfileInfo>
+            <ProfileNameRow>
+              <ProfileName>{nickname}</ProfileName>
+              <GradeBadge grade={userData?.grade} size="sm" />
+              <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }}>
+                <IoHelpCircleOutline size={16} color={THEME.muted} />
+              </GradeHelpBtn>
+            </ProfileNameRow>
+            <ProfileSub>
+              {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
+            </ProfileSub>
+            {intro && <ProfileIntro>{intro}</ProfileIntro>}
+          </ProfileInfo>
+        </ProfileTopRow>
+        <ProfileDivider />
+        {/* 프로필·비즈프로필 정리 (대표 9/15 리뷰) — 두 진입을 같은 모양의 버튼 두 개로 나란히, 무엇이 다른지 한 줄로 */}
+        <ProfileActionRow>
+          <ProfileActionBtn type="button" onClick={handleOpenEdit}>
+            <strong>기본 프로필</strong>
+            <span>사진·닉네임·소개</span>
+          </ProfileActionBtn>
+          <ProfileActionBtn type="button" onClick={() => navigate("/biz-profile")}>
+            <strong>비즈프로필</strong>
+            <span>인증·포트폴리오·정산계좌</span>
+          </ProfileActionBtn>
+        </ProfileActionRow>
+      </ProfileCard>
+
+      {profileOverlays}
 
       {/* 정산 — 포인트·초대는 홈 보유자산 탭과 겹쳐서 뺐다 (대표 9/17) */}
       <ContentCard>
@@ -1386,64 +1589,9 @@ const MobileConfigpage = () => {
 
       <WithdrawLink type="button" onClick={() => { setShowWithdraw(true); setWithdrawText(""); }}>탈퇴하기</WithdrawLink>
 
-      {showWithdraw && (
-        <WithdrawOverlay onClick={() => !withdrawing && setShowWithdraw(false)}>
-          <WithdrawSheet onClick={(e) => e.stopPropagation()}>
-            <WithdrawTitle>정말 탈퇴하시겠어요</WithdrawTitle>
-            <WithdrawDesc>
-              탈퇴하면 보유 포인트와 등급이 모두 사라지고 되돌릴 수 없습니다.
-              진행 중인 오더가 있으면 마무리한 뒤에 탈퇴해 주세요.
-            </WithdrawDesc>
-            <WithdrawDesc>
-              계속하시려면 아래 칸에 <b>{WITHDRAW_WORD}</b> 라고 그대로 입력해 주세요.
-            </WithdrawDesc>
-            <WithdrawInput
-              value={withdrawText}
-              onChange={(e) => setWithdrawText(e.target.value)}
-              placeholder={WITHDRAW_WORD}
-              disabled={withdrawing}
-            />
-            <WithdrawBtnRow>
-              <WithdrawCancel type="button" onClick={() => setShowWithdraw(false)} disabled={withdrawing}>
-                그만두기
-              </WithdrawCancel>
-              <WithdrawGo
-                type="button"
-                onClick={handleWithdraw}
-                disabled={withdrawing || withdrawText.trim() !== WITHDRAW_WORD}
-              >
-                {withdrawing ? "처리 중..." : "탈퇴하기"}
-              </WithdrawGo>
-            </WithdrawBtnRow>
-          </WithdrawSheet>
-        </WithdrawOverlay>
-      )}
+      {withdrawSheet}
 
-      {companyInfo && (
-        <CompanyFooter>
-          <CompanyTitle>사업자 정보</CompanyTitle>
-              {companyInfo.companyName && <span>상호명 : {companyInfo.companyName}</span>}
-              {(companyInfo.ceo || companyInfo.privacyOfficer) && (
-                <span>
-                  {companyInfo.ceo ? `대표이사 : ${companyInfo.ceo}` : ""}
-                  {companyInfo.ceo && companyInfo.privacyOfficer ? "\u00a0\u00a0\u00a0" : ""}
-                  {companyInfo.privacyOfficer ? `개인정보책임관리자 : ${companyInfo.privacyOfficer}` : ""}
-                </span>
-              )}
-              {companyInfo.address && <span>주소 : {companyInfo.address}</span>}
-              {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
-              {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
-              <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
-              {(companyInfo.phone || companyInfo.email) && (
-                <span>
-                  {companyInfo.phone ? `고객센터 : ${companyInfo.phone}` : ""}
-                  {companyInfo.phone && companyInfo.email ? "\u00a0\u00a0\u00a0" : ""}
-                  {companyInfo.email ? `이메일 : ${companyInfo.email}` : ""}
-                </span>
-              )}
-              <span style={{ marginTop: 6, opacity: 0.75 }}>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</span>
-        </CompanyFooter>
-      )}
+      {companyFooter}
 
       <BottomSpacer />
     </MyPageLayout>
@@ -1451,6 +1599,60 @@ const MobileConfigpage = () => {
 };
 
 export default MobileConfigpage;
+
+/* ─── PC 배치 (pcWide 일 때만 그려진다) ─── */
+const PcWrap = styled.div`
+  max-width: 1180px; margin: 0 auto; padding: 28px 32px 80px; box-sizing: border-box; color: ${PC.ink}; word-break: keep-all;
+  display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start;
+  @media (max-width: 1240px) { grid-template-columns: 300px minmax(0, 1fr); padding: 24px 24px 60px; }
+  @media (max-width: 1040px) { grid-template-columns: minmax(0, 1fr); }
+`;
+const PcSide = styled.div`
+  position: sticky; top: 24px; display: grid; gap: 16px;
+  @media (max-width: 1040px) { position: static; }
+`;
+const PcSideCard = styled.section` background: #fff; border: 1px solid ${PC.line}; padding: 24px; `;
+const PcProfileTop = styled.div` display: flex; align-items: center; gap: 16px; cursor: pointer; `;
+const PcName = styled.div` font-size: 21px; font-weight: 800; color: ${PC.ink}; `;
+const PcLine = styled.div` font-size: 15px; color: ${PC.body}; margin-top: 4px; line-height: 1.5; `;
+const PcIntro = styled.div` font-size: 15px; color: ${PC.body}; line-height: 1.6; margin-top: 16px; white-space: pre-wrap; `;
+const PcSideBtns = styled.div` display: grid; gap: 10px; margin-top: 20px; `;
+const PcSideBtn = styled.button`
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; text-align: left;
+  border: 1px solid ${PC.line}; background: #fff; padding: 14px 16px; cursor: pointer; font-family: inherit;
+  strong { font-size: 16px; font-weight: 700; color: ${PC.ink}; } span { font-size: 14px; color: ${PC.body}; }
+  &:hover { border-color: ${PC.ink}; }
+`;
+const PcSideHead = styled.div` display: flex; align-items: center; justify-content: space-between; b { font-size: 18px; font-weight: 800; } `;
+const PcKv = styled.div`
+  display: grid; grid-template-columns: 120px minmax(0, 1fr); border: 1px solid ${PC.line}; font-size: 15px;
+  & + & { border-top: none; }
+  span { background: ${PC.head}; padding: 11px 14px; font-weight: 600; } b { padding: 11px 14px; font-weight: 700; text-align: right; }
+`;
+const PcTextBtn = styled.button`
+  border: none; background: none; padding: 6px 2px; font-size: 15px; font-weight: 600; font-family: inherit; color: ${PC.ink};
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+`;
+const PcMain = styled.div` display: grid; gap: 28px; min-width: 0; `;
+const PcSection = styled.section``;
+const PcSecTitle = styled.h2`
+  font-size: 18px; font-weight: 800; margin: 0 0 12px; color: ${PC.ink};
+  span { font-size: 15px; font-weight: 500; margin-left: 12px; color: ${PC.body}; }
+`;
+const PcTiles = styled.div`
+  display: grid; grid-template-columns: repeat(${({ $n }) => $n || 3}, minmax(0, 1fr)); gap: 12px;
+  @media (max-width: 1240px) { grid-template-columns: repeat(${({ $n }) => ($n === 5 ? 3 : 2)}, minmax(0, 1fr)); }
+`;
+const PcTile = styled.button`
+  display: flex; flex-direction: column; gap: 6px; text-align: left; min-height: 92px; box-sizing: border-box;
+  background: #fff; border: 1px solid ${PC.line}; padding: 18px 20px; font-family: inherit;
+  cursor: ${({ $static }) => ($static ? "default" : "pointer")};
+  strong { font-size: 17px; font-weight: 700; color: ${PC.ink}; }
+  span { font-size: 15px; color: ${PC.body}; line-height: 1.5; }
+  &:hover { border-color: ${({ $static }) => ($static ? PC.line : PC.ink)}; }
+`;
+const PcEndRow = styled.div` display: flex; gap: 24px; justify-content: flex-end; padding-top: 4px; border-top: 1px solid ${PC.line}; padding-top: 18px; `;
+const PcFooterBox = styled.div` & > div { margin: 0; color: ${PC.body}; } `;
 
 /* ── 등급 안내 바텀시트 ── */
 const GradeHelpBtn = styled.button`
@@ -1475,12 +1677,14 @@ const GradeSheetOverlay = styled.div`
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  ${pcOnly`align-items: center;`}
 `;
 
 const GradeSheetContent = styled.div`
   width: 100%;
   background: #fff;
   border-radius: 16px 16px 0 0;
+  ${pcOnly`width: 460px; border-radius: 0; border: 1px solid ${PC.line}; animation: none;`}
   animation: gradeUp 0.25s ease-out;
   @keyframes gradeUp {
     from { transform: translateY(100%); }
@@ -1494,6 +1698,7 @@ const GradeSheetHandle = styled.div`
   border-radius: 2px;
   background: ${THEME.border};
   margin: 10px auto 0;
+  ${pcOnly`display: none;`}
 `;
 
 const GradeSheetHeader = styled.div`

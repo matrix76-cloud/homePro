@@ -22,6 +22,7 @@ import {
   MARKET_COLLECTION, STATUSES, INCLUDE_OPTIONS, getCategory, getStatus,
   premiumText, rentText, regionText, timeAgo, TabBox, TabItem,
 } from "./MarketplaceShared";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const MarketplaceDetailPage = () => {
   const navigate = useNavigate();
@@ -229,6 +230,18 @@ const MarketplaceDetailPage = () => {
           </>
         )}
 
+        {/* 폰: 영향 없는 틀(display: contents) / PC: 오른쪽 고정 패널 — 금액·등록자 + 실행 버튼 */}
+        <Side>
+        <SideSummary>
+          <StatusText style={{ color: st.color }}>{st.label}</StatusText>
+          <SidePrice>{premiumText(post)}</SidePrice>
+          {rent && <SideRent>{rent}</SideRent>}
+          <div style={{ marginTop: 14 }}>
+          <SideRow><span>거래 형태</span><b>{cat.formLabel || cat.tag}</b></SideRow>
+          <SideRow><span>지역</span><b>{regionText(post)}</b></SideRow>
+          <SideRow><span>등록자</span><b>{loggedIn ? post.writer || "등록자" : "로그인 후 확인"}</b></SideRow>
+          </div>
+        </SideSummary>
         {isOwner ? (
           <Card>
             <SecTitle>거래 상태 변경</SecTitle>
@@ -252,6 +265,7 @@ const MarketplaceDetailPage = () => {
             <OutlineBtn type="button" style={{ marginTop: 8 }} onClick={handleCall}>전화하기</OutlineBtn>
           </Actions>
         )}
+        </Side>
 
         <Disclaimer>
           홈프로는 정보 등록·연결 서비스이며 거래 당사자가 아닙니다. 계약 전 매출 자료·임대차 계약·거래처 현황을 직접 확인하고,
@@ -270,6 +284,11 @@ const Wrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
   padding: 12px 16px 48px;
+  /* PC: 좌우 2단 — 왼쪽 내용 / 오른쪽 고정 패널 */
+  ${pcOnly`
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 24px; align-items: start; align-content: start;
+    min-height: 0; padding: 24px 32px 80px; box-sizing: border-box; word-break: keep-all;
+  `}
 `;
 const CenterMsg = styled.div`
   padding: 60px 20px;
@@ -281,6 +300,7 @@ const PhotoBox = styled.div`
   margin-bottom: 10px;
   background: #fff;
   border: 1px solid #e2e5ea;
+  ${pcOnly`border-color: ${PC.line}; margin-bottom: 16px;`}
 `;
 const MainImg = styled.img`
   width: 100%;
@@ -288,6 +308,7 @@ const MainImg = styled.img`
   object-fit: contain;
   display: block;
   background: #111;
+  ${pcOnly`height: 420px; max-height: none; background: #eef0f3;`}
 `;
 const ThumbRow = styled.div`
   display: flex;
@@ -315,6 +336,21 @@ const Card = styled.div`
   border: 1px solid #e2e5ea;
   padding: 16px;
   margin-bottom: 10px;
+  ${pcOnly`border-color: ${PC.line}; padding: 26px 28px; margin-bottom: 16px;`}
+`;
+const Side = styled.div`
+  display: contents;
+  ${pcOnly`
+    display: block; grid-column: 2; grid-row: 1 / span 40; position: sticky; top: 24px; /* 나머지 자식은 자동으로 왼쪽 칸에 쌓인다 */
+    background: #fff; border: 1px solid ${PC.line}; padding: 24px 24px 22px; box-sizing: border-box;
+    & > ${Card} { border: none; border-top: 1px solid ${PC.line}; padding: 18px 0 0; margin: 16px 0 0; }
+  `}
+`;
+const SideSummary = styled.div` display: none; ${pcOnly`display: block;`} `;
+const SidePrice = styled.div` font-size: 24px; font-weight: 800; color: ${PC.ink}; margin: 6px 0 2px; line-height: 1.35; letter-spacing: -0.3px; `;
+const SideRow = styled.div`
+  display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid ${PC.line}; font-size: 15px; color: ${PC.ink};
+  span { flex: none; } b { font-weight: 700; text-align: right; line-height: 1.45; }
 `;
 const TopLine = styled.div`
   display: flex;
@@ -351,12 +387,15 @@ const Price = styled.div`
   font-weight: 800;
   color: ${THEME.text};
   letter-spacing: -0.3px;
+  ${pcOnly`display: none;`} /* PC 는 오른쪽 패널에 금액 */
 `;
 const Rent = styled.div`
   margin-top: 2px;
   font-size: 15px;
   color: ${THEME.textSecondary};
+  ${pcOnly`display: none;`}
 `;
+const SideRent = styled.div` font-size: 15px; color: ${PC.body}; `;
 const SecTitle = styled.div`
   font-size: 17px;
   font-weight: 700;
@@ -374,6 +413,7 @@ const Key = styled.div`
   flex: 0 0 96px;
   font-size: 15px;
   color: ${THEME.muted};
+  ${pcOnly`flex-basis: 140px; font-size: 16px; color: ${PC.body};`}
 `;
 const Val = styled.div`
   flex: 1;
@@ -381,12 +421,14 @@ const Val = styled.div`
   font-weight: 600;
   color: ${THEME.text};
   word-break: break-word;
+  ${pcOnly`font-size: 16px;`}
 `;
 const IncGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   @media (max-width: 360px) { grid-template-columns: 1fr; }
+  ${pcOnly`grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;`}
 `;
 const IncItem = styled.div`
   padding: 10px;
@@ -409,6 +451,7 @@ const Body = styled.div`
   color: ${THEME.text};
   white-space: pre-wrap;
   word-break: break-word;
+  ${pcOnly`font-size: 16px;`}
 `;
 const LockText = styled.div`
   font-size: 15px;
@@ -441,6 +484,7 @@ const AuthorName = styled.div`
 `;
 const Actions = styled.div`
   margin: 14px 0 10px;
+  ${pcOnly`margin: 16px 0 0; padding-top: 16px; border-top: 1px solid ${PC.line};`}
 `;
 const PrimaryBtn = styled.button`
   width: 100%;
@@ -476,6 +520,7 @@ const Disclaimer = styled.div`
   line-height: 1.6;
   color: ${THEME.muted};
   word-break: keep-all;
+  ${pcOnly`color: ${PC.body}; padding: 0 2px;`}
 `;
 const Toast = styled.div`
   position: fixed;

@@ -10,6 +10,8 @@ import { IoShieldOutline, IoImageOutline, IoCloseOutline } from "react-icons/io5
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { getBlacklistBoard, BLACKLIST_STATUS_LABEL } from "../../service/BlacklistService";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC, PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const formatDate = (ts) => {
   const d = ts?.toDate?.();
@@ -22,6 +24,7 @@ const BlacklistBoardPage = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imgView, setImgView] = useState(null); // 증빙 이미지 열람
+  const pcWide = usePcWide();
 
   useEffect(() => {
     getBlacklistBoard()
@@ -38,7 +41,36 @@ const BlacklistBoardPage = () => {
           관리자가 증빙을 확인하여 중대 사안으로 판단되면 해당 사용자의 오더 작성 및 수락 권한이 차단됩니다.
         </NoticeBox>
 
-        {loading ? (
+        {pcWide ? (
+          <PcTable>
+            <PcTHead $cols={BOARD_COLS}><span>등록일</span><span>업체명</span><span>전화번호</span><span>신고 사유 · 내용</span><span>증빙</span><span>상태</span></PcTHead>
+            {loading && <PcEmpty><b>불러오는 중...</b></PcEmpty>}
+            {!loading && reports.length === 0 && <PcEmpty><b>등록된 블랙리스트가 없습니다</b><span>신고가 접수되면 마스킹된 정보로 이곳에 공개됩니다.</span></PcEmpty>}
+            {reports.map((r) => (
+              <PcTRow key={r.id} $cols={BOARD_COLS} $click={false} style={{ alignItems: "start" }}>
+                <span>{formatDate(r.createdAt)}</span>
+                <b>{r.targetNameMasked || "미확인"}</b>
+                <span>{r.targetPhoneMasked || "미등록"}</span>
+                <span style={{ lineHeight: 1.55 }}>
+                  <b>{r.reasonType || r.reason || "기타"}</b>
+                  {r.content && <><br /><span style={{ whiteSpace: "pre-wrap" }}>{r.content}</span></>}
+                </span>
+                <span>
+                  {Array.isArray(r.imgs) && r.imgs.length > 0 ? (
+                    <EvidenceRow style={{ marginTop: 0, flexWrap: "wrap" }}>
+                      {r.imgs.map((src, i) => (
+                        <EvidenceThumb key={i} onClick={() => setImgView(src)}><img src={src} alt={`증빙 ${i + 1}`} /></EvidenceThumb>
+                      ))}
+                    </EvidenceRow>
+                  ) : "-"}
+                </span>
+                <span style={{ fontWeight: 700, color: r.status === "confirmed" ? "#EF4444" : PC.ink }}>
+                  {BLACKLIST_STATUS_LABEL[r.status] || BLACKLIST_STATUS_LABEL.pending}
+                </span>
+              </PcTRow>
+            ))}
+          </PcTable>
+        ) : loading ? (
           <EmptyText>불러오는 중...</EmptyText>
         ) : reports.length === 0 ? (
           <EmptyWrap>
@@ -89,9 +121,11 @@ const BlacklistBoardPage = () => {
 
 export default BlacklistBoardPage;
 
+const BOARD_COLS = "120px minmax(140px, 1fr) 150px minmax(280px, 2.4fr) 190px 130px";
 const PageWrap = styled.div`
   padding: 16px 12px;
   min-height: 60vh;
+  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; word-break: keep-all;`}
 `;
 const NoticeBox = styled.div`
   font-size: 13px; color: ${THEME.muted}; line-height: 1.55;
@@ -99,6 +133,7 @@ const NoticeBox = styled.div`
   border-radius: 16px;
   padding: 14px 16px;
   margin-bottom: 12px;
+  ${pcOnly`font-size: 15px; color: ${PC.ink}; border-radius: 0; border-color: ${PC.line}; padding: 16px 20px; margin-bottom: 18px;`}
 `;
 const EmptyWrap = styled.div`
   display: flex; flex-direction: column; align-items: center; gap: 8px;

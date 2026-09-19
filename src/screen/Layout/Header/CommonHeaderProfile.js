@@ -19,9 +19,11 @@ const HeaderWrapper = styled.div`
   align-items: center;
   justify-content: center;
   padding: 0 16px;
+  .pc-mode & { justify-content: flex-start; padding: 0 32px; } /* PC 제목 줄 — 다른 헤더와 같이 왼쪽 굵게 */
 `;
 
 const Title = styled.div`
+  .pc-mode & { font-size: 22px; font-weight: 800; }
   font-size: 20px;
   font-weight: 400;
   color: ${THEME.text};

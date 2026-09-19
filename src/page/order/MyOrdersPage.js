@@ -13,6 +13,14 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import { IoChatbubbleEllipsesOutline, IoCalendarOutline, IoListOutline, IoCloseOutline } from "react-icons/io5";
+import usePcWide from "../../hooks/usePcWide";
+import { PC, pcOnly, PcFilterRow, PcField, PcTable, PcTHead, PcEmpty, PcGhostBtn } from "../../pc/pcKit";
+
+/* PC 표의 상태 글씨 색 (뱃지 대신 글씨색만) */
+const PC_STATUS_COLOR = { "접수": "#00963F", "대기": "#2b2f36", "선정대기": "#B45309", "배정": "#A16207", "완료": "#2563EB", "취소": "#E5484D" };
+/* PC 표 칸: 작업일 · 상태 · 구분 · 서비스 · 지역/주소 · 금액 · 상대 · 실행 */
+const PC_COLS = "88px 68px 80px minmax(0, 1.25fr) minmax(0, 1fr) 150px 96px 164px";
+const locationText = (order) => (typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" "));
 
 /* ─── 지난오더조회 옵션 (사양: 당일/어제/3일/1주/2주/1개월/3개월/6개월) ─── */
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "3일", "지난1주일", "지난2주일", "지난1개월", "지난3개월", "지난6개월"];
@@ -135,6 +143,7 @@ const formatChatTime = (ts) => {
 /* 탭 내장용 콘텐츠 컴포넌트 */
 export const MyOrdersContent = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const uid = user?.uid || userData?.uid || user?.USERS_ID;
@@ -361,8 +370,225 @@ export const MyOrdersContent = () => {
     }
   };
 
+  // 그 오더에서 지금 누를 수 있는 버튼들 — 폰 카드와 PC 표가 같이 쓴다
+  const renderActions = (order, displayStatus, chats, cat) => (
+    <>
+      {/* 상태 변경 버튼 */}
+      {displayStatus === "배정" && (
+        <ActionRow>
+          {/* 접수자도 현장 진행 상황(체크인 사진·위치)을 볼 수 있게 */}
+          {order.createdBy === uid && order.checkInAt && (
+            <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록</ActionBtn>
+          )}
+          {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
+          {order.matchedProUid === uid && (
+            <>
+              {/* 견적서는 1회만 전송 (의뢰인 확정: 수정·재전송 불가) — 미전송 시에만 버튼 노출 */}
+              {UNPRICED_TYPES.includes(order.b2bPriceType) && !order.onsiteQuotedPrice && (
+                <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(""); setNotifyMsg(""); }}>
+                  견적서 전송
+                </ActionBtn>
+              )}
+              {/* 정보공유 오더는 체크인 생략 — 리드 확인 후 계약 성사로 완료 처리 (대표 지시 8/20). 리워드·인센티브 지급은 결제 연동 뒤 */}
+              {order.b2bPriceType === "info" ? (
+                <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>계약 성사(완료)</ActionBtn>
+              ) : /* 현장 인증(대표 지시 8/4) — 체크인 전에는 체크인부터, 체크아웃은 After 사진과 함께 현장기록 화면에서 처리 */
+              !order.checkInAt ? (
+                <ActionBtn
+                  $variant="primary"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkin`); }}
+                >작업시작(체크인)</ActionBtn>
+              ) : (
+                /* '배정 후 2시간' 게이트 해제 (대표 지시 8/7) — 체크인/체크아웃 증빙이
+                   생기면서 시간 제한으로 조기완료를 막을 이유가 없어짐 */
+                <ActionBtn
+                  $variant="success"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkout`); }}
+                >작업완료(체크아웃)</ActionBtn>
+              )}
+              <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
+            </>
+          )}
+        </ActionRow>
+      )}
+      {/* 완료 후에도 증빙(Before/After)은 양쪽 모두 열람 가능 — 보험·분쟁 대응용
+          + 접수자는 여기서 리뷰를 작성한다 (리뷰 8/5: 체크아웃 후 진입점을 못 찾는다는 지적.
+            기존엔 채팅방 상단 바에만 있어서 사실상 숨어 있었음) */}
+      {displayStatus === "완료" && (order.createdBy === uid || order.matchedProUid === uid) && (order.checkInAt || (order.createdBy === uid && !order.reviewed)) && (
+        <ActionRow>
+          {order.checkInAt && (
+            <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록 보기</ActionBtn>
+          )}
+          {order.createdBy === uid && !order.reviewed && (
+            <ActionBtn
+              $variant="success"
+              onClick={(e) => {
+                e.stopPropagation();
+                const roomId = chats[0]?.roomId;
+                if (!roomId) { window.alert("리뷰를 작성할 채팅방을 찾지 못했습니다."); return; }
+                navigate(`/chat/${roomId}`, { state: { openReview: true } });
+              }}
+            >리뷰 작성</ActionBtn>
+          )}
+        </ActionRow>
+      )}
+      {displayStatus === "선정대기" && order.createdBy === uid && (
+        <ActionRow>
+          <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
+        </ActionRow>
+      )}
+      {/* 접수/대기 카드는 취소·재접수만 (수정·대기 변경은 상세 하단에서) */}
+      {displayStatus === "접수" && order.createdBy === uid && (
+        <ActionRow>
+          <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
+        </ActionRow>
+      )}
+      {displayStatus === "대기" && order.createdBy === uid && (
+        <ActionRow>
+          <ActionBtn $variant="primary" onClick={(e) => handleStatusChange(e, order.id, "접수")}>재접수</ActionBtn>
+        </ActionRow>
+      )}
+      {/* 비교선정 지원자(선정 전) — 견적서 전송 (1회) */}
+      {order.createdBy !== uid && order.matchType === "compare" && UNPRICED_TYPES.includes(order.b2bPriceType)
+        && (order.applicantUids || []).includes(uid) && order.matchedProUid !== uid
+        && (displayStatus === "접수" || displayStatus === "선정대기") && (
+        <ActionRow>
+          {!order.applicantQuotes?.[uid] ? (
+            <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order, isApplicant: true }); setNotifyPrice(""); setNotifyMsg(""); }}>견적서 전송</ActionBtn>
+          ) : (
+            <PriceNoticeInline>내 견적가 {Number(order.applicantQuotes[uid]).toLocaleString()}원 전송됨</PriceNoticeInline>
+          )}
+        </ActionRow>
+      )}
+    </>
+  );
+
+  // 선정 완료 후 접수자에게는 배정된 홈프로 1명의 대화만 (미선정 지원자 대화 숨김)
+  const chatsOf = (order) => {
+    const allChats = chatMap[order.id] || [];
+    return order.createdBy === uid && order.matchedProUid ? allChats.filter((c) => c.otherUid === order.matchedProUid) : allChats;
+  };
+
+  const periodSelect = (
+    <select value={activePeriod} onChange={(e) => { setActivePeriod(e.target.value); setDateRange({ start: "", end: "" }); }}>
+      {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p === "전체" ? "지난오더 조회" : p}</option>)}
+    </select>
+  );
+
   return (
     <PageWrap>
+      {pcWide ? (
+        <PcBody>
+          {/* 기간 조회 + 보기 전환 — 한 줄 필터 상자 */}
+          <PcFilterRow>
+            <PcField $w={190}><label>기간 조회</label>{periodSelect}</PcField>
+            <PcField $w={180}><label>시작일</label>
+              <input type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} />
+            </PcField>
+            <PcField $w={180}><label>종료일</label>
+              <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} />
+            </PcField>
+            {(activePeriod !== "전체" || dateRange.start || dateRange.end) && (
+              <PcGhostBtn style={{ height: 42, padding: "0 16px", borderRadius: 8 }} onClick={() => { setActivePeriod("전체"); setDateRange({ start: "", end: "" }); }}>기간 초기화</PcGhostBtn>
+            )}
+            <PcViewTabs>
+              <PcViewTab type="button" $active={viewMode === "list"} onClick={() => setViewMode("list")}><IoListOutline size={18} /><span>목록</span></PcViewTab>
+              <PcViewTab type="button" $active={viewMode === "calendar"} onClick={() => setViewMode("calendar")}><IoCalendarOutline size={18} /><span>달력</span></PcViewTab>
+            </PcViewTabs>
+          </PcFilterRow>
+
+          {/* 상태별 개수 — 한 박스로 묶인 탭 (여러 개 선택 가능, 폰과 같은 규칙) */}
+          <PcStatusTabs>
+            {STATUS_TABS.map((tab) => {
+              const count = tab === "전체" ? periodFiltered.length : periodFiltered.filter((o) => viewStatus(o) === tab).length;
+              return (
+                <PcStatusTab key={tab} type="button" $active={activeTabs.includes(tab)} onClick={() => toggleTab(tab)}>
+                  <span>{tab}</span><em>{count}</em>
+                </PcStatusTab>
+              );
+            })}
+          </PcStatusTabs>
+
+          {viewMode === "calendar" ? (
+            <CalendarView orders={filtered} navigate={navigate} pc viewStatus={viewStatus} />
+          ) : (
+            <PcTable $minH={460}>
+              <PcTHead $cols={PC_COLS} style={{ gap: 10, padding: "14px 20px" }}>
+                <span>작업일</span><span>상태</span><span>구분</span><span>서비스</span><span>지역/주소</span><span>금액</span><span>상대</span><span>실행</span>
+              </PcTHead>
+              {loading ? (
+                <PcEmpty><b>불러오는 중입니다</b><span>잠시만 기다려 주세요.</span></PcEmpty>
+              ) : filtered.length === 0 ? (
+                <PcEmpty>
+                  <b>해당 상태의 오더가 없습니다</b>
+                  <span>다른 상태를 눌러 보시거나, 새 오더를 접수해 보세요.</span>
+                  <div style={{ marginTop: 10 }}><PcGhostBtn onClick={() => navigate("/order/create")}>오더 접수</PcGhostBtn></div>
+                </PcEmpty>
+              ) : (
+                filtered.map((order) => {
+                  const cat = CATEGORIES.find((c) => c.id === order.categoryId);
+                  const displayStatus = viewStatus(order);
+                  const statusText = isUnselected(order) ? "미선정" : displayStatus;
+                  const isOwner = order.createdBy === uid;
+                  const chats = chatsOf(order);
+                  const ins = insuranceLine(order);
+                  const meta = [order.selfOrder ? "셀프 등록" : (MATCH_TYPE_LABEL[order.matchType] || ""), `접수 ${formatOrderTime(order.createdAt)}`].filter(Boolean).join(" · ");
+                  const other = isOwner
+                    ? (order.matchedProUid ? (chats[0]?.otherName || "배정된 프로") : (chats.length > 0 ? `견적 ${chats.length}명` : "-"))
+                    : (order.writer || "-");
+                  const quoteSent = UNPRICED_TYPES.includes(order.b2bPriceType) && order.onsiteQuotedPrice > 0 && displayStatus === "배정";
+                  return (
+                    <PcRow key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
+                      <span style={order.workDate === "긴급" ? { color: PC.danger, fontWeight: 800 } : null}>{workDateText(order) || "-"}</span>
+                      <span style={{ color: PC_STATUS_COLOR[displayStatus] || PC.ink, fontWeight: 700 }}>{statusText}</span>
+                      <span>{isOwner ? "내가 요청" : (PRO_ROLE_TAG_BY_MATCH[order.matchType] || "견적 지원")}</span>
+                      <PcCellStack>
+                        <b>{order.title}</b>
+                        <small>{meta}</small>
+                        {ins && <small style={order.insurance?.applied ? { color: "#15803d", fontWeight: 700 } : null}>{ins}</small>}
+                      </PcCellStack>
+                      <span>{locationText(order) || "-"}</span>
+                      <b>{formatPriceLine(order)}</b>
+                      <span>{other}</span>
+                      <PcActionCell onClick={(e) => e.stopPropagation()}>
+                        {renderActions(order, displayStatus, chats, cat)}
+                      </PcActionCell>
+                      {(quoteSent || chats.length > 0) && (
+                        <PcSubLine onClick={(e) => e.stopPropagation()}>
+                          {quoteSent && (
+                            <PcSubText>
+                              전송된 견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
+                              {order.onsiteQuoteMessage ? ` — ${order.onsiteQuoteMessage}` : ""}
+                            </PcSubText>
+                          )}
+                          {chats.length > 0 && isOwner && (
+                            <PcSubText><b>{order.matchedProUid ? "배정된 프로" : `견적 받은 프로 ${chats.length}명`}</b></PcSubText>
+                          )}
+                          {chats.map((chat) => {
+                            const hasUnread = chat.unreadCount > 0;
+                            return (
+                              <PcChatLine key={chat.roomId} type="button" onClick={() => navigate(`/chat/${chat.roomId}`)}>
+                                <IoChatbubbleEllipsesOutline size={16} color={hasUnread ? PC.primary : PC.body} />
+                                <b>{chat.otherName}</b>
+                                <span style={{ fontWeight: hasUnread ? 700 : 400 }}>{chat.lastMessage}</span>
+                                <i>{formatChatTime(chat.lastMessageAt)}</i>
+                                {hasUnread
+                                  ? <i style={{ color: PC.primary, fontWeight: 700 }}>새 메시지 {chat.unreadCount > 99 ? "99+" : chat.unreadCount}</i>
+                                  : <i>읽음</i>}
+                              </PcChatLine>
+                            );
+                          })}
+                        </PcSubLine>
+                      )}
+                    </PcRow>
+                  );
+                })
+              )}
+            </PcTable>
+          )}
+        </PcBody>
+      ) : (
+        <>
         {/* 지난오더조회 + 뷰 토글 — 글씨 상향(7/28)에 맞춰 기간 입력은 아랫줄로 분리 */}
         <PeriodRow>
           <PeriodSelect value={activePeriod} onChange={(e) => { setActivePeriod(e.target.value); setDateRange({ start: "", end: "" }); }}>
@@ -491,99 +717,16 @@ export const MyOrdersContent = () => {
                   </ChatListWrap>
                 )}
 
-                {/* 상태 변경 버튼 */}
-                {displayStatus === "배정" && (
-                  <ActionRow>
-                    {/* 접수자도 현장 진행 상황(체크인 사진·위치)을 볼 수 있게 */}
-                    {order.createdBy === uid && order.checkInAt && (
-                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록</ActionBtn>
-                    )}
-                    {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
-                    {order.matchedProUid === uid && (
-                      <>
-                        {/* 견적서는 1회만 전송 (의뢰인 확정: 수정·재전송 불가) — 미전송 시에만 버튼 노출 */}
-                        {UNPRICED_TYPES.includes(order.b2bPriceType) && !order.onsiteQuotedPrice && (
-                          <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(""); setNotifyMsg(""); }}>
-                            견적서 전송
-                          </ActionBtn>
-                        )}
-                        {/* 정보공유 오더는 체크인 생략 — 리드 확인 후 계약 성사로 완료 처리 (대표 지시 8/20). 리워드·인센티브 지급은 결제 연동 뒤 */}
-                        {order.b2bPriceType === "info" ? (
-                          <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>계약 성사(완료)</ActionBtn>
-                        ) : /* 현장 인증(대표 지시 8/4) — 체크인 전에는 체크인부터, 체크아웃은 After 사진과 함께 현장기록 화면에서 처리 */
-                        !order.checkInAt ? (
-                          <ActionBtn
-                            $variant="primary"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkin`); }}
-                          >작업시작(체크인)</ActionBtn>
-                        ) : (
-                          /* '배정 후 2시간' 게이트 해제 (대표 지시 8/7) — 체크인/체크아웃 증빙이
-                             생기면서 시간 제한으로 조기완료를 막을 이유가 없어짐 */
-                          <ActionBtn
-                            $variant="success"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkout`); }}
-                          >작업완료(체크아웃)</ActionBtn>
-                        )}
-                        <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
-                      </>
-                    )}
-                  </ActionRow>
-                )}
-                {/* 완료 후에도 증빙(Before/After)은 양쪽 모두 열람 가능 — 보험·분쟁 대응용
-                    + 접수자는 여기서 리뷰를 작성한다 (리뷰 8/5: 체크아웃 후 진입점을 못 찾는다는 지적.
-                      기존엔 채팅방 상단 바에만 있어서 사실상 숨어 있었음) */}
-                {displayStatus === "완료" && (order.createdBy === uid || order.matchedProUid === uid) && (order.checkInAt || (order.createdBy === uid && !order.reviewed)) && (
-                  <ActionRow>
-                    {order.checkInAt && (
-                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록 보기</ActionBtn>
-                    )}
-                    {order.createdBy === uid && !order.reviewed && (
-                      <ActionBtn
-                        $variant="success"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const roomId = chats[0]?.roomId;
-                          if (!roomId) { window.alert("리뷰를 작성할 채팅방을 찾지 못했습니다."); return; }
-                          navigate(`/chat/${roomId}`, { state: { openReview: true } });
-                        }}
-                      >리뷰 작성</ActionBtn>
-                    )}
-                  </ActionRow>
-                )}
-                {displayStatus === "선정대기" && order.createdBy === uid && (
-                  <ActionRow>
-                    <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
-                  </ActionRow>
-                )}
-                {/* 접수/대기 카드는 취소·재접수만 (수정·대기 변경은 상세 하단에서) */}
-                {displayStatus === "접수" && order.createdBy === uid && (
-                  <ActionRow>
-                    <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
-                  </ActionRow>
-                )}
-                {displayStatus === "대기" && order.createdBy === uid && (
-                  <ActionRow>
-                    <ActionBtn $variant="primary" onClick={(e) => handleStatusChange(e, order.id, "접수")}>재접수</ActionBtn>
-                  </ActionRow>
-                )}
-                {/* 비교선정 지원자(선정 전) — 견적서 전송 (1회) */}
-                {order.createdBy !== uid && order.matchType === "compare" && UNPRICED_TYPES.includes(order.b2bPriceType)
-                  && (order.applicantUids || []).includes(uid) && order.matchedProUid !== uid
-                  && (displayStatus === "접수" || displayStatus === "선정대기") && (
-                  <ActionRow>
-                    {!order.applicantQuotes?.[uid] ? (
-                      <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order, isApplicant: true }); setNotifyPrice(""); setNotifyMsg(""); }}>견적서 전송</ActionBtn>
-                    ) : (
-                      <PriceNoticeInline>내 견적가 {Number(order.applicantQuotes[uid]).toLocaleString()}원 전송됨</PriceNoticeInline>
-                    )}
-                  </ActionRow>
-                )}
+                {renderActions(order, displayStatus, chats, cat)}
               </OrderCard>
             );
           })
         )}
         </>
         )}
+
+        </>
+      )}
 
         {/* 홈프로 취소요청 사유 모달 */}
         {cancelReqOpen && (
@@ -651,8 +794,9 @@ export const MyOrdersContent = () => {
 };
 
 /* ─── 달력 뷰 (월 단위) ─── */
-const CalendarView = ({ orders, navigate }) => {
+const CalendarView = ({ orders, navigate, pc, viewStatus }) => {
   const [cursor, setCursor] = useState(new Date());
+  const [pickedDay, setSelDay] = useState(null); // PC: 오른쪽 단에 펼칠 날짜 (안 골랐으면 아래 기본값)
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -671,6 +815,59 @@ const CalendarView = ({ orders, navigate }) => {
       ordersByDay[day].push(o);
     }
   });
+
+  // PC: 달력 왼쪽 + 고른 날의 오더 오른쪽 (2단)
+  if (pc) {
+    // 기본으로 펼칠 날: 오늘에 오더가 있으면 오늘, 없으면 이 달에서 오더가 있는 가장 최근 날
+    const today = new Date();
+    const todayDay = today.getFullYear() === year && today.getMonth() === month ? today.getDate() : null;
+    const daysWithOrders = Object.keys(ordersByDay).map(Number).sort((a, b) => b - a);
+    const selDay = pickedDay || (todayDay && ordersByDay[todayDay] ? todayDay : (daysWithOrders[0] || todayDay || 1));
+    const dayOrders = ordersByDay[selDay] || [];
+    const monthCount = Object.values(ordersByDay).reduce((n, l) => n + l.length, 0);
+    const move = (diff) => { setCursor(new Date(year, month + diff, 1)); setSelDay(null); };
+    return (
+      <PcCalCols>
+        <PcCalBox>
+          <PcCalHead>
+            <PcCalNav type="button" onClick={() => move(-1)}>‹</PcCalNav>
+            <b>{year}년 {month + 1}월</b>
+            <PcCalNav type="button" onClick={() => move(1)}>›</PcCalNav>
+            <span>이 달 접수 {monthCount}건</span>
+          </PcCalHead>
+          <PcCalGrid>
+            {["일","월","화","수","목","금","토"].map((w) => <PcCalWeek key={w}>{w}</PcCalWeek>)}
+            {cells.map((d, i) => (
+              <PcCalDay key={i} $empty={!d} $sel={!!d && d === selDay} onClick={d ? () => setSelDay(d) : undefined}>
+                {d && (
+                  <>
+                    <em>{d}</em>
+                    {(ordersByDay[d] || []).slice(0, 2).map((o) => <p key={o.id}>{o.title || "오더"}</p>)}
+                    {(ordersByDay[d]?.length || 0) > 2 && <p>외 {ordersByDay[d].length - 2}건</p>}
+                  </>
+                )}
+              </PcCalDay>
+            ))}
+          </PcCalGrid>
+        </PcCalBox>
+        <PcCalSide>
+          <PcCalSideTitle>{month + 1}월 {selDay}일 접수 오더 {dayOrders.length}건</PcCalSideTitle>
+          {dayOrders.length === 0 ? (
+            <PcCalSideEmpty>이 날 접수된 오더가 없습니다.</PcCalSideEmpty>
+          ) : dayOrders.map((o) => {
+            const stt = viewStatus ? viewStatus(o) : normalizeStatus(o.orderStatus);
+            return (
+              <PcCalItem key={o.id} onClick={() => navigate(`/order/detail/${o.id}`, { state: { order: o } })}>
+                <b>{o.title || "오더"}</b>
+                <span><strong style={{ color: PC_STATUS_COLOR[stt] || PC.ink }}>{stt}</strong> · {formatPriceLine(o)}</span>
+                <span>{[locationText(o), workDateText(o) ? `작업일 ${workDateText(o)}` : ""].filter(Boolean).join(" · ")}</span>
+              </PcCalItem>
+            );
+          })}
+        </PcCalSide>
+      </PcCalCols>
+    );
+  }
 
   return (
     <CalWrap>
@@ -722,6 +919,76 @@ const PageWrap = styled.div`
   flex-direction: column;
   min-height: 100%;
   background: ${THEME.background};
+`;
+
+/* ─── PC 전용 부품 (usePcWide 분기 안에서만 그려진다) ─── */
+const PcBody = styled.div`
+  padding: 12px 32px 80px; box-sizing: border-box; color: ${PC.ink}; word-break: keep-all;
+`;
+const PcViewTabs = styled.div` display: flex; margin-left: auto; border: 1px solid ${PC.line}; `;
+const PcViewTab = styled.button`
+  display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 18px; border: none; cursor: pointer;
+  font-family: inherit; font-size: 15px; color: ${PC.ink};
+  background: ${({ $active }) => ($active ? PC.head : "#fff")}; font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  & + & { border-left: 1px solid ${PC.line}; }
+`;
+const PcStatusTabs = styled.div` display: flex; border: 1px solid ${PC.line}; background: #fff; margin-bottom: 18px; `;
+const PcStatusTab = styled.button`
+  flex: 1 1 0; min-height: 52px; padding: 0 8px; border: none; cursor: pointer; font-family: inherit; font-size: 16px; color: ${PC.ink};
+  background: ${({ $active }) => ($active ? PC.head : "#fff")}; font-weight: ${({ $active }) => ($active ? 800 : 500)};
+  & + & { border-left: 1px solid ${PC.line}; }
+  em { font-style: normal; font-weight: 800; margin-left: 8px; }
+`;
+const PcRow = styled.div`
+  display: grid; grid-template-columns: ${PC_COLS}; gap: 8px 10px; padding: 16px 20px; border-top: 1px solid ${PC.line};
+  font-size: 15px; line-height: 1.45; color: ${PC.ink}; align-items: start; cursor: pointer; overflow-wrap: anywhere;
+  b { font-weight: 700; }
+  &:hover { background: ${PC.hover}; }
+`;
+const PcCellStack = styled.div`
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  b { font-size: 16px; } small { font-size: 14px; color: ${PC.body}; }
+`;
+const PcActionCell = styled.div` grid-column: 8; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 6px; cursor: default; `;
+const PcSubLine = styled.div`
+  grid-column: 4 / 8; display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid ${PC.line}; cursor: default;
+`;
+const PcSubText = styled.div` font-size: 14px; color: ${PC.ink}; `;
+const PcChatLine = styled.button`
+  display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 6px 8px; margin-left: -8px; border: none; background: transparent;
+  text-align: left; cursor: pointer; font-family: inherit; font-size: 15px; line-height: 1.45; color: ${PC.ink};
+  svg { flex: 0 0 auto; margin-top: 3px; } b { flex: 0 0 auto; } span { flex: 1 1 auto; min-width: 0; }
+  i { flex: 0 0 auto; font-style: normal; font-size: 14px; color: ${PC.body}; }
+  &:hover { background: ${PC.head}; }
+`;
+const PcCalCols = styled.div` display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; `;
+const PcCalBox = styled.div` background: #fff; border: 1px solid ${PC.line}; padding: 20px 22px 22px; `;
+const PcCalHead = styled.div`
+  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  b { font-size: 19px; font-weight: 800; min-width: 120px; text-align: center; } span { margin-left: auto; font-size: 15px; }
+`;
+const PcCalNav = styled.button`
+  width: 36px; height: 36px; border: 1px solid ${PC.line}; background: #fff; border-radius: 8px; font-size: 20px; cursor: pointer; color: ${PC.ink};
+  &:hover { border-color: ${PC.ink}; }
+`;
+const PcCalGrid = styled.div` display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid ${PC.line}; border-left: 1px solid ${PC.line}; `;
+const PcCalWeek = styled.div`
+  text-align: center; font-size: 14px; font-weight: 700; padding: 8px 0; background: ${PC.head};
+  border-right: 1px solid ${PC.line}; border-bottom: 1px solid ${PC.line};
+`;
+const PcCalDay = styled.div`
+  min-height: 96px; padding: 6px 8px; box-sizing: border-box; border-right: 1px solid ${PC.line}; border-bottom: 1px solid ${PC.line};
+  background: ${({ $sel, $empty }) => ($sel ? PC.head : $empty ? PC.bg : "#fff")}; cursor: ${({ $empty }) => ($empty ? "default" : "pointer")};
+  em { display: block; font-style: normal; font-size: 14px; font-weight: ${({ $sel }) => ($sel ? 800 : 600)}; margin-bottom: 4px; }
+  p { margin: 0 0 3px; font-size: 13px; line-height: 1.35; color: ${PC.ink}; overflow-wrap: anywhere; }
+`;
+const PcCalSide = styled.div` background: #fff; border: 1px solid ${PC.line}; min-height: 420px; position: sticky; top: 16px; `;
+const PcCalSideTitle = styled.div` padding: 16px 20px; font-size: 17px; font-weight: 800; background: ${PC.head}; `;
+const PcCalSideEmpty = styled.div` padding: 70px 20px; text-align: center; font-size: 15px; `;
+const PcCalItem = styled.div`
+  padding: 14px 20px; border-top: 1px solid ${PC.line}; cursor: pointer; display: flex; flex-direction: column; gap: 4px;
+  b { font-size: 16px; font-weight: 700; } span { font-size: 15px; line-height: 1.45; }
+  &:hover { background: ${PC.hover}; }
 `;
 
 const TabRow = styled.div`
@@ -986,6 +1253,7 @@ const ActionRow = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  ${pcOnly`margin-top: 0; padding-top: 0; border-top: none; flex-direction: column; justify-content: flex-start; gap: 6px;`}
 `;
 
 const CancelReqBanner = styled.div`
@@ -1033,6 +1301,12 @@ const ActionBtn = styled.button`
   border-radius: 8px;
   cursor: pointer;
   &:active { opacity: 0.7; }
+  ${pcOnly`
+    width: 100%; padding: 9px 8px; background: #fff; font-weight: 700; font-family: inherit; line-height: 1.3;
+    border-color: ${({ $variant }) => ($variant === "danger" ? PC.line : PC.primary)};
+    color: ${({ $variant }) => ($variant === "danger" ? PC.danger : PC.primaryDeep)};
+    &:hover { border-color: ${({ $variant }) => ($variant === "danger" ? PC.danger : PC.primaryDeep)}; }
+  `}
 `;
 
 const EmptyWrap = styled.div`
@@ -1111,6 +1385,7 @@ const ModalOverlay = styled.div`
   align-items: flex-end;
   justify-content: center;
   z-index: 1000;
+  ${pcOnly`align-items: center;`}
 `;
 
 const ModalSheet = styled.div`
@@ -1120,6 +1395,7 @@ const ModalSheet = styled.div`
   border-radius: 16px 16px 0 0;
   padding: 16px 20px 24px;
   box-sizing: border-box;
+  ${pcOnly`max-width: 500px; border-radius: 12px; padding: 26px 30px 28px;`}
 `;
 
 const ModalHeader = styled.div`
@@ -1147,6 +1423,7 @@ const ReasonList = styled.div`
   flex-direction: column;
   max-height: 300px;
   overflow-y: auto;
+  ${pcOnly`max-height: none;`}
 `;
 
 const ReasonRow = styled.div`
@@ -1157,6 +1434,7 @@ const ReasonRow = styled.div`
   border-bottom: 1px solid ${THEME.border};
   cursor: pointer;
   background: ${(p) => p.$selected ? "#F7F4FF" : "transparent"};
+  ${pcOnly`background: ${(p) => (p.$selected ? PC.head : "transparent")};`}
 `;
 
 const ReasonRadio = styled.div`
@@ -1191,6 +1469,7 @@ const NotifyHint = styled.div`
   line-height: 1.5;
   margin-bottom: 12px;
   white-space: pre-line;
+  ${pcOnly`color: ${PC.body};`}
 `;
 
 const PriceInputRow = styled.div`
@@ -1225,6 +1504,7 @@ const PriceNoticeInline = styled.div`
   font-weight: 600;
   color: ${THEME.primary};
   padding: 6px 4px;
+  ${pcOnly`padding: 0; color: ${PC.primaryDeep};`}
 `;
 
 const OnsitePriceBox = styled.div`
@@ -1249,6 +1529,7 @@ const ConfirmBtn = styled.button`
   border: none;
   border-radius: 10px;
   cursor: ${(p) => p.disabled ? "not-allowed" : "pointer"};
+  ${pcOnly`display: block; width: auto; margin-left: auto; padding: 12px 28px; font-size: 16px;`}
 `;
 
 /* ─── 달력 뷰 ─── */

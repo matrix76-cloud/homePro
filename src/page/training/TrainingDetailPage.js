@@ -13,6 +13,7 @@ import {
   TRAINING_COL, STATUS_COLOR, normalizeTraining, computeStatus, recruitText, eduDateText,
   priceInfo, formatTs, dotDate, callTrainer, chatTrainer,
 } from "./trainingShared";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const TrainingDetailPage = () => {
   const { id } = useParams();
@@ -142,8 +143,21 @@ const TrainingDetailPage = () => {
         <Note style={{ padding: "4px 4px 0" }}>
           목록·상세 열람과 전화·채팅 문의는 무료입니다. 홈프로는 교육 정보 제공과 연결만 하며, 교육 품질·계약 조건·비용·교육 결과에 대한 책임은 교육 개설자에게 있습니다.
         </Note>
-      </PageWrap>
 
+      {/* 폰: 영향 없는 틀(display: contents, 아래 버튼 바는 그대로 화면 바닥 고정) / PC: 오른쪽 고정 패널 */}
+      <Side>
+        <SideSummary>
+          <StatusText style={{ color: STATUS_COLOR[status] }}>{status}</StatusText>
+          <SidePrice>{price.main}</SidePrice>
+          {price.regular && <PriceRegular>정가 {price.regular}</PriceRegular>}
+          <div style={{ marginTop: 14 }}>
+          <SideRow><span>모집</span><b>{status === "교육완료" ? "교육 종료" : recruitText(data)}</b></SideRow>
+          <SideRow><span>교육 일시</span><b>{[eduDateText(data), data.eduTime].filter(Boolean).join(" · ")}</b></SideRow>
+          {data.capacity ? <SideRow><span>정원</span><b>{data.capacity}명</b></SideRow> : null}
+          <SideRow><span>강사 / 업체</span><b>{data.instructor || "교육 담당자"}</b></SideRow>
+          {mine && <SideMine>내가 등록한 공고입니다. 모집 마감은 왼쪽 '내 공고 관리'에서 할 수 있습니다.</SideMine>}
+          </div>
+        </SideSummary>
       {!mine && (
         <BottomBar>
           {ended && <EndedNote>{status === "교육완료" ? "종료된 교육입니다. 다음 기수는 문의해 보세요." : "모집이 마감된 교육입니다."}</EndedNote>}
@@ -157,6 +171,8 @@ const TrainingDetailPage = () => {
           </BtnRow>
         </BottomBar>
       )}
+      </Side>
+      </PageWrap>
     </SimpleBackLayout>
   );
 };
@@ -165,11 +181,31 @@ export default TrainingDetailPage;
 
 /* ===== styles ===== */
 const Center = styled.div` padding: 80px 20px; text-align: center; font-size: 16px; color: #2b2f36; `;
-const PageWrap = styled.div` padding: 12px 12px 130px; background: ${THEME.background}; `;
-const Gallery = styled.div` margin-bottom: 12px; `;
+const PageWrap = styled.div` padding: 12px 12px 130px; background: ${THEME.background};
+  /* PC: 좌우 2단 — 왼쪽 내용 / 오른쪽 고정 패널 */
+  ${pcOnly`
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 24px; align-items: start;
+    padding: 24px 32px 80px; box-sizing: border-box; word-break: keep-all;
+  `}
+`;
+const Side = styled.div` display: contents;
+  ${pcOnly`
+    display: block; grid-column: 2; grid-row: 1 / span 40; position: sticky; top: 24px; /* 나머지 자식은 자동으로 왼쪽 칸에 쌓인다 */
+    background: #fff; border: 1px solid ${PC.line}; padding: 24px 24px 22px; box-sizing: border-box;
+  `}
+`;
+const SideSummary = styled.div` display: none; ${pcOnly`display: block;`} `;
+const SidePrice = styled.div` font-size: 24px; font-weight: 800; color: ${PC.ink}; margin: 6px 0 2px; line-height: 1.35; `;
+const SideRow = styled.div`
+  display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid ${PC.line}; font-size: 15px; color: ${PC.ink};
+  span { flex: none; } b { font-weight: 700; text-align: right; line-height: 1.45; }
+`;
+const SideMine = styled.div` font-size: 14px; line-height: 1.6; color: ${PC.body}; padding-top: 12px; border-top: 1px solid ${PC.line}; `;
+const Gallery = styled.div` margin-bottom: 12px; ${pcOnly`margin-bottom: 16px;`} `;
 const MainPhoto = styled.div`
   width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: #eef0f3;
   img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  ${pcOnly`aspect-ratio: auto; height: 420px; border-radius: 0; border: 1px solid ${PC.line}; box-sizing: border-box; img { object-fit: contain; }`}
 `;
 const ThumbRow = styled.div` display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; `;
 const ThumbBtn = styled.button`
@@ -179,13 +215,14 @@ const ThumbBtn = styled.button`
 `;
 const Section = styled.div`
   background: ${THEME.surface}; border: 1px solid #eceef2; border-radius: 12px; padding: 18px; margin-bottom: 12px;
+  ${pcOnly`border-radius: 0; border-color: ${PC.line}; padding: 26px 28px; margin-bottom: 16px;`}
 `;
 const HeadRow = styled.div` display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; `;
 const StatusText = styled.span` font-size: 15px; font-weight: 700; `;
 const RegDate = styled.span` font-size: 13px; color: ${THEME.muted}; `;
 const Title = styled.h1` margin: 0 0 12px; font-size: 21px; font-weight: 700; line-height: 1.4; color: ${THEME.text}; word-break: keep-all; `;
 const TagText = styled.span` color: ${THEME.primaryDark}; margin-right: 5px; `;
-const PriceBox = styled.div` display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; `;
+const PriceBox = styled.div` display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; ${pcOnly`display: none;`} `; /* PC 는 오른쪽 패널에 금액 */
 const PriceMain = styled.span` font-size: 20px; font-weight: 700; color: ${THEME.text}; `;
 const PriceRegular = styled.span` font-size: 14px; color: ${THEME.muted}; text-decoration: line-through; `;
 const EarlyNote = styled.div` margin-top: 4px; font-size: 14px; color: #b45309; font-weight: 600; `;
@@ -194,19 +231,22 @@ const InfoRow = styled.div`
   display: flex; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid #eceef2; font-size: 15px;
   span { flex: none; color: #2b2f36; }
   b { font-weight: 600; color: ${THEME.text}; text-align: right; word-break: keep-all; line-height: 1.45; }
+  ${pcOnly`justify-content: flex-start; gap: 0; padding: 13px 0; font-size: 16px; border-bottom-color: ${PC.line}; span { width: 130px; } b { text-align: left; }`}
 `;
 const SecTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
-const Body = styled.div` font-size: 15px; line-height: 1.7; color: ${THEME.text}; white-space: pre-wrap; word-break: keep-all; `;
+const Body = styled.div` font-size: 15px; line-height: 1.7; color: ${THEME.text}; white-space: pre-wrap; word-break: keep-all; ${pcOnly`font-size: 16px;`} `;
 const Note = styled.div` font-size: 14px; line-height: 1.6; color: #2b2f36; word-break: keep-all; `;
 const ManageBtn = styled.button`
   width: 100%; height: 48px; margin-top: 12px; border-radius: 10px; border: 1px solid #d5d9e0; background: #fff;
   color: ${THEME.text}; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
   &:disabled { opacity: 0.6; }
+  ${pcOnly`width: auto; padding: 0 28px;`}
 `;
 const BottomBar = styled.div`
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: var(--app-max, 400px); box-sizing: border-box;
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: ${THEME.surface};
   box-shadow: 0 -1px 4px rgba(0,0,0,0.06); z-index: 100;
+  ${pcOnly`position: static; transform: none; width: auto; max-width: none; padding: 16px 0 0; box-shadow: none; background: none; border-top: 1px solid ${PC.line};`}
 `;
 const EndedNote = styled.div` font-size: 14px; color: #2b2f36; text-align: center; margin-bottom: 8px; `;
 const BtnRow = styled.div` display: flex; gap: 10px; `;

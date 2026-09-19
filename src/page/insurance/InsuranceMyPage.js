@@ -17,13 +17,16 @@ import {
 } from "../../service/InsuranceService";
 import {
   Wrap, Card, CardTitle, CardNote, KV, KVRow, K, V, PrimaryBtn, SmallBtn, FixedBar, Toast,
-  StatusText, ListRow, ListMain, ListSub, ListRight, Empty,
+  StatusText, ListRow, ListMain, ListSub, ListRight, Empty, PcCols, PcStack, PcSide,
 } from "./insuranceStyles";
+import usePcWide from "../../hooks/usePcWide";
+import { PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const PAY_STATUS_LABEL = { ready: "결제 전", done: "결제 완료", fail: "실패", refund: "환불" };
 
 const InsuranceMyPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { currentUser, userData } = useAuth();
   const uid = userData?.uid || currentUser?.uid;
 
@@ -81,14 +84,12 @@ const InsuranceMyPage = () => {
 
   const sortedPolicies = useMemo(() => policies, [policies]);
 
-  return (
-    <SimpleBackLayout NAME="내 보험 관리" hideFooter onBack={() => navigate("/insurance")}>
-      <Wrap $bottom={110}>
+  const policyCardEl = (
         <Card>
           <CardTitle>가입 내역</CardTitle>
           {loading ? <Empty>확인 중...</Empty> : sortedPolicies.length === 0 ? (
             <Empty>가입한 보험이 없습니다.</Empty>
-          ) : sortedPolicies.map((p) => {
+          ) : (() => { const boxes = sortedPolicies.map((p) => {
             const st = displayStatus(p);
             return (
               <PolicyBox key={p.id}>
@@ -124,8 +125,71 @@ const InsuranceMyPage = () => {
                 )}
               </PolicyBox>
             );
-          })}
+          }); return pcWide ? <PolicyGrid>{boxes}</PolicyGrid> : boxes; })()}
         </Card>
+  );
+
+  /* ───────── PC: 왼쪽 가입 내역·결제 이력·사고 접수 표, 오른쪽 사고 접수 패널 ───────── */
+  if (pcWide) {
+    const PAY_COLS = "minmax(160px, 1.4fr) 150px 100px 110px 90px";
+    const CLAIM_COLS = "110px minmax(140px, 1.4fr) 150px 110px 90px";
+    return (
+      <SimpleBackLayout NAME="내 보험 관리" hideFooter onBack={() => navigate("/insurance")}>
+        <Wrap className="ins-pc">
+          <PcCols $side={340}>
+            <PcStack>
+              {policyCardEl}
+              <div>
+                <PcSecTitle>결제 이력</PcSecTitle>
+                <PcTable $minH={0}>
+                  <PcTHead $cols={PAY_COLS}><span>내용</span><span>결제 일시</span><span>결제 수단</span><span>금액</span><span>상태</span></PcTHead>
+                  {(loading || payments.length === 0) && <PcEmpty style={{ padding: "44px 20px" }}><span>{loading ? "확인 중..." : "보험 결제 기록이 없습니다."}</span></PcEmpty>}
+                  {!loading && payments.map((pay) => (
+                    <PcTRow key={pay.id} $cols={PAY_COLS} $click={false}>
+                      <b>{pay.orderName || PAY_PURPOSE_LABEL[pay.purpose] || pay.purpose}</b>
+                      <span>{formatDateTime(pay.approvedAt || pay.createdAt)}</span>
+                      <span>{pay.tossMethod ? (TOSS_METHOD_LABEL[pay.tossMethod] || pay.tossMethod) : "-"}</span>
+                      <b>{won(pay.amount)}</b>
+                      <StatusText $tone={pay.status === "done" ? "on" : pay.status === "fail" ? "off" : "none"}>{PAY_STATUS_LABEL[pay.status] || pay.status}</StatusText>
+                    </PcTRow>
+                  ))}
+                </PcTable>
+              </div>
+              <div>
+                <PcSecTitle>사고 접수</PcSecTitle>
+                <PcTable $minH={0}>
+                  <PcTHead $cols={CLAIM_COLS}><span>피해 정도</span><span>장소</span><span>발생 일시</span><span>접수일</span><span>상태</span></PcTHead>
+                  {(loading || claims.length === 0) && <PcEmpty style={{ padding: "44px 20px" }}><span>{loading ? "확인 중..." : "접수한 사고가 없습니다."}</span></PcEmpty>}
+                  {!loading && claims.map((c) => (
+                    <PcTRow key={c.id} $cols={CLAIM_COLS} $click={false}>
+                      <b>{DAMAGE_LEVEL_LABEL[c.damageLevel] || "사고"}</b>
+                      <span>{c.place || "-"}</span>
+                      <span>{formatDateTime(c.occurredAt)}</span>
+                      <span>{formatDate(c.createdAt)}</span>
+                      <StatusText $tone={c.status === "done" ? "none" : "on"}>{CLAIM_STATUS_LABEL[c.status] || c.status}</StatusText>
+                    </PcTRow>
+                  ))}
+                </PcTable>
+              </div>
+            </PcStack>
+            <PcSide>
+              <Card>
+                <CardTitle>사고가 났나요</CardTitle>
+                <CardNote>접수 후 보험대리점 담당자가 연락드립니다. 처리 상태는 이 화면의 사고 접수 표에서 확인할 수 있습니다.</CardNote>
+                <PrimaryBtn style={{ marginTop: 16 }} onClick={() => navigate("/insurance/claim")}>사고 접수하기</PrimaryBtn>
+              </Card>
+            </PcSide>
+          </PcCols>
+        </Wrap>
+        {toast && <Toast>{toast}</Toast>}
+      </SimpleBackLayout>
+    );
+  }
+
+  return (
+    <SimpleBackLayout NAME="내 보험 관리" hideFooter onBack={() => navigate("/insurance")}>
+      <Wrap $bottom={110}>
+        {policyCardEl}
 
         <Card>
           <CardTitle>결제 이력</CardTitle>
@@ -188,6 +252,10 @@ const PolicyBox = styled.div`
   border-radius: 10px;
   background: ${THEME.surface};
 `;
+
+// PC — 가입 건을 두 칸으로 나란히
+const PolicyGrid = styled.div` display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; & > div { border-radius: 0; border-color: #dfe3e8; padding: 18px 20px; } `;
+const PcSecTitle = styled.h2` font-size: 18px; font-weight: 800; margin: 0 0 14px; color: #14181F; `;
 
 const PolicyHead = styled.div`
   display: flex;

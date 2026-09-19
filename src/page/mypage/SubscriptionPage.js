@@ -20,6 +20,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getPointPolicy } from "../../service/PointService";
 import { preparePayment, requestBillingAuth, cancelBilling } from "../../service/payService";
 import { isSubscriber } from "../../utility/tierUtils";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const SubscriptionPage = () => {
   const navigate = useNavigate();
@@ -110,6 +111,8 @@ const SubscriptionPage = () => {
   return (
     <SimpleBackLayout NAME="월 구독" hideFooter>
       <Wrap>
+        {/* PC: 왼쪽 상품 설명·결제 방식 / 오른쪽 고정 결제 요약. 폰에서는 두 묶음 모두 display: contents */}
+        <LeftCol>
         <Hero>
           <HeroTitle>홈프로 월 구독 · 0차수</HeroTitle>
           <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함)</Small></HeroPrice>
@@ -180,7 +183,9 @@ const SubscriptionPage = () => {
             </>
           )}
         </Section>
+        </LeftCol>
 
+        <RightCol>
         <Summary>
           <Row><span>구독료</span><b>{monthlyFee.toLocaleString()}원</b></Row>
           <Row><span>H-포인트 사용</span><b>- {pointsUsed.toLocaleString()}P</b></Row>
@@ -193,6 +198,7 @@ const SubscriptionPage = () => {
         <SubmitBtn onClick={handleSubscribe} disabled={busy || cardTooSmall}>
           {busy ? "처리 중..." : cardAmount === 0 ? `${pointsUsed.toLocaleString()}P로 한 달 결제` : `${cardAmount.toLocaleString()}원 결제하고 한 달 구독`}
         </SubmitBtn>
+        </RightCol>
         <BottomSpacer />
       </Wrap>
       {toast && <Toast>{toast}</Toast>}
@@ -202,19 +208,19 @@ const SubscriptionPage = () => {
 
 export default SubscriptionPage;
 
-const Wrap = styled.div` background: ${THEME.background}; min-height: 100%; padding: 12px; `;
-const Hero = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 20px; margin-bottom: 12px; `;
+const Wrap = styled.div` background: ${THEME.background}; min-height: 100%; padding: 12px;  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; word-break: keep-all; @media (max-width: 1040px) { grid-template-columns: minmax(0, 1fr); }`} `;
+const Hero = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 20px; margin-bottom: 12px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 16px;`} `;
 const HeroTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 6px; `;
 const HeroPrice = styled.div` font-size: 28px; font-weight: 800; color: ${THEME.text}; margin-bottom: 8px; `;
 const Small = styled.span` font-size: 14px; font-weight: 400; color: ${THEME.muted}; `;
-const HeroDesc = styled.div` font-size: 15px; line-height: 1.55; color: ${THEME.textSecondary}; word-break: keep-all; `;
-const StatusBox = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; font-size: 15px; color: #15803d; `;
-const Section = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 16px; margin-bottom: 12px; `;
-const SectionTitle = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin: 18px 4px 8px; `;
-const AutoRow = styled.div` display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; font-size: 15px; color: ${THEME.text}; b { font-weight: 700; } `;
-const AutoNote = styled.div` margin-top: 10px; font-size: 14px; line-height: 1.55; color: ${THEME.textSecondary}; word-break: keep-all; `;
-const PrimaryBtn = styled.button` width: 100%; min-height: 50px; margin-top: 12px; border: none; border-radius: 10px; background: #1b1f27; color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; } `;
-const OutlineBtn = styled.button` width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid ${THEME.border}; border-radius: 10px; background: #fff; color: ${THEME.text}; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; } `;
+const HeroDesc = styled.div` font-size: 15px; line-height: 1.55; color: ${THEME.textSecondary}; word-break: keep-all;  ${pcOnly`color: ${PC.body};`} `;
+const StatusBox = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; font-size: 15px; color: #15803d;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 18px 26px; margin-bottom: 16px;`} `;
+const Section = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 16px; margin-bottom: 12px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 0;`} `;
+const SectionTitle = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin: 18px 4px 8px;  ${pcOnly`font-size: 18px; font-weight: 800; margin: 28px 0 12px;`} `;
+const AutoRow = styled.div` display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; font-size: 15px; color: ${THEME.text}; b { font-weight: 700; }  ${pcOnly`justify-content: flex-start; max-width: 460px; & > span { width: 140px; flex: none; }`} `;
+const AutoNote = styled.div` margin-top: 10px; font-size: 14px; line-height: 1.55; color: ${THEME.textSecondary}; word-break: keep-all;  ${pcOnly`font-size: 15px; color: ${PC.body};`} `;
+const PrimaryBtn = styled.button` width: 100%; min-height: 50px; margin-top: 12px; border: none; border-radius: 10px; background: #1b1f27; color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; }  ${pcOnly`width: auto; padding: 0 26px; margin-top: 18px;`} `;
+const OutlineBtn = styled.button` width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid ${THEME.border}; border-radius: 10px; background: #fff; color: ${THEME.text}; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; }  ${pcOnly`width: auto; padding: 0 26px; margin-top: 18px;`} `;
 const Label = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
 const CheckRow = styled.div` display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 4px 0 10px; `;
 const CheckBox = styled.div`
@@ -230,24 +236,26 @@ const RadioDot = styled.div`
   background: ${({ $on }) => ($on ? `radial-gradient(circle, ${THEME.button} 45%, #fff 50%)` : "#fff")};
 `;
 const RadioText = styled.div` font-size: 15px; color: ${THEME.text}; `;
-const InputRow = styled.div` display: flex; align-items: center; gap: 8px; margin-top: 4px; `;
+const InputRow = styled.div` display: flex; align-items: center; gap: 8px; margin-top: 4px;  ${pcOnly`max-width: 260px; margin-left: 30px;`} `;
 const Input = styled.input`
   flex: 1; height: 46px; border: 1px solid ${THEME.border}; border-radius: 10px; padding: 0 14px; font-size: 16px; font-family: inherit;
   &:focus { outline: none; border-color: ${THEME.primary}; }
 `;
 const Unit = styled.span` font-size: 15px; color: ${THEME.muted}; `;
-const Summary = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; `;
+const Summary = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 14px;`} `;
 const Row = styled.div`
   display: flex; justify-content: space-between; font-size: ${({ $total }) => ($total ? "17px" : "15px")}; padding: 6px 0;
   color: ${THEME.text}; ${({ $total }) => ($total ? `border-top: 1px solid ${THEME.border}; margin-top: 6px; padding-top: 12px; font-weight: 700;` : "")}
 `;
 const Warn = styled.div` font-size: 14px; color: ${THEME.danger}; margin-top: 6px; `;
-const Notice = styled.div` font-size: 14px; line-height: 1.55; color: ${THEME.textSecondary}; padding: 0 4px 12px; word-break: keep-all; `;
+const Notice = styled.div` font-size: 14px; line-height: 1.55; color: ${THEME.textSecondary}; padding: 0 4px 12px; word-break: keep-all;  ${pcOnly`padding: 0 2px 16px; color: ${PC.body};`} `;
 const SubmitBtn = styled.button`
   width: 100%; height: 52px; border: none; border-radius: 10px; background: ${THEME.button}; color: #fff; font-size: 17px; font-weight: 700;
   font-family: inherit; cursor: pointer; &:disabled { opacity: 0.5; cursor: not-allowed; } &:active { opacity: 0.85; }
 `;
-const BottomSpacer = styled.div` height: 40px; `;
+const BottomSpacer = styled.div` height: 40px;  ${pcOnly`display: none;`} `;
+const LeftCol = styled.div` display: contents; ${pcOnly`display: block; min-width: 0;`} `;
+const RightCol = styled.div` display: contents; ${pcOnly`display: block; position: sticky; top: 24px; @media (max-width: 1040px) { position: static; }`} `;
 const Toast = styled.div`
   position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff;
   padding: 12px 20px; border-radius: 10px; font-size: 15px; z-index: 1000; white-space: nowrap;

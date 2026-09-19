@@ -15,6 +15,7 @@ import { getBrokeragePost } from "../../service/BrokerageService";
 import { getBrokerStatus } from "../../service/BrokerService";
 import { createChatRoom } from "../../service/ChatService";
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const timeAgo = (ts) => {
   if (!ts) return "";
@@ -115,13 +116,20 @@ const BrokerageDetailPage = () => {
           <Row><RowKey>지역</RowKey><RowVal>{post.region || "-"}</RowVal></Row>
           <Row><RowKey>매물 종류</RowKey><RowVal>{post.dealType || "-"}</RowVal></Row>
           <Row><RowKey>거래 형태</RowKey><RowVal>{post.contractType || "-"}</RowVal></Row>
-          <Row><RowKey>금액</RowKey><RowVal>{post.price || "-"}</RowVal></Row>
-          <Row><RowKey>등록</RowKey><RowVal>{post.authorCompany} · {timeAgo(post.createdAt)}</RowVal></Row>
+          <Row $pcHide><RowKey>금액</RowKey><RowVal>{post.price || "-"}</RowVal></Row>
+          <Row $pcHide><RowKey>등록</RowKey><RowVal>{post.authorCompany} · {timeAgo(post.createdAt)}</RowVal></Row>
 
           {post.detail && <Detail>{post.detail}</Detail>}
         </Body>
 
         <Bottom>
+          {/* PC 오른쪽 고정 패널 머리 — 금액·등록자 (폰에서는 숨김: 위 표에 같은 내용이 있다) */}
+          <SideSummary>
+            <SideLabel>금액</SideLabel>
+            <SidePrice>{post.price || "-"}</SidePrice>
+            <SideRow><span>등록자</span><b>{post.authorCompany || "-"}</b></SideRow>
+            <SideRow><span>등록</span><b>{timeAgo(post.createdAt)}</b></SideRow>
+          </SideSummary>
           {blocked ? (
             <Note>손님공유 상세·연결은 인증 공인중개사만 할 수 있습니다.</Note>
           ) : mine ? (
@@ -154,11 +162,17 @@ const Page = styled.div`
   flex-direction: column;
   min-height: calc(100vh - 160px);
   background: ${THEME.background};
+  /* PC: 좌우 2단 — 왼쪽 내용 / 오른쪽 고정 패널 */
+  ${pcOnly`
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start;
+    min-height: 0; padding: 24px 32px 80px; box-sizing: border-box;
+  `}
 `;
 
 const Body = styled.div`
   flex: 1;
   padding: 16px 16px 24px;
+  ${pcOnly`background: #fff; border: 1px solid ${PC.line}; padding: 28px 30px 32px; min-height: 420px; box-sizing: border-box;`}
 `;
 
 const Empty = styled.div`
@@ -206,12 +220,17 @@ const Row = styled.div`
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid #F0F2F5;
+  ${pcOnly`
+    justify-content: flex-start; gap: 0; padding: 14px 0; border-bottom-color: ${PC.line};
+    display: ${({ $pcHide }) => ($pcHide ? "none" : "flex")};
+  `}
 `;
 
 const RowKey = styled.span`
   font-size: 15px;
   color: ${THEME.muted};
   flex: none;
+  ${pcOnly`width: 130px; color: ${PC.body}; font-size: 16px;`}
 `;
 
 const RowVal = styled.span`
@@ -220,6 +239,7 @@ const RowVal = styled.span`
   color: ${THEME.text};
   text-align: right;
   word-break: keep-all;
+  ${pcOnly`text-align: left; font-size: 16px;`}
 `;
 
 const Detail = styled.div`
@@ -229,6 +249,7 @@ const Detail = styled.div`
   margin-top: 14px;
   white-space: pre-wrap;
   word-break: keep-all;
+  ${pcOnly`font-size: 16px; margin-top: 22px;`}
 `;
 
 const Bottom = styled.div`
@@ -237,6 +258,16 @@ const Bottom = styled.div`
   border-top: 1px solid ${THEME.border};
   background: ${THEME.surface};
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  ${pcOnly`top: 24px; bottom: auto; border: 1px solid ${PC.line}; padding: 24px 24px 22px;`}
+`;
+
+// PC 오른쪽 패널 머리 — 폰에서는 그리지 않는다
+const SideSummary = styled.div` display: none; ${pcOnly`display: block; margin-bottom: 16px;`} `;
+const SideLabel = styled.div` font-size: 14px; font-weight: 700; color: ${PC.ink}; `;
+const SidePrice = styled.div` font-size: 24px; font-weight: 800; color: ${PC.ink}; margin: 4px 0 14px; line-height: 1.35; word-break: keep-all; `;
+const SideRow = styled.div`
+  display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid ${PC.line}; font-size: 15px; color: ${PC.ink};
+  b { font-weight: 700; text-align: right; word-break: keep-all; }
 `;
 
 const Note = styled.div`
@@ -244,6 +275,7 @@ const Note = styled.div`
   line-height: 1.55;
   color: ${THEME.muted};
   word-break: keep-all;
+  ${pcOnly`font-size: 14px; color: ${PC.body};`}
 `;
 
 const BtnRow = styled.div`

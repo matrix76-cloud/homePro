@@ -9,6 +9,7 @@ import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoChevronBack, IoChevronForward, IoAddOutline } from "react-icons/io5";
+import usePcWide from "../../hooks/usePcWide";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -27,6 +28,7 @@ const pad = (n) => String(n).padStart(2, "0");
 
 const CalendarPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const uid = user?.USERS_ID || userData?.uid;
@@ -142,13 +144,30 @@ const CalendarPage = () => {
     });
   };
 
+  // PC 오른쪽 단 — 고른 날의 일정과 이번 달 일정(이미 불러온 schedules 로만 그린다)
+  const monthFirst = `${year}-${pad(month + 1)}-01`;
+  const selKey = `${year}-${pad(month + 1)}-${pad(selectedDate)}`;
+  const fmtDay = (key) => { const d = new Date(key); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})`; };
+  const fmtRange = (b) => (b.startDate === b.endDate ? fmtDay(b.startDate) : `${fmtDay(b.startDate)} ~ ${fmtDay(b.endDate)}`);
+  const dayItems = barItems.filter((b) => b.startDate <= selKey && b.endDate >= selKey);
+  const monthItems = [...barItems].sort((a, b) => (a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0));
+  const Cols = pcWide ? PcCols : React.Fragment;
+  const CalBox = pcWide ? PcCalBox : React.Fragment;
+
   return (
     <SimpleBackLayout
       NAME="나의 일정"
       hideFooter
-      rightAction={<TodayBtn onClick={goToday}>오늘</TodayBtn>}
+      rightAction={pcWide ? (
+        <PcHeadBtns>
+          <PcGhost onClick={goToday}>오늘</PcGhost>
+          <PcAdd onClick={handleCreate}><IoAddOutline size={19} />일정 추가</PcAdd>
+        </PcHeadBtns>
+      ) : <TodayBtn onClick={goToday}>오늘</TodayBtn>}
     >
       <Wrapper>
+        <Cols>
+        <CalBox>
         <MonthNav>
           <NavBtn onClick={prevMonth}><IoChevronBack size={20} color={THEME.text} /></NavBtn>
           <MonthTitle>{year}년 {month + 1}월</MonthTitle>
@@ -181,7 +200,7 @@ const CalendarPage = () => {
                   {row.map((day, ci) => {
                     const holiday = getHoliday(day);
                     return (
-                      <DateCell key={ci} onClick={() => day && setSelectedDate(day)}>
+                      <DateCell key={ci} $sel={!!day && day === selectedDate} onClick={() => day && setSelectedDate(day)}>
                         {day && (
                           <DateNum
                             $isToday={isToday(day)}
@@ -210,13 +229,47 @@ const CalendarPage = () => {
             );
           })}
         </CalGrid>
+        </CalBox>
 
-        {/* FAB */}
+        {pcWide && (
+          <PcRight>
+            <PcPanel>
+              <PcPanelTitle>{fmtDay(selKey)}{getHoliday(selectedDate) ? ` · ${getHoliday(selectedDate)}` : ""}</PcPanelTitle>
+              {dayItems.length === 0 ? (
+                <PcPanelEmpty>이 날에는 등록된 일정이 없습니다.</PcPanelEmpty>
+              ) : dayItems.map((b) => (
+                <PcDayRow key={b.id}>
+                  <b>{b.title}</b>
+                  <span>{fmtRange(b)}{b.source === "chat" ? " · 채팅에서 공유" : ""}</span>
+                </PcDayRow>
+              ))}
+              <PcPanelFoot><PcGhost onClick={handleCreate}>이 날짜로 일정 추가</PcGhost></PcPanelFoot>
+            </PcPanel>
+
+            <PcPanel $flush>
+              <PcPanelTitle style={{ padding: "20px 24px 14px", margin: 0 }}>{month + 1}월 일정 {monthItems.length}건</PcPanelTitle>
+              <PcMonthHead><span>기간</span><span>내용</span></PcMonthHead>
+              {monthItems.length === 0 ? (
+                <PcPanelEmpty style={{ padding: "40px 24px" }}>이번 달에 등록된 일정이 없습니다.</PcPanelEmpty>
+              ) : monthItems.map((b) => (
+                <PcMonthRow key={b.id} onClick={() => setSelectedDate(Number((b.startDate < monthFirst ? monthFirst : b.startDate).slice(8)))}>
+                  <span>{fmtRange(b)}</span>
+                  <b>{b.title}</b>
+                </PcMonthRow>
+              ))}
+            </PcPanel>
+          </PcRight>
+        )}
+        </Cols>
+
+        {/* FAB — PC 에서는 제목 줄의 "일정 추가" 버튼이 대신한다 */}
+        {!pcWide && (
         <FabWrap>
           <Fab onClick={handleCreate}>
             <IoAddOutline size={28} color="#fff" />
           </Fab>
         </FabWrap>
+        )}
       </Wrapper>
     </SimpleBackLayout>
   );
@@ -232,6 +285,39 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   padding-bottom: 80px;
+  .pc-mode & { background: #F7F8FA; padding: 30px 32px 80px; box-sizing: border-box; }
+`;
+
+/* ===== PC 전용 ===== */
+// 왼쪽 달력(폭 520) · 오른쪽 그날 일정. 본문이 좁으면 위아래로 접는다
+const PcCols = styled.div`
+  display: grid; grid-template-columns: 520px minmax(0, 1fr); gap: 24px; align-items: start;
+  @media (max-width: 1240px) { grid-template-columns: minmax(0, 520px); }
+`;
+const PcCalBox = styled.div` background: #fff; border: 1px solid #dfe3e8; padding: 8px 14px 14px; `;
+const PcRight = styled.div` display: flex; flex-direction: column; gap: 20px; min-width: 0; `;
+const PcPanel = styled.section` background: #fff; border: 1px solid #dfe3e8; padding: ${({ $flush }) => ($flush ? "0" : "24px 26px")}; min-height: ${({ $flush }) => ($flush ? "0" : "220px")}; display: flex; flex-direction: column; `;
+const PcPanelTitle = styled.h2` font-size: 18px; font-weight: 800; margin: 0 0 14px; color: #14181F; `;
+const PcPanelEmpty = styled.div` font-size: 15px; color: #14181F; padding: 18px 0; `;
+const PcPanelFoot = styled.div` margin-top: auto; padding-top: 16px; `;
+const PcDayRow = styled.div`
+  display: grid; gap: 4px; padding: 14px 0; border-top: 1px solid #dfe3e8; word-break: keep-all;
+  b { font-size: 16px; font-weight: 700; color: #14181F; } span { font-size: 15px; color: #2b2f36; }
+`;
+const PC_MONTH_COLS = "minmax(190px, 0.9fr) minmax(0, 1.4fr)";
+const PcMonthHead = styled.div` display: grid; grid-template-columns: ${PC_MONTH_COLS}; gap: 12px; padding: 14px 24px; background: #e9ecf1; font-size: 15px; font-weight: 700; color: #14181F; `;
+const PcMonthRow = styled.div`
+  display: grid; grid-template-columns: ${PC_MONTH_COLS}; gap: 12px; padding: 15px 24px; border-top: 1px solid #dfe3e8; cursor: pointer;
+  font-size: 16px; color: #14181F; word-break: keep-all; b { font-weight: 700; } &:hover { background: #f4f6f8; }
+`;
+const PcHeadBtns = styled.div` display: flex; align-items: center; gap: 10px; `;
+const PcGhost = styled.button`
+  border: 1px solid #dfe3e8; background: #fff; color: #14181F; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  font-size: 15px; font-weight: 700; font-family: inherit; &:hover { border-color: #14181F; }
+`;
+const PcAdd = styled.button`
+  border: none; background: #00963F; color: #fff; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  font-size: 15px; font-weight: 700; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; &:hover { background: #007A33; }
 `;
 
 const TodayBtn = styled.button`
@@ -244,6 +330,7 @@ const MonthNav = styled.div`
   display: flex; align-items: center; justify-content: center; gap: 20px;
   padding: 20px 0 16px; background: ${THEME.surface};
   margin: 12px 12px 0; border-radius: 16px 16px 0 0;
+  .pc-mode & { margin: 0; border-radius: 0; }
 `;
 const NavBtn = styled.button`
   background: none; border: none; padding: 4px; cursor: pointer;
@@ -257,27 +344,32 @@ const MonthTitle = styled.div`
 const DayHeader = styled.div`
   display: grid; grid-template-columns: repeat(7, 1fr);
   padding: 0 8px; margin: 0 12px; background: ${THEME.surface};
+  .pc-mode & { margin: 0; padding: 0; border-bottom: 1px solid #dfe3e8; }
 `;
 const DayCell = styled.div`
   text-align: center; font-size: 15px; font-weight: 400;
   color: ${({ $isSun }) => $isSun ? "#EF4444" : ({ $isSat }) => $isSat ? "#3B82F6" : THEME.muted};
   padding: 8px 0;
+  .pc-mode & { font-weight: 700; ${({ $isSun, $isSat }) => (!$isSun && !$isSat ? "color: #14181F;" : "")} }
 `;
 
 const CalGrid = styled.div`
   padding: 0 8px; margin: 0 12px;
   background: ${THEME.surface}; border-radius: 0 0 16px 16px;
   padding-bottom: 12px;
+  .pc-mode & { margin: 0; padding: 6px 0 0; border-radius: 0; }
 `;
 
 const CalRow = styled.div`
   display: grid; grid-template-columns: repeat(7, 1fr);
   min-height: 40px;
+  .pc-mode & { min-height: 52px; }
 `;
 
 const DateCell = styled.div`
   display: flex; flex-direction: column; align-items: center;
   padding: 4px 0; cursor: pointer;
+  .pc-mode & { padding: 8px 0; background: ${({ $sel }) => ($sel ? "#e9ecf1" : "transparent")}; &:hover { background: ${({ $sel }) => ($sel ? "#e9ecf1" : "#f4f6f8")}; } }
 `;
 
 const DateNum = styled.div`
@@ -315,6 +407,7 @@ const CalBar = styled.div`
   white-space: nowrap;
   cursor: pointer;
   line-height: 1.3;
+  .pc-mode & { white-space: normal; text-overflow: clip; font-size: 14px; padding: 3px 7px; }
 `;
 
 const FabWrap = styled.div`

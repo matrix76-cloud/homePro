@@ -13,6 +13,7 @@ import {
   SUPPLIES_COL, TRADE_TYPES, CATEGORIES, isLegacy, categoryShort, conditionLabel,
   formatPrice, dealMethodText, timeAgo, LINE, ACTIVE_FACE, INK_BUTTON,
 } from "./suppliesConstants";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const TYPE_TABS = [{ key: "all", label: "전체" }, ...TRADE_TYPES];
 
@@ -62,6 +63,8 @@ const SuppliesPage = ({ embedded } = {}) => {
       <Content>
         <Intro>남은 시공 자재 처분·나눔부터 중고 장비·공구, 특장 차량까지 사장님끼리 직거래하는 장터입니다.</Intro>
 
+        {/* 폰: 영향 없는 틀(display: contents) / PC: 거래 종류 탭 + 카테고리·지역을 한 줄 필터 상자로 */}
+        <FilterLine>
         <TabBar>
           {TYPE_TABS.map((t) => (
             <TabCell key={t.key} type="button" $active={typeTab === t.key} onClick={() => setTypeTab(t.key)}>
@@ -83,6 +86,7 @@ const SuppliesPage = ({ embedded } = {}) => {
             onChange={(e) => setRegionQ(e.target.value)}
           />
         </FilterRow>
+        </FilterLine>
 
         <ListArea>
           {loading ? (
@@ -159,6 +163,15 @@ export default SuppliesPage;
 const Content = styled.div`
   padding: 12px 16px 100px;
   background: ${THEME.background};
+  ${pcOnly`padding: 18px 32px 80px; box-sizing: border-box; word-break: keep-all;`}
+`;
+
+const FilterLine = styled.div`
+  display: contents;
+  ${pcOnly`
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 18px;
+    background: #fff; border: 1px solid ${PC.line}; padding: 16px 20px;
+  `}
 `;
 
 const Intro = styled.div`
@@ -167,6 +180,7 @@ const Intro = styled.div`
   color: ${THEME.text};
   margin: 2px 0 12px;
   word-break: keep-all;
+  ${pcOnly`margin: 0 0 16px; background: #fff; border: 1px solid ${PC.line}; padding: 13px 20px;`}
 `;
 
 /* 탭바 기준 스타일 — 하나의 박스 + 사이 세로선, 열린 탭은 연회색 면 + 굵게 */
@@ -175,6 +189,7 @@ const TabBar = styled.div`
   border: 1px solid ${LINE};
   background: #fff;
   margin-bottom: 10px;
+  ${pcOnly`margin: 0; flex: 0 0 440px;`}
 `;
 
 const TabCell = styled.button`
@@ -197,6 +212,7 @@ const FilterRow = styled.div`
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+  ${pcOnly`margin: 0 0 0 auto; flex: 0 0 480px; gap: 12px; select, input { border-radius: 8px; }`}
 `;
 
 const FilterSelect = styled.select`
@@ -234,6 +250,8 @@ const ListArea = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* PC: 3칸 카드 그리드 */
+  ${pcOnly`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-content: start; min-height: 420px;`}
 `;
 
 const Card = styled.div`
@@ -245,6 +263,7 @@ const Card = styled.div`
   cursor: pointer;
   opacity: ${({ $done }) => ($done ? 0.72 : 1)};
   &:active { background: #fafbfc; }
+  ${pcOnly`padding: 18px; min-width: 0; &:hover { border-color: ${PC.ink}; }`}
 `;
 
 const Thumb = styled.div`
@@ -290,6 +309,7 @@ const Title = styled.div`
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: keep-all;
+  ${pcOnly`display: block; overflow: visible; -webkit-line-clamp: unset;`}
 `;
 
 const CatText = styled.span`
@@ -304,6 +324,7 @@ const Meta = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  ${pcOnly`overflow: visible; white-space: normal; font-size: 15px; color: ${PC.body};`}
 `;
 
 const TypeText = styled.span`
@@ -335,6 +356,7 @@ const Foot = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  ${pcOnly`overflow: visible; white-space: normal; font-size: 14px; color: ${PC.body}; line-height: 1.45;`}
 `;
 
 const Empty = styled.div`
@@ -342,6 +364,7 @@ const Empty = styled.div`
   text-align: center;
   font-size: 15px;
   color: ${THEME.text};
+  ${pcOnly`grid-column: 1 / -1; background: #fff; border: 1px solid ${PC.line}; padding: 120px 20px;`}
 `;
 
 const EmptyTitle = styled.div`
@@ -377,4 +400,6 @@ const Fab = styled.button`
   cursor: pointer;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
   &:active { opacity: 0.88; }
+  /* PC: 떠 있는 버튼 대신 제목 줄(위 52px 줄) 오른쪽 버튼 */
+  ${pcOnly`top: 6px; bottom: auto; left: auto; right: 24px; transform: none; z-index: 1000; height: 40px; padding: 0 18px; border-radius: 10px; box-shadow: none; background: ${PC.primary};`}
 `;

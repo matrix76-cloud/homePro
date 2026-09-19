@@ -10,6 +10,8 @@ import { IoTrashOutline } from "react-icons/io5";
 import { getMyBlacklist, removeFromBlacklist, BLACKLIST_STATUS_LABEL } from "../../service/BlacklistService";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../api/config";
+import usePcWide from "../../hooks/usePcWide";
+import { pcOnly, PC, PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const BlacklistPage = () => {
   const navigate = useNavigate();
@@ -18,6 +20,7 @@ const BlacklistPage = () => {
   const uid = user?.uid || userData?.uid;
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const pcWide = usePcWide();
 
   useEffect(() => {
     if (!uid) return;
@@ -51,7 +54,22 @@ const BlacklistPage = () => {
   return (
     <SimpleBackLayout NAME="나의 블랙리스트 신고" onBack={() => navigate(-1)}>
       <PageWrap>
-        {loading ? (
+        {pcWide ? (
+          <PcTable>
+            <PcTHead $cols={BL_COLS}><span>신고 대상</span><span>사유 · 내용</span><span>처리 상태</span><span>신고일</span><span>관리</span></PcTHead>
+            {loading && <PcEmpty><b>불러오는 중...</b></PcEmpty>}
+            {!loading && list.length === 0 && <PcEmpty><b>블랙리스트에 신고한 사용자가 없습니다.</b><span>상대 프로필의 블랙리스트 신고에서 접수할 수 있습니다.</span></PcEmpty>}
+            {list.map((item) => (
+              <PcTRow key={item.id} $cols={BL_COLS} $click={false}>
+                <b>{item.targetName}</b>
+                <span style={{ lineHeight: 1.55 }}>{(item.reasonType || item.reason) ? `${item.reasonType || item.reason}${item.content ? ` — ${item.content}` : ""}` : "-"}</span>
+                <span style={{ fontWeight: 700, color: item.status === "confirmed" ? "#EF4444" : PC.ink }}>{item.status ? (BLACKLIST_STATUS_LABEL[item.status] || "-") : "-"}</span>
+                <span>{item.createdAt?.toDate?.() ? item.createdAt.toDate().toLocaleDateString() : "-"}</span>
+                <span><RemoveBtn onClick={() => handleRemove(item.targetUid)}><IoTrashOutline size={18} />해제</RemoveBtn></span>
+              </PcTRow>
+            ))}
+          </PcTable>
+        ) : loading ? (
           <EmptyText>불러오는 중...</EmptyText>
         ) : list.length === 0 ? (
           <EmptyText>블랙리스트에 신고한 사용자가 없습니다.</EmptyText>
@@ -82,9 +100,11 @@ const BlacklistPage = () => {
 
 export default BlacklistPage;
 
+const BL_COLS = "minmax(180px, 1fr) minmax(280px, 2.4fr) 150px 140px 120px";
 const PageWrap = styled.div`
   padding: 16px 12px;
   min-height: 60vh;
+  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; word-break: keep-all;`}
 `;
 const EmptyText = styled.div`
   text-align: center; color: #555; padding: 40px 0; font-size: 16px;

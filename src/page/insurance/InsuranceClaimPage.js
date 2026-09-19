@@ -17,8 +17,9 @@ import {
 import {
   Wrap, Card, CardTitle, CardText, CardNote, PrimaryBtn, GhostBtn, BtnRow, FixedBar, Toast, Notice,
   Label, Input, Textarea, Field, Hint, SelectCard, SelectTitleRow, SelectTitle, SelectDesc, SelectMeta, SmallBtn,
-  RadioGroup, RadioCard, PhotoGrid, PhotoCell, PhotoRemove, PhotoAdd, Empty, Centered, PageTitle, PageSub,
+  RadioGroup, RadioCard, PhotoGrid, PhotoCell, PhotoRemove, PhotoAdd, Empty, Centered, PageTitle, PageSub, PcBtnLine,
 } from "./insuranceStyles";
+import usePcWide from "../../hooks/usePcWide";
 
 const pad = (n) => String(n).padStart(2, "0");
 /** datetime-local 입력 기본값: 지금 (분 단위) */
@@ -33,6 +34,7 @@ const orderWhere = (o) => (typeof o?.location === "string" ? o.location : o?.add
 
 const InsuranceClaimPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { orderId: paramOrderId } = useParams();
   const { currentUser, userData } = useAuth();
   const uid = userData?.uid || currentUser?.uid;
@@ -137,7 +139,7 @@ const InsuranceClaimPage = () => {
   if (done) {
     return (
       <SimpleBackLayout NAME="사고 접수" hideFooter onBack={() => navigate("/insurance/my")}>
-        <Wrap $bottom={110}>
+        <Wrap $bottom={110} className={pcWide ? "ins-pc" : undefined}>
           <Centered>
             <PageTitle>사고 접수가 끝났습니다</PageTitle>
             <PageSub>보험대리점 담당자가 접수 내용을 확인한 뒤 등록된 휴대폰으로 연락드립니다. 처리 상태는 내 보험 관리의 사고 접수 목록에서 볼 수 있습니다.</PageSub>
@@ -147,23 +149,32 @@ const InsuranceClaimPage = () => {
             <CardTitle>접수 뒤 준비할 것</CardTitle>
             <CardText>피해 물품의 사진, 수리 견적서, 고객 연락처를 준비해 두면 처리가 빨라집니다. 현장기록(체크인·체크아웃)의 사진·시각·위치는 자동으로 증빙에 포함됩니다.</CardText>
           </Card>
+          {pcWide && (
+            <PcBtnLine style={{ justifyContent: "center" }}>
+              <GhostBtn onClick={() => navigate("/insurance", { replace: true })}>보험으로</GhostBtn>
+              <PrimaryBtn onClick={() => navigate("/insurance/my", { replace: true })}>내 보험 관리</PrimaryBtn>
+            </PcBtnLine>
+          )}
         </Wrap>
+        {!pcWide && (
         <FixedBar>
           <BtnRow>
             <GhostBtn onClick={() => navigate("/insurance", { replace: true })}>보험으로</GhostBtn>
             <PrimaryBtn onClick={() => navigate("/insurance/my", { replace: true })} style={{ flex: 2 }}>내 보험 관리</PrimaryBtn>
           </BtnRow>
         </FixedBar>
+        )}
       </SimpleBackLayout>
     );
   }
 
   /* ───────── 입력 ───────── */
   const insOfSelected = selected ? getOrderInsurance(selected) : null;
+  const FormRowTag = pcWide ? FormRow : React.Fragment;   // 폰에서는 묶지 않는다(칸 사이 여백 규칙이 형제 기준이라)
 
   return (
     <SimpleBackLayout NAME="사고 접수" hideFooter onBack={() => navigate(-1)}>
-      <Wrap $bottom={110}>
+      <Wrap $bottom={110} className={pcWide ? "ins-pc" : undefined}>
         <Card>
           <CardTitle>사고가 난 오더</CardTitle>
           {loading ? <Empty>오더를 불러오는 중...</Empty> : (
@@ -207,6 +218,7 @@ const InsuranceClaimPage = () => {
 
         <Card>
           <CardTitle>사고 내용</CardTitle>
+          <FormRowTag>
           <Field style={{ marginTop: 14 }}>
             <Label htmlFor="claim-when">발생 일시</Label>
             <Input id="claim-when" type="datetime-local" value={occurredAt} max={nowLocal()} onChange={(e) => setOccurredAt(e.target.value)} />
@@ -216,6 +228,7 @@ const InsuranceClaimPage = () => {
             <Input id="claim-place" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="예: 서울 서초구 OO아파트 101동 1203호 거실" maxLength={200} />
             <Hint>오더 주소가 기본으로 들어갑니다. 실제 사고 위치가 다르면 고쳐 주세요.</Hint>
           </Field>
+          </FormRowTag>
           <Field>
             <Label htmlFor="claim-desc">사고 경위</Label>
             <Textarea
@@ -262,11 +275,19 @@ const InsuranceClaimPage = () => {
         <CardNote style={{ marginTop: 0, padding: "0 6px" }}>
           접수 내용은 보험대리점 담당자에게 전달되며, 허위 접수는 보장에서 제외될 수 있습니다.
         </CardNote>
+        {pcWide && (
+          <PcBtnLine>
+            <GhostBtn type="button" onClick={() => navigate(-1)}>취소</GhostBtn>
+            <PrimaryBtn onClick={submit} disabled={busy || loading}>{busy ? "접수 중..." : "사고 접수"}</PrimaryBtn>
+          </PcBtnLine>
+        )}
       </Wrap>
 
+      {!pcWide && (
       <FixedBar>
         <PrimaryBtn onClick={submit} disabled={busy || loading}>{busy ? "접수 중..." : "사고 접수"}</PrimaryBtn>
       </FixedBar>
+      )}
       {toast && <Toast>{toast}</Toast>}
     </SimpleBackLayout>
   );
@@ -281,4 +302,13 @@ const OrderList = styled.div`
   gap: 8px;
   max-height: 420px;
   overflow-y: auto;
+  .pc-mode & { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px;
+    & > button { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; } }
+`;
+
+// PC 에서만 쓰는 묶음 — 발생 일시·장소를 한 줄에 놓는다
+const FormRow = styled.div`
+  display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px 26px; align-items: start;
+  & > div { margin-top: 14px !important; }
+  & + div { margin-top: 24px; }
 `;

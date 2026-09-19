@@ -15,6 +15,7 @@ import { compressEvidencePhoto } from "../../service/WorkLogService";
 import { formatPhone } from "../../utility/common";
 import { IoCloseCircle, IoCameraOutline } from "react-icons/io5";
 import { TRAINING_COL, TRAINING_POST_COST, CATEGORIES, METHODS, todayStr } from "./trainingShared";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const MAX_PHOTOS = 5;
 const POINT_WAYS = [
@@ -528,9 +529,12 @@ const TrainingCreatePage = () => {
 export default TrainingCreatePage;
 
 /* ─── styles ─── */
-const PageWrap = styled.div` padding: 12px 12px 110px; background: ${THEME.background}; `;
+const PageWrap = styled.div` padding: 12px 12px 110px; background: ${THEME.background};
+  ${pcOnly`padding: 24px 32px 8px; box-sizing: border-box; word-break: keep-all;`}
+`;
 const PointBox = styled.div`
   background: ${THEME.surface}; border: 1px solid #e3e6ec; border-radius: 12px; padding: 16px 18px; margin-bottom: 12px;
+  ${pcOnly`border-radius: 0; border-color: ${PC.line}; padding: 20px 30px; margin-bottom: 22px;`}
 `;
 const PointHead = styled.div` display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; `;
 const PointTitle = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; `;
@@ -538,9 +542,16 @@ const PointBal = styled.div` font-size: 15px; font-weight: 700; color: ${THEME.p
 const PointDesc = styled.div` font-size: 14px; line-height: 1.55; color: #2b2f36; word-break: keep-all; `;
 const Section = styled.div`
   background: ${THEME.surface}; border: 1px solid #eceef2; border-radius: 12px; padding: 20px 18px 6px; margin-bottom: 12px;
+  /* PC: 섹션 카드 + 2칸 폼 그리드 */
+  ${pcOnly`
+    border-radius: 0; border-color: ${PC.line}; padding: 30px 32px 32px; margin-bottom: 22px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 28px; align-items: start;
+  `}
 `;
-const SecTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 18px; `;
-const Field = styled.div` margin-bottom: 22px; `;
+const SecTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 18px;
+  ${pcOnly`grid-column: 1 / -1; font-size: 18px; font-weight: 800; margin-bottom: 0;`}
+`;
+const Field = styled.div` margin-bottom: 22px; ${pcOnly`margin-bottom: 0; min-width: 0;`} `;
 const Label = styled.div` font-size: 15px; font-weight: 600; color: ${THEME.text}; margin-bottom: 9px; `;
 const SubLabel = styled.div` font-size: 14px; font-weight: 600; color: #2b2f36; margin: 14px 0 8px; `;
 const SmallCap = styled.div` font-size: 13px; color: #2b2f36; margin-bottom: 6px; `;
@@ -595,21 +606,29 @@ const PhotoAdd = styled.button`
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #2b2f36; font-family: inherit;
   span { font-size: 13px; }
 `;
-const Disclaimer = styled.div` font-size: 13px; line-height: 1.6; color: ${THEME.muted}; padding: 4px 4px 0; word-break: keep-all; `;
+const Disclaimer = styled.div` font-size: 13px; line-height: 1.6; color: ${THEME.muted}; padding: 4px 4px 0; word-break: keep-all;
+  ${pcOnly`color: ${PC.body}; padding: 0 2px;`}
+`;
 const SubmitBar = styled.div`
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: var(--app-max, 400px); box-sizing: border-box;
   padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: ${THEME.surface};
   box-shadow: 0 -1px 4px rgba(0,0,0,0.06); z-index: 100;
+  /* PC: 바닥 고정 바 대신 내용 끝 오른쪽 버튼 줄 */
+  ${pcOnly`position: static; transform: none; width: auto; max-width: none; padding: 16px 32px 80px; box-shadow: none; background: none; display: flex; justify-content: flex-end;`}
 `;
 const SubmitBtn = styled.button`
   width: 100%; height: 52px; background: ${THEME.button}; color: #fff; border: none; border-radius: 10px;
   font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit;
   &:disabled { background: #b8c0ca; }
+  ${pcOnly`width: auto; padding: 0 36px;`}
 `;
-const Overlay = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; `;
+const Overlay = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: flex-end; justify-content: center;
+  ${pcOnly`align-items: center;`} /* PC: 바텀시트 대신 가운데 창 */
+`;
 const Sheet = styled.div`
   width: 100%; max-width: var(--app-max, 400px); max-height: 88vh; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0;
   padding: 22px 18px calc(18px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box;
+  ${pcOnly`max-width: 480px; border-radius: 0; padding: 30px 30px 22px;`}
 `;
 const SheetTitle = styled.div` font-size: 19px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
 const SheetText = styled.div` font-size: 15px; line-height: 1.6; color: #2b2f36; margin-bottom: 14px; word-break: keep-all; `;

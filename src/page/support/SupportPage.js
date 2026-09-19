@@ -195,6 +195,12 @@ const Wrap = styled.div`
     flex-direction: column;
     gap: 12px;
     padding-bottom: 40px;
+    /* PC — 왼쪽 분류 세로 목록(260) · 오른쪽 검색과 질문 목록 */
+    .pc-mode & {
+        max-width: 1180px; margin: 0 auto; padding: 30px 32px 80px; box-sizing: border-box;
+        display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px 24px; align-items: start;
+        & > * { grid-column: 2; }
+    }
 `;
 
 const SearchSection = styled.div`
@@ -202,6 +208,7 @@ const SearchSection = styled.div`
     border-radius: 16px;
     padding: 20px;
     box-shadow: ${THEME.cardShadow};
+    .pc-mode & { border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 24px 26px; }
 `;
 
 const SearchTitle = styled.div`
@@ -210,6 +217,7 @@ const SearchTitle = styled.div`
     color: ${THEME.text};
     letter-spacing: -0.02em;
     margin-bottom: 14px;
+    .pc-mode & { font-size: 22px; font-weight: 800; }
 `;
 
 const SearchBox = styled.div`
@@ -219,6 +227,7 @@ const SearchBox = styled.div`
     padding: 12px 14px;
     background: ${THEME.background};
     border-radius: 10px;
+    .pc-mode & { max-width: 560px; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; &:focus-within { border-color: ${THEME.primary}; } }
 `;
 
 const SearchInput = styled.input`
@@ -250,6 +259,10 @@ const CatRow = styled.div`
     padding: 2px;
     -webkit-overflow-scrolling: touch;
     &::-webkit-scrollbar { display: none; }
+    .pc-mode & {
+        grid-column: 1; grid-row: 1 / span 6; position: sticky; top: 24px;
+        flex-direction: column; gap: 0; padding: 0; overflow: visible; background: #fff; border: 1px solid #dfe3e8;
+    }
 `;
 
 const CatChip = styled.button`
@@ -265,6 +278,14 @@ const CatChip = styled.button`
     cursor: pointer;
     white-space: nowrap;
     &:active { opacity: 0.7; }
+    /* PC — 고른 분류는 연회색 면 + 굵은 글씨 */
+    .pc-mode & {
+        width: 100%; text-align: left; padding: 15px 20px; border-radius: 0; border: none; white-space: normal;
+        background: ${({ $active }) => ($active ? "#e9ecf1" : "#fff")};
+        color: #14181F; font-size: 16px; font-weight: ${({ $active }) => ($active ? 800 : 500)};
+        & + & { border-top: 1px solid #dfe3e8; }
+        &:hover { background: ${({ $active }) => ($active ? "#e9ecf1" : "#f4f6f8")}; }
+    }
 `;
 
 /* 탭·검색으로 목록이 줄어도 화면이 들쭉날쭉하지 않게 최소 높이 확보 */
@@ -279,6 +300,7 @@ const ResultCount = styled.div`
     font-size: 14px;
     color: ${THEME.muted};
     padding: 2px 4px;
+    .pc-mode & { font-size: 15px; color: #14181F; font-weight: 700; }
 `;
 
 const FaqSection = styled.div`
@@ -286,6 +308,7 @@ const FaqSection = styled.div`
     border-radius: 16px;
     overflow: hidden;
     box-shadow: ${THEME.cardShadow};
+    .pc-mode & { border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; }
 `;
 
 const SectionTitle = styled.div`
@@ -293,6 +316,7 @@ const SectionTitle = styled.div`
     font-weight: 700;
     color: ${THEME.text};
     padding: 18px 20px 10px;
+    .pc-mode & { padding: 14px 24px; background: #e9ecf1; font-size: 16px; }
 `;
 
 const FaqItem = styled.div`
@@ -308,6 +332,7 @@ const FaqRow = styled.div`
     cursor: pointer;
     gap: 12px;
     &:active { background: ${THEME.background}; }
+    .pc-mode & { padding: 16px 24px; &:hover { background: #f4f6f8; } }
 `;
 
 const FaqQ = styled.div`
@@ -321,6 +346,7 @@ const FaqQ = styled.div`
 
 const FaqBody = styled.div`
     padding: 0 20px 18px;
+    .pc-mode & { padding: 2px 24px 22px; max-width: 820px; }
 `;
 
 const FaqA = styled.div`
@@ -329,6 +355,7 @@ const FaqA = styled.div`
     line-height: 1.7;
     word-break: keep-all;
     white-space: pre-line;
+    .pc-mode & { color: #2b2f36; }
 `;
 
 const FaqCat = styled.div`
@@ -360,6 +387,7 @@ const EmptyBox = styled.div`
     box-shadow: ${THEME.cardShadow};
     padding: 48px 24px;
     text-align: center;
+    .pc-mode & { border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 90px 24px; }
 `;
 
 const EmptyTitle = styled.div`
@@ -375,6 +403,7 @@ const EmptyDesc = styled.div`
     line-height: 1.6;
     white-space: pre-line;
     word-break: keep-all;
+    .pc-mode & { color: #14181F; }
 `;
 
 const ContactHead = styled.div`
@@ -382,6 +411,7 @@ const ContactHead = styled.div`
     font-weight: 700;
     color: ${THEME.text};
     padding: 4px 4px 0;
+    .pc-mode & { font-size: 18px; font-weight: 800; padding: 12px 0 0; }
 `;
 
 const ContactCard = styled.div`
@@ -389,6 +419,13 @@ const ContactCard = styled.div`
     border-radius: 16px;
     padding: 4px 0;
     box-shadow: ${THEME.cardShadow};
+    /* PC — 문의 방법 세 가지를 한 줄에 나란히 */
+    .pc-mode & {
+        border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 0;
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+        & > div:nth-child(2n) { display: none; }
+        & > div:nth-child(2n + 1):not(:first-child) { border-left: 1px solid #dfe3e8; }
+    }
 `;
 
 const ContactRow = styled.div`
@@ -396,6 +433,7 @@ const ContactRow = styled.div`
     align-items: center;
     padding: 16px 20px;
     gap: 12px;
+    .pc-mode & { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px 12px; padding: 20px 22px; align-items: center; }
 `;
 
 const ContactIcon = styled.div`
@@ -417,6 +455,7 @@ const ContactLabel = styled.div`
     font-size: 14px;
     color: ${THEME.muted};
     font-weight: 400;
+    .pc-mode & { color: #14181F; font-weight: 700; }
 `;
 
 const ContactValue = styled.div`
@@ -424,6 +463,7 @@ const ContactValue = styled.div`
     font-weight: 400;
     color: ${THEME.text};
     margin-top: 2px;
+    .pc-mode & { word-break: break-all; }
 `;
 
 const ContactSub = styled.div`
@@ -431,6 +471,7 @@ const ContactSub = styled.div`
     color: ${THEME.muted};
     font-weight: 400;
     flex-shrink: 0;
+    .pc-mode & { color: #2b2f36; font-size: 14px; grid-column: 2; &:empty { display: none; } }
 `;
 
 const Divider = styled.div`

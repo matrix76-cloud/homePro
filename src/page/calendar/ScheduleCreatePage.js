@@ -8,6 +8,7 @@ import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { IoCloseOutline, IoChevronBack, IoChevronForward } from "react-icons/io5";
+import usePcWide from "../../hooks/usePcWide";
 
 const pad = (n) => String(n).padStart(2, "0");
 const WEEK_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -22,6 +23,7 @@ for (let h = 0; h < 24; h++) {
 
 const ScheduleCreatePage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { state } = useLocation();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
@@ -159,17 +161,13 @@ const ScheduleCreatePage = () => {
     }
   };
 
-  return (
-    <PageWrap>
-      <Header>
-        <HeaderTitle>일정 등록</HeaderTitle>
-        <CloseBtn onClick={handleClose}>
-          <IoCloseOutline size={28} color={THEME.text} />
-        </CloseBtn>
-      </Header>
+  const fmtItem = (it) => {
+    const f = (k) => { const d = new Date(k); return `${d.getMonth() + 1}/${d.getDate()} (${WEEK_DAYS[d.getDay()]})`; };
+    return it.startDate === it.endDate ? f(it.startDate) : `${f(it.startDate)} ~ ${f(it.endDate)}`;
+  };
 
-      <FormScroll>
-        {/* 미니 캘린더 */}
+  // 조각 — 폰·PC 가 같이 쓴다
+  const calEl = (
         <CalSection>
           <CalNav>
             <CalNavBtn onClick={prevMonth}><IoChevronBack size={18} /></CalNavBtn>
@@ -239,12 +237,11 @@ const ScheduleCreatePage = () => {
             );
           })}
           <CalHint>
-            {selectStep === "end" ? "종료일을 선택하세요" : "날짜를 터치하여 기간 선택"}
+            {selectStep === "end" ? "종료일을 선택하세요" : pcWide ? "날짜를 눌러 기간 선택" : "날짜를 터치하여 기간 선택"}
           </CalHint>
         </CalSection>
-
-        {/* 선택된 기간 + 입력 */}
-        {startDate && (
+  );
+  const inputEl = startDate && (
           <InputSection>
             <RangeDisplay>{formatRange()}</RangeDisplay>
             <Input placeholder="작업 내용 (예: 욕실 타일 시공)" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -252,15 +249,76 @@ const ScheduleCreatePage = () => {
               <AddBtn onClick={handleAddToList}>+ 일정 추가하고 계속 만들기</AddBtn>
             )}
           </InputSection>
-        )}
+        );
+  const completeEl = (
+    <CompleteBtn onClick={handleComplete} disabled={allItems.length === 0 || saving}>
+      {saving ? "저장 중..." : allItems.length > 1 ? `${allItems.length}건 일정 등록` : "완료"}
+    </CompleteBtn>
+  );
+
+  /* PC — 왼쪽 달력(기간 고르기) · 오른쪽 내용 입력과 등록할 일정 목록, 등록 버튼 */
+  if (pcWide) {
+    return (
+      <PageWrap>
+        <Header>
+          <HeaderTitle>일정 등록</HeaderTitle>
+          <CloseBtn onClick={handleClose}>
+            <IoCloseOutline size={28} color={THEME.text} />
+          </CloseBtn>
+        </Header>
+        <FormScroll>
+          <PcCols>
+            {calEl}
+            <PcSide>
+              <PcCard>
+                <PcCardTitle>일정 내용</PcCardTitle>
+                {startDate ? inputEl : <PcText>왼쪽 달력에서 날짜를 눌러 기간을 고르세요. 시작일을 누른 뒤 종료일을 누르면 기간이 잡힙니다.</PcText>}
+              </PcCard>
+              <PcCard>
+                <PcCardTitle>등록할 일정 {allItems.length}건</PcCardTitle>
+                {allItems.length === 0 ? (
+                  <PcText>기간과 작업 내용을 넣으면 여기에 쌓입니다.</PcText>
+                ) : allItems.map((it, idx) => (
+                  <PcItemRow key={idx}>
+                    <div><b>{it.title}</b><span>{fmtItem(it)}</span></div>
+                    {idx < schedList.length
+                      ? <PcRemove type="button" onClick={() => removeFromList(idx)}>빼기</PcRemove>
+                      : <span>입력 중</span>}
+                  </PcItemRow>
+                ))}
+                <PcBtnLine>
+                  <PcCancel type="button" onClick={handleClose}>취소</PcCancel>
+                  {completeEl}
+                </PcBtnLine>
+              </PcCard>
+            </PcSide>
+          </PcCols>
+        </FormScroll>
+      </PageWrap>
+    );
+  }
+
+  return (
+    <PageWrap>
+      <Header>
+        <HeaderTitle>일정 등록</HeaderTitle>
+        <CloseBtn onClick={handleClose}>
+          <IoCloseOutline size={28} color={THEME.text} />
+        </CloseBtn>
+      </Header>
+
+      <FormScroll>
+        {/* 미니 캘린더 */}
+        {calEl}
+
+        {/* 선택된 기간 + 입력 */}
+        {inputEl}
 
         <BottomSpacer />
       </FormScroll>
 
       <FixedBottom>
-        <CompleteBtn onClick={handleComplete} disabled={allItems.length === 0 || saving}>
-          {saving ? "저장 중..." : allItems.length > 1 ? `${allItems.length}건 일정 등록` : "완료"}
-        </CompleteBtn>
+        {completeEl}
       </FixedBottom>
     </PageWrap>
   );
@@ -275,6 +333,30 @@ const PageWrap = styled.div`
   display: flex;
   flex-direction: column;
   background: ${THEME.background};
+  .pc-mode & { background: #F7F8FA; }
+`;
+
+/* ===== PC 전용 ===== */
+const PcCols = styled.div`
+  display: grid; grid-template-columns: 520px minmax(0, 1fr); gap: 24px; align-items: start;
+  @media (max-width: 1240px) { grid-template-columns: minmax(0, 520px); }
+`;
+const PcSide = styled.div` display: flex; flex-direction: column; gap: 20px; min-width: 0; `;
+const PcCard = styled.section` background: #fff; border: 1px solid #dfe3e8; padding: 24px 26px; `;
+const PcCardTitle = styled.h2` font-size: 18px; font-weight: 800; margin: 0 0 14px; color: #14181F; `;
+const PcText = styled.div` font-size: 15px; line-height: 1.6; color: #2b2f36; word-break: keep-all; `;
+const PcItemRow = styled.div`
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-top: 1px solid #dfe3e8; word-break: keep-all;
+  & > div { display: grid; gap: 4px; min-width: 0; } b { font-size: 16px; font-weight: 700; color: #14181F; } span { font-size: 15px; color: #2b2f36; }
+`;
+const PcRemove = styled.button`
+  border: 1px solid #dfe3e8; background: #fff; color: #14181F; border-radius: 8px; padding: 8px 14px; cursor: pointer; flex-shrink: 0;
+  font-size: 14px; font-weight: 700; font-family: inherit; &:hover { border-color: #14181F; }
+`;
+const PcBtnLine = styled.div` display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #dfe3e8; `;
+const PcCancel = styled.button`
+  border: 1px solid #dfe3e8; background: #fff; color: #14181F; border-radius: 10px; padding: 0 20px; height: 48px; cursor: pointer;
+  font-size: 15px; font-weight: 700; font-family: inherit; &:hover { border-color: #14181F; }
 `;
 const Header = styled.div`
   position: relative;
@@ -284,11 +366,13 @@ const Header = styled.div`
   height: 52px;
   border-bottom: 1px solid ${THEME.border};
   flex-shrink: 0;
+  .pc-mode & { height: 60px; justify-content: flex-start; padding: 0 24px; background: #fff; }
 `;
 const HeaderTitle = styled.div`
   font-size: 19px;
   font-weight: 400;
   color: ${THEME.text};
+  .pc-mode & { font-size: 22px; font-weight: 800; }
 `;
 const CloseBtn = styled.button`
   position: absolute;
@@ -308,6 +392,7 @@ const FormScroll = styled.div`
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 12px;
+  .pc-mode & { padding: 30px 32px 80px; }
 `;
 
 /* 캘린더 */
@@ -316,6 +401,7 @@ const CalSection = styled.div`
   border-radius: 16px;
   padding: 16px 8px;
   margin-bottom: 12px;
+  .pc-mode & { border: 1px solid #dfe3e8; border-radius: 0; padding: 22px 18px; margin-bottom: 0; }
 `;
 const CalNav = styled.div`
   display: flex;
@@ -382,6 +468,7 @@ const CalHint = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   margin-top: 8px;
+  .pc-mode & { color: #14181F; font-size: 15px; margin-top: 14px; }
 `;
 
 const RangeDisplay = styled.div`
@@ -391,11 +478,13 @@ const RangeDisplay = styled.div`
   color: ${THEME.primary};
   padding: 10px 0;
   margin-bottom: 8px;
+  .pc-mode & { text-align: left; padding: 0 0 6px; color: ${THEME.primaryDark}; }
 `;
 
 const InputSection = styled.div`
   padding: 0 4px;
   margin-bottom: 12px;
+  .pc-mode & { padding: 0; margin-bottom: 0; }
 `;
 
 const AddBtn = styled.div`
@@ -406,6 +495,7 @@ const AddBtn = styled.div`
   padding: 10px 0 4px;
   cursor: pointer;
   &:active { opacity: 0.6; }
+  .pc-mode & { text-align: left; font-weight: 700; color: ${THEME.primaryDark}; padding: 14px 0 0; &:hover { text-decoration: underline; } }
 `;
 
 const BarRow = styled.div`
@@ -503,4 +593,5 @@ const CompleteBtn = styled.button`
   font-weight: 400;
   cursor: ${({ disabled }) => disabled ? "default" : "pointer"};
   &:active { background: ${({ disabled }) => disabled ? THEME.border : THEME.buttonDark}; }
+  .pc-mode & { width: auto; min-width: 180px; height: 48px; padding: 0 24px; border-radius: 10px; font-size: 16px; font-weight: 700; &:disabled { background: #e9ecf1; color: #2b2f36; } }
 `;

@@ -10,9 +10,11 @@ import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { getAllPointRules, DEFAULT_RULES } from "../../service/PointService";
 import { IoPersonCircleOutline } from "react-icons/io5";
+import usePcWide from "../../hooks/usePcWide";
 
 const ReferralFriendsPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const uid = user?.USERS_ID || userData?.uid;
@@ -56,7 +58,7 @@ const ReferralFriendsPage = () => {
   };
 
   return (
-    <SimpleBackLayout name="초대한 친구" onBack={() => navigate(-1)}>
+    <SimpleBackLayout name="초대한 친구" NAME={pcWide ? "초대한 친구" : undefined} onBack={() => navigate(-1)}>
       <Wrap>
         <SummaryCard>
           <SummaryText>초대한 친구 <SummaryNum>{friends.length}명</SummaryNum></SummaryText>
@@ -94,6 +96,7 @@ const ReferralFriendsPage = () => {
           </EmptyWrap>
         ) : (
           <FriendList>
+            {pcWide && <PcHead><span /><span>이름</span><span>가입일</span></PcHead>}
             {friends.map((f) => (
               <FriendItem key={f.id}>
                 {f.profileImage || f.photoURL ? (
@@ -105,7 +108,7 @@ const ReferralFriendsPage = () => {
                 )}
                 <FriendInfo>
                   <FriendName>{f.nickname || f.name || "사용자"}</FriendName>
-                  <FriendDate>가입일: {formatDate(f.createdAt)}</FriendDate>
+                  <FriendDate><span className="lb">가입일: </span>{formatDate(f.createdAt)}</FriendDate>
                 </FriendInfo>
               </FriendItem>
             ))}
@@ -118,9 +121,22 @@ const ReferralFriendsPage = () => {
 
 export default ReferralFriendsPage;
 
+const PC_COLS = "44px minmax(0, 1fr) 160px";
+
 const Wrap = styled.div`
   padding: 0 12px;
   min-height: 100%;
+  /* PC — 왼쪽 친구 표 · 오른쪽(340) 초대 인원과 보상 안내 */
+  .pc-mode & {
+    max-width: 1180px; margin: 0 auto; padding: 30px 32px 80px; box-sizing: border-box; min-height: 0;
+    display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto auto 1fr; gap: 20px 24px; align-items: start;
+    & > * { margin-top: 0; }
+    @media (max-width: 1240px) { grid-template-columns: minmax(0, 1fr); }
+  }
+`;
+const PcHead = styled.div`
+  display: grid; grid-template-columns: ${PC_COLS}; gap: 14px; padding: 14px 24px; background: #e9ecf1;
+  font-size: 15px; font-weight: 700; color: #14181F;
 `;
 
 const SummaryCard = styled.div`
@@ -129,6 +145,8 @@ const SummaryCard = styled.div`
   padding: 20px;
   margin-top: 12px;
   box-shadow: ${THEME.cardShadow};
+  .pc-mode & { grid-column: 2; grid-row: 1; border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 22px 24px;
+    @media (max-width: 1240px) { grid-column: 1; grid-row: auto; } }
 `;
 
 const SummaryText = styled.div`
@@ -147,6 +165,8 @@ const GuideCard = styled.div`
   padding: 20px;
   margin-top: 12px;
   box-shadow: ${THEME.cardShadow};
+  .pc-mode & { grid-column: 2; grid-row: 2; border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 22px 24px;
+    @media (max-width: 1240px) { grid-column: 1; grid-row: auto; } }
 `;
 
 const GuideTitle = styled.div`
@@ -167,6 +187,7 @@ const GuideRow = styled.div`
 const GuideLabel = styled.div`
   font-size: 15px;
   color: ${THEME.textSecondary};
+  .pc-mode & { color: #2b2f36; word-break: keep-all; }
 `;
 
 const GuideAmount = styled.div`
@@ -180,6 +201,7 @@ const GuideNote = styled.div`
   font-size: 13px;
   color: ${THEME.muted};
   margin-top: 10px;
+  .pc-mode & { color: #2b2f36; font-size: 14px; }
 `;
 
 const FriendList = styled.div`
@@ -188,6 +210,8 @@ const FriendList = styled.div`
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
   overflow: hidden;
+  .pc-mode & { grid-column: 1; grid-row: 1 / span 3; border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; min-height: 420px;
+    @media (max-width: 1240px) { grid-row: auto; } }
 `;
 
 const FriendItem = styled.div`
@@ -197,6 +221,7 @@ const FriendItem = styled.div`
   padding: 16px 20px;
   border-bottom: 1px solid ${THEME.border};
   &:last-child { border-bottom: none; }
+  .pc-mode & { display: grid; grid-template-columns: ${PC_COLS}; padding: 14px 24px; border-bottom: none; border-top: 1px solid #dfe3e8; }
 `;
 
 const FriendImg = styled.img`
@@ -219,6 +244,7 @@ const FriendPlaceholder = styled.div`
 const FriendInfo = styled.div`
   flex: 1;
   min-width: 0;
+  .pc-mode & { display: contents; }
 `;
 
 const FriendName = styled.div`
@@ -232,6 +258,7 @@ const FriendDate = styled.div`
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
+  .pc-mode & { margin-top: 0; font-size: 16px; color: #14181F; .lb { display: none; } }
 `;
 
 const EmptyWrap = styled.div`
@@ -240,6 +267,8 @@ const EmptyWrap = styled.div`
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
+  .pc-mode & { grid-column: 1; grid-row: 1 / span 3; background: #fff; border: 1px solid #dfe3e8; min-height: 420px; box-sizing: border-box;
+    div { color: #14181F; } @media (max-width: 1240px) { grid-row: auto; } }
 `;
 
 const EmptyText = styled.div`

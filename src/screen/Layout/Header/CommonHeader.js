@@ -67,7 +67,8 @@ const HeaderInner = styled.div`
   height: 100%;
   padding: 0 12px;
   /* PC 본문 틀 — 제목을 왼쪽 굵게, 검색·일정·알림은 PC 위 줄에 이미 있으므로 숨김 */
-  .pc-mode & { padding: 0 24px; }
+  .pc-mode & { padding: 0 32px; }
+  .pc-mode & > div:empty { display: none; } /* 뒤로가기 없는 화면의 자리맞춤 빈 칸 — PC 에서는 제목이 본문과 같은 선에서 시작 */
 `;
 
 const LeftBtn = styled.button`

@@ -9,6 +9,7 @@ import { UserContext } from "../../context/User";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { createBrokeragePost, DEAL_TYPES, CONTRACT_TYPES } from "../../service/BrokerageService";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const BrokerageCreatePage = () => {
   const navigate = useNavigate();
@@ -64,7 +65,9 @@ const BrokerageCreatePage = () => {
   return (
     <SimpleBackLayout NAME="공동중개 등록">
       <Wrap>
-        <Section>
+        {/* PC 에서는 이 묶음이 섹션 카드 하나 + 3칸 폼 그리드가 된다 (폰에서는 아무 영향 없는 빈 틀) */}
+        <FormCard>
+        <Section $span={3}>
           <Label>유형 선택</Label>
           <Row>
             <TypeBtn $active={!isListing} onClick={() => setType("demand")}>손님공유</TypeBtn>
@@ -79,7 +82,7 @@ const BrokerageCreatePage = () => {
           {isListing && <Hint>상세 번지수는 노출되지 않습니다.</Hint>}
         </Section>
 
-        <Section>
+        <Section $span={2}>
           <Label>거래 유형</Label>
           <Chips>
             {DEAL_TYPES.map((t) => (
@@ -102,7 +105,7 @@ const BrokerageCreatePage = () => {
           <Input placeholder="예: 보증금/매매가 · 월세 (만 원)" value={price} onChange={(e) => setPrice(e.target.value)} />
         </Section>
 
-        <Section>
+        <Section $span={2} $newRow>
           <Label>한 줄 요약 <Req>*</Req></Label>
           <Input
             placeholder={isListing ? "예: 역세권 코너자리 상가 임대" : "예: 카페 창업 예정 무권리 상가 찾는 손님 대기중"}
@@ -111,7 +114,7 @@ const BrokerageCreatePage = () => {
           />
         </Section>
 
-        <Section>
+        <Section $span={3}>
           <Label>상세 내용</Label>
           <Area
             placeholder={isListing ? "현재 공실, 즉시 입주 가능 등. 상세 주소·내부 사진은 매수 손님 확보하신 중개사님께 채팅으로 오픈해 드립니다." : "실평수, 선호 라인, 렌트프리 협의 가능 여부 등. 매물 있으신 분 채팅 주세요."}
@@ -119,6 +122,7 @@ const BrokerageCreatePage = () => {
             onChange={(e) => setDetail(e.target.value)}
           />
         </Section>
+        </FormCard>
 
         <SubmitBtn disabled={busy} onClick={submit}>{busy ? "등록 중..." : "등록하기"}</SubmitBtn>
       </Wrap>
@@ -128,8 +132,21 @@ const BrokerageCreatePage = () => {
 
 export default BrokerageCreatePage;
 
-const Wrap = styled.div` padding: 12px 12px 40px; background: ${THEME.background}; min-height: 100%; `;
-const Section = styled.div` background: ${THEME.surface}; margin: 0 0 10px; padding: 16px; border-radius: 14px; box-shadow: ${THEME.cardShadow}; `;
+const Wrap = styled.div` padding: 12px 12px 40px; background: ${THEME.background}; min-height: 100%;
+  ${pcOnly`padding: 24px 32px 80px; min-height: 0; box-sizing: border-box; word-break: keep-all;`}
+`;
+const FormCard = styled.div`
+  ${pcOnly`
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 26px; align-items: start;
+    background: #fff; border: 1px solid ${PC.line}; padding: 30px 32px 34px;
+  `}
+`;
+const Section = styled.div` background: ${THEME.surface}; margin: 0 0 10px; padding: 16px; border-radius: 14px; box-shadow: ${THEME.cardShadow};
+  ${pcOnly`
+    margin: 0; padding: 0; border-radius: 0; box-shadow: none; background: none; min-width: 0;
+    grid-column: ${({ $span, $newRow }) => `${$newRow ? "1 / " : ""}span ${$span || 1}`};
+  `}
+`;
 const Label = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
 const Req = styled.span` color: #ef4444; `;
 const Hint = styled.div` margin-top: 8px; font-size: 14px; color: ${THEME.muted}; line-height: 1.5; `;
@@ -139,6 +156,7 @@ const TypeBtn = styled.button`
   border: 1px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
   background: ${({ $active }) => ($active ? THEME.button : THEME.surface)};
   color: ${({ $active }) => ($active ? "#fff" : THEME.text)};
+  ${pcOnly`flex: none; width: 200px;`}
 `;
 const Chips = styled.div` display: flex; flex-wrap: wrap; gap: 8px; `;
 const Chip = styled.button`
@@ -155,9 +173,12 @@ const Input = styled.input`
 const Area = styled.textarea`
   width: 100%; box-sizing: border-box; min-height: 96px; padding: 12px; border: 1px solid ${THEME.border}; border-radius: 10px;
   font-size: 16px; font-family: inherit; resize: vertical; outline: none; &:focus { border-color: ${THEME.primary}; }
+  ${pcOnly`min-height: 220px; line-height: 1.6;`}
 `;
 const SubmitBtn = styled.button`
   width: 100%; padding: 16px; margin-top: 6px; background: ${THEME.button}; color: #fff; border: none; border-radius: 10px;
   font-size: 18px; font-weight: 600; cursor: pointer; font-family: inherit;
   &:disabled { background: #ccc; }
+  /* PC: 전폭 버튼 대신 끝 오른쪽 버튼 */
+  ${pcOnly`display: block; width: auto; min-width: 200px; padding: 14px 40px; margin: 20px 0 0 auto; font-size: 17px; font-weight: 700;`}
 `;

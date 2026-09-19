@@ -11,6 +11,7 @@ import {
   FiList, FiClipboard, FiGift, FiCpu, FiHome, FiBookOpen, FiShield, FiMessageCircle, FiUser, FiSearch, FiCalendar, FiBell,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
+import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
 
 export const PC_SIDE_W = 220;
 export const PC_TOP_H = 60;
@@ -57,6 +58,9 @@ export const PcTopBar = () => {
   const { userData, isLoggedIn } = useAuth();
   const name = userData?.companyName || userData?.nickname || userData?.name || "";
   const points = Number(userData?.referralPoints || userData?.points || 0);
+  // 폰 홈의 '회원 등급 · 보유 포인트' 줄을 PC 에서는 이 위 줄이 대신한다
+  const tier = userData ? getAccessTier(userData) : null;
+  const tierText = tier ? `${TIER_LABEL[tier] || ""}${tier !== "tier0" ? " · 구독" : ""}` : "";
   return (
     <Top>
       {isLoggedIn ? (
@@ -66,6 +70,7 @@ export const PcTopBar = () => {
           <TopIcon onClick={() => navigate("/notice")} aria-label="알림"><FiBell size={20} /></TopIcon>
           <Who onClick={() => navigate("/MobileConfig")}>
             {name && <><b>{name}</b> 님</>}
+            {tierText && <Tier onClick={(e) => { e.stopPropagation(); navigate("/subscription"); }}>{tierText}</Tier>}
             <Pt onClick={(e) => { e.stopPropagation(); navigate("/MobileMain?tab=assets"); }}>{points.toLocaleString()}P</Pt>
           </Who>
         </>
@@ -104,6 +109,7 @@ const TopIcon = styled.button`
   display: flex; align-items: center; justify-content: center; &:hover { color: #00963F; }
 `;
 const Who = styled.div` font-size: 15px; color: #14181F; cursor: pointer; margin-left: 8px; display: flex; align-items: center; gap: 10px; b { font-weight: 800; } `;
+const Tier = styled.span` font-weight: 600; padding-left: 10px; border-left: 1px solid #dfe3e8; `;
 const Pt = styled.span` font-weight: 800; color: #00963F; `;
 const LoginBtn = styled.button`
   border: 1px solid #dfe3e8; background: #fff; color: #14181F; font-weight: 700; font-size: 15px; font-family: inherit;

@@ -18,6 +18,7 @@ import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import EmptyOrders from "../../components/EmptyOrders";
 import usePcWide from "../../hooks/usePcWide";
+import { PcTable, PcTHead, PcTRow, PcEmpty, PcCard, PcGhostBtn } from "../../pc/pcKit";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
@@ -893,7 +894,52 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
 
           {assetSub === "invite" && <InviteTabContent pointHistory={pointHistory} />}
 
-          {assetSub === "point" && (
+          {assetSub === "point" && pcWide && (
+            <PcAssetGrid>
+              <div>
+                <PcCard>
+                  <PcAssetLabel>총 보유 포인트</PcAssetLabel>
+                  <PcAssetValue>{userPoints.toLocaleString()}P</PcAssetValue>
+                </PcCard>
+                <PcPeriodList>
+                  {POINT_PERIODS.map((p) => (
+                    <PcPeriodBtn key={p} $on={pointPeriod === p} onClick={() => setPointPeriod(p)}>{p}</PcPeriodBtn>
+                  ))}
+                </PcPeriodList>
+              </div>
+              <PcTable $minH={360}>
+                <PcTHead $cols={PC_POINT_COLS}><span>일자</span><span>내용</span><span style={{ textAlign: "right" }}>포인트</span></PcTHead>
+                {(() => {
+                  const filtered = pointHistory.filter((h) => matchPointPeriod(h.createdAt, pointPeriod));
+                  if (pointHistory.length === 0) return (
+                    <PcEmpty>
+                      <b>아직 쌓인 포인트가 없어요</b>
+                      <span>오더를 끝내거나 친구를 초대하면 포인트가 들어옵니다.</span>
+                      <div><PcGhostBtn onClick={() => setAssetSub("invite")}>친구 초대하고 받기</PcGhostBtn></div>
+                    </PcEmpty>
+                  );
+                  if (filtered.length === 0) return (
+                    <PcEmpty>
+                      <b>이 기간에는 내역이 없어요</b>
+                      <span>기간을 넓히면 지난 내역을 볼 수 있습니다.</span>
+                      <div><PcGhostBtn onClick={() => setPointPeriod("전체")}>전체 기간 보기</PcGhostBtn></div>
+                    </PcEmpty>
+                  );
+                  return filtered.map((h) => (
+                    <PcTRow key={h.id} $cols={PC_POINT_COLS} $click={false}>
+                      <span>{fmtCashDate(h.createdAt)}</span>
+                      <b>{h.reason || "포인트"}</b>
+                      <AssetHistoryAmt $type={h.type} style={{ textAlign: "right" }}>
+                        {h.type === "earn" ? "+" : h.type === "use" ? "-" : ""}{(h.amount || 0).toLocaleString()}P
+                      </AssetHistoryAmt>
+                    </PcTRow>
+                  ));
+                })()}
+              </PcTable>
+            </PcAssetGrid>
+          )}
+
+          {assetSub === "point" && !pcWide && (
             <>
               <PointBalanceCard>
                 <PointBalanceLabel>총 보유 포인트</PointBalanceLabel>
@@ -1420,8 +1466,20 @@ const MobileMainpage = () => {
 
 export default MobileMainpage;
 
+/* ── PC 보유자산 — 왼쪽 잔액·기간, 오른쪽 내역 표 ── */
+const PC_POINT_COLS = "160px minmax(0, 1fr) 160px";
+const PcAssetGrid = styled.div` display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; `;
+const PcAssetLabel = styled.div` font-size: 15px; color: #14181F; `;
+const PcAssetValue = styled.div` font-size: 32px; font-weight: 800; color: #00963F; margin-top: 6px; `;
+const PcPeriodList = styled.div` margin-top: 16px; background: #fff; border: 1px solid #dfe3e8; `;
+const PcPeriodBtn = styled.button`
+  display: block; width: 100%; text-align: left; border: none; border-top: 1px solid #dfe3e8; cursor: pointer; font-family: inherit;
+  padding: 13px 18px; font-size: 15px; color: #14181F;
+  background: ${({ $on }) => ($on ? "#e9ecf1" : "#fff")}; font-weight: ${({ $on }) => ($on ? 800 : 500)};
+  &:first-child { border-top: none; }
+`;
 const PcTabTitle = styled.h1`
-  font-size: 24px; font-weight: 800; color: #14181F; margin: 0; padding: 22px 16px 10px; background: #fff;
+  font-size: 26px; font-weight: 800; color: #14181F; margin: 0; padding: 30px 32px 6px;
 `;
 
 /* ===================== Pull-to-Refresh styles ===================== */
@@ -1518,6 +1576,7 @@ const PageWrap = styled.div`
 
 /* 상단 포인트 카드 (섹션 1-2) */
 const PointLine = styled.div`
+  .pc-mode & { display: none; } /* 등급·포인트는 PC 위 줄에 있다 */
   display: flex;
   background: ${THEME.surface};
   border-bottom: 1px solid #F2F4F7;
@@ -2034,6 +2093,9 @@ const CompanyCopy = styled.div`
 /* ===================== 초대코드 탭 styles ===================== */
 
 const InviteWrap = styled.div`
+  /* PC — 카드 네 장을 두 칸으로 */
+  .pc-mode & { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; max-width: 980px; }
+  .pc-mode & > * { margin: 0; }
   padding: 0;
 `;
 
@@ -2333,6 +2395,7 @@ const GuestGhost = styled.button`
 `;
 
 const AssetWrap = styled.div`
+  .pc-mode & { padding: 14px 32px 80px; }
   padding: 12px 16px 16px;
   display: flex;
   flex-direction: column;
@@ -2340,6 +2403,7 @@ const AssetWrap = styled.div`
 
 /* 한 상자 탭 — 위 홈 탭(밑줄)과 겹쳐 보이지 않게 (시안 1번, 형 9/18) */
 const AssetSubTabs = styled.div`
+  .pc-mode & { width: 300px; margin-bottom: 22px; }
   display: flex;
   margin: 0 0 14px;
   border: 1px solid #D9DDE3;

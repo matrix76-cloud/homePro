@@ -7,6 +7,7 @@ import { THEME } from "../../config/homeproConfig";
 import { getPosts } from "../../service/CommunityService";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import Tabs from "../../common/Tabs";
+import usePcWide from "../../hooks/usePcWide";
 
 const TABS = ["자유게시판", "이벤트/공지"];
 
@@ -14,6 +15,7 @@ const TABS = ["자유게시판", "이벤트/공지"];
 
 const CommunityPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
   const [activeTab, setActiveTab] = useState("자유게시판");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,56 @@ const CommunityPage = () => {
     : [];
 
   const goPost = (post) => !post.id.startsWith("default_") && navigate(`/community/${post.id}`);
+
+  /* PC — 탭 상자 + 글쓰기 버튼 한 줄, 아래는 글 목록 표(왼쪽) · 많이 본 글(오른쪽) */
+  if (pcWide) {
+    const COLS = type === "free" ? "minmax(0, 1fr) 120px 105px 50px 60px 50px" : "minmax(0, 1fr) 150px 120px";
+    return (
+      <MainListLayout NAME="커뮤니티" hideFooter>
+        <PcWrap>
+          <PcTopRow>
+            <PcTabBox>
+              {TABS.map((t) => <PcTab key={t} type="button" $on={activeTab === t} onClick={() => setActiveTab(t)}>{t}</PcTab>)}
+            </PcTabBox>
+            {type === "free" && (
+              <PcWrite onClick={() => navigate("/community/write")}><IoCreateOutline size={19} />글쓰기</PcWrite>
+            )}
+          </PcTopRow>
+          <PcBody $side={popular.length > 0}>
+            <PcTableBox>
+              <PcHead $cols={COLS}>
+                <span>제목</span><span>작성자</span><span>날짜</span>
+                {type === "free" && <><span>조회</span><span>좋아요</span><span>댓글</span></>}
+              </PcHead>
+              {(loading || posts.length === 0) && <PcEmpty>{loading ? "불러오는 중..." : "게시글이 없습니다"}</PcEmpty>}
+              {!loading && posts.map((post) => (
+                <PcRow key={post.id} $cols={COLS} onClick={() => goPost(post)}>
+                  <PcTitleCell>
+                    {post.images && post.images.length > 0 && <img src={post.images[0]} alt="" />}
+                    <b>{post.title}</b>
+                  </PcTitleCell>
+                  <span>{post.authorName || "-"}</span>
+                  <span>{formatDate(post.createdAt)}</span>
+                  {type === "free" && <><span>{post.viewCount || 0}</span><span>{post.likeCount || 0}</span><span>{post.commentCount || 0}</span></>}
+                </PcRow>
+              ))}
+            </PcTableBox>
+            {popular.length > 0 && (
+              <PcSideCard>
+                <h2>{popularTitle}</h2>
+                {popular.map((post, i) => (
+                  <PcPopRow key={post.id} onClick={() => goPost(post)}>
+                    <em>{i + 1}</em>
+                    <div><b>{post.title}</b><span>조회 {post.viewCount || 0} · 좋아요 {post.likeCount || 0}</span></div>
+                  </PcPopRow>
+                ))}
+              </PcSideCard>
+            )}
+          </PcBody>
+        </PcWrap>
+      </MainListLayout>
+    );
+  }
 
   return (
     <MainListLayout NAME="커뮤니티" hideFooter>
@@ -120,6 +172,50 @@ const CommunityPage = () => {
 export default CommunityPage;
 
 /* ===================== Styles ===================== */
+
+/* ===== PC 전용 ===== */
+const PcWrap = styled.div` max-width: 1180px; margin: 0 auto; padding: 30px 32px 80px; box-sizing: border-box; color: #14181F; word-break: keep-all; `;
+const PcTopRow = styled.div` display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; `;
+// 한 상자로 묶은 탭 — 사이 세로선, 고른 탭은 연회색 면 + 굵은 글씨
+const PcTabBox = styled.div` display: inline-flex; border: 1px solid #dfe3e8; background: #fff; `;
+const PcTab = styled.button`
+  border: none; min-width: 140px; padding: 13px 24px; cursor: pointer; font-family: inherit; font-size: 16px; color: #14181F;
+  background: ${({ $on }) => ($on ? "#e9ecf1" : "#fff")}; font-weight: ${({ $on }) => ($on ? 800 : 500)};
+  & + & { border-left: 1px solid #dfe3e8; }
+`;
+const PcWrite = styled.button`
+  border: none; background: #00963F; color: #fff; border-radius: 10px; padding: 12px 20px; cursor: pointer;
+  font-size: 16px; font-weight: 700; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; &:hover { background: #007A33; }
+`;
+const PcBody = styled.div`
+  display: grid; grid-template-columns: ${({ $side }) => ($side ? "minmax(0, 1fr) 280px" : "minmax(0, 1fr)")}; gap: 24px; align-items: start;
+  @media (max-width: 1240px) { grid-template-columns: minmax(0, 1fr); }
+`;
+const PcTableBox = styled.div` background: #fff; border: 1px solid #dfe3e8; min-height: 420px; `;
+const PcHead = styled.div`
+  display: grid; grid-template-columns: ${({ $cols }) => $cols}; gap: 12px; padding: 14px 24px; background: #e9ecf1;
+  font-size: 15px; font-weight: 700; color: #14181F;
+`;
+const PcRow = styled.div`
+  display: grid; grid-template-columns: ${({ $cols }) => $cols}; gap: 12px; padding: 15px 24px; border-top: 1px solid #dfe3e8;
+  font-size: 16px; color: #14181F; align-items: center; cursor: pointer; &:hover { background: #f4f6f8; }
+`;
+const PcTitleCell = styled.div`
+  display: flex; align-items: center; gap: 12px; min-width: 0; b { font-weight: 700; line-height: 1.45; }
+  img { width: 44px; height: 44px; object-fit: cover; flex-shrink: 0; display: block; }
+`;
+const PcEmpty = styled.div` padding: 90px 20px; text-align: center; font-size: 16px; border-top: 1px solid #dfe3e8; `;
+const PcSideCard = styled.aside`
+  background: #fff; border: 1px solid #dfe3e8; padding: 22px 24px 10px; position: sticky; top: 24px;
+  h2 { font-size: 18px; font-weight: 800; margin: 0 0 8px; }
+  @media (max-width: 1240px) { position: static; }
+`;
+const PcPopRow = styled.div`
+  display: flex; gap: 12px; padding: 14px 0; cursor: pointer; & + & { border-top: 1px solid #dfe3e8; }
+  em { font-style: normal; font-size: 17px; font-weight: 800; color: #00963F; width: 16px; flex-shrink: 0; }
+  div { display: grid; gap: 4px; min-width: 0; } b { font-size: 15px; font-weight: 700; line-height: 1.45; } span { font-size: 14px; color: #2b2f36; }
+  &:hover b { text-decoration: underline; }
+`;
 
 const PageWrap = styled.div`
   display: flex;

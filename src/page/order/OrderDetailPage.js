@@ -52,6 +52,8 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
 import { GradeBadge } from "../../utility/gradeUtils";
 import { getAccessTier, getTierDelaySec, getAcceptRemainSec, formatAcceptRemain, TIER_LABEL } from "../../utility/tierUtils";
+import { pcOnly, PC } from "../../pc/pcKit";
+import usePcWide from "../../hooks/usePcWide";
 
 const STATUS_BADGE = {
   "접수": { bg: THEME.purple, text: "#fff" },
@@ -80,6 +82,7 @@ const OrderDetailPage = () => {
   const category = state?.category || (order ? CATEGORIES.find((c) => c.id === order.categoryId) : null);
   const myUid = userData?.uid || user?.USERS_ID;
   const myName = userData?.nickname || userData?.name || "사용자";
+  const pcWide = usePcWide(); // PC 넓은 화면 — 배치만 다르게(사진 썸네일 줄). 로직은 공유
 
   // state 없으면 Firestore에서 직접 조회
   useEffect(() => {
@@ -619,8 +622,25 @@ const OrderDetailPage = () => {
     return SCHEDULE_OPTIONS.find((o) => o.key === order.schedule)?.label || order.schedule || "-";
   })();
 
+  // PC 오른쪽 요약 패널용 글자 (기본 정보 '금액'·'작업 일정'과 같은 규칙)
+  const pcPriceText = (() => {
+    if (order.b2bPriceType) {
+      const label = PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType;
+      if (order.b2bPriceAmount) return `${label} ${Number(order.b2bPriceAmount).toLocaleString()}${order.b2bPriceType === "hpoint" ? "P" : "원"}`;
+      return label;
+    }
+    return order.price || "-";
+  })();
+  const pcWorkText = (() => {
+    const d = order.workDate ? (isReserveDate(order.workDate) ? (order.workDatePicker || "예약날짜") : order.workDate) : scheduleLabel;
+    const t = order.workTime ? (typeof order.workTime === "object" ? `${order.workTime.start} ~ ${order.workTime.end}` : order.workTime) : "";
+    return t ? `${d} · ${t}` : d;
+  })();
+  const pcStatusColor = ["취소", "거부"].includes(order.orderStatus) ? PC.danger : CLOSED_STATUSES.has(order.orderStatus) ? PC.ink : PC.primary;
+
   return (
     <SimpleBackLayout NAME={headerName} hideFooter>
+      <PcCols>
       <Wrapper>
         {/* ── 제목 (최상단) ── */}
         <TitleSection>
@@ -662,6 +682,14 @@ const OrderDetailPage = () => {
                     <IoChevronForward size={18} color={THEME.muted} />
                   </NavBtnInline>
                 </PhotoNavRow>
+              )}
+              {/* PC — 첨부 사진을 썸네일 줄로 (누르면 큰 사진이 바뀐다) */}
+              {pcWide && photos.length > 1 && (
+                <PcThumbs>
+                  {photos.map((src, i) => (
+                    <PcThumb key={i} src={src} alt={`사진${i + 1}`} $on={i === photoIdx} onClick={() => setPhotoIdx(i)} />
+                  ))}
+                </PcThumbs>
               )}
             </PhotoWrap>
           </DetailSection>
@@ -962,7 +990,7 @@ const OrderDetailPage = () => {
                   <PayNote>금액이 확정되면 건당 보험료(금액의 {premium.plan.rate}%)가 계산됩니다. 월·1년 보험에 가입돼 있으면 자동으로 적용됩니다.</PayNote>
                 ) : (
                   <>
-                    <ConditionRow><ConditionLabel>건당 보험료</ConditionLabel><ConditionValue>{premium.amount.toLocaleString()}원 <span style={{ fontWeight: 400, color: THEME.muted }}>({premium.plan.groupLabel} · 금액의 {premium.plan.rate}%, 최소 {premium.plan.minPrice.toLocaleString()}원)</span></ConditionValue></ConditionRow>
+                    <ConditionRow $wide><ConditionLabel>건당 보험료</ConditionLabel><ConditionValue>{premium.amount.toLocaleString()}원 <span style={{ fontWeight: 400, color: THEME.muted }}>({premium.plan.groupLabel} · 금액의 {premium.plan.rate}%, 최소 {premium.plan.minPrice.toLocaleString()}원)</span></ConditionValue></ConditionRow>
                     <PayNote>이 오더의 체크인부터 체크아웃까지 보장됩니다. 보험은 선택이며, 월·1년 보험에 가입하면 건마다 결제하지 않아도 됩니다.</PayNote>
                   </>
                 )}
@@ -1037,7 +1065,7 @@ const OrderDetailPage = () => {
 
         {/* ── 활동 이력 ── 취소/상태변경/견적통보/수락/지원/선정 타임라인 */}
         {(isOwner || isMatchedPro || (order.applicantUids || []).includes(myUid)) && orderLogs.length > 0 && (
-          <DetailSection>
+          <LogSection>
             <SectionTitle>오더이력</SectionTitle>
             {orderLogs.map((log) => (
               <LogRow key={log.id}>
@@ -1050,7 +1078,7 @@ const OrderDetailPage = () => {
                 </LogBody>
               </LogRow>
             ))}
-          </DetailSection>
+          </LogSection>
         )}
 
         {/* ── 접수자 프로필 (홈프로 시점) ── */}
@@ -1171,8 +1199,16 @@ const OrderDetailPage = () => {
         <BottomSpacer />
       </Wrapper>
 
-      {/* 고정 하단 CTA — 호출 유형별 분기 */}
+      {/* 고정 하단 CTA — 호출 유형별 분기. PC 에서는 오른쪽 고정 패널(요약 + 같은 버튼들)이 된다 */}
       <FixedBottom>
+        <PcSummary>
+          <PcSumStatus style={{ color: pcStatusColor }}>{order.orderStatus || "접수"}</PcSumStatus>
+          <PcSumPrice>{pcPriceText}</PcSumPrice>
+          <PcSumRow><span>작업일</span><b>{pcWorkText}</b></PcSumRow>
+          <PcSumRow><span>지역</span><b>{(isOwner || isMatchedPro) ? (order.location || "-") : (order.location ? order.location.split(" ").slice(0, 2).join(" ") : "-")}</b></PcSumRow>
+          {order.matchType && <PcSumRow><span>요청방식</span><b>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</b></PcSumRow>}
+          <PcSumRow><span>접수</span><b>{order.writer ? `${order.writer} · ` : ""}{timeLabel}</b></PcSumRow>
+        </PcSummary>
         {isOwner ? (
           /* 접수자 버튼 — 대기 상태면 재접수 / 그 외면 대기후수정 (홈프로 배정 후엔 비활성) */
           <>
@@ -1307,6 +1343,7 @@ const OrderDetailPage = () => {
           </>
         )}
       </FixedBottom>
+      </PcCols>
 
       {/* 취소 사유 선택 모달 */}
       {showCancelModal && (
@@ -1386,9 +1423,36 @@ export default OrderDetailPage;
 
 /* ===================== styles ===================== */
 
+/* PC 좌우 2단 틀 — 폰에서는 없는 것과 같다(display: contents) */
+const PcCols = styled.div`
+  display: contents;
+  ${pcOnly`
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start;
+    max-width: 1180px; margin: 0 auto; padding: 28px 32px 60px; box-sizing: border-box; word-break: keep-all;
+  `}
+`;
+
 const Wrapper = styled.div`
   background: ${THEME.background};
   min-height: 100%;
+  ${pcOnly`background: transparent; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 16px;`}
+`;
+
+/* PC 오른쪽 패널 위 요약 — 폰에서는 숨김 */
+const PcSummary = styled.div`
+  display: none;
+  ${pcOnly`display: block; padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid ${PC.line};`}
+`;
+const PcSumStatus = styled.div` font-size: 17px; font-weight: 800; `;
+const PcSumPrice = styled.div` font-size: 24px; font-weight: 800; color: ${PC.ink}; margin: 6px 0 14px; line-height: 1.35; `;
+const PcSumRow = styled.div`
+  display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; padding: 6px 0; font-size: 15px; color: ${PC.ink}; line-height: 1.5;
+  span { font-weight: 700; } b { font-weight: 500; }
+`;
+const PcThumbs = styled.div` display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; `;
+const PcThumb = styled.img`
+  width: 96px; height: 96px; object-fit: cover; cursor: pointer; box-sizing: border-box;
+  border: 2px solid ${({ $on }) => ($on ? PC.primary : PC.line)};
 `;
 
 const HeroArea = styled.div`
@@ -1409,6 +1473,7 @@ const HeroPhoto = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
+  ${pcOnly`width: 560px; max-width: 100%; height: 360px;`}
 `;
 
 const NavBtn = styled.button`
@@ -1470,6 +1535,7 @@ const TagSection = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  ${pcOnly`gap: 8px;`}
 `;
 
 const SubTag = styled.span`
@@ -1479,6 +1545,7 @@ const SubTag = styled.span`
   font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
+  ${pcOnly`padding: 7px 14px; border-radius: 0; border: 1px solid ${PC.line}; background: #fff; color: ${PC.ink}; font-size: 15px; font-weight: 500;`}
 `;
 
 const SpaceTag = styled.span`
@@ -1488,10 +1555,12 @@ const SpaceTag = styled.span`
   font-weight: 400;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
+  ${pcOnly`padding: 7px 14px; border-radius: 0; border: 1px solid ${PC.line}; background: #fff; color: ${PC.ink}; font-size: 15px; font-weight: 500;`}
 `;
 
 const TitleSection = styled.div`
   padding: 20px 16px 0;
+  ${pcOnly`padding: 0 0 4px;`}
 `;
 
 const OrderTitle = styled.h1`
@@ -1501,6 +1570,7 @@ const OrderTitle = styled.h1`
   color: ${THEME.text};
   letter-spacing: -0.03em;
   line-height: 1.4;
+  ${pcOnly`font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: ${PC.ink};`}
 `;
 
 const WriterRow = styled.div`
@@ -1514,6 +1584,7 @@ const WriterText = styled.span`
   font-size: 15px;
   font-weight: 400;
   color: ${THEME.muted};
+  ${pcOnly`color: ${PC.ink};`}
 `;
 
 const InfoCard = styled.div`
@@ -1561,12 +1632,22 @@ const Divider = styled.div`
   margin: 0 16px;
 `;
 
+/* PC — 흰 면 + 1px 테두리 카드. 안의 라벨-값 줄(ConditionRow)만 한 줄에 2개씩, 나머지(제목·안내·버튼 줄)는 전폭 */
 const DetailSection = styled.div`
   margin: 12px 12px 0;
   background: ${THEME.surface};
   border-radius: 16px;
   padding: 20px 16px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`
+    margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 24px 28px 20px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 44px;
+    & > * { grid-column: 1 / -1; }
+  `}
+`;
+/* 오더이력 — PC 에서는 왼쪽 단 맨 아래로 */
+const LogSection = styled(DetailSection)`
+  ${pcOnly`order: 50;`}
 `;
 
 const SectionTitle = styled.div`
@@ -1574,6 +1655,7 @@ const SectionTitle = styled.div`
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 12px;
+  ${pcOnly`font-size: 18px; font-weight: 800; margin-bottom: 14px; color: ${PC.ink};`}
 `;
 
 const DetailText = styled.div`
@@ -1582,6 +1664,7 @@ const DetailText = styled.div`
   color: ${THEME.textSecondary};
   line-height: 1.7;
   white-space: pre-line;
+  ${pcOnly`max-width: 760px;`}
 `;
 
 /* ── 활동 이력 ── */
@@ -1614,6 +1697,7 @@ const LogMeta = styled.div`
   font-size: 13px;
   color: ${THEME.muted};
   margin-top: 2px;
+  ${pcOnly`font-size: 14px; color: ${PC.body};`}
 `;
 
 const ConditionRow = styled.div`
@@ -1623,12 +1707,19 @@ const ConditionRow = styled.div`
   padding: 8px 0;
   border-bottom: 1px solid ${THEME.border};
   &:last-child { border-bottom: none; }
+  /* PC — 라벨 칸(140) + 값 칸을 붙여서, 한 줄에 항목 2개 */
+  .pc-mode && {
+    grid-column: auto; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 14px; align-items: start; justify-content: start;
+    padding: 13px 0; border-bottom: none; border-top: 1px solid ${PC.line};
+  }
+  ${({ $wide }) => $wide && `.pc-mode && { grid-column: 1 / -1; }`}
 `;
 
 const ConditionLabel = styled.div`
   font-size: 15px;
   font-weight: 500;
   color: ${THEME.muted};
+  ${pcOnly`font-weight: 700; color: ${PC.ink}; line-height: 24px;`}
 `;
 
 const ConditionValue = styled.div`
@@ -1636,6 +1727,7 @@ const ConditionValue = styled.div`
   font-weight: 500;
   color: ${THEME.text};
   text-align: right;
+  ${pcOnly`text-align: left; font-size: 16px; line-height: 24px;`}
 `;
 
 const PhotoWrap = styled.div`
@@ -1643,6 +1735,7 @@ const PhotoWrap = styled.div`
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  ${pcOnly`align-items: flex-start; gap: 12px;`}
 `;
 
 const PhotoNavRow = styled.div`
@@ -1677,10 +1770,18 @@ const MatchTag = styled.span`
   font-weight: 500;
   background: ${THEME.background};
   color: ${THEME.textSecondary};
+  ${pcOnly`padding: 7px 14px; border-radius: 0; border: 1px solid ${PC.line}; background: #fff; color: ${PC.ink}; font-size: 15px; font-weight: 700;`}
 `;
 
 const BottomSpacer = styled.div`
   height: 100px;
+  ${pcOnly`display: none;`}
+`;
+
+const ActionRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
 `;
 
 const FixedBottom = styled.div`
@@ -1695,12 +1796,14 @@ const FixedBottom = styled.div`
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   z-index: 900;
   box-sizing: border-box;
-`;
-
-const ActionRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  /* PC — 바닥 고정 바가 아니라 오른쪽 고정(sticky) 패널. 버튼은 세로로 */
+  ${pcOnly`
+    position: sticky; top: 24px; bottom: auto; left: auto; transform: none; width: auto; max-width: none;
+    border: 1px solid ${PC.line}; padding: 24px; z-index: 1;
+    ${ActionRow} { flex-direction: column; align-items: stretch; gap: 10px; }
+    ${ActionRow} + ${ActionRow} { margin-top: 10px; }
+    ${ActionRow} > button { flex: none; width: 100%; min-width: 0; height: 50px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  `}
 `;
 
 /* 지원 홈프로 상태 표기 (선정대기 / 미선정) */
@@ -1710,6 +1813,7 @@ const ApplyStatusLine = styled.div`
   margin-bottom: ${(p) => (p.$muted ? 0 : "10px")};
   text-align: center;
   b { color: ${(p) => (p.$muted ? THEME.muted : THEME.primary)}; font-weight: 700; }
+  ${pcOnly`text-align: left; font-size: 16px; line-height: 1.5; color: ${PC.ink};`}
 `;
 
 const SmallBtn = styled.button`
@@ -1897,6 +2001,8 @@ const SheetOverlay = styled.div`
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  /* PC — 본문 단 전체를 덮고 가운데 대화상자로 */
+  ${pcOnly`left: 0; transform: none; max-width: none; align-items: center;`}
 `;
 
 const SheetContent = styled.div`
@@ -1910,6 +2016,7 @@ const SheetContent = styled.div`
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
   }
+  ${pcOnly`width: 540px; max-width: calc(100% - 48px); border-radius: 12px; animation: none; padding: 8px 10px 6px; box-sizing: border-box;`}
 `;
 
 const SheetHandle = styled.div`
@@ -1918,6 +2025,7 @@ const SheetHandle = styled.div`
   border-radius: 2px;
   background: ${THEME.border};
   margin: 10px auto 0;
+  ${pcOnly`display: none;`}
 `;
 
 const SheetHeader = styled.div`
@@ -2041,6 +2149,7 @@ const PrimaryCTA = styled.button`
   cursor: ${({ $locked }) => ($locked ? "not-allowed" : "pointer")};
   font-variant-numeric: tabular-nums;
   &:active { opacity: ${({ $locked }) => ($locked ? 1 : 0.85)}; }
+  ${pcOnly`flex: 0 0 auto; min-width: 200px; padding: 0 26px; font-size: 16px; font-weight: 700;`}
 `;
 
 /* 차수 게이트 안내 (2차수 수락 대기) — 대표 지시 7/29 */
@@ -2063,6 +2172,7 @@ const ContactRow = styled.div`
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid ${THEME.border};
+  ${pcOnly`border-top: none; padding-top: 0; margin-top: 10px; padding-left: 46px;`}
 `;
 
 const ContactBtn = styled.button`
@@ -2081,6 +2191,7 @@ const ContactBtn = styled.button`
   background: ${({ $primary }) => ($primary ? THEME.button : THEME.surface)};
   color: ${({ $primary }) => ($primary ? "#fff" : THEME.text)};
   &:active { opacity: 0.85; }
+  ${pcOnly`flex: 0 0 140px; height: 42px; font-size: 15px; background: #fff; color: ${PC.ink}; border-color: ${PC.line};`}
 `;
 
 const AssignedNote = styled.div`
@@ -2098,6 +2209,7 @@ const AssignedNote = styled.div`
 
 /* 돈 흐름 안내 문구 — 상태는 뱃지 없이 글씨 굵기·색으로만 */
 const PayNote = styled.div`
+  ${pcOnly`max-width: 760px;`}
   font-size: 15px;
   line-height: 1.55;
   color: ${({ $done, $warn }) => ($done ? "#15803d" : $warn ? THEME.danger : THEME.textSecondary)};
@@ -2128,6 +2240,8 @@ const OutlinedBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { background: #F3F4F6; }
+  ${pcOnly`flex: 0 0 auto; min-width: 160px; padding: 0 22px; font-size: 16px; border-width: 1px; color: ${PC.ink}; display: inline-flex; align-items: center; justify-content: center; gap: 6px;`}
+  ${({ $danger }) => $danger && pcOnly`color: ${THEME.danger};`}
 `;
 
 /* ── 지원자 목록 ── */
@@ -2162,6 +2276,7 @@ const ApplicantIntro = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  ${pcOnly`white-space: normal; overflow: visible; text-overflow: clip; font-size: 15px; color: ${PC.body}; line-height: 1.5;`}
 `;
 
 const SelectProBtn = styled.button`
@@ -2189,6 +2304,7 @@ const CancelSheet = styled.div`
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
   }
+  ${pcOnly`width: 500px; max-width: calc(100% - 48px); border-radius: 12px; animation: none; padding: 8px 10px 26px; box-sizing: border-box;`}
 `;
 
 const CancelOptions = styled.div`

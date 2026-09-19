@@ -16,6 +16,7 @@ import { compressDetailImage } from "../../utility/imageUtils";
 import { isSubscriber } from "../../utility/tierUtils";
 import { KR_AREAS } from "../../utility/constants";
 import { MARKET_COLLECTION, CATEGORIES, INCLUDE_OPTIONS, SALES_RANGES, TabBox, TabItem } from "./MarketplaceShared";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const MAX_PHOTOS = 4;
 
@@ -155,6 +156,7 @@ const MarketplaceCreatePage = () => {
       <PageWrap>
         <Section>
           <SecTitle>기본 정보</SecTitle>
+          <F $full $maxW={680}>
           <Label>거래 형태 <Req>필수</Req></Label>
           <TabBox>
             {CATEGORIES.map((c) => (
@@ -164,10 +166,14 @@ const MarketplaceCreatePage = () => {
             ))}
           </TabBox>
           {category && <Help>{CATEGORIES.find((c) => c.key === category)?.desc}</Help>}
+          </F>
 
+          <F>
           <Label>제목 <Req>필수</Req></Label>
           <Input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="예: 고정 거래처 20곳 포함 수도권 청소 사업권 양도" />
+          </F>
 
+          <F>
           <Label>지역 <Req>필수</Req></Label>
           <Row2>
             <Select value={sido} onChange={(e) => { setSido(e.target.value); setGu(""); }}>
@@ -179,16 +185,20 @@ const MarketplaceCreatePage = () => {
               {guList.map((g) => <option key={g} value={g}>{g}</option>)}
             </Select>
           </Row2>
+          </F>
         </Section>
 
         <Section>
           <SecTitle>금액 정보</SecTitle>
+          <F>
           <Label>권리금 <Req>필수</Req></Label>
           <UnitInput>
             <Input inputMode="numeric" value={withComma(premium)} onChange={(e) => setPremium(onlyDigits(e.target.value))} placeholder="권리금이 없으면 0" />
             <Unit>원</Unit>
           </UnitInput>
+          </F>
 
+          <F>
           <Label $muted={!isSpace}>보증금 / 월세</Label>
           <Row2>
             <UnitInput>
@@ -201,19 +211,25 @@ const MarketplaceCreatePage = () => {
             </UnitInput>
           </Row2>
           <Help>{isSpace ? "오프라인 사업장 조건을 적어주세요. 없으면 비워두세요." : "사업장/공간 양도를 선택하면 입력할 수 있습니다."}</Help>
+          </F>
         </Section>
 
         <Section>
           <SecTitle>운영 현황 및 조건</SecTitle>
+          <F>
           <Label>월 평균 매출 수준</Label>
           <Select value={monthlySales} onChange={(e) => setMonthlySales(e.target.value)}>
             <option value="">선택 안 함</option>
             {SALES_RANGES.map((r) => <option key={r} value={r}>{r}</option>)}
           </Select>
+          </F>
 
+          <F>
           <Label>상주 인력 현황</Label>
           <Input value={staffInfo} maxLength={60} onChange={(e) => setStaffInfo(e.target.value)} placeholder="예: 대표 포함 3명 근무" />
+          </F>
 
+          <F $full>
           <Label>포함 내역</Label>
           <CheckGrid>
             {INCLUDE_OPTIONS.map((o) => (
@@ -223,15 +239,21 @@ const MarketplaceCreatePage = () => {
               </CheckItem>
             ))}
           </CheckGrid>
+          </F>
         </Section>
 
         <Section>
           <SecTitle>상세 설명 및 양도 사유</SecTitle>
+          <F>
           <Label>상세 설명 <Req>필수</Req></Label>
           <Textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="거래처 구성, 시설·장비 상태, 인수 후 지원 내용 등" />
+          </F>
+          <F>
           <Label>양도 사유 <Req>필수</Req></Label>
           <Textarea rows={3} value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder="예: 건강상의 이유, 타 업종 전환, 은퇴 등 솔직하게 적을수록 신뢰도가 올라갑니다" />
+          </F>
 
+          <F $full>
           <Label>사진 첨부 <Count>({photos.length}/{MAX_PHOTOS})</Count></Label>
           <PhotoGrid>
             {photos.map((p, i) => (
@@ -250,6 +272,7 @@ const MarketplaceCreatePage = () => {
             )}
           </PhotoGrid>
           <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoAdd} />
+          </F>
         </Section>
 
         <Guide>
@@ -273,6 +296,7 @@ const PageWrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
   padding: 12px 16px 48px;
+  ${pcOnly`padding: 24px 32px 80px; min-height: 0; box-sizing: border-box; word-break: keep-all;`}
 `;
 
 const Section = styled.div`
@@ -280,6 +304,17 @@ const Section = styled.div`
   border: 1px solid #e2e5ea;
   padding: 18px 16px 20px;
   margin-bottom: 12px;
+  /* PC: 섹션 카드 + 2칸 폼 그리드 */
+  ${pcOnly`
+    border-color: ${PC.line}; padding: 30px 32px 32px; margin-bottom: 22px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 28px; align-items: start;
+  `}
+`;
+
+// 라벨 + 입력 한 묶음. 폰에서는 없는 것과 같다(display: contents) — PC 에서만 그리드의 한 칸이 된다
+const F = styled.div`
+  display: contents;
+  ${pcOnly`display: block; min-width: 0; grid-column: ${({ $full }) => ($full ? "1 / -1" : "auto")}; max-width: ${({ $maxW }) => ($maxW ? `${$maxW}px` : "none")};`}
 `;
 
 const SecTitle = styled.div`
@@ -287,6 +322,7 @@ const SecTitle = styled.div`
   font-weight: 700;
   color: ${THEME.text};
   margin-bottom: 4px;
+  ${pcOnly`grid-column: 1 / -1; font-size: 18px; font-weight: 800; margin-bottom: 0;`}
 `;
 
 const Label = styled.div`
@@ -294,6 +330,7 @@ const Label = styled.div`
   font-size: 15px;
   font-weight: 600;
   color: ${({ $muted }) => ($muted ? THEME.muted : THEME.text)};
+  ${pcOnly`margin: 0 0 9px;`}
 `;
 
 const Req = styled.span`
@@ -342,6 +379,7 @@ const Textarea = styled.textarea`
   padding: 10px 12px;
   line-height: 1.6;
   resize: vertical;
+  ${pcOnly`min-height: 190px;`}
 `;
 
 const Row2 = styled.div`
@@ -370,6 +408,7 @@ const CheckGrid = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   @media (max-width: 360px) { grid-template-columns: 1fr; }
+  ${pcOnly`grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;`}
 `;
 
 const CheckItem = styled.label`
@@ -390,6 +429,7 @@ const PhotoGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  ${pcOnly`grid-template-columns: repeat(4, 120px); gap: 10px;`}
 `;
 
 const PhotoSlot = styled.div`
@@ -457,6 +497,8 @@ const SubmitBtn = styled.button`
   font-weight: 700;
   font-family: inherit;
   cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
+  /* PC: 전폭 버튼 대신 끝 오른쪽 버튼 */
+  ${pcOnly`display: block; width: auto; min-width: 220px; padding: 0 36px; margin-left: auto;`}
 `;
 
 const Toast = styled.div`
@@ -479,6 +521,7 @@ const GateBox = styled.div`
   background: #fff;
   border: 1px solid #e2e5ea;
   text-align: center;
+  ${pcOnly`margin: 40px auto 0; max-width: 560px; padding: 40px 32px; border-color: ${PC.line};`}
 `;
 
 const GateTitle = styled.div`

@@ -18,6 +18,7 @@ import {
   SUPPLIES_COL, TRADE_TYPES, CATEGORIES, CONDITIONS, DEAL_METHODS, needsSubscription,
   toLocalPhone, LINE, ACTIVE_FACE, INK_BUTTON,
 } from "./suppliesConstants";
+import { pcOnly, PC } from "../../pc/pcKit";
 
 const MAX_PHOTOS = 5;
 
@@ -192,7 +193,7 @@ const SuppliesCreatePage = () => {
 
         {!blocked && tradeType && (
           <>
-            <Section>
+            <Section $grid>
               <Field>
                 <Label>카테고리<Req>*</Req></Label>
                 <Grid2>
@@ -229,7 +230,7 @@ const SuppliesCreatePage = () => {
             </Section>
 
             {!isFree && (
-              <Section>
+              <Section $grid>
                 <Field>
                   <Label>{isBuy ? "희망 가격" : "판매 가격"}{!isBuy && <Req>*</Req>}</Label>
                   <PriceWrap>
@@ -252,7 +253,7 @@ const SuppliesCreatePage = () => {
               </Section>
             )}
 
-            <Section>
+            <Section $grid>
               <Field>
                 <Label>거래 방법<Req>*</Req> <LabelSub>여러 개 선택 가능</LabelSub></Label>
                 <Grid2>
@@ -294,7 +295,7 @@ const SuppliesCreatePage = () => {
               </Field>
             </Section>
 
-            <Section>
+            <Section $grid>
               <Field>
                 <Label>사진 <LabelSub>최대 {MAX_PHOTOS}장 · 상태가 보이게 찍어주세요</LabelSub></Label>
                 <PhotoRow>
@@ -358,6 +359,7 @@ const Wrapper = styled.div`
   padding: 12px 16px 110px;
   background: ${THEME.background};
   min-height: 100%;
+  ${pcOnly`padding: 24px 32px 8px; min-height: 0; box-sizing: border-box; word-break: keep-all;`}
 `;
 
 const Section = styled.div`
@@ -365,6 +367,12 @@ const Section = styled.div`
   border: 1px solid ${LINE};
   padding: 18px 16px;
   margin-bottom: 12px;
+  /* PC: 섹션 카드 + 2칸 폼 그리드 ($grid 는 입력 칸을 담은 섹션) */
+  ${pcOnly`
+    padding: 30px 32px 32px; margin-bottom: 22px;
+    display: ${({ $grid }) => ($grid ? "grid" : "block")};
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 28px; align-items: start;
+  `}
 `;
 
 const SectionTitle = styled.div`
@@ -377,6 +385,7 @@ const SectionTitle = styled.div`
 const Field = styled.div`
   margin-bottom: 22px;
   &:last-child { margin-bottom: 0; }
+  ${pcOnly`margin-bottom: 0; min-width: 0;`}
 `;
 
 const Label = styled.div`
@@ -410,6 +419,7 @@ const Guide = styled.div`
 const Seg = styled.div`
   display: flex;
   border: 1px solid ${LINE};
+  ${pcOnly`max-width: 520px;`}
 `;
 
 const SegCell = styled.button`
@@ -645,9 +655,12 @@ const BottomBar = styled.div`
   background: #fff;
   border-top: 1px solid ${LINE};
   z-index: 10;
+  /* PC: 바닥 고정 바 대신 내용 끝 오른쪽 버튼 줄 */
+  ${pcOnly`position: static; transform: none; width: auto; max-width: none; padding: 0 32px 80px; background: none; border-top: none; display: flex; justify-content: flex-end;`}
 `;
 
 const SubmitButton = styled.button`
+  ${pcOnly`width: auto; min-width: 220px; padding: 0 36px;`}
   width: 100%;
   height: 52px;
   font-size: 17px;

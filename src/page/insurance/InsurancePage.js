@@ -25,10 +25,13 @@ import {
 import {
   Wrap, Card, CardTitle, CardText, CardNote, KV, KVRow, K, V, PrimaryBtn, GhostBtn, BtnRow, FixedBar, Toast, Notice,
   SelectCard, SelectTitleRow, SelectTitle, SelectPrice, SelectDesc, SelectMeta, CheckRow, StatusText, LinkLine,
+  PcCols, PcStack, PcSide,
 } from "./insuranceStyles";
+import usePcWide from "../../hooks/usePcWide";
 
 const InsurancePage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();   // PC 넓은 화면 — 배치만 다르게 그린다(상태·핸들러는 공유)
   const { currentUser, userData } = useAuth();
   const uid = userData?.uid || currentUser?.uid;
   const userName = userData?.name || userData?.nickname || "";
@@ -107,54 +110,72 @@ const InsurancePage = () => {
   /* ───────── 본인 확인 단계 ───────── */
   if (step === "identity") {
     const p = plans?.[plan];
+    const identityCard = (
+      <Card>
+        <CardTitle>본인 확인</CardTitle>
+        <CardText>보험 가입에는 가입자 본인 확인이 필요합니다. 아래 정보가 본인 것인지 확인해 주세요.</CardText>
+        <KV>
+          <KVRow><K>가입 유형</K><V $bold>{p?.label || plan}</V></KVRow>
+          <KVRow><K>보험료</K><V $bold>{priceText(plan)}</V></KVRow>
+          <KVRow><K>이름</K><V>{userName || "-"}</V></KVRow>
+          <KVRow><K>휴대폰</K><V>{userPhone ? formatPhone(userPhone) : "-"}</V></KVRow>
+        </KV>
+        <CardNote>이름이나 번호가 다르면 마이페이지에서 먼저 고쳐 주세요.</CardNote>
+      </Card>
+    );
+    const identityNotice = <Notice>휴대폰 본인인증은 인증사 연동 후 열립니다. 그전까지는 위 이름·휴대폰 확인으로 대신합니다.</Notice>;
+    const agreeCard = (
+      <Card>
+        <CheckRow>
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+          <span>위 정보가 본인 것이 맞으며, 보험 가입과 사고 처리를 위해 이름·연락처·오더 정보를 보험대리점에 제공하는 것에 동의합니다.</span>
+        </CheckRow>
+      </Card>
+    );
+    const monthlyNote = plan === "monthly" && (
+      <CardNote style={{ marginTop: 0, padding: "0 6px" }}>
+        다음 단계에서 토스페이먼츠 카드 등록창이 열립니다. 등록이 끝나면 첫 달 보험료가 바로 결제되고, 이후 매월 같은 날 자동으로 결제됩니다.
+        {isTossTestKey() ? " 지금은 토스 테스트 키로 열려 있어 실제로 돈이 빠지지 않습니다." : ""}
+      </CardNote>
+    );
+    const identityBtns = (
+      <BtnRow>
+        <GhostBtn onClick={() => setStep("home")} disabled={busy}>이전</GhostBtn>
+        <PrimaryBtn onClick={proceed} disabled={!agree || busy} style={{ flex: 2 }}>
+          {busy ? "카드 등록창 여는 중..." : plan === "monthly" ? "카드 등록하고 가입" : "결제로 진행"}
+        </PrimaryBtn>
+      </BtnRow>
+    );
+    if (pcWide) {
+      return (
+        <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+          <Wrap className="ins-pc">
+            <PcCols>
+              <PcStack>{identityCard}{identityNotice}</PcStack>
+              <PcSide>{agreeCard}{monthlyNote}{identityBtns}</PcSide>
+            </PcCols>
+          </Wrap>
+          {toast && <Toast>{toast}</Toast>}
+        </MainListLayout>
+      );
+    }
     return (
       <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
         <Wrap $bottom={130}>
-          <Card>
-            <CardTitle>본인 확인</CardTitle>
-            <CardText>보험 가입에는 가입자 본인 확인이 필요합니다. 아래 정보가 본인 것인지 확인해 주세요.</CardText>
-            <KV>
-              <KVRow><K>가입 유형</K><V $bold>{p?.label || plan}</V></KVRow>
-              <KVRow><K>보험료</K><V $bold>{priceText(plan)}</V></KVRow>
-              <KVRow><K>이름</K><V>{userName || "-"}</V></KVRow>
-              <KVRow><K>휴대폰</K><V>{userPhone ? formatPhone(userPhone) : "-"}</V></KVRow>
-            </KV>
-            <CardNote>이름이나 번호가 다르면 마이페이지에서 먼저 고쳐 주세요.</CardNote>
-          </Card>
-
-          <Notice>휴대폰 본인인증은 인증사 연동 후 열립니다. 그전까지는 위 이름·휴대폰 확인으로 대신합니다.</Notice>
-
-          <Card>
-            <CheckRow>
-              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-              <span>위 정보가 본인 것이 맞으며, 보험 가입과 사고 처리를 위해 이름·연락처·오더 정보를 보험대리점에 제공하는 것에 동의합니다.</span>
-            </CheckRow>
-          </Card>
-
-          {plan === "monthly" && (
-            <CardNote style={{ marginTop: 0, padding: "0 6px" }}>
-              다음 단계에서 토스페이먼츠 카드 등록창이 열립니다. 등록이 끝나면 첫 달 보험료가 바로 결제되고, 이후 매월 같은 날 자동으로 결제됩니다.
-              {isTossTestKey() ? " 지금은 토스 테스트 키로 열려 있어 실제로 돈이 빠지지 않습니다." : ""}
-            </CardNote>
-          )}
+          {identityCard}
+          {identityNotice}
+          {agreeCard}
+          {monthlyNote}
         </Wrap>
-        <FixedBar $tab>
-          <BtnRow>
-            <GhostBtn onClick={() => setStep("home")} disabled={busy}>이전</GhostBtn>
-            <PrimaryBtn onClick={proceed} disabled={!agree || busy} style={{ flex: 2 }}>
-              {busy ? "카드 등록창 여는 중..." : plan === "monthly" ? "카드 등록하고 가입" : "결제로 진행"}
-            </PrimaryBtn>
-          </BtnRow>
-        </FixedBar>
+        <FixedBar $tab>{identityBtns}</FixedBar>
         {toast && <Toast>{toast}</Toast>}
       </MainListLayout>
     );
   }
 
   /* ───────── 홈 ───────── */
-  return (
-    <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
-      <Wrap $bottom={120}>
+  // 조각은 폰·PC 가 같이 쓴다 — 배치(어디에 놓는지)만 다르다
+  const heroEl = (
         <Hero>
           <HeroRow>
             <IoShieldCheckmarkOutline size={20} color={THEME.primary} />
@@ -163,12 +184,13 @@ const InsurancePage = () => {
           {/* 대표 9/15 리뷰 원문 */}
           <HeroSub>사업자(수급인)가 청소·시공·공사 등 맡은 일(도급 작업)을 수행하는 과정에서 발생하는 제3자의 신체 부상이나 재물 파손 사고에 대한 법률상 손해배상책임을 보장해 주는 사업자 전용 안전 보험입니다.</HeroSub>
         </Hero>
-
-        {/* 셀프보장등록은 한 줄 전체로 (형 리뷰 9/16) · 예약접수에서 이리로 옮겨온 버튼 */}
+  );
+  const selfBtnEl = (
         <GhostBtn type="button" style={{ marginBottom: 12 }} onClick={() => navigate("/order/create?self=1")}>
           셀프보장등록
         </GhostBtn>
-
+  );
+  const myCardEl = (
         <Card>
           <TitleRow>
             <CardTitle>내 보험</CardTitle>
@@ -194,9 +216,8 @@ const InsurancePage = () => {
             </>
           )}
         </Card>
-
-        <SectionTitle>가입 유형</SectionTitle>
-        {PLAN_KEYS.map((key) => {
+  );
+  const planCardsEl = PLAN_KEYS.map((key) => {
           const p = plans?.[key];
           const d = PLAN_DESC[key];
           const isPer = key === "perOrder";
@@ -227,8 +248,8 @@ const InsurancePage = () => {
               )}
             </SelectCard>
           );
-        })}
-
+        });
+  const coverageEl = (
         <Card>
           <CardTitle>보장 내용</CardTitle>
           {coverage?.items?.length ? (
@@ -252,12 +273,13 @@ const InsurancePage = () => {
             <KVRow><K>자기부담금</K><V>{coverage?.deductibleText || "30만원 (공통)"}</V></KVRow>
           </KV>
         </Card>
-
-        {/* 사고 접수 — 보장 내용 바로 아래 (형 리뷰 9/16 '형2' 핀 위치) */}
+  );
+  const claimBtnEl = (
         <GhostBtn type="button" style={{ marginBottom: 12 }} onClick={() => navigate("/insurance/claim")}>
           사고 접수
         </GhostBtn>
-
+  );
+  const condEl = (
         <Card>
           <CardTitle>보장이 적용되려면</CardTitle>
           <ItemList>
@@ -267,16 +289,87 @@ const InsurancePage = () => {
             <Item>사고가 나면 안심케어 탭에서 사고 접수를 합니다. 현장기록의 사진·시각·위치가 증빙이 됩니다.</Item>
           </ItemList>
         </Card>
-
+  );
+  const disclaimerEl = (
         <Disclaimer>
           보험료는 보험사 확정 전 임시 금액이며 계약 확정 시 바뀔 수 있습니다. 보장 내용·인수 조건은 보험사 심사 결과에 따라 달라질 수 있습니다.
         </Disclaimer>
-      </Wrap>
-
-      <FixedBar $tab>
+  );
+  const joinBtnEl = (
         <PrimaryBtn onClick={startJoin} disabled={loading || !plan}>
           {plan ? `${plans?.[plan]?.label || ""} 가입하기` : "가입 유형을 선택해 주세요"}
         </PrimaryBtn>
+  );
+
+  if (pcWide) {
+    const sel = plan ? plans?.[plan] : null;
+    return (
+      <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+        <Wrap className="ins-pc">
+          <PcCols>
+            <PcStack>
+              {heroEl}
+              <div>
+                <SectionTitle>가입 유형</SectionTitle>
+                <PlanGrid>{planCardsEl}</PlanGrid>
+              </div>
+              {coverageEl}
+              {condEl}
+              {disclaimerEl}
+            </PcStack>
+            <PcSide>
+              {myCardEl}
+              <Card>
+                <CardTitle>선택한 유형</CardTitle>
+                {sel ? (
+                  <KV>
+                    <KVRow><K>가입 유형</K><V $bold>{sel.label || plan}</V></KVRow>
+                    <KVRow><K>보험료</K><V $bold>{priceText(plan)}</V></KVRow>
+                    <KVRow><K>보장 기간</K><V>{PLAN_DESC[plan]?.period}</V></KVRow>
+                    <KVRow><K>결제</K><V>{PLAN_DESC[plan]?.pay}</V></KVRow>
+                  </KV>
+                ) : (
+                  <CardText>왼쪽에서 가입 유형을 고르면 여기에 보험료와 보장 기간이 표시됩니다.</CardText>
+                )}
+                <div style={{ marginTop: 16 }}>{joinBtnEl}</div>
+              </Card>
+              <SideBtns>
+                {selfBtnEl}
+                {claimBtnEl}
+              </SideBtns>
+            </PcSide>
+          </PcCols>
+        </Wrap>
+        {toast && <Toast>{toast}</Toast>}
+      </MainListLayout>
+    );
+  }
+
+  return (
+    <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+      <Wrap $bottom={120}>
+        {heroEl}
+
+        {/* 셀프보장등록은 한 줄 전체로 (형 리뷰 9/16) · 예약접수에서 이리로 옮겨온 버튼 */}
+        {selfBtnEl}
+
+        {myCardEl}
+
+        <SectionTitle>가입 유형</SectionTitle>
+        {planCardsEl}
+
+        {coverageEl}
+
+        {/* 사고 접수 — 보장 내용 바로 아래 (형 리뷰 9/16 '형2' 핀 위치) */}
+        {claimBtnEl}
+
+        {condEl}
+
+        {disclaimerEl}
+      </Wrap>
+
+      <FixedBar $tab>
+        {joinBtnEl}
       </FixedBar>
       {toast && <Toast>{toast}</Toast>}
     </MainListLayout>
@@ -292,6 +385,7 @@ const Hero = styled.div`
   border-radius: 16px;
   padding: 22px 20px;
   box-shadow: ${THEME.cardShadow};
+  .pc-mode & { border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; padding: 26px 28px; }
 `;
 
 const HeroRow = styled.div`
@@ -310,6 +404,7 @@ const HeroSub = styled.div`
   color: ${THEME.textSecondary};
   line-height: 1.6;
   word-break: keep-all;
+  .pc-mode & { color: #2b2f36; max-width: 760px; }
 `;
 
 const TitleRow = styled.div`
@@ -323,7 +418,18 @@ const SectionTitle = styled.div`
   font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
+  .pc-mode & { margin: 0 0 14px; font-size: 18px; font-weight: 800; }
 `;
+
+// PC — 가입 유형을 나란히 놓고 비교한다. 제목과 금액은 위아래로(칸이 좁다)
+const PlanGrid = styled.div`
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch;
+  & > button { display: flex; flex-direction: column; align-items: stretch; height: 100%; }
+  & > button > div:first-child { flex-direction: column; align-items: flex-start; gap: 6px; }
+  & > button > div:first-child > div:last-child { white-space: normal; font-size: 19px; }
+  @media (max-width: 1000px) { grid-template-columns: minmax(0, 1fr); }
+`;
+const SideBtns = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 10px; & > button { margin-bottom: 0 !important; } `;
 
 const SelectedLine = styled.div`
   margin-top: 10px;
@@ -352,6 +458,7 @@ const Item = styled.li`
   color: ${THEME.textSecondary};
   word-break: keep-all;
   &::before { content: "·"; position: absolute; left: 2px; top: 0; font-weight: 700; color: ${THEME.text}; }
+  .pc-mode & { color: #2b2f36; }
 `;
 
 const Disclaimer = styled.div`
@@ -360,4 +467,5 @@ const Disclaimer = styled.div`
   line-height: 1.6;
   color: ${THEME.muted};
   word-break: keep-all;
+  .pc-mode & { color: #2b2f36; font-size: 14px; }
 `;

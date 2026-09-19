@@ -15,6 +15,7 @@ import { CATEGORIES, CATEGORY_GROUPS, THEME } from "../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { pcOnly, PC } from "../../pc/pcKit";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../api/config";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
@@ -496,6 +497,8 @@ const BizProfilePage = () => {
       {/* 프로필 */}
       {tab === "profile" && (
           <>
+            {/* PC: 왼쪽 고정 단(프로필 요약·활동 수치) / 오른쪽 섹션 카드. 폰에서는 두 묶음 모두 display: contents 라 없는 것과 같다 */}
+            <SideCol>
             {/* 프로필 요약 + 전문분야 등록하기 (대표 지시 7/30: 한 박스로 통합) */}
             <ProfileCard>
               <ProfileTopRow>
@@ -596,6 +599,9 @@ const BizProfilePage = () => {
                 </ActivityStat>
               </ActivityStatRow>
             </ActivityCard>
+            </SideCol>
+
+            <MainCol>
 
             {/* 사업자회원 전환 — 마이페이지에서 이동 (형 지시 8/8, 일반고객 본인만) */}
             {!isViewingOther && (myProfile?.userType || userData?.userType) !== "business" && (
@@ -700,6 +706,7 @@ const BizProfilePage = () => {
                 <AccountTitle>증명서 관리</AccountTitle>
                 <AccountSub>등록한 증명서는 프로필 신뢰도에 반영됩니다</AccountSub>
 
+                <CertGrid>
                 <CertBlock>
                   <CertBlockHead>
                     <CertBlockTitle>사업자등록증</CertBlockTitle>
@@ -775,6 +782,7 @@ const BizProfilePage = () => {
                   )}
                   <HiddenFile ref={certFileRef} type="file" accept="image/*" onChange={handleCertFile} />
                 </CertBlock>
+                </CertGrid>
               </AccountCard>
             )}
 
@@ -796,6 +804,7 @@ const BizProfilePage = () => {
                 </AccountHeadRow>
                 {accountOpen && (
                   <>
+                    <AccountFormGrid>
                     <AccountField>
                       <AccountLabel>은행</AccountLabel>
                       <AccountInput value={account.bank} onChange={(e) => setAccount((a) => ({ ...a, bank: e.target.value }))} placeholder="예: 국민은행" />
@@ -808,6 +817,7 @@ const BizProfilePage = () => {
                       <AccountLabel>예금주</AccountLabel>
                       <AccountInput value={account.holder} onChange={(e) => setAccount((a) => ({ ...a, holder: e.target.value }))} placeholder="예금주명" />
                     </AccountField>
+                    </AccountFormGrid>
                     <AccountSaveBtn onClick={handleSaveAccount} disabled={savingAccount}>
                       {savingAccount ? "저장 중..." : "계좌 저장"}
                     </AccountSaveBtn>
@@ -897,6 +907,8 @@ const BizProfilePage = () => {
               </EmptyWrap>
             ) : (
               <>
+                <PcSectionTitle>등록한 전문분야 {viewPros.length}</PcSectionTitle>
+                <ProGrid>
                 {viewPros.map((pro) => {
                   const badge = getStatusBadge(pro.status);
                   const region = pro.region ? `${pro.region.sido} ${pro.region.gu || ""}`.trim() : "";
@@ -929,9 +941,11 @@ const BizProfilePage = () => {
                     </ProCard>
                   );
                 })}
+                </ProGrid>
                 {/* 하단 추가 버튼 제거 — 상단 프로필 박스의 전문분야 등록하기로 통합 (대표 지시 7/30) */}
               </>
             )}
+            </MainCol>
           </>
         )}
 
@@ -1160,6 +1174,7 @@ const PageWrap = styled.div`
   background: ${THEME.background};
   min-height: 100%;
   padding-bottom: 20px;
+  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; word-break: keep-all; @media (max-width: 1040px) { grid-template-columns: minmax(0, 1fr); padding: 24px 24px 60px; }`}
 `;
 
 const TabRow = styled.div`
@@ -1193,6 +1208,7 @@ const ProfileCard = styled.div`
   background: ${THEME.surface};
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 24px 24px 8px;`}
 `;
 
 const ProfileTopRow = styled.div`
@@ -1309,6 +1325,7 @@ const ProfileBio = styled.div`
   font-size: 15px;
   color: ${THEME.muted};
   line-height: 1.4;
+  ${pcOnly`color: ${PC.body};`}
 `;
 
 const ProfileRegion = styled.div`
@@ -1318,6 +1335,32 @@ const ProfileRegion = styled.div`
   font-size: 15px;
   color: ${THEME.textSecondary};
   margin-top: 2px;
+`;
+
+/* ─── PC 2단 묶음 — 폰에서는 display: contents 라 배치에 아무 영향이 없다 ─── */
+const SideCol = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; gap: 16px; position: sticky; top: 24px; min-width: 0; @media (max-width: 1040px) { position: static; }`}
+`;
+const MainCol = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; gap: 16px; min-width: 0;`}
+`;
+const CertGrid = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; align-items: start;`}
+`;
+const AccountFormGrid = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 26px; margin-top: 22px;`}
+`;
+const ProGrid = styled.div`
+  display: contents;
+  ${pcOnly`display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch;`}
+`;
+const PcSectionTitle = styled.h2`
+  display: none;
+  ${pcOnly`display: block; font-size: 18px; font-weight: 800; margin: 12px 0 -4px; color: ${PC.ink};`}
 `;
 
 /* ── 전문분야 카드 ── */
@@ -1332,6 +1375,7 @@ const ProCard = styled.div`
   position: relative;
   &:active { transform: scale(0.99); }
   transition: transform 0.1s;
+  ${pcOnly`margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 22px 24px; &:hover { border-color: ${PC.ink}; } &:active { transform: none; }`}
 `;
 
 const ProCardHeader = styled.div`
@@ -1401,6 +1445,7 @@ const EmptyWrap = styled.div`
   align-items: center;
   justify-content: center;
   padding: 60px 20px 20px;
+  ${pcOnly`background: #fff; border: 1px solid ${PC.line}; padding: 56px 20px;`}
 `;
 
 const EmptyTitle = styled.div`
@@ -1415,6 +1460,7 @@ const EmptyDesc = styled.div`
   color: ${THEME.muted};
   text-align: center;
   line-height: 1.5;
+  ${pcOnly`color: ${PC.body};`}
 `;
 
 const ActivityCard = styled.div`
@@ -1423,23 +1469,27 @@ const ActivityCard = styled.div`
   border-radius: 16px;
   padding: 16px 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 22px 24px;`}
 `;
 
 const ActivityStatRow = styled.div`
   display: flex;
   align-items: center;
   margin-top: 14px;
+  ${pcOnly`display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 18px; border: 1px solid ${PC.line};`}
 `;
 
 const ActivityStat = styled.div`
   flex: 1;
   text-align: center;
+  ${pcOnly`display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: stretch; text-align: left; &:not(:first-child) { border-top: 1px solid ${PC.line}; }`}
 `;
 
 const ActivityNum = styled.div`
   font-size: 20px;
   font-weight: 700;
   color: ${THEME.text};
+  ${pcOnly`order: 2; font-size: 16px; padding: 11px 14px; text-align: right;`}
 `;
 
 const ActivityLabel = styled.div`
@@ -1447,12 +1497,14 @@ const ActivityLabel = styled.div`
   font-weight: 400;
   color: ${THEME.muted};
   margin-top: 2px;
+  ${pcOnly`order: 1; font-size: 15px; font-weight: 600; margin: 0; padding: 11px 14px; background: ${PC.head}; color: ${PC.ink};`}
 `;
 
 const ActivityDivider = styled.div`
   width: 1px;
   height: 28px;
   background: ${THEME.border};
+  ${pcOnly`display: none;`}
 `;
 
 /* ── 정산 계좌 카드 ── */
@@ -1463,6 +1515,7 @@ const AccountCard = styled.div`
   border-radius: 16px;
   padding: 18px 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 24px 26px;`}
 `;
 
 const AccountHeadRow = styled.div`
@@ -1477,6 +1530,7 @@ const AccountTitle = styled.div`
   font-size: 17px;
   font-weight: 700;
   color: ${THEME.text};
+  ${pcOnly`font-size: 18px; font-weight: 800;`}
 `;
 
 const AccountSub = styled.div`
@@ -1484,6 +1538,7 @@ const AccountSub = styled.div`
   color: ${THEME.muted};
   margin-top: 2px;
   margin-bottom: 14px;
+  ${pcOnly`font-size: 15px; color: ${PC.body}; margin-top: 4px;`}
 `;
 
 const AccountField = styled.div`
@@ -1491,6 +1546,7 @@ const AccountField = styled.div`
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  ${pcOnly`flex-direction: column; align-items: stretch; gap: 9px; margin: 0;`}
 `;
 
 const AccountLabel = styled.div`
@@ -1499,6 +1555,7 @@ const AccountLabel = styled.div`
   font-size: 15px;
   font-weight: 600;
   color: ${THEME.textSecondary};
+  ${pcOnly`width: auto; color: ${PC.ink};`}
 `;
 
 const AccountInput = styled.input`
@@ -1514,6 +1571,7 @@ const AccountInput = styled.input`
   color: ${THEME.text};
   font-family: inherit;
   &:focus { outline: none; border-color: ${THEME.button}; background: ${THEME.surface}; }
+  ${pcOnly`flex: none; height: 46px; background: #fff; border-color: ${PC.line};`}
 `;
 
 const AccountSaveBtn = styled.button`
@@ -1529,6 +1587,7 @@ const AccountSaveBtn = styled.button`
   font-family: inherit;
   cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
   &:active { opacity: 0.85; }
+  ${pcOnly`width: auto; margin-top: 22px; padding: 12px 28px; font-size: 16px;`}
 `;
 
 /* ── 고용·리뷰 카드 ── */
@@ -1539,6 +1598,7 @@ const ReviewSummaryCard = styled.div`
   border-radius: 16px;
   padding: 16px 20px;
   box-shadow: ${THEME.cardShadow};
+  ${pcOnly`margin: 0; border-radius: 0; box-shadow: none; border: 1px solid ${PC.line}; padding: 24px 26px;`}
 `;
 
 
@@ -1609,6 +1669,7 @@ const ReviewText = styled.p`
 
 const SnsField = styled.div`
   margin-bottom: 12px;
+  ${pcOnly`max-width: 420px;`}
 `;
 
 const SnsLabel = styled.div`
@@ -1664,6 +1725,7 @@ const SnsRowUrl = styled.div`
   color: #2b2f36;
   word-break: break-all;
   margin-top: 1px;
+  ${pcOnly`font-size: 15px;`}
 `;
 
 const SnsEditLink = styled.button`
@@ -1681,12 +1743,14 @@ const SnsEditBox = styled.div`
   padding: 12px 0;
   display: flex;
   flex-direction: column;
+  ${pcOnly`max-width: 560px;`}
 `;
 
 const SnsEditBtns = styled.div`
   display: flex;
   gap: 8px;
   margin-top: 10px;
+  ${pcOnly`justify-content: flex-end; & > button { flex: none; padding: 0 22px; }`}
 `;
 
 const SnsGhostBtn = styled.button`
@@ -1720,6 +1784,7 @@ const SnsPickGrid = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 10px;
+  ${pcOnly`grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;`}
 `;
 
 const SnsPickBtn = styled.button`
@@ -1755,6 +1820,7 @@ const SnsAddBtn = styled.button`
   font-family: inherit;
   color: ${THEME.primaryDark};
   cursor: pointer;
+  ${pcOnly`width: auto; padding: 0 22px; height: 46px; border-style: solid; border-color: ${PC.line}; color: ${PC.ink}; font-size: 15px; &:hover { border-color: ${PC.ink}; }`}
 `;
 
 const SnsBtnRow = styled.div`
@@ -1786,6 +1852,7 @@ const CertBlock = styled.div`
   padding-top: 14px;
   margin-top: 14px;
   border-top: 1px solid ${THEME.border};
+  ${pcOnly`min-width: 0;`}
 `;
 
 const CertBlockHead = styled.div`
@@ -1899,6 +1966,7 @@ const CertLimitText = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
   line-height: 1.5;
+  ${pcOnly`font-size: 15px; color: ${PC.body};`}
 `;
 
 /* ── 인앱 브라우저 ── */
@@ -2321,6 +2389,7 @@ const ViewBtn = styled.button`
 
 const BlacklistBtnWrap = styled.div`
   padding: 16px 20px;
+  ${pcOnly`grid-column: 2; background: #fff; border: 1px solid ${PC.line}; padding: 24px 26px; @media (max-width: 1040px) { grid-column: 1; }`}
 `;
 const BlockBtn = styled.button`
   display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -2334,10 +2403,12 @@ const BlockBtn = styled.button`
   border-radius: 10px;
   cursor: pointer;
   &:active { opacity: 0.7; }
+  ${pcOnly`width: auto; padding: 12px 22px;`}
 `;
 const BlockDesc = styled.div`
   font-size: 13px; color: ${THEME.muted || "#888"}; line-height: 1.5;
   padding: 8px 4px 14px;
+  ${pcOnly`font-size: 14px; color: ${PC.body};`}
 `;
 const BoardLinkBtn = styled.button`
   display: flex; align-items: center; justify-content: center; gap: 2px;
@@ -2347,17 +2418,20 @@ const BoardLinkBtn = styled.button`
   color: ${THEME.muted || "#888"};
   font-size: 14px; font-weight: 500;
   cursor: pointer;
+  ${pcOnly`width: auto; padding: 8px 0; font-size: 15px; color: ${PC.ink}; text-decoration: underline;`}
 `;
 const ReportOverlay = styled.div`
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(0,0,0,0.5);
   display: flex; align-items: flex-end; justify-content: center;
+  ${pcOnly`align-items: center;`}
 `;
 const ReportSheet = styled.div`
   width: 100%; max-width: var(--app-max, 400px);
   background: #fff; border-radius: 20px 20px 0 0;
   padding: 24px 20px 28px;
   max-height: 85vh; overflow-y: auto;
+  ${pcOnly`max-width: 600px; border-radius: 0; border: 1px solid ${PC.line}; padding: 28px 30px;`}
 `;
 const ReportTitle = styled.div`
   font-size: 19px; font-weight: 700; color: ${THEME.text || "#222"};
@@ -2388,6 +2462,7 @@ const ReportTextarea = styled.textarea`
   font-size: 15px; font-family: inherit; color: ${THEME.text || "#222"};
   resize: none;
   &:focus { outline: none; border-color: ${THEME.primary || "#2571e3"}; }
+  ${pcOnly`box-sizing: border-box;`}
 `;
 const ReportImgRow = styled.div`
   display: flex; gap: 8px;
@@ -2444,8 +2519,10 @@ const BlacklistBtn = styled.button`
   border-radius: 10px;
   cursor: pointer;
   &:active { opacity: 0.7; }
+  ${pcOnly`width: auto; padding: 12px 22px;`}
 `;
 
 const BottomSpacer = styled.div`
   height: 80px;
+  ${pcOnly`display: none;`}
 `;

@@ -118,6 +118,7 @@ const SearchPage = () => {
 
   return (
     <PageWrap>
+      <PcTitle>검색</PcTitle>
       {/* ── 검색 헤더 ── */}
       <SearchHeader>
         <BackBtn onClick={() => navigate(-1)}>
@@ -143,6 +144,7 @@ const SearchPage = () => {
         {!hasQuery ? (
           /* ══════ 검색 전: 최근/인기 검색어 ══════ */
           <>
+            <PcHint>서비스 이름이나 세부 항목(예: 입주청소, 누수, 도배)으로 찾을 수 있습니다. 찾은 서비스를 누르면 그 서비스 화면으로 이동합니다.</PcHint>
             {recentSearches.length > 0 && (
               <Section>
                 <SectionHeader>
@@ -266,7 +268,7 @@ const SearchPage = () => {
 
                 {/* ── 기타 결과 ── */}
                 {(activeTab === "전체" || activeTab === "기타") && etcResults.length > 0 && (
-                  <ResultSection>
+                  <ResultSection $n={4}>
                     {activeTab === "전체" && <ResultLabel>기타</ResultLabel>}
                     {etcResults.map(({ sub, category }) => (
                       <EtcItem key={`${category.id}-${sub}`} onClick={() => navigate(`/category/${category.id}`)}>
@@ -294,6 +296,18 @@ const PageWrap = styled.div`
   flex-direction: column;
   height: var(--app-h, 100vh);
   background: ${THEME.background};
+  .pc-mode & { background: #F7F8FA; }
+`;
+
+/* PC 에서만 보이는 화면 제목 */
+const PcTitle = styled.h1`
+  display: none;
+  .pc-mode & { display: block; margin: 0; padding: 30px 32px 0; font-size: 26px; font-weight: 800; color: #14181F; }
+`;
+
+const PcHint = styled.div`
+  display: none;
+  .pc-mode & { display: block; max-width: 620px; margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #2b2f36; word-break: keep-all; }
 `;
 
 /* ── 검색 헤더 ── */
@@ -306,6 +320,7 @@ const SearchHeader = styled.div`
   background: ${THEME.surface};
   border-bottom: 1px solid ${THEME.border};
   flex-shrink: 0;
+  .pc-mode & { background: transparent; border-bottom: none; padding: 18px 32px 20px; }
 `;
 
 const BackBtn = styled.button`
@@ -320,6 +335,7 @@ const BackBtn = styled.button`
   cursor: pointer;
   flex-shrink: 0;
   &:active { opacity: 0.6; }
+  .pc-mode & { width: 46px; height: 46px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; &:hover { border-color: #14181F; } }
 `;
 
 const SearchForm = styled.form`
@@ -330,6 +346,8 @@ const SearchForm = styled.form`
   padding: 10px 14px;
   background: ${THEME.background};
   border-radius: 10px;
+  /* PC — 검색 상자를 본문 폭만큼 늘이지 않는다 */
+  .pc-mode & { flex: 0 1 560px; height: 46px; box-sizing: border-box; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; &:focus-within { border-color: ${THEME.primary}; } }
 `;
 
 const SearchInput = styled.input`
@@ -358,6 +376,7 @@ const ContentWrap = styled.div`
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  .pc-mode & { padding: 0 32px 80px; }
 `;
 
 /* ── 섹션 (최근/인기) ── */
@@ -367,6 +386,7 @@ const Section = styled.div`
   padding: 20px;
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
+  .pc-mode & { margin: 0 0 20px; padding: 24px 26px; border: 1px solid #dfe3e8; border-radius: 0; box-shadow: none; }
 `;
 
 const SectionHeader = styled.div`
@@ -395,6 +415,7 @@ const ClearAllBtn = styled.button`
   cursor: pointer;
   font-family: inherit;
   &:active { opacity: 0.6; }
+  .pc-mode & { color: #14181F; &:hover { text-decoration: underline; } }
 `;
 
 /* 최근 검색어 */
@@ -411,6 +432,7 @@ const RecentItem = styled.div`
   padding: 7px 12px;
   background: ${THEME.background};
   border-radius: 20px;
+  .pc-mode & { padding: 10px 14px; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; span { color: #14181F; } }
 `;
 
 const RecentText = styled.span`
@@ -468,6 +490,8 @@ const TabRow = styled.div`
   border-bottom: 2px solid ${THEME.border};
   padding: 0 12px;
   flex-shrink: 0;
+  /* PC — 한 상자로 묶은 탭(사이 세로선, 고른 탭은 연회색 면 + 굵은 글씨) */
+  .pc-mode & { display: inline-flex; padding: 0; margin: 0 0 20px; border: 1px solid #dfe3e8; background: #fff; }
 `;
 
 const Tab = styled.div`
@@ -482,6 +506,11 @@ const Tab = styled.div`
   white-space: nowrap;
   margin-bottom: -2px;
   &:active { opacity: 0.7; }
+  .pc-mode & {
+    flex: none; min-width: 120px; padding: 12px 22px; margin-bottom: 0; border-bottom: none; color: #14181F;
+    background: ${({ $active }) => ($active ? "#e9ecf1" : "#fff")}; font-weight: ${({ $active }) => ($active ? 800 : 500)};
+    & + & { border-left: 1px solid #dfe3e8; }
+  }
 `;
 
 /* ── 결과 영역 ── */
@@ -495,6 +524,12 @@ const ResultSection = styled.div`
   padding: 20px;
   border-radius: 16px;
   box-shadow: ${THEME.cardShadow};
+  /* PC — 결과를 여러 칸 카드로 */
+  .pc-mode & {
+    margin: 0 0 28px; padding: 0; background: transparent; border-radius: 0; box-shadow: none;
+    display: grid; grid-template-columns: repeat(${({ $n }) => $n || 3}, minmax(0, 1fr)); gap: 14px 16px; align-items: stretch;
+    @media (max-width: 1240px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 `;
 
 const ResultLabel = styled.div`
@@ -504,6 +539,7 @@ const ResultLabel = styled.div`
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid ${THEME.border};
+  .pc-mode & { grid-column: 1 / -1; margin: 0; padding: 0; border-bottom: none; font-size: 18px; font-weight: 800; color: #14181F; }
 `;
 
 /* 카테고리 결과 카드 */
@@ -514,6 +550,7 @@ const ResultCard = styled.div`
   cursor: pointer;
   &:not(:last-child) { border-bottom: 1px solid ${THEME.border}; }
   &:active { opacity: 0.7; }
+  .pc-mode & { padding: 18px 20px; background: #fff; border: 1px solid #dfe3e8 !important; &:hover { border-color: #14181F !important; } }
 `;
 
 const ResultIcon = styled.div`
@@ -537,6 +574,7 @@ const ResultName = styled.div`
   font-size: 17px;
   font-weight: 400;
   color: ${THEME.text};
+  .pc-mode & { font-weight: 700; }
 `;
 
 const ResultDesc = styled.div`
@@ -545,6 +583,7 @@ const ResultDesc = styled.div`
   color: ${THEME.muted};
   margin-top: 2px;
   line-height: 1.4;
+  .pc-mode & { color: #2b2f36; line-height: 1.55; margin-top: 4px; word-break: keep-all; }
 `;
 
 const SubcatRow = styled.div`
@@ -624,6 +663,7 @@ const EtcItem = styled.div`
   cursor: pointer;
   &:not(:last-child) { border-bottom: 1px solid ${THEME.border}; }
   &:active { opacity: 0.7; }
+  .pc-mode & { gap: 10px; padding: 14px 16px; background: #fff; border: 1px solid #dfe3e8 !important; &:hover { border-color: #14181F !important; } }
 `;
 
 const EtcText = styled.span`
@@ -661,4 +701,5 @@ const EmptySub = styled.div`
   font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};
+  .pc-mode & { color: #14181F; }
 `;

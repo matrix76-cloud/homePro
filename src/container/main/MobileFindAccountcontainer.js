@@ -518,6 +518,7 @@ export default function MobileFindAccountcontainer() {
 /* ===================== styles ===================== */
 
 const Wrap = styled.div`
+  .pc-mode & { min-height: 100%; background: #fff; padding: 48px 56px; }
   min-height: 100vh;
   background: ${THEME.background};
   padding: 16px 20px 40px;
@@ -536,6 +537,7 @@ const BackBtn = styled.button`
 
 
 const PageTitle = styled.div`
+  .pc-mode & { font-size: 26px; font-weight: 800; }
   font-size: 22px;
   font-weight: 400;
   color: ${THEME.text};
@@ -544,6 +546,7 @@ const PageTitle = styled.div`
 `;
 
 const PageDesc = styled.div`
+  .pc-mode & { color: #2b2f36; }
   font-size: 16px;
   font-weight: 400;
   color: ${THEME.muted};

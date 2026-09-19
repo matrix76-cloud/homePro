@@ -12,6 +12,7 @@ import usePcWide from "./hooks/usePcWide";
 import PcHeader from "./components/pc/PcHeader";
 import { PcSidebar, PcTopBar, PC_SIDE_W, PC_TOP_H } from "./components/pc/PcAppShell";
 import PcOrdersPage from "./pc/PcOrdersPage";
+import PcAuthSplit from "./components/pc/PcAuthSplit";
 import { attachMessageListener, postToRN, sendNavState } from "./bridge/webviewBridge";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -209,7 +210,7 @@ const PcBody = ({ on, width, left, children }) => {
   return (
     <PcStage>
       {left && <PcFrame className="pc-mode pc-left" style={vars(380)}><PcScroll><Container>{left}</Container></PcScroll></PcFrame>}
-      <PcFrame className="pc-mode" style={vars(width)}><PcScroll>{children}</PcScroll></PcFrame>
+      <PcFrame className="pc-mode" style={{ ...vars(width), ...(width >= 1000 ? { border: "none", background: "transparent" } : null) }}><PcScroll>{children}</PcScroll></PcFrame>
     </PcStage>
   );
 };
@@ -363,7 +364,7 @@ const AnimatedRoutes = () => {
   // PC 폭에서는 로그인 화면이 좌우 분할 전폭으로 뜬다 (폰·앱은 그대로 폭 400)
   const pcWide = usePcWide();
   const isFullWidth =
-    (pcWide && location.pathname === "/MobileLogin") ||
+    (pcWide && ["/MobileLogin", "/MobileSignup", "/MobileFindAccount"].includes(location.pathname)) ||
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/insurance-admin") ||
     location.pathname.startsWith("/review") ||
@@ -376,7 +377,7 @@ const AnimatedRoutes = () => {
   // PC 위 메뉴 — 관리자·리뷰·시안·결제 링크(고객용)·로그인·스플래시에는 달지 않는다
   const p = location.pathname;
   const pcBare =
-    p === "/" || p === "/MobileLogin" || p === "/MobileSplash" || p === "/seed-login" ||
+    p === "/" || p === "/MobileLogin" || p === "/MobileSignup" || p === "/MobileFindAccount" || p === "/MobileSplash" || p === "/seed-login" ||
     p.startsWith("/admin") || p.startsWith("/insurance-admin") || p.startsWith("/review") ||
     p.startsWith("/lab") || p.startsWith("/iconlab") || p.startsWith("/colorlab") || p.startsWith("/pg/");
   // 홍보 화면(/intro)은 위 메뉴, 그 밖의 앱 화면은 왼쪽 세로 메뉴 틀 (시안 랩 pcshell 3번)
@@ -413,8 +414,8 @@ const AnimatedRoutes = () => {
             <Route path="/MobileMain" element={pcWidePage ? <PcOrdersPage /> : wrap(<MobileMainpage />)} />
           </Route>
           <Route path="/MobileLogin" element={wrap(<MobileLoginpage />)} />
-          <Route path="/MobileSignup" element={wrap(<MobileSignuppage />)} />
-          <Route path="/MobileFindAccount" element={wrap(<MobileFindAccountpage />)} />
+          <Route path="/MobileSignup" element={pcWide ? <PcAuthSplit>{wrap(<MobileSignuppage />)}</PcAuthSplit> : wrap(<MobileSignuppage />)} />
+          <Route path="/MobileFindAccount" element={pcWide ? <PcAuthSplit>{wrap(<MobileFindAccountpage />)}</PcAuthSplit> : wrap(<MobileFindAccountpage />)} />
           <Route path="/legal/terms" element={wrap(<TermsPage />)} />
           <Route path="/legal/privacy" element={wrap(<PrivacyPage />)} />
           <Route path="/legal/location" element={wrap(<LocationTermsPage />)} />
