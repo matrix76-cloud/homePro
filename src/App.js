@@ -6,9 +6,10 @@ import { useMediaQuery } from "react-responsive";
 import styled, { createGlobalStyle } from "styled-components";
 
 import { UserContext } from "./context/User";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
 import usePcWide from "./hooks/usePcWide";
+import PcHeader, { PC_HEADER_H } from "./components/pc/PcHeader";
 import { attachMessageListener, postToRN, sendNavState } from "./bridge/webviewBridge";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -19,6 +20,14 @@ const APP_ROOT_PATHS = ["/", "/MobileSplash", "/MobileLogin", "/MobileMain", "/i
 // 대표 도메인 접속 여부 — 이 주소로 온 사람에겐 인트로(/intro)가 첫 화면이다
 const IS_BRAND_DOMAIN =
   typeof window !== "undefined" && /(^|\.)tryhomepro\.com$/i.test(window.location.hostname);
+
+// 첫 주소(/) — 대표 도메인: 로그인 전이면 홍보(/intro), 로그인돼 있으면 바로 오더목록. 그 밖(앱·web.app)은 스플래시
+function RootRedirect() {
+  const { loading, isLoggedIn } = useAuth();
+  if (!IS_BRAND_DOMAIN) return <Navigate to="/MobileSplash" replace />;
+  if (loading) return null;
+  return <Navigate to={isLoggedIn ? "/MobileMain" : "/intro"} replace />;
+}
 
 // 푸시 data → 이동할 화면. 서버(onNotificationSend)가 data 에 type·orderId·roomId 를 실어 보낸다
 function pushTargetPath(d = {}) {
@@ -176,6 +185,21 @@ const FullContainer = styled.div`
   width: 100%;
 `;
 
+/* PC 가운데 단 — transform 으로 안쪽 position:fixed(기존 화면의 고정 헤더·하단 버튼·시트)가
+   창이 아니라 이 단 기준으로 붙게 한다. 스크롤은 안쪽 PcScroll 이 맡아 고정 요소는 따라 움직이지 않는다 */
+const PcStage = styled.div`
+  position: fixed; top: ${PC_HEADER_H}px; left: 0; right: 0; bottom: 0;
+  background: #F7F8FA; display: flex; justify-content: center;
+`;
+const PcFrame = styled.div`
+  width: 400px; height: 100%; transform: translateZ(0); overflow: hidden;
+  background: #F2F4F6; border-left: 1px solid #dfe3e8; border-right: 1px solid #dfe3e8; box-sizing: content-box;
+`;
+const PcScroll = styled.div`
+  height: 100%; overflow-y: auto; overflow-x: hidden;
+  ${Container} { min-height: 100%; }
+`;
+
 const GlobalStyle = createGlobalStyle`
   html, body {
     margin: 0;
@@ -326,7 +350,23 @@ const AnimatedRoutes = () => {
     location.pathname === "/intro";
   const Wrapper = isFullWidth ? FullContainer : Container;
 
+  // PC 위 메뉴 — 관리자·리뷰·시안·결제 링크(고객용)·로그인·스플래시에는 달지 않는다
+  const p = location.pathname;
+  const pcBare =
+    p === "/" || p === "/MobileLogin" || p === "/MobileSplash" || p === "/seed-login" ||
+    p.startsWith("/admin") || p.startsWith("/insurance-admin") || p.startsWith("/review") ||
+    p.startsWith("/lab") || p.startsWith("/iconlab") || p.startsWith("/colorlab") || p.startsWith("/pg/");
+  const showPcHeader = pcWide && !pcBare;
+  // 아직 PC 용으로 옮기지 않은 화면은 위 메뉴 아래 가운데 단(폭 400)에 기존 화면 그대로 보여 준다
+  const pcColumn = showPcHeader && p !== "/intro";
+  const Stage = pcColumn ? PcStage : React.Fragment;
+  const Frame = pcColumn ? PcFrame : React.Fragment;
+  const Scroll = pcColumn ? PcScroll : React.Fragment;
+
   return (
+    <>
+    {showPcHeader && <PcHeader />}
+    <Stage><Frame><Scroll>
     <AnimatePresence mode="wait">
       <Wrapper>
         <ToastContainer position="bottom-center" hideProgressBar closeButton={false} newestOnTop limit={2} />
@@ -334,7 +374,7 @@ const AnimatedRoutes = () => {
         <Routes location={location} key={location.pathname}>
           {/* Public - 인증 불필요 */}
           {/* 대표 도메인(tryhomepro.com)으로 들어오면 인트로가 첫 화면. 앱(WebView)·web.app 은 그대로 스플래시 */}
-          <Route path="/" element={<Navigate to={IS_BRAND_DOMAIN ? "/intro" : "/MobileSplash"} replace />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route path="/intro" element={<LandingPage />} />
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
           {/* 홈 — 비회원도 둘러볼 수 있다. 로그인한 사람만 전화번호 단계를 거친다 (대표 9/17) */}
@@ -510,6 +550,8 @@ const AnimatedRoutes = () => {
         </Routes>
       </Wrapper>
     </AnimatePresence>
+    </Scroll></Frame></Stage>
+    </>
   );
 };
 

@@ -7,6 +7,7 @@ import { MOBILEMAINMENU } from "../../../utility/constants";
 import { useAuth } from "../../../context/AuthContext";
 import { subscribeChatRooms } from "../../../service/ChatService";
 import "./Footer.css";
+import usePcWide from "../../../hooks/usePcWide";
 
 const TAB_LIST = [
   {
@@ -53,6 +54,7 @@ const MobileFooter = ({ type }) => {
   const { userData } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
+  const pcWide = usePcWide(); // PC 에서는 위 메뉴(PcHeader)가 하단 탭을 대신한다
 
   useEffect(() => {
     const uid = userData?.uid;
@@ -75,6 +77,8 @@ const MobileFooter = ({ type }) => {
       navigate(tab.path);
     }
   };
+
+  if (pcWide) return null;
 
   return (
     <>

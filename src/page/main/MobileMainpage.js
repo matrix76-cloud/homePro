@@ -665,6 +665,12 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     try { sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab); } catch (e) { /* ignore */ }
   }, [activeTab]);
 
+  // PC 위 메뉴에서 ?tab= 으로 들어오면 그 탭을 연다
+  useEffect(() => {
+    const t = new URLSearchParams(location.search).get("tab");
+    if (t && ["all_orders", "my_orders", "ai_estimate", "assets"].includes(t)) setActiveTab(t);
+  }, [location.search]);
+
   // 홈 탭 클릭 시 첫 번째 탭으로 리셋
   useEffect(() => {
     if (location.state?.resetTab) {

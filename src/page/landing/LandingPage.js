@@ -13,6 +13,8 @@ import styled from 'styled-components';
 import { FiArrowDown, FiCheck } from 'react-icons/fi';
 import { db } from '../../api/config';
 import { PIECES, HeroScreenWithPieces } from './LandingArt';
+import usePcWide from '../../hooks/usePcWide';
+import { PC_HEADER_H } from '../../components/pc/PcHeader';
 
 const SECTIONS = [
   {
@@ -48,6 +50,14 @@ const ONE = [
   { h: '사고에 대비하고', s: '안전하게 사업하세요.' },
 ];
 
+// 첫 화면 아래 실사 띠 (시안 랩 landingphoto 4번). 시안용 무료 사진 — 출처 public/assets/landing/photo/CREDITS.md. 현장 사진을 받으면 교체
+const PHOTOS = [
+  { src: '/assets/landing/photo/clean-sofa.jpg', label: '전문청소' },
+  { src: '/assets/landing/photo/plumb-bath.jpg', label: '설비 · 누수' },
+  { src: '/assets/landing/photo/tools.jpg', label: '집수리' },
+  { src: '/assets/landing/photo/clean-room.jpg', label: '정기청소' },
+];
+
 const WAY = ['오더 공유', '소개수익', 'PG 결제', '직접정산', '배상책임보험'];
 
 const Flow = ({ items }) => (
@@ -75,6 +85,7 @@ const COMPANY_FALLBACK = {
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide(); // PC 에서는 앱 공통 위 메뉴(PcHeader)가 이 페이지 헤더를 대신한다
   const [company, setCompany] = useState(COMPANY_FALLBACK);
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +194,8 @@ const LandingPage = () => {
   };
 
   return (
-    <Page>
+    <Page style={pcWide ? { paddingTop: PC_HEADER_H } : undefined}>
+      {!pcWide && (
       <Header>
         <Inner>
           <Nav>
@@ -201,6 +213,7 @@ const LandingPage = () => {
           </Nav>
         </Inner>
       </Header>
+      )}
 
       {/* 히어로 */}
       <Hero>
@@ -227,6 +240,14 @@ const LandingPage = () => {
               <HeroScreenWithPieces />
             </HeroVisual>
           </HeroGrid>
+          <PhotoStrip>
+            {PHOTOS.map((ph) => (
+              <PhotoItem key={ph.label}>
+                <PhotoImg style={{ backgroundImage: `url(${ph.src})` }} role="img" aria-label={ph.label} />
+                <PhotoLabel>{ph.label}</PhotoLabel>
+              </PhotoItem>
+            ))}
+          </PhotoStrip>
         </Inner>
       </Hero>
 
@@ -404,6 +425,18 @@ const Lead = styled.p`
 `;
 const HeroBtns = styled.div` display: flex; gap: 12px; flex-wrap: wrap; `;
 const HeroVisual = styled.div` display: flex; justify-content: center; `;
+
+/* 첫 화면 아래 실사 띠 */
+const PhotoStrip = styled.div`
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 72px;
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 52px; }
+`;
+const PhotoItem = styled.div``;
+const PhotoImg = styled.div`
+  height: 190px; border-radius: 14px; background-size: cover; background-position: center; background-color: #eef1f4;
+  @media (max-width: 600px) { height: 120px; }
+`;
+const PhotoLabel = styled.div` font-size: 18px; font-weight: 700; color: ${INK}; margin-top: 12px; @media (max-width: 600px) { font-size: 16px; } `;
 
 /* 01~04 */
 const Section = styled.section`
