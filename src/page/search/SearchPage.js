@@ -292,7 +292,7 @@ export default SearchPage;
 const PageWrap = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: var(--app-h, 100vh);
   background: ${THEME.background};
 `;
 

@@ -245,7 +245,7 @@ export default WorkerRequestDetailPage;
 
 const PageWrap = styled.div`
   padding: 12px 12px 80px;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   margin: 0 auto;
   background: ${THEME.background};
   min-height: 100vh;

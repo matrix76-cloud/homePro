@@ -1380,8 +1380,8 @@ const PRIMARY = THEME.primary;
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
+  height: var(--app-h, 100vh);
+  height: var(--app-h, 100dvh);
   background: ${THEME.background};
 `;
 
@@ -2272,7 +2272,7 @@ const ScheduleModalContent = styled.div`
   background: white;
   border-radius: 16px 16px 0 0;
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -2689,7 +2689,7 @@ const ProSheetOverlay = styled.div`
 
 const ProSheetContent = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   max-height: 85vh;
   background: ${THEME.background};
   border-radius: 20px 20px 0 0;
@@ -2971,7 +2971,7 @@ const PayOverlay = styled.div`
 
 const PaySheet = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: #fff;
   border-radius: 16px 16px 0 0;
   padding: 0 16px 24px;
@@ -3094,7 +3094,7 @@ const CancelModalOverlay = styled.div`
 `;
 const CancelModalSheet = styled.div`
   background: #fff; border-radius: 16px 16px 0 0;
-  padding: 20px; width: 100%; max-width: 400px;
+  padding: 20px; width: 100%; max-width: var(--app-max, 400px);
 `;
 const CancelTitle = styled.div`
   font-size: 18px; font-weight: 700; margin-bottom: 16px;

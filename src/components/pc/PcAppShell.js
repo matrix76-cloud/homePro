@@ -8,7 +8,7 @@ import React from "react";
 import styled from "styled-components";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  FiList, FiClipboard, FiCpu, FiHome, FiBookOpen, FiShield, FiMessageCircle, FiUser, FiSearch, FiCalendar, FiBell,
+  FiList, FiClipboard, FiGift, FiCpu, FiHome, FiBookOpen, FiShield, FiMessageCircle, FiUser, FiSearch, FiCalendar, FiBell,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 
@@ -20,6 +20,7 @@ const MENU = [
   { label: "오더목록", icon: <FiList />, to: "/MobileMain?tab=all_orders", match: (p, t) => (p === "/MobileMain" && (!t || t === "all_orders")) || p.startsWith("/order/detail") || p === "/order/create" },
   { label: "나의 오더", icon: <FiClipboard />, to: "/MobileMain?tab=my_orders", match: (p, t) => (p === "/MobileMain" && t === "my_orders") || p.startsWith("/order/my-orders") || p === "/my-orders" },
   { label: "AI 견적", icon: <FiCpu />, to: "/MobileMain?tab=ai_estimate", match: (p, t) => (p === "/MobileMain" && t === "ai_estimate") || p.startsWith("/order/ai-estimate") },
+  { label: "보유자산", icon: <FiGift />, to: "/MobileMain?tab=assets", match: (p, t) => p === "/MobileMain" && t === "assets" },
   { label: "공동중개", icon: <FiHome />, to: "/brokerage", match: (p) => p.startsWith("/brokerage") },
   { label: "교육·장터", icon: <FiBookOpen />, to: "/education-market", match: (p) => p.startsWith("/education-market") || p.startsWith("/training") || p.startsWith("/supplies") },
   { label: "안심케어", icon: <FiShield />, to: "/insurance", match: (p) => p.startsWith("/insurance") },

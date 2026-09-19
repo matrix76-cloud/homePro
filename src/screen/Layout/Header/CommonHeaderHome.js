@@ -44,7 +44,7 @@ const HeaderWrapper = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   z-index: 999;
   background: #fff;
   height: 52px;

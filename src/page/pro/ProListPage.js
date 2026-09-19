@@ -357,7 +357,7 @@ const FilterOverlay = styled.div`
 
 const FilterSheet = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: #fff;
   border-radius: 20px 20px 0 0;
   padding: 20px;

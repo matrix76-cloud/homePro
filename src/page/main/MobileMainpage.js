@@ -17,6 +17,7 @@ import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/
 import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import EmptyOrders from "../../components/EmptyOrders";
+import usePcWide from "../../hooks/usePcWide";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 
@@ -560,6 +561,7 @@ const ACTIVE_TAB_STORAGE_KEY = "homepro.main.activeTab";
 
 const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const location = useLocation();
+  const pcWide = usePcWide(); // PC 에서는 왼쪽 세로 메뉴가 안쪽 탭을 대신한다
   const { userData } = useAuth();
   const myRegion = userData?.region;
   const [activeTab, setActiveTab] = useState(() => {
@@ -853,8 +855,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         </PointCell>
       </PointLine>
 
-      {/* ── 상단 탭 버튼 ── */}
-      <HomeTabRow>
+      {/* ── 상단 탭 버튼 ── (PC 는 왼쪽 세로 메뉴로 이동하므로 탭 줄 대신 제목만) */}
+      {pcWide && <PcTabTitle>{(HOME_TABS.find((t) => t.key === activeTab) || {}).label}</PcTabTitle>}
+      <HomeTabRow style={pcWide ? { display: "none" } : undefined}>
         {HOME_TABS.map((tab) => (
           <HomeTabBtn key={tab.key} $wide={tab.wide} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
             {tab.label}
@@ -1416,6 +1419,10 @@ const MobileMainpage = () => {
 };
 
 export default MobileMainpage;
+
+const PcTabTitle = styled.h1`
+  font-size: 24px; font-weight: 800; color: #14181F; margin: 0; padding: 22px 16px 10px; background: #fff;
+`;
 
 /* ===================== Pull-to-Refresh styles ===================== */
 
@@ -2898,7 +2905,7 @@ const TableScrollOuter = styled.div`
 const TableWrap = styled.div`
   /* 목록만 세로로 스크롤한다. 위쪽(지역·포인트·탭·필터)과 하단 탭은 제자리에 남는다 (대표 9/17) */
   /* 위쪽(지역·포인트·탭·필터)을 뺀 나머지를 모두 목록에 준다 — 하단 탭 바로 위까지 (대표 9/17) */
-  height: calc(100vh - 252px - env(safe-area-inset-bottom, 0px));
+  height: calc(var(--app-h, 100vh) - 252px - env(safe-area-inset-bottom, 0px));
   min-height: 300px;
   background: ${THEME.surface};
   overflow: auto;
@@ -3194,7 +3201,7 @@ const SheetOverlay = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 9000;

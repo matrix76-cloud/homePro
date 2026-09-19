@@ -271,7 +271,7 @@ export default ScheduleCreatePage;
 /* ===================== styles ===================== */
 
 const PageWrap = styled.div`
-  height: 100vh;
+  height: var(--app-h, 100vh);
   display: flex;
   flex-direction: column;
   background: ${THEME.background};
@@ -490,7 +490,7 @@ const FixedBottom = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   z-index: 900;
 `;
 const CompleteBtn = styled.button`

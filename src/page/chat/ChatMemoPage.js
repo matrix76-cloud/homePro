@@ -109,8 +109,8 @@ const PRIMARY = THEME.primary;
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
+  height: var(--app-h, 100vh);
+  height: var(--app-h, 100dvh);
   background: ${THEME.bg || "#F7F8FA"};
 `;
 

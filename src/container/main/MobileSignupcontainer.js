@@ -234,7 +234,7 @@ const H1 = styled.div`
 
 const Card = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   margin-top: 16px;
   padding: 0;
   animation: ${popIn} 0.55s ease-out both;

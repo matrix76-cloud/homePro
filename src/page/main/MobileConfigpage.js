@@ -143,7 +143,7 @@ const EditScreen = styled.div`
   background: #fff;
   display: flex;
   flex-direction: column;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   margin: 0 auto;
 `;
 
@@ -455,7 +455,7 @@ const WithdrawOverlay = styled.div`
 
 const WithdrawSheet = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: #fff;
   border-radius: 16px 16px 0 0;
   padding: 22px 20px calc(24px + env(safe-area-inset-bottom, 0px));
@@ -1468,7 +1468,7 @@ const GradeSheetOverlay = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 9000;

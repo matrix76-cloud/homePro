@@ -204,7 +204,7 @@ const ManageBtn = styled.button`
   &:disabled { opacity: 0.6; }
 `;
 const BottomBar = styled.div`
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 400px; box-sizing: border-box;
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: var(--app-max, 400px); box-sizing: border-box;
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: ${THEME.surface};
   box-shadow: 0 -1px 4px rgba(0,0,0,0.06); z-index: 100;
 `;

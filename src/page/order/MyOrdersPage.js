@@ -1115,7 +1115,7 @@ const ModalOverlay = styled.div`
 
 const ModalSheet = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: #fff;
   border-radius: 16px 16px 0 0;
   padding: 16px 20px 24px;

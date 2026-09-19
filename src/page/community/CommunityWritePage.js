@@ -258,7 +258,7 @@ const SubmitBar = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: ${THEME.surface};
   border-top: 1px solid ${THEME.border};

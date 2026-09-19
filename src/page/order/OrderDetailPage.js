@@ -1689,7 +1689,7 @@ const FixedBottom = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: ${THEME.surface};
   border-top: 1px solid ${THEME.border};
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
@@ -1890,7 +1890,7 @@ const SheetOverlay = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 9000;

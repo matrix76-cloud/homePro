@@ -176,7 +176,7 @@ const wrap = (el) => <PageWrapper>{el}</PageWrapper>;
 /* ===================== layout / global ===================== */
 
 const Container = styled.div`
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   margin: 0 auto;
   background: #F2F4F6;
   min-height: 100vh;
@@ -194,9 +194,25 @@ const PcStage = styled.div`
   background: #F7F8FA; display: flex; justify-content: center;
 `;
 const PcFrame = styled.div`
-  width: 400px; height: 100%; transform: translateZ(0); overflow: hidden;
+  width: var(--app-max); height: 100%; transform: translateZ(0); overflow: hidden; flex: 0 1 auto; min-width: 0;
   background: #F2F4F6; border-left: 1px solid #dfe3e8; border-right: 1px solid #dfe3e8; box-sizing: content-box;
+  & + & { border-left: none; }
 `;
+const PcChatEmpty = styled.div`
+  height: 100%; min-height: calc(100vh - ${PC_TOP_H}px); display: flex; align-items: center; justify-content: center;
+  font-size: 17px; color: #14181F; background: #fff;
+`;
+// PC 본문 — on 이 꺼져 있으면 아무것도 감싸지 않는다(폰·앱·전폭 화면). left 가 있으면 좌우 2단(채팅: 목록 | 대화방)
+const PcBody = ({ on, width, left, children }) => {
+  if (!on) return children;
+  const vars = (w) => ({ "--app-max": `${w}px`, "--app-h": `calc(100vh - ${PC_TOP_H}px)` });
+  return (
+    <PcStage>
+      {left && <PcFrame style={vars(380)}><PcScroll><Container>{left}</Container></PcScroll></PcFrame>}
+      <PcFrame style={vars(width)}><PcScroll>{children}</PcScroll></PcFrame>
+    </PcStage>
+  );
+};
 /* PC 용으로 옮긴 넓은 화면 — 세로 메뉴·위 줄만큼 비우고 창 스크롤을 그대로 쓴다 */
 const PcWideBody = styled.div`
   min-height: 100vh; box-sizing: border-box; background: #F7F8FA;
@@ -372,15 +388,16 @@ const AnimatedRoutes = () => {
   const pcWidePage = pcApp && p === "/MobileMain" && (!pcTab || pcTab === "all_orders");
   const pcColumn = pcApp && !pcWidePage;
   if (pcWidePage) Wrapper = PcWideBody;
-  const Stage = pcColumn ? PcStage : React.Fragment;
-  const Frame = pcColumn ? PcFrame : React.Fragment;
-  const Scroll = pcColumn ? PcScroll : React.Fragment;
+  // 가운데 단 폭 — 기존 화면의 폭 제한(--app-max)을 PC 에서만 넓힌다. 가입·인증류는 좁게
+  const pcNarrow = /^\/(MobileSignup|MobileFindAccount|MobileLinkPhone|MobileSetNickname|ReferralInput|welcome|legal)/.test(p);
+  const pcChat = pcColumn && (p === "/MobileChat" || p.startsWith("/chat/"));
+  const pcBodyWidth = pcChat ? 860 : pcNarrow ? 480 : 720;
 
   return (
     <>
     {showPcHeader && <PcHeader />}
     {pcApp && <><PcSidebar /><PcTopBar /></>}
-    <Stage><Frame><Scroll>
+    <PcBody on={pcColumn} width={pcBodyWidth} left={pcChat ? <MobileChatpage /> : null}>
     <AnimatePresence mode="wait">
       <Wrapper>
         <ToastContainer position="bottom-center" hideProgressBar closeButton={false} newestOnTop limit={2} />
@@ -427,7 +444,7 @@ const AnimatedRoutes = () => {
                 번호가 계정 통합의 기준키라, 이 단계를 건너뛰면 같은 사람이 여러 계정으로 갈라진다. */}
             <Route element={<RequirePhone />}>
             <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
-            <Route path="/MobileChat" element={wrap(<MobileChatpage />)} />
+            <Route path="/MobileChat" element={pcChat ? <PcChatEmpty>왼쪽에서 대화를 고르면 이곳에 열립니다.</PcChatEmpty> : wrap(<MobileChatpage />)} />
             <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
             <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
             <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
@@ -564,7 +581,7 @@ const AnimatedRoutes = () => {
         </Routes>
       </Wrapper>
     </AnimatePresence>
-    </Scroll></Frame></Stage>
+    </PcBody>
     </>
   );
 };

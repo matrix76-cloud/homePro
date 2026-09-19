@@ -2090,7 +2090,7 @@ const SheetContent = styled.div`
   background: #fff;
   border-radius: 20px 20px 0 0;
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   max-height: 70vh;
   display: flex;
   flex-direction: column;
@@ -2354,7 +2354,7 @@ const ReportOverlay = styled.div`
   display: flex; align-items: flex-end; justify-content: center;
 `;
 const ReportSheet = styled.div`
-  width: 100%; max-width: 400px;
+  width: 100%; max-width: var(--app-max, 400px);
   background: #fff; border-radius: 20px 20px 0 0;
   padding: 24px 20px 28px;
   max-height: 85vh; overflow-y: auto;

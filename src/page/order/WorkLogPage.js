@@ -669,7 +669,7 @@ const SheetBg = styled.div`
 
 const Sheet = styled.div`
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: ${THEME.surface};
   border-radius: 20px 20px 0 0;
   padding: 20px 20px calc(24px + env(safe-area-inset-bottom, 0px));

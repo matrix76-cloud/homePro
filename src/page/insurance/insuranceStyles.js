@@ -145,7 +145,7 @@ export const FixedBar = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   box-sizing: border-box;
   bottom: ${({ $tab }) => ($tab ? "calc(65px + env(safe-area-inset-bottom, 0px))" : "env(safe-area-inset-bottom, 0px)")};
   padding: 10px 12px 12px;

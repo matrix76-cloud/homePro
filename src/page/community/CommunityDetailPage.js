@@ -356,7 +356,7 @@ const InputBar = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   background: ${THEME.surface};
   border-top: 1px solid ${THEME.border};
   z-index: 100;

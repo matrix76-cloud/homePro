@@ -243,7 +243,7 @@ const FilterChip = styled.button`
   &:focus { outline: none; }
 `;
 const SheetOverlay = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; `;
-const Sheet = styled.div` width: 100%; max-width: 400px; max-height: 84vh; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 10px 18px 28px; `;
+const Sheet = styled.div` width: 100%; max-width: var(--app-max, 400px); max-height: 84vh; overflow-y: auto; background: #fff; border-radius: 16px 16px 0 0; padding: 10px 18px 28px; `;
 const SheetHandle = styled.div` width: 40px; height: 4px; border-radius: 2px; background: #D1D5DB; margin: 0 auto 12px; `;
 const SheetHead = styled.div` display: flex; align-items: center; gap: 8px; margin-bottom: 8px; `;
 const SheetClose = styled.button` background: none; border: none; font-size: 15px; font-weight: 700; color: ${THEME.muted}; cursor: pointer; font-family: inherit; `;

@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoPeopleOutline } from "react-icons/io5";
 import { THEME, CATEGORIES } from "../../config/homeproConfig";
@@ -10,6 +10,7 @@ import { getOrderById } from "../../service/OrderService";
 import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { MOBILEMAINMENU } from "../../utility/constants";
+import usePcWide from "../../hooks/usePcWide";
 
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
@@ -21,6 +22,8 @@ const formatTime = (timestamp) => {
 
 const MobileChatpage = () => {
   const navigate = useNavigate();
+  const pcWide = usePcWide();
+  const { pathname } = useLocation(); // PC 2단에서 열린 방을 목록에 표시하려고 주소 변화를 따라간다
   const { userData } = useAuth();
   const [rooms, setRooms] = useState([]);
 
@@ -192,9 +195,10 @@ const MobileChatpage = () => {
             return (
               <RoomItem
                 key={room.id}
-                $focused={focusedRoom === room.id}
+                $focused={focusedRoom === room.id || (pcWide && pathname.startsWith(`/chat/${room.id}`))}
                 onClick={() => {
-                  if (focusedRoom === room.id) {
+                  // PC 는 목록 옆에 대화방이 바로 열리므로 한 번에 들어간다
+                  if (pcWide || focusedRoom === room.id) {
                     navigate(`/chat/${room.id}`);
                   } else {
                     setFocusedRoom(room.id);

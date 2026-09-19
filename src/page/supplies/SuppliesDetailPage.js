@@ -463,7 +463,7 @@ const BottomBar = styled.div`
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 400px;
+  max-width: var(--app-max, 400px);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   background: #fff;

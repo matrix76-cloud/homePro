@@ -58,7 +58,7 @@ const PgLinkPage = () => {
 export default PgLinkPage;
 
 const Page = styled.div` min-height: 100vh; background: ${THEME.background}; `;
-const Inner = styled.div` max-width: 400px; margin: 0 auto; padding: 28px 20px 48px; box-sizing: border-box; `;
+const Inner = styled.div` max-width: var(--app-max, 400px); margin: 0 auto; padding: 28px 20px 48px; box-sizing: border-box; `;
 const Brand = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.primary}; margin-bottom: 28px; `;
 const Seller = styled.div` font-size: 23px; font-weight: 700; color: ${THEME.text}; word-break: keep-all; `;
 const Sub = styled.div` font-size: 16px; color: ${THEME.textSecondary}; margin: 4px 0 20px; `;
