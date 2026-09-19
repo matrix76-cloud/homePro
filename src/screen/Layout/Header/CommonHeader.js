@@ -66,6 +66,8 @@ const HeaderInner = styled.div`
   justify-content: space-between;
   height: 100%;
   padding: 0 12px;
+  /* PC 본문 틀 — 제목을 왼쪽 굵게, 검색·일정·알림은 PC 위 줄에 이미 있으므로 숨김 */
+  .pc-mode & { padding: 0 24px; }
 `;
 
 const LeftBtn = styled.button`
@@ -83,12 +85,14 @@ const CenterTitle = styled.div`
   color: ${THEME.text};
   flex: 1;
   text-align: center;
+  .pc-mode & { font-size: 22px; font-weight: 800; text-align: left; margin-left: 4px; }
 `;
 
 const RightActions = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
+  .pc-mode & { display: none; }
 `;
 
 const IconBtn = styled.button`

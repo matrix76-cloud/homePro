@@ -25,6 +25,8 @@ const HeaderInner = styled.div`
   justify-content: space-between;
   height: 100%;
   padding: 0 12px;
+  /* PC 본문 틀 — 넓은 본문의 제목 줄로 */
+  .pc-mode & { padding: 0 24px; }
 `;
 
 const LeftSection = styled.div`
@@ -47,6 +49,7 @@ const BackBtn = styled.button`
 `;
 
 const Title = styled.div`
+  .pc-mode & { font-size: 22px; font-weight: 800; margin-left: 8px; }
   font-size: 20px;
   font-weight: 600;
   color: ${THEME.text};

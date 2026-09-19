@@ -94,6 +94,7 @@ const RightSection = styled.div`
   display: flex;
   align-items: center;
   gap: 2px;
+  .pc-mode & { display: none; } /* 검색·일정·알림은 PC 위 줄에 있다 */
 `;
 
 const IconBtn = styled.button`

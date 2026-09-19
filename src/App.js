@@ -208,8 +208,8 @@ const PcBody = ({ on, width, left, children }) => {
   const vars = (w) => ({ "--app-max": `${w}px`, "--app-h": `calc(100vh - ${PC_TOP_H}px)` });
   return (
     <PcStage>
-      {left && <PcFrame style={vars(380)}><PcScroll><Container>{left}</Container></PcScroll></PcFrame>}
-      <PcFrame style={vars(width)}><PcScroll>{children}</PcScroll></PcFrame>
+      {left && <PcFrame className="pc-mode pc-left" style={vars(380)}><PcScroll><Container>{left}</Container></PcScroll></PcFrame>}
+      <PcFrame className="pc-mode" style={vars(width)}><PcScroll>{children}</PcScroll></PcFrame>
     </PcStage>
   );
 };
@@ -391,7 +391,7 @@ const AnimatedRoutes = () => {
   // 가운데 단 폭 — 기존 화면의 폭 제한(--app-max)을 PC 에서만 넓힌다. 가입·인증류는 좁게
   const pcNarrow = /^\/(MobileSignup|MobileFindAccount|MobileLinkPhone|MobileSetNickname|ReferralInput|welcome|legal)/.test(p);
   const pcChat = pcColumn && (p === "/MobileChat" || p.startsWith("/chat/"));
-  const pcBodyWidth = pcChat ? 860 : pcNarrow ? 480 : 720;
+  const pcBodyWidth = pcChat ? 860 : pcNarrow ? 480 : 1180; // 1180 = PC 문법으로 다시 배치한 화면들의 본문 폭 (pcKit PcPage 와 같다)
 
   return (
     <>
