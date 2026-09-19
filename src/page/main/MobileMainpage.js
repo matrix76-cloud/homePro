@@ -50,7 +50,7 @@ const matchPointPeriod = (createdAt, period) => {
 /* ─── 오더 상태 ─── (숨고풍: 뱃지 배경 없이 텍스트+색으로 담백하게) */
 const STATUS_TABS = ["접수", "대기", "마감", "취소"];
 // 상태별 색상 통일 (대표 지시 7/23) — 접수=보라(형 룰 충돌로 확인 전까지 블루)/배정=노랑/완료=초록/취소=붉은/대기=회색/선정대기=연노랑
-const STATUS_COLOR = {
+export const STATUS_COLOR = {
   "접수": THEME.logoPurple,     // 로고 보라 (대표 9/18 "오더목록 표시의 접수 색상" — 7/23 원지시대로 보라)
   "대기": "#9CA3AF",            // 회색
   "선정대기": "#E0A800",        // 연노랑(텍스트 가독성 위해 진한 노랑)
@@ -71,7 +71,7 @@ const DISTANCE_RADIUS_HINT = {
   "타지역": "다른 시·도 · 20km 이상",
 };
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
-const SORT_OPTIONS = ["등록순", "가까운거리순", "서비스순", "지역순", "요청방식순", "단가유형순"];
+export const SORT_OPTIONS = ["등록순", "가까운거리순", "서비스순", "지역순", "요청방식순", "단가유형순"];
 
 /* ─── 지역 헬퍼: order.location 문자열에서 시/구 추출 + 사용자 region과 비교 ─── */
 const SIDO_NORMALIZE_RE = /(특별자치시|특별자치도|광역시|특별시|도|시)$/;
@@ -88,7 +88,7 @@ const extractRegionFromLocation = (location) => {
   return { sido: normalizeSido(parts[0]), gu: parts[1] || "" };
 };
 
-const getDistanceCategory = (orderLocation, myRegion) => {
+export const getDistanceCategory = (orderLocation, myRegion) => {
   if (!myRegion?.sido) return null;
   const ord = extractRegionFromLocation(orderLocation);
   if (!ord?.sido) return null;
@@ -111,7 +111,7 @@ const METRO_FULL_TO_SHORT = {
 const METRO_SHORT_SET = new Set(Object.values(METRO_FULL_TO_SHORT));
 const PROVINCE_SHORTS = new Set(["충북","충남","경기","경남","경북","전남","전북","강원","제주","세종"]);
 
-const formatRegionLabel = (location) => {
+export const formatRegionLabel = (location) => {
   if (!location) return "-";
   if (typeof location === "object") {
     return [location.sido, location.gu].filter(Boolean).join(" ") || "-";
@@ -137,7 +137,7 @@ const formatRegionLabel = (location) => {
 };
 
 /* ─── 단가유형 표시 (사양: "잔금 320K" / "금액 260K" / "현장견적" / "견적요청") ─── */
-const formatPriceType = (order) => {
+export const formatPriceType = (order) => {
   const amt = Number(order.b2bPriceAmount) || 0;
   const k = amt > 0 ? `${Math.round(amt / 1000).toLocaleString()}K` : "";
   switch (order.b2bPriceType) {
@@ -156,7 +156,7 @@ const formatPriceType = (order) => {
 };
 
 /* ─── 요청방식 표시 (사양: "0/3"=다중비교 / "빠른"=우선배정 / "지정"=지정배정) ─── */
-const formatMatchType = (order) => {
+export const formatMatchType = (order) => {
   switch (order.matchType) {
     case "compare":  return `${order.applicantCount || 0}/3`;
     case "priority": return "빠른";
@@ -194,7 +194,7 @@ const formatOrderDate = (createdAt) => {
 };
 
 /* ─── 오더목록 날짜 표기 — 접수시각(createdAt)이 아니라 사용자가 고른 작업날짜 기준 ─── */
-const formatOrderScheduleShort = (order) => {
+export const formatOrderScheduleShort = (order) => {
   const wd = order.workDate || order.schedule;
   // 예약날짜(구 희망날짜지정): 날짜만 MM/DD
   if (wd === "예약날짜" || wd === "희망날짜지정") {

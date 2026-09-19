@@ -9,7 +9,9 @@ import { UserContext } from "./context/User";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import useWebMessageListener from "./hooks/useWebMessageListener";
 import usePcWide from "./hooks/usePcWide";
-import PcHeader, { PC_HEADER_H } from "./components/pc/PcHeader";
+import PcHeader from "./components/pc/PcHeader";
+import { PcSidebar, PcTopBar, PC_SIDE_W, PC_TOP_H } from "./components/pc/PcAppShell";
+import PcOrdersPage from "./pc/PcOrdersPage";
 import { attachMessageListener, postToRN, sendNavState } from "./bridge/webviewBridge";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -188,12 +190,17 @@ const FullContainer = styled.div`
 /* PC 가운데 단 — transform 으로 안쪽 position:fixed(기존 화면의 고정 헤더·하단 버튼·시트)가
    창이 아니라 이 단 기준으로 붙게 한다. 스크롤은 안쪽 PcScroll 이 맡아 고정 요소는 따라 움직이지 않는다 */
 const PcStage = styled.div`
-  position: fixed; top: ${PC_HEADER_H}px; left: 0; right: 0; bottom: 0;
+  position: fixed; top: ${PC_TOP_H}px; left: ${PC_SIDE_W}px; right: 0; bottom: 0;
   background: #F7F8FA; display: flex; justify-content: center;
 `;
 const PcFrame = styled.div`
   width: 400px; height: 100%; transform: translateZ(0); overflow: hidden;
   background: #F2F4F6; border-left: 1px solid #dfe3e8; border-right: 1px solid #dfe3e8; box-sizing: content-box;
+`;
+/* PC 용으로 옮긴 넓은 화면 — 세로 메뉴·위 줄만큼 비우고 창 스크롤을 그대로 쓴다 */
+const PcWideBody = styled.div`
+  min-height: 100vh; box-sizing: border-box; background: #F7F8FA;
+  padding-left: ${PC_SIDE_W}px; padding-top: ${PC_TOP_H}px;
 `;
 const PcScroll = styled.div`
   height: 100%; overflow-y: auto; overflow-x: hidden;
@@ -348,7 +355,7 @@ const AnimatedRoutes = () => {
     location.pathname.startsWith("/iconlab") ||
     location.pathname.startsWith("/colorlab") ||
     location.pathname === "/intro";
-  const Wrapper = isFullWidth ? FullContainer : Container;
+  let Wrapper = isFullWidth ? FullContainer : Container;
 
   // PC 위 메뉴 — 관리자·리뷰·시안·결제 링크(고객용)·로그인·스플래시에는 달지 않는다
   const p = location.pathname;
@@ -356,9 +363,15 @@ const AnimatedRoutes = () => {
     p === "/" || p === "/MobileLogin" || p === "/MobileSplash" || p === "/seed-login" ||
     p.startsWith("/admin") || p.startsWith("/insurance-admin") || p.startsWith("/review") ||
     p.startsWith("/lab") || p.startsWith("/iconlab") || p.startsWith("/colorlab") || p.startsWith("/pg/");
-  const showPcHeader = pcWide && !pcBare;
-  // 아직 PC 용으로 옮기지 않은 화면은 위 메뉴 아래 가운데 단(폭 400)에 기존 화면 그대로 보여 준다
-  const pcColumn = showPcHeader && p !== "/intro";
+  // 홍보 화면(/intro)은 위 메뉴, 그 밖의 앱 화면은 왼쪽 세로 메뉴 틀 (시안 랩 pcshell 3번)
+  const showPcHeader = pcWide && !pcBare && p === "/intro";
+  const pcApp = pcWide && !pcBare && p !== "/intro";
+  // 아직 PC 용으로 옮기지 않은 화면은 본문 가운데 단(폭 400)에 기존 화면 그대로 보여 준다
+  // PC 용으로 옮긴 화면(넓은 본문) — 지금은 오더목록. 나머지는 가운데 단
+  const pcTab = new URLSearchParams(location.search).get("tab");
+  const pcWidePage = pcApp && p === "/MobileMain" && (!pcTab || pcTab === "all_orders");
+  const pcColumn = pcApp && !pcWidePage;
+  if (pcWidePage) Wrapper = PcWideBody;
   const Stage = pcColumn ? PcStage : React.Fragment;
   const Frame = pcColumn ? PcFrame : React.Fragment;
   const Scroll = pcColumn ? PcScroll : React.Fragment;
@@ -366,6 +379,7 @@ const AnimatedRoutes = () => {
   return (
     <>
     {showPcHeader && <PcHeader />}
+    {pcApp && <><PcSidebar /><PcTopBar /></>}
     <Stage><Frame><Scroll>
     <AnimatePresence mode="wait">
       <Wrapper>
@@ -379,7 +393,7 @@ const AnimatedRoutes = () => {
           <Route path="/MobileSplash" element={wrap(<MobileSplashpage />)} />
           {/* 홈 — 비회원도 둘러볼 수 있다. 로그인한 사람만 전화번호 단계를 거친다 (대표 9/17) */}
           <Route element={<RequirePhone onlyIfLoggedIn />}>
-            <Route path="/MobileMain" element={wrap(<MobileMainpage />)} />
+            <Route path="/MobileMain" element={pcWidePage ? <PcOrdersPage /> : wrap(<MobileMainpage />)} />
           </Route>
           <Route path="/MobileLogin" element={wrap(<MobileLoginpage />)} />
           <Route path="/MobileSignup" element={wrap(<MobileSignuppage />)} />
