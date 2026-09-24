@@ -16,6 +16,7 @@ import {
   premiumText, rentText, includesSummary, regionText, timeAgo, TabBox, TabItem,
 } from "./MarketplaceShared";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const MarketplacePage = ({ embedded } = {}) => {
   const navigate = useNavigate();
@@ -54,6 +55,7 @@ const MarketplacePage = ({ embedded } = {}) => {
 
   const handleWrite = () => {
     if (!canWrite) {
+      if (isIosApp()) { window.alert("양도·매매 글 등록은 월 구독 사업자만 할 수 있습니다."); return; }
       if (window.confirm("양도·매매 글 등록은 월 구독 사업자만 할 수 있습니다.\n구독 안내로 이동할까요?")) navigate("/subscription");
       return;
     }

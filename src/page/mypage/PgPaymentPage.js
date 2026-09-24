@@ -13,6 +13,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getAccessTier } from "../../utility/tierUtils";
 import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC, PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 import {
   PG_STEPS, PG_STATUS_LABEL, PG_SETTLE_LABEL, PG_KIND, stepIndex,
   createPgRequest, issuePgLink, cancelPgRequest, listMyPgRequests, listMyOrdersForPg, pgLinkUrl,
@@ -106,8 +107,8 @@ const PgPaymentPage = () => {
         {!subscribed ? (
           <Gate>
             <GateTitle>유료 구독 사업자만 이용할 수 있습니다</GateTitle>
-            <GateText>월 구독을 시작하면 PG결제로 고객에게 결제링크를 보내고 직접 정산받을 수 있습니다.</GateText>
-            <PrimaryBtn type="button" onClick={() => navigate("/subscription")}>구독 관리로 가기</PrimaryBtn>
+            <GateText>{isIosApp() ? "PG결제로 고객에게 결제링크를 보내고 직접 정산받는 기능은 월 구독 사업자에게 열려 있습니다." : "월 구독을 시작하면 PG결제로 고객에게 결제링크를 보내고 직접 정산받을 수 있습니다."}</GateText>
+            {!isIosApp() && <PrimaryBtn type="button" onClick={() => navigate("/subscription")}>구독 관리로 가기</PrimaryBtn>}
           </Gate>
         ) : (
           <>

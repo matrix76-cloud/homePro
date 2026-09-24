@@ -70,6 +70,21 @@ export function isInRnWebView() {
 }
 
 /**
+ * 아이폰(iOS) 앱 안인지 — 애플 심사 3.1.1(앱 기능 구독은 인앱결제만) 때문에
+ * iOS 앱에서는 구독 결제 버튼·구독 안내 버튼을 숨긴다. 웹·안드로이드는 그대로. (형 결정 2026-09-25)
+ * 앱 안에서 "웹에서 결제하세요" 같은 안내도 넣으면 안 된다.
+ */
+export function isIosApp() {
+    if (!isInRnWebView()) return false;
+    try {
+        const ua = navigator.userAgent || "";
+        return /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    } catch {
+        return false;
+    }
+}
+
+/**
  * RN -> Web: 라우터/스플래시 등에서 쓰기 좋게 "구독형"으로 한 번 더 래핑
  */
 const _incomingListeners = new Set();

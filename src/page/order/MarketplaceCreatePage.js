@@ -17,6 +17,7 @@ import { isSubscriber } from "../../utility/tierUtils";
 import { KR_AREAS } from "../../utility/constants";
 import { MARKET_COLLECTION, CATEGORIES, INCLUDE_OPTIONS, SALES_RANGES, TabBox, TabItem } from "./MarketplaceShared";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const MAX_PHOTOS = 4;
 
@@ -144,7 +145,7 @@ const MarketplaceCreatePage = () => {
               양도·매매 매물 등록은 부실 공고와 허위 매물을 막기 위해 월 구독 사업자에게만 열려 있습니다.
               매물 열람과 문의는 구독 없이도 할 수 있습니다.
             </GateText>
-            <GateBtn type="button" onClick={() => navigate("/subscription")}>구독 안내 보기</GateBtn>
+            {!isIosApp() && <GateBtn type="button" onClick={() => navigate("/subscription")}>구독 안내 보기</GateBtn>}
           </GateBox>
         </PageWrap>
       </SimpleBackLayout>

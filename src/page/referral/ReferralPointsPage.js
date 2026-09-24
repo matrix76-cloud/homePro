@@ -12,6 +12,7 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { getAllPointRules, POINT_RULE_ORDER } from "../../service/PointService";
 import { GRADE_ORDER, calcGrade, GradeProgressBar } from "../../utility/gradeUtils";
 import usePcWide from "../../hooks/usePcWide";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 /* ── 카테고리별 아이콘 SVG + 배경색 ── */
 const InviteIcon = () => (
@@ -219,7 +220,7 @@ const ReferralPointsPage = () => {
                   <WayAmount>+{rule.amount.toLocaleString()}P</WayAmount>
                 </WayItem>
               ))
-            : POINT_USES.map((u) => (
+            : POINT_USES.filter((u) => !(isIosApp() && u.label === "구독료 내기")).map((u) => (
                 <WayItem key={u.label}>
                   <WayLeft>
                     <WayLabel>{u.label}</WayLabel>

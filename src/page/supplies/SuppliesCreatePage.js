@@ -19,6 +19,7 @@ import {
   toLocalPhone, LINE, ACTIVE_FACE, INK_BUTTON,
 } from "./suppliesConstants";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const MAX_PHOTOS = 5;
 
@@ -184,7 +185,7 @@ const SuppliesCreatePage = () => {
                 쓰고 남은 자재나 안 쓰는 수공구라면 무료나눔으로 올릴 수 있습니다.
               </NoticeText>
               <NoticeActions>
-                <OutlineBtn type="button" onClick={() => navigate("/subscription")}>월 구독 알아보기</OutlineBtn>
+                {!isIosApp() && <OutlineBtn type="button" onClick={() => navigate("/subscription")}>월 구독 알아보기</OutlineBtn>}
                 <OutlineBtn type="button" onClick={() => setTradeType("free")}>무료나눔으로 올리기</OutlineBtn>
               </NoticeActions>
             </Notice>

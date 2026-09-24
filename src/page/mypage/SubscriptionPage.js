@@ -21,6 +21,7 @@ import { getPointPolicy } from "../../service/PointService";
 import { preparePayment, requestBillingAuth, cancelBilling } from "../../service/payService";
 import { isSubscriber } from "../../utility/tierUtils";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const SubscriptionPage = () => {
   const navigate = useNavigate();
@@ -41,6 +42,8 @@ const SubscriptionPage = () => {
   const billing = sub?.billing || null;
   const nextChargeAt = billing?.nextChargeAt?.toDate ? billing.nextChargeAt.toDate() : (billing?.nextChargeAt ? new Date(billing.nextChargeAt) : null);
   const cardLabel = [billing?.cardCompany, billing?.cardNumberMasked].filter(Boolean).join(" ");
+  // 아이폰 앱: 구독 상태·해지만 보이고 결제는 없다 (애플 3.1.1, 형 결정 9/25)
+  const ios = isIosApp();
   const ymd = (d) => (d ? `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}` : "");
 
   useEffect(() => { getPointPolicy().then(setPolicy).catch(() => setPolicy(null)); }, []);
@@ -115,7 +118,7 @@ const SubscriptionPage = () => {
         <LeftCol>
         <Hero>
           <HeroTitle>홈프로 월 구독 · 0차수</HeroTitle>
-          <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함)</Small></HeroPrice>
+          {!ios && <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함)</Small></HeroPrice>}
           <HeroDesc>오더가 접수되는 즉시 0초에 수락할 수 있습니다. 미구독은 2만P 이상 보유(1차수) 3분 뒤, 무료회원(2차수) 7분 뒤부터 수락됩니다.</HeroDesc>
         </Hero>
 
@@ -125,13 +128,17 @@ const SubscriptionPage = () => {
             <div style={{ marginTop: 4, color: THEME.muted }}>
               {autoOn
                 ? `자동결제가 켜져 있어 매달 이어집니다${nextChargeAt ? ` (다음 결제 ${ymd(nextChargeAt)})` : ""}.`
-                : "지금 결제하면 만료일 뒤로 한 달이 이어집니다."}
+                : ios ? "만료일까지 0차수가 유지됩니다." : "지금 결제하면 만료일 뒤로 한 달이 이어집니다."}
             </div>
           </StatusBox>
         )}
 
-        {/* 자동결제 — 전액 카드 (대표 지시 9/16) */}
-        <Section>
+        {ios && !isTier1 && (
+          <StatusBox><b>구독하지 않은 상태입니다</b></StatusBox>
+        )}
+
+        {/* 자동결제 — 전액 카드 (대표 지시 9/16). 아이폰 앱은 해지만 */}
+        {(!ios || autoOn) && <Section>
           <Label>자동결제로 구독</Label>
           {autoOn ? (
             <>
@@ -154,8 +161,9 @@ const SubscriptionPage = () => {
               </PrimaryBtn>
             </>
           )}
-        </Section>
+        </Section>}
 
+        {!ios && <>
         <SectionTitle>이번 달만 결제</SectionTitle>
         <Section>
           <Label>H-포인트 사용하기</Label>
@@ -183,9 +191,10 @@ const SubscriptionPage = () => {
             </>
           )}
         </Section>
+        </>}
         </LeftCol>
 
-        <RightCol>
+        {!ios && <RightCol>
         <Summary>
           <Row><span>구독료</span><b>{monthlyFee.toLocaleString()}원</b></Row>
           <Row><span>H-포인트 사용</span><b>- {pointsUsed.toLocaleString()}P</b></Row>
@@ -198,7 +207,7 @@ const SubscriptionPage = () => {
         <SubmitBtn onClick={handleSubscribe} disabled={busy || cardTooSmall}>
           {busy ? "처리 중..." : cardAmount === 0 ? `${pointsUsed.toLocaleString()}P로 한 달 결제` : `${cardAmount.toLocaleString()}원 결제하고 한 달 구독`}
         </SubmitBtn>
-        </RightCol>
+        </RightCol>}
         <BottomSpacer />
       </Wrap>
       {toast && <Toast>{toast}</Toast>}

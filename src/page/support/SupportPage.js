@@ -3,13 +3,16 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
-import { FAQ_CATEGORIES, FAQ_ITEMS, searchFaq } from "../../config/faqData";
+import { FAQ_CATEGORIES, FAQ_ITEMS as ALL_FAQ_ITEMS, searchFaq } from "../../config/faqData";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { isIosApp } from "../../bridge/webviewBridge";
 import {
     IoChevronDown, IoChevronUp, IoChevronForward,
     IoCallOutline, IoMailOutline, IoChatbubbleEllipsesOutline,
     IoSearchOutline, IoCloseCircle,
 } from "react-icons/io5";
+// 아이폰 앱에서는 구독료 안내(bl-02)를 빼 둔다 — 애플 3.1.1
+const FAQ_ITEMS = ALL_FAQ_ITEMS.filter((i) => !(isIosApp() && i.id === "bl-02"));
 
 const ALL = "all";
 
