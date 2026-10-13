@@ -14,13 +14,14 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
 import { IoAddCircle, IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline, IoSearchOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
-import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
+import { getAccessTier, TIER_LABEL, tierFullLabel } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import EmptyOrders from "../../components/EmptyOrders";
 import usePcWide from "../../hooks/usePcWide";
 import { PcTable, PcTHead, PcTRow, PcEmpty, PcCard, PcGhostBtn } from "../../pc/pcKit";
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 /* ─── 포인트 내역 날짜 표기 ─── */
 const fmtCashDate = (ts) => {
@@ -148,6 +149,8 @@ export const formatPriceType = (order) => {
     case "hpoint":  return amt > 0 ? `H-P ${Math.round(amt / 1000).toLocaleString()}K` : "H-P";
     case "onsite":  return "현장견적";
     case "estimate": return "견적요청";
+    case "contract": return amt > 0 ? `도급 ${k}` : "도급";
+    case "sale":     return amt > 0 ? `매매 ${k}` : "매매";
     default: break;
   }
   if (order.priceType === "direct" && order.directPrice) {
@@ -195,6 +198,17 @@ const formatOrderDate = (createdAt) => {
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
 };
 
+/* 접수한 지 3시간이 지났는지 — 긴급·오늘·내일 표기를 날짜로 바꾸는 기준 (대표 10/8) */
+const QUICK_WINDOW_MS = 3 * 60 * 60 * 1000;
+const isPastQuickWindow = (order) => {
+  if (!order?.createdAt) return false;
+  const created = order.createdAt.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+  if (isNaN(created.getTime())) return false;
+  return Date.now() - created.getTime() > QUICK_WINDOW_MS;
+};
+/* 목록에서 긴급(빨강)으로 보일지 — 3시간이 지나면 날짜로 바뀌므로 강조도 푼다 */
+export const isUrgentNow = (order) => order?.workDate === "긴급" && !isPastQuickWindow(order);
+
 /* ─── 오더목록 날짜 표기 — 접수시각(createdAt)이 아니라 사용자가 고른 작업날짜 기준 ─── */
 export const formatOrderScheduleShort = (order) => {
   const wd = order.workDate || order.schedule;
@@ -204,8 +218,13 @@ export const formatOrderScheduleShort = (order) => {
     if (p) { const [, m, d] = p.split("-"); return `${m}/${d}`; }
     return "예약";
   }
-  // 긴급/오늘/내일은 그대로
-  if (wd === "긴급" || wd === "오늘" || wd === "내일") return wd;
+  // 긴급/오늘/내일은 접수 뒤 3시간 동안만 그대로, 그 뒤엔 실제 작업 날짜(MM/DD)로 바꿔 보여 준다 (대표 10/8)
+  if (wd === "긴급" || wd === "오늘" || wd === "내일") {
+    if (!isPastQuickWindow(order)) return wd;
+    const base = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+    if (wd === "내일") base.setDate(base.getDate() + 1);
+    return `${String(base.getMonth() + 1).padStart(2, "0")}/${String(base.getDate()).padStart(2, "0")}`;
+  }
   // 나머지(협의/빨리 등)나 값 없음 → 접수시각 기준 표기로 폴백
   return formatOrderDate(order.createdAt);
 };
@@ -836,11 +855,12 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       <PointLine>
         {userData?.userType !== "customer" && (
           <>
-            <PointCell onClick={() => navigate("/subscription")}>
+            {/* 파트너 등급 = 차수 + 이름 (대표 10/2). 누르면 구독 화면(등급 안내 포함), 아이폰 앱은 등급 안내 가이드 */}
+            <PointCell onClick={() => navigate(isIosApp() ? "/guide/7" : "/subscription")}>
               <div>
-                <PointCellLabel>회원 등급</PointCellLabel>
+                <PointCellLabel>홈프로 등급</PointCellLabel>
                 <PointLineTier>
-                  {TIER_LABEL[getAccessTier(userData)]}{getAccessTier(userData) !== "tier0" ? " · 구독" : ""}
+                  {tierFullLabel(getAccessTier(userData))}
                 </PointLineTier>
               </div>
             </PointCell>
@@ -877,8 +897,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             {activeTab === "ai_estimate" && "AI 견적은 회원만 이용할 수 있습니다."}
           </GuestDesc>
           <GuestBtnRow>
-            <GuestPrimary onClick={() => navigate("/MobileSignup")}>회원가입 하고 이용하기</GuestPrimary>
-            <GuestGhost onClick={() => navigate("/MobileLogin")}>이미 회원이에요 · 로그인</GuestGhost>
+            {/* 가입 버튼을 따로 두지 않는다 — 처음이면 로그인 뒤에 사업자·개인을 고른다 (형 10/1) */}
+            <GuestPrimary onClick={() => navigate("/MobileLogin")}>로그인 하기</GuestPrimary>
           </GuestBtnRow>
         </GuestNotice>
       )}
@@ -1011,47 +1031,33 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </SummaryLine>
           ) : null}
 
+          {/* 필터 줄 — [정렬][거리][상태][카테고리][필터] 다섯 칸, [필터] 안에는 기간 · 마감·취소 제외 (대표 10/8) */}
           <FilterToggleRow>
-            <FilterToggleBtn $on={showFilters} onClick={() => setShowFilters((v) => !v)}>
-              필터{activeFilterChips.length > 0 ? " " + activeFilterChips.length : ""}
-              {/* 펼침/접힘 표시 (형 9/17) */}
+            <FilterToggleBtn $on={activeSort !== "등록순"} onClick={() => setShowSortSheet(true)}>
+              {activeSort}
+              <FilterChevron><IoChevronDown size={14} /></FilterChevron>
+            </FilterToggleBtn>
+            <FilterToggleBtn $on={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
+              {activeDist !== "전체" ? activeDist : "거리"}
+              <FilterChevron><IoChevronDown size={14} /></FilterChevron>
+            </FilterToggleBtn>
+            <FilterToggleBtn $on={activeStatusFilter !== "전체"} onClick={() => setShowStatusSheet(true)}>
+              {activeStatusFilter !== "전체" ? activeStatusFilter : "상태"}
+              <FilterChevron><IoChevronDown size={14} /></FilterChevron>
+            </FilterToggleBtn>
+            <FilterToggleBtn $on={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
+              {activeCatFilters.length > 0 ? `카테고리 ${activeCatFilters.length}` : "카테고리"}
+              <FilterChevron><IoChevronDown size={14} /></FilterChevron>
+            </FilterToggleBtn>
+            <FilterToggleBtn $on={showFilters || activePeriod !== "전체" || !hideClosed} onClick={() => setShowFilters((v) => !v)}>
+              필터
               <FilterChevron $open={showFilters}><IoChevronDown size={16} /></FilterChevron>
             </FilterToggleBtn>
-            {activeFilterChips.map((chip) => (
-              <ActiveChip key={chip.key} onClick={chip.clear}>{chip.label} ×</ActiveChip>
-            ))}
             <FilterCount>{sortedOrders.length}건</FilterCount>
           </FilterToggleRow>
 
           {showFilters && (
           <FilterPanel>
-            <FilterGroup>
-              <FilterGroupLabel>정렬</FilterGroupLabel>
-              <FilterBtnRow>
-                {SORT_OPTIONS.map((t) => (
-                  <FilterBtn key={t} $active={activeSort === t} onClick={() => setActiveSort(t)}>{t}</FilterBtn>
-                ))}
-              </FilterBtnRow>
-            </FilterGroup>
-
-            <FilterGroup>
-              <FilterGroupLabel>상태</FilterGroupLabel>
-              <FilterBtnRow>
-                {["전체", ...STATUS_TABS].map((t) => (
-                  <FilterBtn key={t} $active={activeStatusFilter === t} onClick={() => setActiveStatusFilter(t)}>{t}</FilterBtn>
-                ))}
-              </FilterBtnRow>
-            </FilterGroup>
-
-            <FilterGroup>
-              <FilterGroupLabel>거리</FilterGroupLabel>
-              <FilterBtnRow>
-                {DISTANCE_OPTIONS.map((t) => (
-                  <FilterBtn key={t} $active={activeDist === t} onClick={() => setActiveDist(t)}>{t}</FilterBtn>
-                ))}
-              </FilterBtnRow>
-            </FilterGroup>
-
             <FilterGroup>
               <FilterGroupLabel>기간</FilterGroupLabel>
               <FilterBtnRow>
@@ -1062,14 +1068,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </FilterGroup>
 
             <FilterGroup>
-              <FilterGroupLabel>그 밖에</FilterGroupLabel>
+              <FilterGroupLabel>마감·취소</FilterGroupLabel>
               <FilterBtnRow>
-                <FilterBtn $active={activeCatFilters.length > 0} onClick={() => setShowCatSheet(true)}>
-                  {activeCatFilters.length > 0 ? `카테고리 ${activeCatFilters.length}개` : "카테고리"} <IoChevronDown size={11} />
-                </FilterBtn>
-                <FilterBtn $active={hideClosed} onClick={() => setHideClosed((v) => !v)}>
-                  {hideClosed ? "마감·취소 숨김" : "마감·취소 표시"}
-                </FilterBtn>
+                <FilterBtn $active={hideClosed} onClick={() => setHideClosed(true)}>마감·취소 제외</FilterBtn>
+                <FilterBtn $active={!hideClosed} onClick={() => setHideClosed(false)}>마감·취소 포함</FilterBtn>
               </FilterBtnRow>
             </FilterGroup>
             <FilterFoldBtn type="button" onClick={() => setShowFilters(false)}>
@@ -1104,7 +1106,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const dateLabel = formatOrderScheduleShort(order);
                 const status = mapStatus(order.orderStatus);
                 const statusColor = STATUS_COLOR[status] || STATUS_COLOR["접수"];
-                const isUrgent = order.workDate === "긴급";
+                const isUrgent = isUrgentNow(order);
                 const regionLabel = formatRegionLabel(order.location);
                 const priceLabel = formatPriceType(order);
                 const matchLabel = formatMatchType(order);
@@ -1173,6 +1175,29 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
           <CardTitle>홈프로 가이드</CardTitle>
           <CardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</CardDesc>
           <HScrollRow>
+            {/* 대표 안내문 5종 (리뷰 10/6) — 맨 앞에 */}
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/6")}>
+              <GuideIconWrap><IoDocumentTextOutline size={32} color={THEME.primary} /></GuideIconWrap>
+              <GuideText>오더 접수 및{"\n"}수락 가이드</GuideText>
+            </GuideCard>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/7")}>
+              <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></GuideIconWrap>
+              <GuideText>구독 회원등급 및{"\n"}오더 수락 안내</GuideText>
+            </GuideCard>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/8")}>
+              <GuideIconWrap><IoWalletOutline size={32} color={THEME.primary} /></GuideIconWrap>
+              <GuideText>H-포인트{"\n"}획득 및 사용 안내</GuideText>
+            </GuideCard>
+            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/9")}>
+              <GuideIconWrap><IoChatbubbleOutline size={32} color={THEME.primary} /></GuideIconWrap>
+              <GuideText>나의 오더 현황{"\n"}관리 안내</GuideText>
+            </GuideCard>
+{userData?.pgReview !== true && (
+                        <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/10")}>
+              <GuideIconWrap><IoCashOutline size={32} color={THEME.primary} /></GuideIconWrap>
+              <GuideText>도급배상책임보험{"\n"}가입 및 보장 안내</GuideText>
+            </GuideCard>
+            )}
             <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/1")}>
               <GuideIconWrap><IoDocumentTextOutline size={32} color={THEME.primary} /><GuideSubIcon><IoSendOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
               <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
@@ -1197,7 +1222,32 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         </GuideSection>
       )}
 
-      {/* 사업자 정보·약관은 마이페이지로 옮김 (대표 9/17) */}
+      {/* 사업자 정보 — 오더목록 맨 아래에도 표시 (마이페이지와 같은 내용). 약관 링크는 마이페이지에만 */}
+      {activeTab === "all_orders" && companyInfo && (
+        <CompanyFooter>
+          <CompanyName>사업자 정보</CompanyName>
+          {companyInfo.companyName && <span>상호명 : {companyInfo.companyName}</span>}
+          {(companyInfo.ceo || companyInfo.privacyOfficer) && (
+            <span>
+              {companyInfo.ceo ? `대표이사 : ${companyInfo.ceo}` : ""}
+              {companyInfo.ceo && companyInfo.privacyOfficer ? "\u00a0\u00a0\u00a0" : ""}
+              {companyInfo.privacyOfficer ? `개인정보책임관리자 : ${companyInfo.privacyOfficer}` : ""}
+            </span>
+          )}
+          {companyInfo.address && <span>주소 : {companyInfo.address}</span>}
+          {companyInfo.bizNumber && <span>사업자등록번호 : {companyInfo.bizNumber}</span>}
+          {companyInfo.mailOrderNo && <span>통신판매번호 : {companyInfo.mailOrderNo}</span>}
+          <span>직업정보제공사업 신고번호 : {companyInfo.jobInfoNo || "(신고전)"}</span>
+          {(companyInfo.phone || companyInfo.email) && (
+            <span>
+              {companyInfo.phone ? `고객센터 : ${companyInfo.phone}` : ""}
+              {companyInfo.phone && companyInfo.email ? "\u00a0\u00a0\u00a0" : ""}
+              {companyInfo.email ? `이메일 : ${companyInfo.email}` : ""}
+            </span>
+          )}
+          <span style={{ marginTop: 6, opacity: 0.75 }}>© {new Date().getFullYear()} {companyInfo.companyName || "홈프로"}. All rights reserved.</span>
+        </CompanyFooter>
+      )}
       <BottomSpacer />
 
       {/* 카테고리 필터 바텀시트 */}
@@ -1688,10 +1738,10 @@ const SummaryLine = styled.div`
 const FilterToggleRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
-  /* 탭 줄 바로 밑에 붙어 보여 위 여백을 늘림 (형 9/17) */
-  padding: 20px 16px 12px;
+  /* 탭 줄 바로 밑에 붙어 보여 위 여백을 늘림 (형 9/17) · 다섯 칸이 한 줄에 들어가게 좌우를 조금 줄임 (10/8) */
+  padding: 20px 12px 12px;
 `;
 
 const FilterToggleBtn = styled.button`
@@ -1701,12 +1751,13 @@ const FilterToggleBtn = styled.button`
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
-  padding: 7px 10px 7px 12px;
+  padding: 8px 6px 8px 9px;
   border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  white-space: nowrap;
 `;
 
 const FilterChevron = styled.span`
@@ -1746,6 +1797,7 @@ const ActiveChip = styled.button`
 
 const FilterCount = styled.span`
   margin-left: auto;
+  padding-right: 4px;
   font-size: 14px;
   color: ${THEME.text};
 `;
@@ -2006,10 +2058,18 @@ const BottomSpacer = styled.div`
 
 /* ===================== 사업자 정보 푸터 ===================== */
 
+/* 마이페이지 사업자 정보와 같은 모양 — 카드 없이 배경 위에 바로. 아래 여백은 떠 있는 [접수] 버튼에 마지막 줄이 가리지 않게 */
 const CompanyFooter = styled.footer`
-  margin: 28px 12px 8px;
-  padding: 20px 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 32px 16px 76px;
+  padding: 20px 0 0;
   border-top: 1px solid ${THEME.border || "#F0F0F4"};
+  font-size: 14px;
+  line-height: 1.7;
+  color: ${THEME.muted};
+  word-break: keep-all;
 `;
 
 const CompanyLinks = styled.div`
@@ -2043,10 +2103,10 @@ const CompanyLinks = styled.div`
 `;
 
 const CompanyName = styled.div`
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: ${THEME.text};
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 `;
 
 /* 사업자 정보 펼치기 — 박스 없이 글자만 (대표 9/17) */
@@ -2379,17 +2439,6 @@ const GuestPrimary = styled.button`
   color: #fff;
   font-size: 16px;
   font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-`;
-
-const GuestGhost = styled.button`
-  height: 50px;
-  border: 1px solid ${THEME.border};
-  border-radius: 10px;
-  background: ${THEME.surface};
-  color: ${THEME.text};
-  font-size: 15px;
   font-family: inherit;
   cursor: pointer;
 `;

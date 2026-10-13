@@ -10,8 +10,9 @@ import { getMyProDocs } from "../../service/ProService";
 import { getUserProfileByUid } from "../../service/UserProfileService";
 import {
   getReferralFeeAmount, isCheckInBlockedByReferral, isWorkPayApplicable, getUserAccount,
-  buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived, markWorkPaySent, confirmWorkPayReceived,
+  buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived, getMoneyPriceAmount,
 } from "../../service/PayFlowService";
+import { createOrderPayLink, cancelOrderPayLink, sharePayLink, payLinkMessage, getPgRequest, PG_STATUS_LABEL } from "../../service/PgPaymentService";
 import { isInsuranceRequired, getOrderInsuranceState, needsInsuranceDecision, computeOrderPremium, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, findActivePolicy, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
@@ -51,12 +52,13 @@ import { db } from "../../api/config";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
 import { GradeBadge } from "../../utility/gradeUtils";
-import { getAccessTier, getTierDelaySec, getAcceptRemainSec, formatAcceptRemain, TIER_LABEL } from "../../utility/tierUtils";
+import { getAccessTier, getTierDelaySec, getAcceptRemainSec, formatAcceptRemain, TIER_LABEL, tierFullLabel } from "../../utility/tierUtils";
 import { pcOnly, PC } from "../../pc/pcKit";
 import usePcWide from "../../hooks/usePcWide";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const STATUS_BADGE = {
-  "접수": { bg: THEME.purple, text: "#fff" },
+  "접수": { bg: THEME.logoPurple, text: "#fff" },
   "지원가능": { bg: THEME.primary, text: "#fff" },
   "배차대기": { bg: "#F59E0B", text: "#fff" },
   "진행중": { bg: THEME.primary, text: "#fff" },
@@ -65,7 +67,7 @@ const STATUS_BADGE = {
   "완료": { bg: THEME.success, text: "#fff" },
 };
 
-const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청", info: "정보공유" };
+const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청", info: "정보공유", contract: "도급", sale: "매매" };
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 const HP_ASSIGNED_STATUSES = new Set(["배정", "선정대기", "업체선택대기", "완료", "마감"]);
 // 종료된 오더 — 되돌릴 수 없으므로 접수자의 대기·재접수·취소를 모두 막는다 (대표 지시 8/5)
@@ -122,7 +124,7 @@ const OrderDetailPage = () => {
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
 
-  /* ── 돈·H-포인트 흐름 (대표 확정 9/13): 캐시백 송금 → 입금 확인 / 후불 대금 지급 → 입금 확인 ── */
+  /* ── 돈·H-포인트 흐름 (대표 확정 9/13): 소개수수료 송금 → 입금 확인 / 후불 대금 지급 → 입금 확인 ── */
   const [payAccount, setPayAccount] = useState(undefined); // 접수자 정산계좌 (undefined=미조회, null=없음)
   const [payBusy, setPayBusy] = useState(false);
   const receiptInputRef = React.useRef(null);
@@ -195,26 +197,55 @@ const OrderDetailPage = () => {
   };
   const handleReferralConfirm = async () => {
     if (payBusy) return;
-    if (!window.confirm("캐시백 입금을 확인하셨습니까?")) return;
+    if (!window.confirm("소개수수료 입금을 확인하셨습니까?")) return;
     setPayBusy(true);
     try { await confirmReferralReceived(order, { byUid: myUid }); showToast("입금 확인 완료"); await refreshOrder(); }
     catch (e) { showToast(e.message || "처리에 실패했습니다"); }
     finally { setPayBusy(false); }
   };
-  const handleWorkPaySent = async () => {
+  /* ── 시공대금 결제 링크 (형 확정 2026-10-07) — 완료 뒤 홈프로가 만들어 [공유하기]로 보낸다. 돈은 PG → 홈프로(플랫폼) 정산계좌 → 나중에 API 로 분배 ── */
+  const [payReq, setPayReq] = useState(null);       // pg_payment_requests 문서 (결제 상태의 진실)
+  const [payAmount, setPayAmount] = useState("");
+  const [myAccount, setMyAccount] = useState(undefined); // undefined = 확인 중, null = 없음
+  const payLinkId = order?.payLink?.requestId || null;
+  useEffect(() => {
+    if (!payLinkId) { setPayReq(null); return; }
+    let alive = true;
+    getPgRequest(payLinkId).then((r) => { if (alive) setPayReq(r); }).catch(() => {});
+    return () => { alive = false; };
+  }, [payLinkId]);
+  useEffect(() => {
+    if (!order || order.matchedProUid !== myUid || !isWorkPayApplicable(order)) return;
+    let alive = true;
+    getUserAccount(myUid).then((a) => { if (alive) setMyAccount(a && a.number ? a : null); }).catch(() => { if (alive) setMyAccount(null); });
+    if (!order.payLink) { const base = getMoneyPriceAmount(order); if (base) setPayAmount(String(base)); }
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id, order?.orderStatus, myUid]);
+  const handleCreatePayLink = async () => {
     if (payBusy) return;
-    if (!window.confirm("작업 대금을 홈프로에게 지급하셨습니까?")) return;
+    const amt = Number(String(payAmount).replace(/[^0-9]/g, ""));
+    if (!(amt > 0)) { showToast("결제 금액을 입력해 주세요"); return; }
+    if (!window.confirm(`${amt.toLocaleString()}원 결제 링크를 만드시겠습니까?`)) return;
     setPayBusy(true);
-    try { await markWorkPaySent(order, { byUid: myUid }); showToast("지급 완료로 표시했습니다"); await refreshOrder(); }
-    catch (e) { showToast(e.message || "처리에 실패했습니다"); }
+    try {
+      await createOrderPayLink(order, { uid: myUid, sellerName: userData?.companyName || myName, amount: amt, account: myAccount });
+      showToast("결제 링크를 만들었습니다. 공유하기로 보내 주세요");
+      await refreshOrder();
+    } catch (e) { showToast(e.message || "결제 링크를 만들지 못했습니다"); }
     finally { setPayBusy(false); }
   };
-  const handleWorkPayConfirm = async () => {
+  const handleSharePayLink = async () => {
+    if (!order?.payLink?.url) return;
+    const res = await sharePayLink({ url: order.payLink.url, amount: order.payLink.amount, title: order.title, sellerName: userData?.companyName || myName, copyOnly: pcWide });
+    if (res === "copied") showToast("결제 링크를 복사했습니다. 카카오톡·문자에 붙여 넣어 보내 주세요");
+  };
+  const handleCancelPayLink = async () => {
     if (payBusy) return;
-    if (!window.confirm("작업 대금 입금을 확인하셨습니까?")) return;
+    if (!window.confirm("이 결제 링크를 취소하시겠습니까? 이미 보낸 링크는 더 이상 열리지 않습니다.")) return;
     setPayBusy(true);
-    try { await confirmWorkPayReceived(order, { byUid: myUid }); showToast("입금 확인 완료"); await refreshOrder(); }
-    catch (e) { showToast(e.message || "처리에 실패했습니다"); }
+    try { await cancelOrderPayLink(order); showToast("결제 링크를 취소했습니다"); await refreshOrder(); }
+    catch (e) { showToast(e.message || "취소하지 못했습니다"); }
     finally { setPayBusy(false); }
   };
 
@@ -227,7 +258,7 @@ const OrderDetailPage = () => {
   const acceptRemainSec = myDelaySec > 0 && !isOwner ? getAcceptRemainSec(order, nowMs, myDelaySec) : 0;
   const acceptLocked = acceptRemainSec > 0;
   const acceptDelayMin = Math.round(myDelaySec / 60);
-  const tierGateText = `${TIER_LABEL[myTier]} 회원은 오더 등록 ${acceptDelayMin}분 후부터 수락할 수 있습니다`;
+  const tierGateText = `${tierFullLabel(myTier)}은 오더 등록 ${acceptDelayMin}분 후부터 수락할 수 있습니다`;
 
   // 남은 시간 1초 카운트다운 (0 되면 인터벌 스스로 정리 → 버튼 정상 복귀)
   useEffect(() => {
@@ -889,10 +920,10 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 캐시백 ── */}
+        {/* ── 소개수수료 ── */}
         {order.referralFee && (
           <DetailSection>
-            <SectionTitle>캐시백</SectionTitle>
+            <SectionTitle>소개수수료</SectionTitle>
             <ConditionRow>
               <ConditionLabel>수수료</ConditionLabel>
               <ConditionValue>
@@ -900,7 +931,9 @@ const OrderDetailPage = () => {
                   ? `정액 ${Number(order.referralFee.amount).toLocaleString()}원`
                   : order.referralFee.type === "hpoint"
                     ? `H-포인트 ${Number(order.referralFee.point).toLocaleString()}P`
-                    : `정률 ${order.referralFee.rate}%`}
+                    : order.referralFee.type === "multiple"
+                      ? `${order.referralFee.times}배수`
+                      : `정률 ${order.referralFee.rate}%`}
               </ConditionValue>
             </ConditionRow>
             {order.referralPayMethod && (
@@ -912,14 +945,14 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
-        {/* ── 캐시백 송금 / 후불 대금 / H-포인트 보관 — 앱은 상태 버튼만 둔다 (대표 확정 9/13) ── */}
+        {/* ── 소개수수료 송금 / 후불 대금 / H-포인트 보관 — 앱은 상태 버튼만 둔다 (대표 확정 9/13) ── */}
         {(isOwner || isMatchedPro) && referralOpen && (
           <DetailSection>
-            <SectionTitle>캐시백 송금</SectionTitle>
+            <SectionTitle>소개수수료 송금</SectionTitle>
             {referralFeeInfo.pending ? (
-              <PayNote>금액이 확정되면 캐시백이 계산되고 송금 버튼이 생깁니다.</PayNote>
+              <PayNote>금액이 확정되면 소개수수료가 계산되고 송금 버튼이 생깁니다.</PayNote>
             ) : order.referralPay?.status === "confirmed" ? (
-              <PayNote $done>캐시백 {Number(order.referralPay.amount || referralFeeInfo.amount).toLocaleString()}원 · 입금 확인 완료</PayNote>
+              <PayNote $done>소개수수료 {Number(order.referralPay.amount || referralFeeInfo.amount).toLocaleString()}원 · 입금 확인 완료</PayNote>
             ) : order.referralPay?.status === "sent" ? (
               <>
                 <ConditionRow><ConditionLabel>금액</ConditionLabel><ConditionValue>{Number(order.referralPay.amount).toLocaleString()}원</ConditionValue></ConditionRow>
@@ -957,20 +990,21 @@ const OrderDetailPage = () => {
               <>
                 <ConditionRow><ConditionLabel>받을 금액</ConditionLabel><ConditionValue>{referralFeeInfo.amount.toLocaleString()}원</ConditionValue></ConditionRow>
                 {payAccount === null ? (
-                  <PayNote $warn>정산계좌가 없어 홈프로가 송금할 수 없습니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
+                  <PayNote $warn>정산계좌를 등록하세요. 등록된 계좌로 홈프로가 소개수수료를 입금해 드립니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
                 ) : (
-                  <PayNote>홈프로가 캐시백을 송금하면 입금 확인 요청이 옵니다.</PayNote>
+                  <PayNote>홈프로가 소개수수료를 송금하면 입금 확인 요청이 옵니다.</PayNote>
                 )}
               </>
             )}
           </DetailSection>
         )}
         {/* ── 보험 적용 — 일하는 홈프로가 정한다. 체크인 전까지 (정보공유 제외) ── */}
-        {order.matchedProUid && (isOwner || isMatchedPro) && order.b2bPriceType !== "info" && (insuranceState !== "pending" || insuranceNeeded) && (
+        {/* PG 심사 계정(users.pgReview)에서는 보험 칸을 그리지 않는다 (형 2026-10-07) */}
+        {userData?.pgReview !== true && order.matchedProUid && (isOwner || isMatchedPro) && order.b2bPriceType !== "info" && (insuranceState !== "pending" || insuranceNeeded) && (
           <DetailSection>
             <SectionTitle>보험 적용{insuranceRequired ? " · 보험가입 필수" : ""}</SectionTitle>
             {insuranceRequired && insuranceState !== "applied" && (
-              <PayNote $warn>접수자가 보험가입 필수로 등록한 오더입니다. 건당·월·년 중 하나로 가입해야 현장 체크인을 할 수 있습니다.</PayNote>
+              <PayNote $warn>{isIosApp() ? "접수자가 보험가입 필수로 등록한 오더입니다. 보험이 적용된 뒤에 현장 체크인을 할 수 있습니다." : "접수자가 보험가입 필수로 등록한 오더입니다. 건당·월·년 중 하나로 가입해야 현장 체크인을 할 수 있습니다."}</PayNote>
             )}
             {insuranceState === "applied" ? (
               <PayNote $done>보험 적용 · {INSURANCE_TYPE_LABEL[order.insurance?.type] || "가입"}{order.insurance?.type === "perOrder" ? " (이 오더 결제 완료)" : ""}</PayNote>
@@ -981,6 +1015,12 @@ const OrderDetailPage = () => {
                   <ActionRow style={{ marginTop: 10 }}><OutlinedBtn onClick={handleInsuranceReset} disabled={insBusy}>다시 정하기</OutlinedBtn></ActionRow>
                 )}
                 {/* 필수 오더인데 예전에 '보험 없이 진행'으로 표시된 경우 */}
+              </>
+            ) : isMatchedPro && isIosApp() ? (
+              /* 아이폰 앱에서는 결제가 없다 — 보험료·결제 버튼 없이 상태만 (형 지시 2026-10-01) */
+              <>
+                <PayNote>보험이 적용되지 않은 오더입니다.</PayNote>
+                {!insuranceRequired && <PayNote style={{ marginTop: 6 }}><button type="button" onClick={handleInsuranceSkip} style={{ background: "none", border: "none", padding: 0, color: THEME.muted, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>보험 없이 진행</button></PayNote>}
               </>
             ) : isMatchedPro ? (
               <>
@@ -1001,7 +1041,7 @@ const OrderDetailPage = () => {
                 {!insuranceRequired && <PayNote style={{ marginTop: 6 }}><button type="button" onClick={handleInsuranceSkip} style={{ background: "none", border: "none", padding: 0, color: THEME.muted, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>보험 없이 진행</button></PayNote>}
               </>
             ) : (
-              <PayNote>{insuranceRequired ? "보험가입 필수 오더 — 배정된 홈프로가 건당·월·년 중 하나로 가입한 뒤 체크인합니다." : "홈프로가 원하면 이 오더에 보험을 적용합니다(선택)."}</PayNote>
+              <PayNote>{insuranceRequired ? (isIosApp() ? "보험가입 필수 오더 — 보험이 적용된 뒤 체크인합니다." : "보험가입 필수 오더 — 배정된 홈프로가 건당·월·년 중 하나로 가입한 뒤 체크인합니다.") : "홈프로가 원하면 이 오더에 보험을 적용합니다(선택)."}</PayNote>
             )}
           </DetailSection>
         )}
@@ -1010,32 +1050,53 @@ const OrderDetailPage = () => {
             <SectionTitle>H-포인트 보관</SectionTitle>
             <PayNote $done={order.hpointEscrow.status !== "held"}>
               {order.hpointEscrow.status === "held" && `대금 ${Number(order.hpointEscrow.amount).toLocaleString()}P를 앱이 보관 중입니다. 완료되면 홈프로에게 배분됩니다.`}
-              {order.hpointEscrow.status === "released" && `배분 완료 · 홈프로 ${Number(order.hpointEscrow.toPro ?? order.hpointEscrow.amount).toLocaleString()}P${order.hpointEscrow.referral ? ` · 접수자 캐시백 ${Number(order.hpointEscrow.referral).toLocaleString()}P` : ""}`}
+              {order.hpointEscrow.status === "released" && `배분 완료 · 홈프로 ${Number(order.hpointEscrow.toPro ?? order.hpointEscrow.amount).toLocaleString()}P${order.hpointEscrow.referral ? ` · 접수자 소개수수료 ${Number(order.hpointEscrow.referral).toLocaleString()}P` : ""}`}
               {order.hpointEscrow.status === "refunded" && `취소되어 ${Number(order.hpointEscrow.amount).toLocaleString()}P를 접수자에게 돌려드렸습니다.`}
             </PayNote>
           </DetailSection>
         )}
-        {(isOwner || isMatchedPro) && isWorkPayApplicable(order) && (
+        {/* 시공대금 결제 링크 (형 확정 2026-10-07) — 예전 [대금 지급 완료]/[입금 확인] 두 버튼을 대체.
+            홈프로: 금액 확인 → [결제 링크 만들기] → [공유하기]. 접수자: 링크가 오면 [결제하기].
+            아이폰 앱에서는 결제 화면을 두지 않는다 (형 지시 2026-10-01) */}
+        {!isIosApp() && isWorkPayApplicable(order) && (isMatchedPro || (isOwner && order.payLink?.url)) && (
           <DetailSection>
-            <SectionTitle>작업 대금 (후불)</SectionTitle>
-            {order.workPay?.status === "confirmed" ? (
-              <PayNote $done>작업 대금 · 입금 확인 완료</PayNote>
-            ) : order.workPay?.status === "sent" ? (
-              isMatchedPro ? (
-                <>
-                  <PayNote>접수자가 대금을 지급했다고 표시했습니다. 통장을 확인한 뒤 눌러 주세요.</PayNote>
-                  <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={handleWorkPayConfirm} disabled={payBusy}>입금 확인</PrimaryCTA></ActionRow>
-                </>
-              ) : (
-                <PayNote>지급 완료로 표시했습니다. 홈프로 확인을 기다리는 중입니다.</PayNote>
-              )
-            ) : isOwner ? (
+            <SectionTitle>시공대금</SectionTitle>
+            {payReq?.status === "paid" ? (
+              <PayNote $done>시공대금 {Number(order.payLink?.amount || payReq.amount).toLocaleString()}원 · 결제완료</PayNote>
+            ) : order.payLink?.url ? (
               <>
-                <PayNote>대금은 앱 밖에서 직접 지급합니다. 지급한 뒤 눌러 주세요.</PayNote>
-                <ActionRow style={{ marginTop: 10 }}><OutlinedBtn onClick={handleWorkPaySent} disabled={payBusy}>대금 지급 완료</OutlinedBtn></ActionRow>
+                <ConditionRow><ConditionLabel>결제 요청 금액</ConditionLabel><ConditionValue>{Number(order.payLink.amount).toLocaleString()}원</ConditionValue></ConditionRow>
+                <ConditionRow><ConditionLabel>상태</ConditionLabel><ConditionValue>{payReq?.status === "paying" ? PG_STATUS_LABEL.paying : "결제 대기"}</ConditionValue></ConditionRow>
+                {isMatchedPro ? (
+                  <>
+                    <PayNote>아래 글을 접수자나 고객에게 보내 주세요. 결제된 시공대금은 홈프로를 거쳐 등록된 정산계좌로 정산됩니다.</PayNote>
+                    {/* 보낼 글을 글 상자에 그대로 보여 준다 — 복사만 하고 끝내면 뭐가 복사됐는지 안 보인다 (형 지시 2026-10-13) */}
+                    <textarea readOnly rows={4} onFocus={(e) => e.target.select()}
+                      value={payLinkMessage({ url: order.payLink.url, amount: order.payLink.amount, title: order.title, sellerName: userData?.companyName || myName })}
+                      style={{ width: "100%", boxSizing: "border-box", marginTop: 10, padding: "12px 14px", border: `1px solid ${THEME.border}`, borderRadius: pcWide ? 0 : 10, background: "#fff", color: THEME.text, fontSize: 15, lineHeight: 1.6, resize: "none", fontFamily: "inherit", wordBreak: "break-all" }} />
+                    <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={handleSharePayLink}>{pcWide ? "복사하기" : "공유하기"}</PrimaryCTA></ActionRow>
+                    <PayNote style={{ marginTop: 8 }}>금액을 잘못 넣었다면 <button type="button" onClick={handleCancelPayLink} disabled={payBusy} style={{ background: "none", border: "none", padding: 0, color: THEME.text, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>링크 취소</button> 후 다시 만들 수 있습니다.</PayNote>
+                  </>
+                ) : (
+                  <>
+                    <PayNote>홈프로가 시공대금 결제를 요청했습니다.</PayNote>
+                    <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={() => navigate(`/pg/${order.payLink.requestId}`)}>결제하기</PrimaryCTA></ActionRow>
+                  </>
+                )}
               </>
+            ) : myAccount === null ? (
+              <PayNote $warn>결제 링크를 만들려면 정산계좌가 필요합니다. 결제된 시공대금을 이 계좌로 정산해 드립니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
             ) : (
-              <PayNote>접수자가 대금을 지급하면 입금 확인 요청이 옵니다.</PayNote>
+              <>
+                <PayNote>작업을 마쳤으면 결제 링크를 만들어 접수자나 고객에게 보내 주세요. 결제된 시공대금은 홈프로를 거쳐 등록된 정산계좌로 정산됩니다.</PayNote>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                  <input inputMode="numeric" placeholder="결제 금액" value={payAmount ? Number(String(payAmount).replace(/[^0-9]/g, "")).toLocaleString() : ""}
+                    onChange={(e) => setPayAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                    style={{ flex: 1, minWidth: 0, height: 52, padding: "0 14px", border: `1px solid ${THEME.border}`, borderRadius: 10, fontSize: 17, fontWeight: 700, fontFamily: "inherit", color: THEME.text, textAlign: "right", boxSizing: "border-box", outline: "none" }} />
+                  <span style={{ fontSize: 16, color: THEME.text }}>원</span>
+                </div>
+                <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={handleCreatePayLink} disabled={payBusy || myAccount === undefined}>결제 링크 만들기</PrimaryCTA></ActionRow>
+              </>
             )}
           </DetailSection>
         )}
@@ -1048,10 +1109,11 @@ const OrderDetailPage = () => {
               <ConditionLabel>매칭방식</ConditionLabel>
               <ConditionValue>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</ConditionValue>
             </ConditionRow>
-            {order.b2bPriceType !== "info" && !order.selfOrder && (
+            {userData?.pgReview !== true && order.b2bPriceType !== "info" && !order.selfOrder && (
               <ConditionRow>
                 <ConditionLabel>보험</ConditionLabel>
-                <ConditionValue>{insuranceRequired ? "보험가입 필수" : "선택"}</ConditionValue>
+                {/* '선택'은 접수자가 보험을 고른 것으로 읽힌다 — 안 골랐으면 미선택 (대표 9/21) */}
+                <ConditionValue>{insuranceRequired ? "가입필수" : "미선택"}</ConditionValue>
               </ConditionRow>
             )}
           </DetailSection>
@@ -1146,8 +1208,8 @@ const OrderDetailPage = () => {
                 : !isUnpriced
                 ? `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`
                 : order.b2bPriceType === "onsite"
-                  ? "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 반드시 현장을 직접 방문하여 현장상태·실측 결과·특이 사항을 확인한 뒤 최종 금액을 산정·확정해 접수자에게 제안합니다."
-                  : "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 등록된 작업 요구사항과 사진 등을 확인하거나 현장을 직접 방문하여 견적가를 접수자에게 제안합니다."}
+                  ? "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 반드시 현장을 직접 방문하여 현장상태·실측 결과·특이 사항을 확인한 뒤 최종 금액을 산정·확정해 접수자에게 전송합니다."
+                  : "이 오더는 수락 시 견적 금액을 입력하지 않습니다. 먼저 오더를 수락하여 배정받은 후, 등록된 작업 요구사항과 사진 등을 확인하거나 현장을 직접 방문하여 견적가를 접수자에게 전송합니다."}
             </DetailText>
           </DetailSection>
         )}
@@ -1164,11 +1226,12 @@ const OrderDetailPage = () => {
                     <QuoteAvatar src={app.proProfile} alt={app.proName} />
                   ) : (
                     <QuoteAvatarPlaceholder>
-                      <IoPersonCircleOutline size={36} color={THEME.muted} />
+                      <IoPersonCircleOutline size={36} color={order.matchedProUid === app.proUid ? THEME.logoPurple : THEME.muted} />
                     </QuoteAvatarPlaceholder>
                   )}
                   <ApplicantInfo>
-                    <ApplicantName>{app.proName || "홈프로"}</ApplicantName>
+                    {/* 선정된 홈프로는 로고 보라로 구분 (대표 9/21) */}
+                    <ApplicantName style={order.matchedProUid === app.proUid ? { color: THEME.logoPurple } : undefined}>{app.proName || "홈프로"}</ApplicantName>
                     <ConditionValue style={{ textAlign: "left", color: app.quotedPrice > 0 ? THEME.primary : THEME.muted, fontWeight: 600 }}>
                       {app.quotedPrice > 0 ? `견적가 ${Number(app.quotedPrice).toLocaleString()}원` : "견적가 미통보"}
                     </ConditionValue>
@@ -1177,7 +1240,7 @@ const OrderDetailPage = () => {
                   </div>
                   {order.matchedProUid
                     ? (order.matchedProUid === app.proUid
-                        ? <ConditionValue style={{ color: THEME.primary, fontWeight: 700 }}>배정됨</ConditionValue>
+                        ? <ConditionValue style={{ color: THEME.logoPurple, fontWeight: 700 }}>배정됨</ConditionValue>
                         : <ConditionValue style={{ color: THEME.muted }}>미선정</ConditionValue>)
                     : <SelectProBtn onClick={() => handleSelectPro(app.proUid)}>선정</SelectProBtn>}
                 </ApplicantTop>
@@ -1256,14 +1319,14 @@ const OrderDetailPage = () => {
             </ActionRow>
             {/* 정보공유 오더는 체크인 생략 (대표 지시 8/20) */}
             {!isInfoOrder && (() => {
-              // 캐시백 입금 확인 전에는 체크인을 막는다 (대표 확정 9/13)
-              // 체크인은 캐시백 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡)
+              // 소개수수료 입금 확인 전에는 체크인을 막는다 (대표 확정 9/13)
+              // 체크인은 소개수수료 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡)
               // 단 접수자가 '보험가입 필수'로 등록한 오더는 보험 적용 전 체크인 불가 (대표 9/15 카톡 8번)
               const blocked = !order.checkInAt && insuranceRequired && insuranceState !== "applied";
               return (
                 <ActionRow>
                   <OutlinedBtn
-                    onClick={() => { if (blocked) { showToast("보험가입 필수 오더입니다. 건당·월·년 중 하나로 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
+                    onClick={() => { if (blocked) { showToast(isIosApp() ? "보험가입 필수 오더입니다. 보험이 적용된 뒤 체크인할 수 있습니다" : "보험가입 필수 오더입니다. 건당·월·년 중 하나로 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
                     style={blocked ? { opacity: 0.45 } : undefined}
                   >
                     {order.checkInAt ? "현장기록" : "현장 체크인"}
@@ -2283,7 +2346,7 @@ const SelectProBtn = styled.button`
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  background: ${THEME.button};
+  background: ${THEME.logoPurple};
   color: #fff;
   font-size: 15px;
   font-weight: 600;

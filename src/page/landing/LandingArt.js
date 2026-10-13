@@ -8,6 +8,7 @@
 import React from 'react';
 import {
   FiArrowRight, FiArrowDown, FiCheck, FiShare2, FiCreditCard, FiShield, FiRepeat, FiUser, FiUsers, FiHome, FiLink,
+  FiShoppingBag, FiBookOpen, FiKey,
 } from 'react-icons/fi';
 
 export const ART = {
@@ -81,7 +82,7 @@ export const PiecePay = () => (
       <span style={{ width: 30, height: 30, borderRadius: '50%', background: TINT, color: P, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}><FiCheck /></span>
       <div>
         <div style={{ fontSize: 16, fontWeight: 700, color: INK }}>고객 카드결제 완료</div>
-        <div style={{ fontSize: 15, color: P_DEEP, fontWeight: 600 }}>사업자 본인 계좌로 직접정산</div>
+        <div style={{ fontSize: 15, color: P_DEEP, fontWeight: 600 }}>홈프로를 거쳐 정산계좌로 정산</div>
       </div>
     </div>
     <div style={eg}>금액·이름은 예시입니다</div>
@@ -103,6 +104,25 @@ export const PieceInsurance = () => (
           <FiCheck color={P} />{t}
         </div>
       ))}
+    </div>
+  </div>
+);
+
+// 05 비즈니스 에코시스템 — 네 가지 메뉴를 한 판에 (대표 10/1 추가)
+const EcoTile = ({ icon, title, sub }) => (
+  <div style={{ ...card, padding: '18px 16px 16px', wordBreak: 'keep-all' }}>
+    <span style={{ width: 40, height: 40, borderRadius: 10, background: TINT, color: P, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 12 }}>{icon}</span>
+    <div style={{ fontSize: 17, fontWeight: 800, color: INK }}>{title}</div>
+    <div style={{ fontSize: 14, color: BODY, marginTop: 3, lineHeight: 1.45 }}>{sub}</div>
+  </div>
+);
+export const PieceEco = () => (
+  <div style={stage}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <EcoTile icon={<FiShoppingBag />} title="거래장터" sub="자재 · 장비 · 소모품 직거래" />
+      <EcoTile icon={<FiBookOpen />} title="기술전수 교육" sub="강의 개설 · 수강생 모집" />
+      <EcoTile icon={<FiKey />} title="양도 · 매매" sub="창고 · 점포 · 팀 · 거래처" />
+      <EcoTile icon={<FiHome />} title="공동중개" sub="매물 · 손님 공유" />
     </div>
   </div>
 );
@@ -190,7 +210,7 @@ export const ICON_SET = {
 };
 
 /* ---------- 묶음 — 섹션 id 로 꺼내 쓴다 ---------- */
-export const PIECES = { order: <PieceOrder />, referral: <PieceReferral />, pay: <PiecePay />, insurance: <PieceInsurance /> };
+export const PIECES = { order: <PieceOrder />, referral: <PieceReferral />, pay: <PiecePay />, insurance: <PieceInsurance />, eco: <PieceEco /> };
 export const DIAGRAMS = { order: <DiagramOrder />, referral: <DiagramReferral />, pay: <DiagramPay />, insurance: <DiagramInsurance /> };
 export const ICONS = Object.fromEntries(Object.entries(ICON_SET).map(([k, v]) => [k, <IconPanel key={k} {...v} />]));
 
@@ -213,7 +233,7 @@ export const HeroScreenWithPieces = () => (
       <span style={{ width: 30, height: 30, borderRadius: '50%', background: TINT, color: P, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}><FiCheck /></span>
       <div>
         <div style={{ fontSize: 15, fontWeight: 700, color: INK }}>고객 카드결제 완료</div>
-        <div style={{ fontSize: 14, color: P_DEEP, fontWeight: 600 }}>본인 계좌로 직접정산</div>
+        <div style={{ fontSize: 14, color: P_DEEP, fontWeight: 600 }}>홈프로를 거쳐 정산계좌로 정산</div>
       </div>
     </div>
   </div>
@@ -224,7 +244,7 @@ export const HeroBoard = () => (
     {[
       { i: <FiRepeat />, t: '오더 공유', s: '받고, 공유하고' },
       { i: <FiShare2 />, t: '소개수익', s: '연결이 수익으로' },
-      { i: <FiCreditCard />, t: 'PG 결제', s: '본인 계좌로 직접정산' },
+      { i: <FiCreditCard />, t: 'PG 결제', s: '정산계좌로 정산' },
       { i: <FiShield />, t: '배상책임보험', s: '사고위험까지 관리' },
     ].map((x, n) => (
       <div key={x.t} style={{ ...card, padding: '26px 20px', background: n === 0 ? P : '#fff', borderColor: n === 0 ? P : LINE, color: n === 0 ? '#fff' : INK }}>

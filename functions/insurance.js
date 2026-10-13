@@ -28,6 +28,12 @@ const TOSS_API = "https://api.tosspayments.com";
 // 계약 전(9/14 예정)이라 토스 문서 공개 테스트 키 폴백을 허용한다. 앞단 test_gck_docs_… 와 한 쌍. 돈은 빠지지 않는다.
 const TOSS_SECRET_KEY_FALLBACK = "test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6";
 const secretKey = () => process.env.TOSS_SECRET_KEY || TOSS_SECRET_KEY_FALLBACK;
+// 자동결제(빌링)는 결제위젯 키가 아니라 'API 개별 연동 키'를 따로 쓴다 (토스 규격 — 위젯 키로는 카드 등록창이 열리지 않는다).
+// 앞단 REACT_APP_TOSS_BILLING_CLIENT_KEY(test_ck_…) 와 한 쌍. 비워두면 토스 공식 예제의 공개 테스트 키로 폴백.
+const TOSS_BILLING_SECRET_KEY_FALLBACK = "test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R";
+const billingSecretKey = () => process.env.TOSS_BILLING_SECRET_KEY || TOSS_BILLING_SECRET_KEY_FALLBACK;
+/** 경로로 키를 고른다 — /v1/billing/… (빌링키 발급 · 빌링키 결제)만 자동결제 키 */
+const secretKeyFor = (path) => (String(path).startsWith("/v1/billing") ? billingSecretKey() : secretKey());
 
 const POLICIES = "insurance_policies";
 const PAYMENTS = "payments";
@@ -150,7 +156,7 @@ async function tossRequest(path, body, extraHeaders = {}) {
         method: "POST",
         headers: {
             // 시크릿 키 뒤에 콜론을 붙여 base64 (토스 규격)
-            Authorization: `Basic ${Buffer.from(`${secretKey()}:`).toString("base64")}`,
+            Authorization: `Basic ${Buffer.from(`${secretKeyFor(path)}:`).toString("base64")}`,
             "Content-Type": "application/json",
             ...extraHeaders,
         },
@@ -434,20 +440,41 @@ exports.insuranceExpireSweep = onSchedule(
  *
  * 쿼리는 accessTier=='tier1' 등호 하나만(복합 인덱스 불필요) 하고 나머지 조건은 메모리에서 거른다.
  */
+/**
+ * 구독 상품 — 1·3·6·12개월, 길게 끊을수록 할인 (형 확정 2026-10-13, 스카이링크와 같은 구조).
+ * 할인율 0·5·10·15%는 임시(대표 확정 필요), 천 원 아래는 버린다.
+ * ★앞단 src/utility/subscriptionPlans.js 와 같은 식이어야 한다.
+ */
+const SUBSCRIPTION_PLANS = [
+    { id: "m1", months: 1, discount: 0 },
+    { id: "m3", months: 3, discount: 0.05 },
+    { id: "m6", months: 6, discount: 0.1 },
+    { id: "m12", months: 12, discount: 0.15 },
+];
+/** planId 가 없거나 모르는 값이면 1개월(예전 구독자 호환) */
+function subscriptionPlan(planId, monthly) {
+    const m = Number(monthly) || 16500;
+    const p = SUBSCRIPTION_PLANS.find((x) => x.id === planId) || SUBSCRIPTION_PLANS[0];
+    const price = p.months === 1 ? m : Math.floor((m * p.months * (1 - p.discount)) / 1000) * 1000;
+    return { ...p, name: `${p.months}개월`, price };
+}
+
 async function chargeSubscription(userDoc, price) {
     const u = userDoc.data();
     const uid = userDoc.id;
     const sub = u.subscription || {};
     const billing = sub.billing || {};
-    const amount = Number(price) || 16500;
-    const orderName = "홈프로 월 구독 갱신";
+    // 구독할 때 고른 상품(1·3·6·12개월)의 금액·기간으로 다시 결제한다
+    const plan = subscriptionPlan(sub.planId, price);
+    const amount = plan.price;
+    const orderName = `홈프로 구독 갱신 (${plan.name})`;
 
     const tossOrderId = makeTossOrderId("subscription", uid.slice(0, 8));
     const payRef = db().collection(PAYMENTS).doc(tossOrderId);
     await payRef.set({
         purpose: "subscription", uid, authUid: null, amount, status: "ready",
         tossOrderId, orderName, method: "billing", renewal: true,
-        meta: { policyId: null, orderId: null, planType: "subscription", pointsUsed: 0 },
+        meta: { policyId: null, orderId: null, planType: "subscription", planId: plan.id, months: plan.months, pointsUsed: 0 },
         createdAt: tsNow(), updatedAt: tsNow(),
     });
 
@@ -501,12 +528,12 @@ async function chargeSubscription(userDoc, price) {
     }, { merge: true });
 
     const base = toDate(sub.endAt) || new Date();
-    const newEnd = addMonths(base, 1);
-    const newNext = addMonths(toDate(billing.nextChargeAt) || base, 1);
+    const newEnd = addMonths(base, plan.months);
+    const newNext = addMonths(toDate(billing.nextChargeAt) || base, plan.months);
     await userDoc.ref.set({
         accessTier: "tier1",
         subscription: {
-            ...sub, status: "active", endAt: Timestamp().fromDate(newEnd),
+            ...sub, status: "active", planId: plan.id, months: plan.months, endAt: Timestamp().fromDate(newEnd),
             amount, paymentId: tossOrderId, pointsUsed: 0,
             billing: { ...billing, nextChargeAt: Timestamp().fromDate(newNext), failCount: 0, lastChargedAt: tsNow() },
             updatedAt: tsNow(),
@@ -516,7 +543,7 @@ async function chargeSubscription(userDoc, price) {
 
     await createNotification(
         "subscription_renewed",
-        "월 구독이 갱신되었습니다",
+        "구독이 갱신되었습니다",
         `${amount.toLocaleString()}원이 결제되어 구독이 ${newEnd.getFullYear()}.${String(newEnd.getMonth() + 1).padStart(2, "0")}.${String(newEnd.getDate()).padStart(2, "0")} 까지 연장되었습니다.`,
         [uid],
         { paymentId: tossOrderId, amount },
@@ -654,6 +681,8 @@ module.exports = {
     DEFAULT_PER_ORDER,
     DEFAULT_COVERAGE,
     MAX_BILLING_FAILS,
+    SUBSCRIPTION_PLANS,
+    subscriptionPlan,
     secretKey,
     db,
     tsNow,

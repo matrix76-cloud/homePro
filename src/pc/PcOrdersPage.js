@@ -13,7 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { CATEGORIES } from "../config/homeproConfig";
 import { subscribeToAllOrders, formatOrderTime } from "../service/OrderService";
 import {
-  STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, formatRegionLabel, formatPriceType, formatMatchType, formatOrderScheduleShort,
+  STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, formatRegionLabel, formatPriceType, formatMatchType, formatOrderScheduleShort, isUrgentNow,
 } from "../page/main/MobileMainpage";
 
 const STATUS_OPTIONS = ["전체", "접수", "대기", "마감", "취소"];
@@ -159,7 +159,7 @@ const PcOrdersPage = () => {
           const color = STATUS_COLOR[o._status] || STATUS_COLOR["접수"];
           return (
             <Row key={o.id} onClick={() => openOrder(o)}>
-              <span style={o.workDate === "긴급" ? { color: "#E5484D", fontWeight: 800 } : null}>{formatOrderScheduleShort(o)}</span>
+              <span style={isUrgentNow(o) ? { color: "#E5484D", fontWeight: 800 } : null}>{formatOrderScheduleShort(o)}</span>
               <span style={{ color, fontWeight: 700 }}>{o._status}</span>
               <span>{formatMatchType(o)}</span>
               <b>{o.subcategory || o.subcategories?.[0] || o.categoryName}</b>

@@ -179,6 +179,12 @@ const ProCategoryEditPage = () => {
                     <Section>
                         <SectionTitle>전문분야 선택 (복수 선택 가능)</SectionTitle>
                         <ChipWrap>
+                            {/* 전문청소는 '전체' 한 번에 고르기 — 영역은 각자 골라 중복 선택 (대표 10/8) */}
+                            {cat.id === "professional_cleaning" && (() => {
+                                const all = cat.subcategories.filter((sub) => sub !== "기타");
+                                const isAll = all.every((sub) => selectedSubs.includes(sub));
+                                return <Chip $active={isAll} onClick={() => setSelectedSubs(isAll ? [] : all)}>전체</Chip>;
+                            })()}
                             {cat.subcategories.map((sub) => (
                                 <Chip key={sub} $active={selectedSubs.includes(sub)} onClick={() => toggleSub(sub)}>{sub}</Chip>
                             ))}

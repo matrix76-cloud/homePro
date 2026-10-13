@@ -42,7 +42,7 @@ const PaymentHistoryPage = () => {
   return (
     <SimpleBackLayout NAME="결제 내역" hideFooter>
       <Wrap>
-        <Intro>토스로 결제한 월 구독료와 보험료입니다. H-포인트로 전액 낸 건도 함께 보입니다.</Intro>
+        <Intro>토스로 결제한 월 구독료와 보험료입니다.</Intro>
         {pcWide ? (
           <PcTable>
             <PcTHead $cols={PAY_COLS}><span>일시</span><span>내용</span><span>금액</span><span>결제 수단</span><span>상태</span><span>주문번호</span><span>영수증</span></PcTHead>

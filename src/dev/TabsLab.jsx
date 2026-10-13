@@ -49,7 +49,7 @@ export const TabSections = [
           </Card>
           <Card style={{ borderColor: P, marginBottom: 10 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: TXT }}>누수탐지</div>
-            <div style={{ fontSize: 13, color: SUB, marginTop: 4 }}>캐시백 입금 확인을 기다리고 있습니다</div>
+            <div style={{ fontSize: 13, color: SUB, marginTop: 4 }}>소개수수료 입금 확인을 기다리고 있습니다</div>
           </Card>
           <Title>그 밖의 오더</Title>
           <div style={{ background: "#fff", border: `1px solid ${LINE}` }}>

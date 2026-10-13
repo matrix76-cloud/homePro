@@ -5,16 +5,16 @@
  *  원칙: 플랫폼은 돈을 만지지 않는다. 선결제·돈 에스크로·분할정산·가상계좌 없음.
  *  앱은 "누가 누구에게 얼마를 보낼 차례인지"를 보여 주고 [입금 완료] → [입금 확인] 상태만 넘긴다.
  *
- *  ① 캐시백 — 홈프로 → 접수자. 매칭되면 홈프로 화면에 접수자 계좌·금액이 뜨고
+ *  ① 소개수수료 — 홈프로 → 접수자. 매칭되면 홈프로 화면에 접수자 계좌·금액이 뜨고
  *     홈프로가 토스 딥링크/계좌복사로 직접 송금 → [입금 완료(송금증)] → 접수자 푸시 → [입금 확인].
- *     확인 전에는 체크인을 못 한다. 현장견적은 금액이 확정되는 순간(onsiteQuotedPrice) 캐시백이 계산된다.
+ *     확인 전에는 체크인을 못 한다. 현장견적은 금액이 확정되는 순간(onsiteQuotedPrice) 소개수수료가 계산된다.
  *     오더 문서: referralPay { status: "sent"|"confirmed", amount, sentAt, sentBy, receiptUrl, confirmedAt }
  *
  *  ② 후불 작업 대금 — 완료 후 접수자(원청) → 홈프로. 접수자 [지급 완료] → 홈프로 [입금 확인]. 기록만.
  *     오더 문서: workPay { status: "sent"|"confirmed", sentAt, confirmedAt }
  *
  *  ③ H-포인트 오더 에스크로 — 단가유형 hpoint. 접수 때 접수자 잔액 < 대금이면 접수 불가.
- *     배정 순간 접수자 H-포인트에서 대금만큼 차감해 보관 → 완료 때 홈프로에게 (대금 - 캐시백), 접수자에게 캐시백 환급
+ *     배정 순간 접수자 H-포인트에서 대금만큼 차감해 보관 → 완료 때 홈프로에게 (대금 - 소개수수료), 접수자에게 소개수수료 환급
  *     → 배정 뒤 취소면 접수자에게 전액 되돌림. 돈이 아니라 앱 안의 포인트라 가능하다.
  *     오더 문서: hpointEscrow { amount, referral, status: "held"|"released"|"refunded", heldAt, releasedAt, refundedAt }
  *     원장(homepro_cash): category escrow_hold / escrow_release / escrow_refund
@@ -60,13 +60,13 @@ export async function getPointBalance(uid) {
   return snap.exists() ? Number(snap.data().referralPoints || 0) : 0;
 }
 
-/* ───────────────────────── ① 캐시백 (돈) ───────────────────────── */
+/* ───────────────────────── ① 소개수수료 (돈) ───────────────────────── */
 
-/** 이 오더의 "돈으로 주는 대금"(캐시백 계산 기준) — 아직 정해지지 않았으면 null */
+/** 이 오더의 "돈으로 주는 대금"(소개수수료 계산 기준) — 아직 정해지지 않았으면 null */
 export function getMoneyPriceAmount(order) {
   if (!order) return null;
   const t = order.b2bPriceType;
-  if (t === "fixed" || t === "balance") return Number(order.b2bPriceAmount) || null;
+  if (t === "fixed" || t === "balance" || t === "contract" || t === "sale") return Number(order.b2bPriceAmount) || null;
   if (t === "onsite" || t === "estimate" || t === "quote") {
     if (order.onsiteQuotedPrice) return Number(order.onsiteQuotedPrice) || null;
     const q = order.applicantQuotes && order.matchedProUid ? order.applicantQuotes[order.matchedProUid] : null;
@@ -76,8 +76,8 @@ export function getMoneyPriceAmount(order) {
 }
 
 /**
- * 돈으로 주는 캐시백 금액. 반환 { amount, pending }
- *  - amount: 원 (0이면 캐시백 없음)
+ * 돈으로 주는 소개수수료 금액. 반환 { amount, pending }
+ *  - amount: 원 (0이면 소개수수료 없음)
  *  - pending: 정률인데 대금이 아직 확정되지 않아 계산할 수 없음(현장견적 통보 전)
  */
 export function getReferralFeeAmount(order) {
@@ -93,7 +93,7 @@ export function getReferralFeeAmount(order) {
   return { amount: 0, pending: false };
 }
 
-/** 캐시백 송금이 아직 끝나지 않았나 (홈프로가 보내고 접수자가 확인해야 끝) */
+/** 소개수수료 송금이 아직 끝나지 않았나 (홈프로가 보내고 접수자가 확인해야 끝) */
 export function isReferralPayOpen(order) {
   if (!order || !order.matchedProUid) return false;
   if (order.orderStatus === "취소" || order.orderStatus === "거부") return false;
@@ -103,7 +103,7 @@ export function isReferralPayOpen(order) {
   return order.referralPay?.status !== "confirmed";
 }
 
-/** 체크인을 막아야 하나 — 캐시백이 있는데 접수자 확인이 아직 안 됐으면 */
+/** 체크인을 막아야 하나 — 소개수수료가 있는데 접수자 확인이 아직 안 됐으면 */
 export function isCheckInBlockedByReferral(order) {
   const { amount, pending } = getReferralFeeAmount(order);
   if (pending) return true;
@@ -145,8 +145,8 @@ export async function markReferralSent(order, { byUid, byName, receiptFile }) {
     referralPay: { status: "sent", amount, sentAt: serverTimestamp(), sentBy: byUid, receiptUrl },
     updatedAt: serverTimestamp(),
   });
-  await notify(order.createdBy, "캐시백 입금 확인 요청",
-    `${byName || "홈프로"}님이 캐시백 ${amount.toLocaleString()}원을 송금했습니다. 입금을 확인해 주세요.`,
+  await notify(order.createdBy, "소개수수료 입금 확인 요청",
+    `${byName || "홈프로"}님이 소개수수료 ${amount.toLocaleString()}원을 송금했습니다. 입금을 확인해 주세요.`,
     "referral_sent", { orderId: order.id });
 }
 
@@ -158,14 +158,14 @@ export async function confirmReferralReceived(order, { byUid }) {
     "referralPay.confirmedBy": byUid,
     updatedAt: serverTimestamp(),
   });
-  await notify(order.matchedProUid, "캐시백 입금 확인 완료",
-    "접수자가 캐시백 입금을 확인했습니다.",
+  await notify(order.matchedProUid, "소개수수료 입금 확인 완료",
+    "접수자가 소개수수료 입금을 확인했습니다.",
     "referral_confirmed", { orderId: order.id });
 }
 
 /* ───────────────────────── ② 후불 작업 대금 ───────────────────────── */
 
-/** 후불 대금 버튼을 둘 오더인가 — 돈 오더이고 완료된 뒤 */
+/** 시공대금 결제 링크를 둘 오더인가 — 돈 오더이고 완료된 뒤 */
 export function isWorkPayApplicable(order) {
   if (!order) return false;
   if (order.orderStatus !== "완료" && order.orderStatus !== "리뷰" && order.orderStatus !== "정산") return false;
@@ -173,29 +173,7 @@ export function isWorkPayApplicable(order) {
   return t !== "hpoint" && t !== "info";
 }
 
-/** 접수자 [대금 지급 완료] */
-export async function markWorkPaySent(order, { byUid }) {
-  await updateDoc(doc(db, COLLECTIONS.ORDERS, order.id), {
-    workPay: { status: "sent", sentAt: serverTimestamp(), sentBy: byUid },
-    updatedAt: serverTimestamp(),
-  });
-  await notify(order.matchedProUid, "작업 대금 입금 확인 요청",
-    "접수자가 작업 대금을 지급했다고 표시했습니다. 입금을 확인해 주세요.",
-    "workpay_sent", { orderId: order.id });
-}
-
-/** 홈프로 [입금 확인] */
-export async function confirmWorkPayReceived(order, { byUid }) {
-  await updateDoc(doc(db, COLLECTIONS.ORDERS, order.id), {
-    "workPay.status": "confirmed",
-    "workPay.confirmedAt": serverTimestamp(),
-    "workPay.confirmedBy": byUid,
-    updatedAt: serverTimestamp(),
-  });
-  await notify(order.createdBy, "작업 대금 입금 확인 완료",
-    "홈프로가 작업 대금 입금을 확인했습니다.",
-    "workpay_confirmed", { orderId: order.id });
-}
+// 접수자 [대금 지급 완료] → 홈프로 [입금 확인] 두 버튼은 결제 링크로 대체했다 (형 확정 2026-10-07, PgPaymentService.createOrderPayLink)
 
 /* ───────────────────────── ③ H-포인트 에스크로 ───────────────────────── */
 
@@ -238,7 +216,7 @@ export async function holdHpointEscrow(orderId, orderData) {
   });
 }
 
-/** 완료 때 — 홈프로에게 (대금 - 캐시백), 접수자에게 캐시백 환급 */
+/** 완료 때 — 홈프로에게 (대금 - 소개수수료), 접수자에게 소개수수료 환급 */
 export async function releaseHpointEscrow(orderId) {
   const snap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
   if (!snap.exists()) return;
@@ -248,14 +226,14 @@ export async function releaseHpointEscrow(orderId) {
   const referral = Math.min(Number(e.referral) || 0, Number(e.amount) || 0);
   const toPro = (Number(e.amount) || 0) - referral;
   await creditPoints(o.matchedProUid, toPro, `H-포인트 오더 대금 (${o.title || orderId})`, "escrow_release", orderId);
-  if (referral > 0) await creditPoints(o.createdBy, referral, `H-포인트 오더 캐시백 (${o.title || orderId})`, "escrow_release", orderId);
+  if (referral > 0) await creditPoints(o.createdBy, referral, `H-포인트 오더 소개수수료 (${o.title || orderId})`, "escrow_release", orderId);
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
     "hpointEscrow.status": "released",
     "hpointEscrow.releasedAt": serverTimestamp(),
     "hpointEscrow.toPro": toPro,
   });
   await notify(o.matchedProUid, "H-포인트 대금 지급", `작업 대금 ${toPro.toLocaleString()}P가 H-포인트로 들어왔습니다.`, "escrow_release", { orderId });
-  if (referral > 0) await notify(o.createdBy, "H-포인트 캐시백 지급", `캐시백 ${referral.toLocaleString()}P가 H-포인트로 들어왔습니다.`, "escrow_release", { orderId });
+  if (referral > 0) await notify(o.createdBy, "H-포인트 소개수수료 지급", `소개수수료 ${referral.toLocaleString()}P가 H-포인트로 들어왔습니다.`, "escrow_release", { orderId });
 }
 
 /** 배정 뒤 취소 — 보관분을 접수자에게 전액 되돌림 */

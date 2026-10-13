@@ -417,7 +417,8 @@ export default function AuthReview() {
                 </div>
               </div>
               {/* 폰 */}
-              <div style={{ position: 'relative', width: phoneW, height: phoneH, borderRadius: 22, overflow: 'hidden', border: `1px solid ${C.line}`, boxShadow: '0 8px 30px rgba(0,0,0,0.10)', background: '#fff' }}>
+              {/* overflow 는 clip — hidden 이면 폰 안의 scrollIntoView 가 이 상자까지 밀어 올려 화면이 잘린다(채팅 먹통 9/21) */}
+              <div style={{ position: 'relative', width: phoneW, height: phoneH, borderRadius: 22, overflow: 'clip', border: `1px solid ${C.line}`, boxShadow: '0 8px 30px rgba(0,0,0,0.10)', background: '#fff' }}>
                 <div style={{ width: PHONE_W, height: PHONE_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
                   <iframe ref={(el) => { iframeRefs.current[i] = el }} key={`${i}_${uid}`} name={`rvphone${i + 1}`} title={`폰 ${i + 1}`} src={LOGIN_PATH} style={{ width: PHONE_W, height: PHONE_H, border: 'none', pointerEvents: pinMode ? 'none' : 'auto' }} />
                 </div>
@@ -450,14 +451,14 @@ export default function AuthReview() {
           <p style={{ margin: '0 0 10px' }}>폰 네 칸이 각각 다른 계정입니다. 로그인 화면에 칸 위의 아이디를 치고, 비번은 전부 <b>{PASSWORD}</b>. 같은 오더를 두 칸에서 접수자·홈프로로 나눠 보면 흐름이 한눈에 보입니다.</p>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12, fontSize: 14 }}>
             <tbody>
-              {[['1 · a1', '접수자', '오더 접수, 캐시백 입금 확인, 후불 대금 지급 완료'], ['2 · b1', '홈프로', '수락(보험 없으면 막힘), 캐시백 송금, 체크인'], ['3 · b2', '홈프로', '비교선정 지원, 월 구독 결제'], ['4 · b3', '홈프로 · 인증 공인중개사', '공동중개 글 등록, 손님 카드 연결, 프로필 인증 표시']].map((r) => (
+              {[['1 · a1', '접수자', '오더 접수, 소개수수료 입금 확인, 후불 대금 지급 완료'], ['2 · b1', '홈프로', '수락(보험 없으면 막힘), 소개수수료 송금, 체크인'], ['3 · b2', '홈프로', '비교선정 지원, 월 구독 결제'], ['4 · b3', '홈프로 · 인증 공인중개사', '공동중개 글 등록, 손님 카드 연결, 프로필 인증 표시']].map((r) => (
                 <tr key={r[0]}>{r.map((x, i) => <td key={i} style={{ border: `1px solid ${C.line}`, padding: '6px 8px', fontWeight: i === 0 ? 700 : 400, whiteSpace: i < 2 ? 'nowrap' : 'normal' }}>{x}</td>)}</tr>
               ))}
             </tbody>
           </table>
           <b>오늘(9/14) 배포된 흐름 — 이 순서로 눌러 보면 됩니다</b>
           <ol style={{ margin: '6px 0 12px', paddingLeft: 20 }}>
-            <li><b>캐시백 직거래</b> — a1이 오더 접수(캐시백 정액) → b1이 수락 → b1 오더 상세에 a1 계좌·금액과 [토스로 송금]·[계좌 복사]·[입금 완료] → a1에게 푸시 → a1 [입금 확인]. 체크인은 입금 확인과 무관하게 열려 있음(대표 9/14). 플랫폼은 돈을 안 만짐.</li>
+            <li><b>소개수수료 직거래</b> — a1이 오더 접수(소개수수료 정액) → b1이 수락 → b1 오더 상세에 a1 계좌·금액과 [토스로 송금]·[계좌 복사]·[입금 완료] → a1에게 푸시 → a1 [입금 확인]. 체크인은 입금 확인과 무관하게 열려 있음(대표 9/14). 플랫폼은 돈을 안 만짐.</li>
             <li><b>보험(선택)</b> — 배정 뒤 오더 상세 "보험 적용" 섹션: 가입자는 자동 적용, 아니면 [건당 보험료 결제](토스 테스트 결제창)·[월·1년 가입]·"보험 없이 진행". 수락·체크인 조건 아님(대표 9/14).</li>
             <li><b>안심케어 탭</b> — 내 보험 상태, 가입 3종(1년 11만원 · 월 1.1만원 카드 자동결제 · 건당 1~2%), 사고 접수, 내 보험 관리. 값은 전부 임시.</li>
             <li><b>H-포인트 오더</b> — 단가유형 H-포인트로 접수하면 잔액 부족 시 접수 불가, 배정 순간 앱이 차감 보관, 완료 때 홈프로에게 배분.</li>
@@ -465,7 +466,7 @@ export default function AuthReview() {
             <li><b>공동중개</b> — 탭 매물공유/손님공유/내 글, 지역·종류·거래형태 필터. 카드를 누르면 상세 시트에 [전화하기]·[채팅하기]. b3만 [등록]·손님공유 연결이 열리고 프로필에 "인증 공인중개사". 다른 계정은 "인증하러 갈까요" → 개설등록번호 화면. [내 글]에서 거래 종료.</li>
             <li><b>채팅 탭</b> — 전체·오더·거래장터·기술전수·공동중개. 오더 채팅은 오더명이 제목, 아래에 상대 이름과 마지막 대화.</li>
             <li><b>결제 내역</b> — 마이페이지 → 고객지원 → 결제 내역. 운영자 /admin → PG 결제 내역.</li>
-            <li><b>셀프 등록 오더</b> — 접수 폼 "등록 방식 → 셀프 등록": 캐시백·홈프로 선택 없이 바로 배정, 보험 적용 후 체크인.</li>
+            <li><b>셀프 등록 오더</b> — 접수 폼 "등록 방식 → 셀프 등록": 소개수수료·홈프로 선택 없이 바로 배정, 보험 적용 후 체크인.</li>
           </ol>
           <b>아직 안 되는 것</b>
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>

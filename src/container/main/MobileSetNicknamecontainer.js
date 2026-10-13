@@ -9,6 +9,7 @@ import { getAllPointRules, DEFAULT_RULES } from "../../service/PointService";
 import { THEME } from "../../config/homeproConfig";
 import localforage from "localforage";
 import { getAuth } from "firebase/auth";
+import { IoBusinessOutline, IoPersonOutline, IoChevronForward, IoConstructOutline } from "react-icons/io5";
 
 const ADJ2 = ["밝은", "맑은", "고운", "푸른", "작은", "예쁜", "귀한", "깊은", "넓은", "높은"];
 const ADJ3 = ["따뜻한", "든든한", "다정한", "씩씩한", "행복한", "소중한", "건강한", "활발한", "정직한", "용감한"];
@@ -44,9 +45,14 @@ export default function MobileSetNicknamecontainer() {
     const [busy, setBusy] = useState(false);
     const [generating, setGenerating] = useState(false);
     const triedNames = useRef(new Set());
-    const [userType, setUserType] = useState("business"); // "customer" | "business" (기본 사업자회원 — 대표 지시 8/5)
+    // 처음 로그인한 사람은 먼저 사업자·개인을 고른다 (형 10/1 — 가입 버튼을 따로 두지 않고 로그인 하나로).
+    //  1단계 "type": 둘 중 하나를 누르면 바로 2단계로 / 2단계 "info": 업체명(사업자) 또는 대화명(개인) + 추천인 코드
+    //  아이디 가입·소셜 로그인 모두 이 화면을 거치므로 유형은 여기서 한 번만 묻는다.
+    const [step, setStep] = useState("type");
+    const [userType, setUserType] = useState(""); // "" | "customer" | "freelancer" | "business"
     const [companyName, setCompanyName] = useState("");
     const isBiz = userType === "business";
+    const pickType = (t) => { setUserType(t); setStep("info"); };
 
     // 추천코드 보상액은 settings/point_rules 운영값 표시 (하드코딩 금지 — 리뷰 7/30)
     const [pointRules, setPointRules] = useState(DEFAULT_RULES);
@@ -55,14 +61,9 @@ export default function MobileSetNicknamecontainer() {
     }, []);
     const referralSignupReward = pointRules.referral_signup?.amount ?? DEFAULT_RULES.referral_signup.amount;
 
-    // 가입 단계에서 넘어온 회원유형/업체명 반영 (소셜은 여기서 선택)
+    // 예전 가입 폼이 남겨 둔 회원유형·업체명 값은 쓰지 않는다 (유형은 이 화면에서 새로 고른다)
     useEffect(() => {
-        try {
-            const t = localStorage.getItem("homepro.signup.userType");
-            if (t === "business" || t === "customer") setUserType(t);
-            const c = localStorage.getItem("homepro.signup.companyName");
-            if (c) setCompanyName(c);
-        } catch (e) { }
+        try { localStorage.removeItem("homepro.signup.userType"); localStorage.removeItem("homepro.signup.companyName"); } catch (e) { }
     }, []);
 
     useEffect(() => {
@@ -106,8 +107,8 @@ export default function MobileSetNicknamecontainer() {
     }, []);
 
     useEffect(() => {
-        if (!isBiz) generateUniqueNickname(); // 대화명 자동생성은 일반고객만
-    }, [generateUniqueNickname, isBiz]);
+        if (userType === "customer") generateUniqueNickname(); // 대화명 자동생성은 개인(일반고객)만
+    }, [generateUniqueNickname, userType]);
 
     const handleGenerate = () => {
         generateUniqueNickname();
@@ -134,6 +135,7 @@ export default function MobileSetNicknamecontainer() {
     };
 
     const handleComplete = async () => {
+        if (!userType) { setStep("type"); return; }
         // 사업자회원=업체명 / 일반고객=대화명
         const displayValue = isBiz ? companyName.trim() : nickname.trim();
         if (!displayValue) {
@@ -176,7 +178,7 @@ export default function MobileSetNicknamecontainer() {
             // 사업자회원: 업체명을 상호/표시명으로. 일반고객: 대화명.
             const patch = isBiz
                 ? { nickname: displayValue, name: displayValue, companyName: displayValue, userType: "business", role: "user" }
-                : { nickname: displayValue, name: displayValue, userType: "customer", role: "user" };
+                : { nickname: displayValue, name: displayValue, userType: userType === "freelancer" ? "freelancer" : "customer", role: "user" };
             // provider가 아직 없을 때만 설정
             const existingProfile = await getUserProfileByUid(targetUid);
             if (!existingProfile?.provider) {
@@ -237,21 +239,58 @@ export default function MobileSetNicknamecontainer() {
 
     const charCount = [...nickname].length;
 
+    // 1단계 — 사업자·개인 고르기. 하나만 고르는 단계라 누르는 즉시 다음으로 넘어간다 (다음 버튼 없음)
+    if (step === "type" || !userType) {
+        return (
+            <Wrap>
+                <Title>가입유형 선택</Title>
+                <Desc>처음 한 번만 고르면 됩니다</Desc>
+
+                <ChoiceCol>
+                    {/* 일반 · 프리랜서 · 사업자 세 가지, 문구는 대표 10/8 원문 */}
+                    <ChoiceBtn type="button" onClick={() => pickType("customer")}>
+                        <ChoiceIcon><IoPersonOutline size={26} /></ChoiceIcon>
+                        <ChoiceText>
+                            <ChoiceName>일반 회원</ChoiceName>
+                            <ChoiceNote>서비스 이용 및 신청을 원하시는 분</ChoiceNote>
+                        </ChoiceText>
+                        <IoChevronForward size={20} />
+                    </ChoiceBtn>
+                    <ChoiceBtn type="button" onClick={() => pickType("freelancer")}>
+                        <ChoiceIcon><IoConstructOutline size={26} /></ChoiceIcon>
+                        <ChoiceText>
+                            <ChoiceName>프리랜서 회원</ChoiceName>
+                            <ChoiceNote>사업자등록 없이 개인 자격으로 서비스를 제공하실 분</ChoiceNote>
+                        </ChoiceText>
+                        <IoChevronForward size={20} />
+                    </ChoiceBtn>
+                    <ChoiceBtn type="button" onClick={() => pickType("business")}>
+                        <ChoiceIcon><IoBusinessOutline size={26} /></ChoiceIcon>
+                        <ChoiceText>
+                            <ChoiceName>사업자 회원</ChoiceName>
+                            <ChoiceNote>개인/법인 사업자등록을 보유하고 서비스를 제공하실 분</ChoiceNote>
+                        </ChoiceText>
+                        <IoChevronForward size={20} />
+                    </ChoiceBtn>
+                    <ChoiceFoot>일반 회원은 언제든 사업자 회원으로 전환하여 더 많은 서비스를 이용하실 수 있습니다.</ChoiceFoot>
+                </ChoiceCol>
+            </Wrap>
+        );
+    }
+
     return (
         <Wrap>
             <Title>{isBiz ? "업체 정보 설정" : "대화명 설정"}</Title>
             <Desc>{isBiz ? "다른 사용자에게 보여질 업체명이에요" : "다른 사용자에게 보여질 이름이에요"}</Desc>
 
-            <Card>
-                <Field style={{ marginBottom: 30 }}>
-                    <Label>회원유형</Label>
-                    <TypeRow>
-                        {/* 사업자회원 왼쪽 · 일반고객 오른쪽 (대표 지시 7/24) */}
-                        <TypeBtn type="button" $active={isBiz} onClick={() => setUserType("business")} disabled={busy}>사업자회원</TypeBtn>
-                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")} disabled={busy}>일반고객</TypeBtn>
-                    </TypeRow>
-                </Field>
+            {/* 지난 단계 — 고른 값만 한 줄로, 오른쪽 수정 */}
+            <PickedRow>
+                <PickedLabel>회원 유형</PickedLabel>
+                <PickedValue>{isBiz ? "사업자 회원" : userType === "freelancer" ? "프리랜서 회원" : "일반 회원"}</PickedValue>
+                <PickedEdit type="button" onClick={() => setStep("type")} disabled={busy}>수정</PickedEdit>
+            </PickedRow>
 
+            <Card>
                 {isBiz ? (
                     <Field>
                         <LabelRow>
@@ -364,7 +403,7 @@ const Desc = styled.div`
 `;
 
 const Card = styled.div`
-  margin-top: 22px;
+  margin-top: 14px;
   width: 100%;
   max-width: 420px;
   box-sizing: border-box;
@@ -389,25 +428,111 @@ const LabelRow = styled.div`
   gap: 4px;
 `;
 
-const TypeRow = styled.div`
-  display: flex;
-  gap: 12px;
-  margin-top: 4px;
+/* 1단계 — 사업자·개인 고르기. 카드로 감싸지 않고 화면 배경 위에 바로 놓는다 */
+const ChoiceFoot = styled.div`
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: ${THEME.text};
+  word-break: keep-all;
 `;
 
-const TypeBtn = styled.button`
-  flex: 1;
-  height: 52px;
-  border-radius: 10px;
-  font-size: 17px !important;
-  font-weight: 400;
+const ChoiceCol = styled.div`
+  margin-top: 26px;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const ChoiceBtn = styled.button`
+  width: 100%;
+  min-height: 92px;
+  padding: 18px 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
   cursor: pointer;
   font-family: inherit;
-  border: 1px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
-  background: ${({ $active }) => ($active ? THEME.button : THEME.surface)};
-  color: ${({ $active }) => ($active ? "#fff" : "rgba(17,24,39,0.7)")};
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  color: #14181F;
+  word-break: keep-all;
+  > svg { flex: 0 0 auto; color: #14181F; }
+  &:hover { border-color: ${THEME.primary}; }
   &:active { transform: translateY(1px); }
+`;
+
+const ChoiceIcon = styled.span`
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  color: ${THEME.primary};
+`;
+
+const ChoiceText = styled.span`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+`;
+
+const ChoiceName = styled.span`
+  font-size: 18px !important;
+  font-weight: 700;
+  color: #14181F;
+`;
+
+const ChoiceNote = styled.span`
+  font-size: 15px !important;
+  line-height: 1.5;
+  color: #2b2f36;
+`;
+
+/* 2단계 위 — 지난 단계에서 고른 값 한 줄 */
+const PickedRow = styled.div`
+  margin-top: 20px;
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+`;
+
+const PickedLabel = styled.span`
+  font-size: 15px !important;
+  color: #2b2f36;
+`;
+
+const PickedValue = styled.span`
+  flex: 1;
+  font-size: 16px !important;
+  font-weight: 700;
+  color: #14181F;
+`;
+
+const PickedEdit = styled.button`
+  border: 1px solid ${THEME.border};
+  background: ${THEME.surface};
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 15px !important;
+  font-family: inherit;
+  color: #14181F;
+  cursor: pointer;
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 const Label = styled.label`

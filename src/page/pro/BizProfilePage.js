@@ -24,7 +24,7 @@ import { getProsByCategory } from "../../service/ProService";
 import { upsertUserProfile } from "../../service/UserProfileService";
 import { createChatRoom } from "../../service/ChatService";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
-import { GradeBadge, GradeProgressBar, getGradeRule } from "../../utility/gradeUtils";
+import { GradeBadge, GradeProgressBar, getGradeRule, GRADE_SYSTEM_ENABLED } from "../../utility/gradeUtils";
 import { reportToBlacklist, BLACKLIST_REASONS } from "../../service/BlacklistService";
 import { blockUser, unblockUser, isBlocked as isBlockedCheck } from "../../service/BlockService";
 import { IoShieldOutline, IoBanOutline, IoImageOutline } from "react-icons/io5";
@@ -77,7 +77,7 @@ const BizProfilePage = () => {
     return () => { alive = false; };
   }, [myProfile?.uid]);
   const [activityStats, setActivityStats] = useState({ quoteSent: 0, hireCount: 0 });
-  // 정산 계좌 (캐시백 입금받을 계좌) — 접힘 기본, 클릭 시 입력폼 (형 지시 8/8)
+  // 정산 계좌 (소개수수료 입금받을 계좌) — 접힘 기본, 클릭 시 입력폼 (형 지시 8/8)
   const [account, setAccount] = useState({ bank: "", number: "", holder: "" });
   const [savingAccount, setSavingAccount] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -512,7 +512,7 @@ const BizProfilePage = () => {
                     <ProfileName>{myProfile?.companyName || myProfile?.name || userData?.name || "이름 없음"}</ProfileName>
                   </ProfileNameRow>
                   {/* 등급은 알약 뱃지 대신 이름 밑 글씨로 (시안 4번, 형 9/17) */}
-                  {(() => {
+                  {GRADE_SYSTEM_ENABLED && (() => {
                     const g = myProfile?.grade || userData?.grade || "rookie";
                     return <GradeText $color={GRADE_TEXT_COLOR[g] || THEME.text}>{getGradeRule(g).label} 등급</GradeText>;
                   })()}
@@ -795,7 +795,7 @@ const BizProfilePage = () => {
                     <AccountSub style={{ marginBottom: 0 }}>
                       {myProfile?.account?.number
                         ? `${myProfile.account.bank} ${myProfile.account.number} · ${myProfile.account.holder}`
-                        : "캐시백·정산금을 입금받을 계좌를 등록하세요"}
+                        : "소개수수료·정산금을 입금받을 계좌를 등록하세요"}
                     </AccountSub>
                   </div>
                   {accountOpen

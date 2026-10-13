@@ -18,7 +18,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { firebaseApp, FUNCTIONS_REGION } from "../api/config";
 import {
-  TOSS_CLIENT_KEY, TOSS_SUCCESS_PATH, TOSS_FAIL_PATH, TOSS_BILLING_SUCCESS_PATH,
+  TOSS_CLIENT_KEY, TOSS_BILLING_CLIENT_KEY, TOSS_SUCCESS_PATH, TOSS_FAIL_PATH, TOSS_BILLING_SUCCESS_PATH,
   PAY_SESSION_KEY, makeCustomerKey,
 } from "../utility/tossConfig";
 
@@ -125,16 +125,18 @@ export async function confirmPayment({ paymentKey, orderId, amount }) {
  * purpose 를 successUrl 쿼리에 실어 보내는 이유: 앱 WebView 가 복귀 중 리로드되면 sessionStorage 가 비는 경우가 있어
  * 세션에만 기대면 돌아와서 무엇을 등록하던 중인지 잃어버린다. 세션에도 같이 남겨 둘 다로 읽는다.
  */
-export async function requestBillingAuth({ customerKey, customerName, customerEmail, purpose = "insurance_monthly" }) {
+export async function requestBillingAuth({ customerKey, customerName, customerEmail, purpose = "insurance_monthly", planId }) {
   const key = makeCustomerKey(customerKey);
   if (!key) throw new Error("로그인 정보가 없습니다.");
-  savePaySession({ purpose, refId: null, tossOrderId: null });
-  const toss = await loadTossPayments(TOSS_CLIENT_KEY);
+  // 구독 상품(planId)은 주소와 세션(refId 자리) 양쪽에 실어 보낸다 — 돌아와서 어떤 상품인지 잃지 않게
+  savePaySession({ purpose, refId: planId || null, tossOrderId: null });
+  // 자동결제는 결제위젯 키가 아니라 API 개별 연동 키로 연다
+  const toss = await loadTossPayments(TOSS_BILLING_CLIENT_KEY);
   const payment = toss.payment({ customerKey: key });
   const origin = window.location.origin;
   await payment.requestBillingAuth({
     method: "CARD",
-    successUrl: `${origin}${TOSS_BILLING_SUCCESS_PATH}?purpose=${encodeURIComponent(purpose)}`,
+    successUrl: `${origin}${TOSS_BILLING_SUCCESS_PATH}?purpose=${encodeURIComponent(purpose)}${planId ? `&plan=${encodeURIComponent(planId)}` : ""}`,
     failUrl: `${origin}${TOSS_FAIL_PATH}`,
     customerEmail: customerEmail || undefined,
     customerName: customerName || undefined,
@@ -145,10 +147,10 @@ export async function requestBillingAuth({ customerKey, customerName, customerEm
  * 빌링키 발급 + 첫 달 승인 + policy 생성 (서버 tossBillingIssue).
  * 서버 반환(확정): { ok, resumed, policyId, paymentId, amount, endAt(ISO), nextChargeAt(ISO), cardCompany, cardNumberMasked }
  */
-export async function issueBilling({ authKey, customerKey, purpose = "insurance_monthly" }) {
+export async function issueBilling({ authKey, customerKey, purpose = "insurance_monthly", planId }) {
   if (!authKey || !customerKey) throw new Error("카드 등록 정보를 받지 못했습니다.");
   try {
-    const res = await call("tossBillingIssue")({ authKey, customerKey, purpose });
+    const res = await call("tossBillingIssue")({ authKey, customerKey, purpose, planId: planId || null });
     clearPaySession();
     return res?.data || {};
   } catch (e) {

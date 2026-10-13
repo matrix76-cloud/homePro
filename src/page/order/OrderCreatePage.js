@@ -24,6 +24,9 @@ import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC } from "../../pc/pcKit";
 
 const MAX_PHOTOS = 4;
+// 금액을 입력받는 단가유형 (도급·매매는 금액 입력 없음 — 대표 10/7)
+const AMOUNT_PRICE_TYPES = ["fixed", "balance", "hpoint"];
+const INSURANCE_PREFER_TEXT = "안심 시공을 위해 도급배상책임보험 가입 업체(또는 가입 희망자)의 매칭을 선호합니다";
 const RESIZE_PX = 350;
 const JPEG_QUALITY = 0.7;
 
@@ -625,6 +628,7 @@ export const OrderCreateContent = () => {
   const [spaceFields, setSpaceFields] = useState({});
   const [detail, setDetail] = useState("");
   const [callFirst, setCallFirst] = useState(false);
+  const [insurancePreferred, setInsurancePreferred] = useState(false); // 보험 가입 업체 매칭 선호 (대표 10/2) — 강제가 아니라 요청 문구
   const [schedule, setSchedule] = useState("");
   const [address, setAddress] = useState("");
   const [priceType, setPriceType] = useState("");
@@ -670,13 +674,14 @@ export const OrderCreateContent = () => {
   const [referralFeeFixed, setReferralFeeFixed] = useState("");
   const [referralFeeFixedCustom, setReferralFeeFixedCustom] = useState("");
   const [referralFeeRate, setReferralFeeRate] = useState("");
+  const [referralFeeTimes, setReferralFeeTimes] = useState(""); // 배수 (정기청소 전용)
   // H-포인트 지급액 (대표 지시 8/6: 지급방법 블록을 없애고 유형에 H-포인트를 넣음)
   const [referralFeeHpoint, setReferralFeeHpoint] = useState("");
   const [referralFeeHpointCustom, setReferralFeeHpointCustom] = useState("");
   const [matchType, setMatchType] = useState("");
   // 보험 조건 — 기본 선택(홈프로 자유). 필수로 고르면 배정 뒤 홈프로가 건당·월·년 중 가입해야 체크인 (대표 9/15 카톡 8번)
   const [insuranceRequired, setInsuranceRequired] = useState(false);
-  // 셀프 등록 오더 — 앱 밖에서 수주한 일을 본인이 등록해 보험·현장기록만 쓰는 오더 (대표 8/20). 캐시백·매칭 없음
+  // 셀프 등록 오더 — 앱 밖에서 수주한 일을 본인이 등록해 보험·현장기록만 쓰는 오더 (대표 8/20). 소개수수료·매칭 없음
   // 대표 9/15 리뷰: 예약접수의 '등록 방식' 칸 삭제 → 안심케어 [셀프보장등록] 버튼이 /order/create?self=1 로 연다
   const [selfOrder, setSelfOrder] = useState(() => {
     try { return new URLSearchParams(window.location.search).get("self") === "1"; } catch { return false; }
@@ -774,6 +779,8 @@ export const OrderCreateContent = () => {
         else { setReferralFeeFixed("custom"); setReferralFeeFixedCustom(String(amt)); }
       } else if (editOrder.referralFee.type === "rate") {
         setReferralFeeRate(String(editOrder.referralFee.rate));
+      } else if (editOrder.referralFee.type === "multiple") {
+        setReferralFeeTimes(String(editOrder.referralFee.times || ""));
       } else if (editOrder.referralFee.type === "hpoint") {
         const amt = Number(editOrder.referralFee.point) || 0;
         if (COMMON_B2B_FIELDS.referralFee.hpointAmounts.includes(amt)) setReferralFeeHpoint(String(amt));
@@ -783,6 +790,7 @@ export const OrderCreateContent = () => {
     setMatchType(editOrder.matchType || "");
     setSelfOrder(!!editOrder.selfOrder);
     setInsuranceRequired(editOrder.insuranceRequired === true);
+    setInsurancePreferred(editOrder.insurancePreferred === true);
     setDirectPhone(editOrder.directPhone || "");
   }, [editOrder]);
 
@@ -857,6 +865,64 @@ export const OrderCreateContent = () => {
   // 건물유형 섹션을 아예 쓰지 않는 카테고리 — 대체 노출되는 공간유형까지 함께 끈다 (대표 지시 8/6)
   const hideBuildingType = !!detailConfig?.noBuildingType;
   // 지금 화면에 실제로 떠 있는 입력 필드 (숨은 필드의 잔여값이 저장·미리보기에 새지 않게)
+  // inputSections 한 묶음 렌더 — afterItems 묶음(부분청소 개소)은 종목 선택 바로 아래, 나머지는 옵션·건물유형 뒤
+  const renderInputSection = (sec) => {
+            // 필드 단위 조건 (대표 지시 8/7)
+            //  whenAttr       : 위 속성에서 그 값을 골랐을 때만 (숙련도별 인원)
+            //  hideWhenChecked: 같은 섹션의 체크 필드가 켜져 있으면 숨김 (현장 직행 시 픽업장소)
+            const fields = sec.fields.filter((f) => {
+              if (f.whenAttr && !(attrValues[f.whenAttr.key] || []).includes(f.whenAttr.value)) return false;
+              if (f.hideWhenChecked && inputValues[sec.key]?.[f.hideWhenChecked] === "예") return false;
+              return true;
+            });
+            if (!fields.length) return null;
+            return (
+            <Section key={sec.key}>
+              <Label>{sec.label}</Label>
+              <FieldsGrid>
+              {fields.map((f) => {
+                const val = inputValues[sec.key]?.[f.key] ?? "";
+                const setVal = (v) => setInputValues((prev) => ({
+                  ...prev,
+                  [sec.key]: { ...(prev[sec.key] || {}), [f.key]: v },
+                }));
+                if (f.type === "check") {
+                  return (
+                    <CheckRow key={f.key} style={{ marginBottom: 12 }}>
+                      <input type="checkbox" checked={val === "예"} onChange={(e) => setVal(e.target.checked ? "예" : "")} />
+                      {f.label}
+                    </CheckRow>
+                  );
+                }
+                return (
+                  <FieldRow key={f.key} $wide={f.type === "select"} $span2={!["number", "date", "time", "select"].includes(f.type)}>
+                    <InputFieldLabel>{f.label}</InputFieldLabel>
+                    {f.type === "select" ? (
+                      <ChipGrid style={{ flex: 1 }}>
+                        {f.options.map((opt) => (
+                          <Chip key={opt} $selected={val === opt} onClick={() => setVal(val === opt ? "" : opt)}>{opt}</Chip>
+                        ))}
+                      </ChipGrid>
+                    ) : (
+                      <Input
+                        type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"}
+                        min={f.type === "number" ? "0" : undefined}
+                        inputMode={f.type === "number" ? "numeric" : undefined}
+                        placeholder={f.placeholder || ""}
+                        value={val}
+                        onChange={(e) => setVal(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                    )}
+                    {f.unit && f.type !== "select" ? <FieldUnit>{f.unit}</FieldUnit> : null}
+                  </FieldRow>
+                );
+              })}
+              </FieldsGrid>
+            </Section>
+            );
+  };
+
   const visibleFieldsOf = (sec) => sec.fields.filter((f) => {
     if (f.whenAttr && !(attrValues[f.whenAttr.key] || []).includes(f.whenAttr.value)) return false;
     if (f.hideWhenChecked && inputValues[sec.key]?.[f.hideWhenChecked] === "예") return false;
@@ -967,15 +1033,22 @@ export const OrderCreateContent = () => {
   // 금액이 정해진 유형(시공금액·잔금)만 선결제 가능 — H-포인트 유형은 대금이 H-포인트라 결제방식 칸 자체가 없다 (형 확정 9/12)
   const isPricedType = COMMON_B2B_FIELDS.priceType.pricedTypes.includes(b2bPriceType);
   const isInfoType = b2bPriceType === "info";
-  // 잔금 유형은 캐시백 없음 — 접수자가 선수금으로 몫을 이미 챙긴 셈 (대표 확정 9/13)
+  // 카테고리 한정 선택지(정기청소 전용 도급·매매·배수) 거르기
+  const forThisCategory = (o) => !o.onlyCategories || o.onlyCategories.includes(selectedCategory);
+  useEffect(() => {
+    if (selectedCategory === "regular_cleaning") return;
+    if (b2bPriceType === "contract" || b2bPriceType === "sale") setB2bPriceType("");
+    if (referralFeeType === "multiple") setReferralFeeType("none");
+  }, [selectedCategory, b2bPriceType, referralFeeType]);
+  // 잔금 유형은 소개수수료 없음 — 접수자가 선수금으로 몫을 이미 챙긴 셈 (대표 확정 9/13)
   const isBalanceType = b2bPriceType === "balance";
-  // 캐시백 정률 상한 — 선결제 30% · 후불 15% (결제방식 안 골랐으면 후불 기준)
-  // 캐시백 상한 없음 — 대표 9/12 회신 "소개비 상한 수치 해당 없습니다". rateCap 은 구 오더 호환용으로만 남김
+  // 소개수수료 정률 상한 — 선결제 30% · 후불 15% (결제방식 안 골랐으면 후불 기준)
+  // 소개수수료 상한 없음 — 대표 9/12 회신 "소개비 상한 수치 해당 없습니다". rateCap 은 구 오더 호환용으로만 남김
   const referralRateCap = Infinity;
   const referralRates = COMMON_B2B_FIELDS.referralFee.rates.filter((r) => r <= referralRateCap);
   // 유형이 바뀌어 선결제가 불가능해지면 결제방식 초기화, 상한 넘는 정률은 지운다
   useEffect(() => { if (payMode === "prepay" && !isPricedType) setPayMode(""); }, [isPricedType, payMode]);
-  // 단가유형 H-포인트 = 대금을 H-포인트로 받는 오더: 캐시백도 H-포인트로 고정, 결제방식(선결제/후불)은 없음. 다른 유형으로 바꾸면 H-포인트 캐시백은 해제 (형 확정 9/12)
+  // 단가유형 H-포인트 = 대금을 H-포인트로 받는 오더: 소개수수료도 H-포인트로 고정, 결제방식(선결제/후불)은 없음. 다른 유형으로 바꾸면 H-포인트 소개수수료는 해제 (형 확정 9/12)
   useEffect(() => {
     if (b2bPriceType === "hpoint") { if (referralFeeType !== "hpoint") setReferralFeeType("hpoint"); if (payMode) setPayMode(""); }
     else if (referralFeeType === "hpoint") setReferralFeeType("none");
@@ -991,6 +1064,7 @@ export const OrderCreateContent = () => {
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
+    if (referralFeeType === "multiple" && !(Number(referralFeeTimes) > 0)) { showToast("소개수수료 배수를 숫자로 입력해주세요"); return false; }
     if (b2bPriceType === "info") {
       const inc = COMMON_B2B_FIELDS.infoIncentive;
       if (infoIncType === "fixed") {
@@ -1054,12 +1128,14 @@ export const OrderCreateContent = () => {
 
       const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
       const writerPhoto = userData?.profileImage || userData?.photoURL || user?.USERINFO?.userimg || "";
-      // 캐시백 값 계산
+      // 소개수수료 값 계산
       let referralFeeValue = null;
       if (referralFeeType === "fixed") {
         referralFeeValue = { type: "fixed", amount: referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed) };
       } else if (referralFeeType === "rate") {
         referralFeeValue = { type: "rate", rate: Number(referralFeeRate) };
+      } else if (referralFeeType === "multiple") {
+        referralFeeValue = { type: "multiple", times: Number(referralFeeTimes) };
       } else if (referralFeeType === "hpoint") {
         referralFeeValue = { type: "hpoint", point: referralFeeHpoint === "custom" ? Number(referralFeeHpointCustom) : Number(referralFeeHpoint) };
       }
@@ -1107,9 +1183,9 @@ export const OrderCreateContent = () => {
         directPrice: priceType === "direct" ? directPrice : "",
         // 금액 표기 = 단가유형 기준 (예: "시공금액 330,000원" / "현장견적" / "견적요청")
         price: (() => {
-          const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", info: "정보공유" };
+          const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", info: "정보공유", contract: "도급", sale: "매매" };
           const label = map[b2bPriceType] || "견적요청";
-          if ((b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") && b2bPriceAmount) {
+          if (AMOUNT_PRICE_TYPES.includes(b2bPriceType) && b2bPriceAmount) {
             return `${label} ${Number(b2bPriceAmount).toLocaleString()}${b2bPriceType === "hpoint" ? "P" : "원"}`;
           }
           return label;
@@ -1135,16 +1211,17 @@ export const OrderCreateContent = () => {
           ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : { type: "fixed", amount: Number(infoIncFixed) })
           : null,
         b2bPriceType: b2bPriceType || null,
-        b2bPriceAmount: (b2bPriceType === "fixed" || b2bPriceType === "balance" || b2bPriceType === "hpoint") ? Number(b2bPriceAmount) || null : null,
+        b2bPriceAmount: AMOUNT_PRICE_TYPES.includes(b2bPriceType) ? Number(b2bPriceAmount) || null : null,
         referralFee: referralFeeType === "none" || isInfoType ? null : referralFeeValue,
         // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
         referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
         matchType: selfOrder ? null : (matchType || null),
         insuranceRequired: !selfOrder && !isInfoType && insuranceRequired,
+        insurancePreferred: !selfOrder && !isInfoType && insurancePreferred,
         directPhone: !selfOrder && matchType === "direct" ? directPhone : null,
         orderStatus: asWaiting ? "대기" : "접수",
       };
-      // 셀프 등록 오더: 등록자 본인이 홈프로. 바로 배정 상태로 두고 메인 목록(접수)에는 안 나온다. 캐시백 없음.
+      // 셀프 등록 오더: 등록자 본인이 홈프로. 바로 배정 상태로 두고 메인 목록(접수)에는 안 나온다. 소개수수료 없음.
       if (selfOrder) {
         const me = user?.uid || userData?.uid || "";
         Object.assign(orderPayload, { selfOrder: true, matchedProUid: me, orderStatus: "배정", assignedAt: serverTimestamp(), referralFee: null, referralPayMethod: null, matchType: null, directPhone: null });
@@ -1215,7 +1292,7 @@ export const OrderCreateContent = () => {
     if (b2bPriceType) {
       const ptLabel = labelOf(COMMON_B2B_FIELDS.priceType.options, b2bPriceType);
       const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
-      const amt = b2bPriceAmount ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : "";
+      const amt = (opt?.hasInput && b2bPriceAmount) ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : "";
       items.push({ k: "단가유형", v: `${ptLabel}${amt}` });
     }
     if (isInfoType) {
@@ -1229,14 +1306,17 @@ export const OrderCreateContent = () => {
         v = `정액 ${Number(amt || 0).toLocaleString()}원`;
       } else if (referralFeeType === "rate") {
         v = `정률 ${referralFeeRate}%`;
+      } else if (referralFeeType === "multiple") {
+        v = `${referralFeeTimes}배수`;
       } else if (referralFeeType === "hpoint") {
         const pt = referralFeeHpoint === "custom" ? referralFeeHpointCustom : referralFeeHpoint;
         v = `H-포인트 ${Number(pt || 0).toLocaleString()}P`;
       }
-      items.push({ k: "캐시백", v });
+      items.push({ k: "소개수수료", v });
     }
     if (selfOrder) items.push({ k: "등록 방식", v: "셀프보장등록 (내가 직접 수주한 일)" });
-    if (!selfOrder && !isInfoType) items.push({ k: "도급배상책임보험", v: insuranceRequired ? "보험가입 필수" : "선택 (홈프로 자유)" });
+    if (!selfOrder && !isInfoType && insuranceRequired) items.push({ k: "도급배상책임보험", v: "보험가입 필수" });
+    if (insurancePreferred) items.push({ k: "보험 가입 업체 선호", v: "예" });
     if (matchType && !selfOrder) {
       const mt = labelOf(COMMON_B2B_FIELDS.matchType.options, matchType);
       items.push({ k: "홈프로 선택", v: matchType === "direct" && directPhone ? `${mt} → ${directPhone}` : mt });
@@ -1254,7 +1334,7 @@ export const OrderCreateContent = () => {
   const pcPriceText = (() => {
     if (!b2bPriceType) return "";
     const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
-    return `${opt?.label || ""}${b2bPriceAmount ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : ""}`;
+    return `${opt?.label || ""}${(opt?.hasInput && b2bPriceAmount) ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : ""}`;
   })();
   // PC 는 본문 단 안쪽이 스크롤된다 — 단계가 바뀌면 그 단을 맨 위로 (폰의 window.scrollTo 와 같은 역할)
   useEffect(() => {
@@ -1446,7 +1526,7 @@ export const OrderCreateContent = () => {
               <ChipGrid>
                 {(selectedService
                   ? formConfig.subGroups.filter((g) => g.label === selectedService)
-                  : formConfig.subGroups.filter((g) => g.label !== "기타")
+                  : formConfig.subGroups /* '기타'도 서비스로 고를 수 있다 — 고르면 바로 내용 입력칸 (대표 10/2) */
                 ).map((group) => (
                   <Chip
                     key={group.label}
@@ -1455,6 +1535,7 @@ export const OrderCreateContent = () => {
                       const off = selectedService === group.label;
                       setSelectedService(off ? "" : group.label);
                       if (off) { setSelectedSub([]); setCustomInput(""); }
+                      else if (group.label === "기타") { setSelectedSub(["기타:기타"]); setCustomInput(""); }
                     }}
                   >
                     {group.label}
@@ -1590,6 +1671,9 @@ export const OrderCreateContent = () => {
             </Section>
           )}
 
+          {/* 종목에 딸린 수량 입력(부분청소 개소)은 옵션보다 먼저 (대표 9/21) */}
+          {showDetail && visibleInputSections.filter((sec) => sec.afterItems).map(renderInputSection)}
+
           {/* 옵션 선택 */}
           {showDetail && detailConfig?.options && detailConfig.options.length > 0 && (
             <Section>
@@ -1633,62 +1717,7 @@ export const OrderCreateContent = () => {
 
           {/* 직접 입력이 필요한 항목 (주소·수량·치수·차량정보·생년월일 등)
               config 의 inputSections 를 타입별 입력칸으로 렌더 (대표 사양서 7/28) */}
-          {showDetail && visibleInputSections.map((sec) => {
-            // 필드 단위 조건 (대표 지시 8/7)
-            //  whenAttr       : 위 속성에서 그 값을 골랐을 때만 (숙련도별 인원)
-            //  hideWhenChecked: 같은 섹션의 체크 필드가 켜져 있으면 숨김 (현장 직행 시 픽업장소)
-            const fields = sec.fields.filter((f) => {
-              if (f.whenAttr && !(attrValues[f.whenAttr.key] || []).includes(f.whenAttr.value)) return false;
-              if (f.hideWhenChecked && inputValues[sec.key]?.[f.hideWhenChecked] === "예") return false;
-              return true;
-            });
-            if (!fields.length) return null;
-            return (
-            <Section key={sec.key}>
-              <Label>{sec.label}</Label>
-              <FieldsGrid>
-              {fields.map((f) => {
-                const val = inputValues[sec.key]?.[f.key] ?? "";
-                const setVal = (v) => setInputValues((prev) => ({
-                  ...prev,
-                  [sec.key]: { ...(prev[sec.key] || {}), [f.key]: v },
-                }));
-                if (f.type === "check") {
-                  return (
-                    <CheckRow key={f.key} style={{ marginBottom: 12 }}>
-                      <input type="checkbox" checked={val === "예"} onChange={(e) => setVal(e.target.checked ? "예" : "")} />
-                      {f.label}
-                    </CheckRow>
-                  );
-                }
-                return (
-                  <FieldRow key={f.key} $wide={f.type === "select"} $span2={!["number", "date", "time", "select"].includes(f.type)}>
-                    <InputFieldLabel>{f.label}</InputFieldLabel>
-                    {f.type === "select" ? (
-                      <ChipGrid style={{ flex: 1 }}>
-                        {f.options.map((opt) => (
-                          <Chip key={opt} $selected={val === opt} onClick={() => setVal(val === opt ? "" : opt)}>{opt}</Chip>
-                        ))}
-                      </ChipGrid>
-                    ) : (
-                      <Input
-                        type={f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text"}
-                        min={f.type === "number" ? "0" : undefined}
-                        inputMode={f.type === "number" ? "numeric" : undefined}
-                        placeholder={f.placeholder || ""}
-                        value={val}
-                        onChange={(e) => setVal(e.target.value)}
-                        style={{ flex: 1 }}
-                      />
-                    )}
-                    {f.unit && f.type !== "select" ? <FieldUnit>{f.unit}</FieldUnit> : null}
-                  </FieldRow>
-                );
-              })}
-              </FieldsGrid>
-            </Section>
-            );
-          })}
+          {showDetail && visibleInputSections.filter((sec) => !sec.afterItems).map(renderInputSection)}
 
           {/* 면적 입력 */}
           {showDetail && detailConfig?.areaInput && (
@@ -1729,6 +1758,12 @@ export const OrderCreateContent = () => {
               <input type="checkbox" checked={callFirst} onChange={(e) => { setCallFirst(e.target.checked); if (e.target.checked) setDetail((prev) => prev + "\n전화먼저 주세요!"); }} />
               전화먼저 주세요!
             </CheckRow>
+            {!selfOrder && !isInfoType && userData?.pgReview !== true && (
+            <CheckRow style={{ alignItems: "flex-start", lineHeight: 1.45 }}>
+              <input type="checkbox" style={{ flexShrink: 0, marginTop: 4 }} checked={insurancePreferred} onChange={(e) => { setInsurancePreferred(e.target.checked); if (e.target.checked) setDetail((prev) => prev + "\n" + INSURANCE_PREFER_TEXT); else setDetail((prev) => prev.replace("\n" + INSURANCE_PREFER_TEXT, "").replace(INSURANCE_PREFER_TEXT, "")); }} />
+              {INSURANCE_PREFER_TEXT}
+            </CheckRow>
+            )}
           </Section>
 
           {/* 현장사진등록 */}
@@ -1805,7 +1840,7 @@ export const OrderCreateContent = () => {
             <Label>{COMMON_B2B_FIELDS.workTime.label}</Label>
             <ChipGrid>
               {COMMON_B2B_FIELDS.workTime.options.map((opt) => (
-                <Chip key={opt} $selected={workTimeMode === opt} onClick={() => setWorkTimeMode(opt)}>{opt}</Chip>
+                <Chip key={opt} $selected={workTimeMode === opt} onClick={() => { setWorkTimeMode(opt); if (opt === "작업시작 설정" && !workTimeStart) setWorkTimeStart("08:00"); }}>{opt}</Chip>
               ))}
             </ChipGrid>
             {workTimeMode === "작업시작 설정" && (() => {
@@ -1840,16 +1875,16 @@ export const OrderCreateContent = () => {
             <Label>연락처</Label>
             <ContactGrid>
             <div>
-            {pcWide && <div style={{ fontSize: 14, fontWeight: 700, color: "#14181F", margin: "0 0 9px" }}>접수자(본인) — 인증된 번호</div>}
+            {pcWide && <div style={{ fontSize: 14, fontWeight: 700, color: "#14181F", margin: "0 0 9px" }}>접수자 — 인증된 번호</div>}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: THEME.background, borderRadius: 10, fontSize: 16, color: THEME.text, ...(pcWide ? { height: 48, boxSizing: "border-box" } : null) }}>
               <span style={{ color: THEME.success }}>✓</span>
-              <span style={{ color: THEME.muted }}>접수자(본인)</span>
+              <span style={{ color: THEME.muted }}>접수자</span>
               <span style={{ fontWeight: 600 }}>{contactPhone || "인증된 번호"}</span>
             </div>
             </div>
             <div>
-            <div style={pcWide ? { fontSize: 14, fontWeight: 700, color: "#14181F", margin: "0 0 9px" } : { fontSize: 15, color: THEME.muted, margin: "12px 0 6px" }}>고객(실무자) — 통화연결용</div>
-            <Input type="tel" placeholder="고객 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+            <div style={pcWide ? { fontSize: 14, fontWeight: 700, color: "#14181F", margin: "0 0 9px" } : { fontSize: 15, color: THEME.muted, margin: "12px 0 6px" }}>고객 또는 실무자</div>
+            <Input type="tel" placeholder="고객 또는 실무자 전화번호 (선택)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
             </div>
             </ContactGrid>
           </Section>
@@ -1859,10 +1894,10 @@ export const OrderCreateContent = () => {
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.priceType.label}</Label>
-              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "단가유형 안내", items: COMMON_B2B_FIELDS.priceType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "단가유형 안내", items: COMMON_B2B_FIELDS.priceType.options.filter(forThisCategory).map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
             </LabelRow>
             <ChipGrid $min={110} style={{ marginTop: 12 }}>
-              {COMMON_B2B_FIELDS.priceType.options.filter((opt) => !selfOrder || opt.value === "fixed").map((opt) => (
+              {COMMON_B2B_FIELDS.priceType.options.filter(forThisCategory).filter((opt) => !selfOrder || opt.value === "fixed").map((opt) => (
                 <Chip key={opt.value} $selected={b2bPriceType === opt.value} onClick={() => setB2bPriceType(opt.value)}>{opt.label}</Chip>
               ))}
             </ChipGrid>
@@ -1921,18 +1956,18 @@ export const OrderCreateContent = () => {
               </ChipGrid>
               {payMode === "prepay" && (
                 <div style={{ marginTop: 10, fontSize: 15, color: THEME.muted, lineHeight: 1.5 }}>
-                  홈프로가 수락하면 결제 요청이 옵니다. 결제한 금액은 작업 완료 후 수행 홈프로에게 지급되고, 캐시백은 접수자에게 돌아옵니다.
+                  홈프로가 수락하면 결제 요청이 옵니다. 결제한 금액은 작업 완료 후 수행 홈프로에게 지급되고, 소개수수료는 접수자에게 돌아옵니다.
                 </div>
               )}
             </Section>
           )}
 
-          {/* 캐시백 — 정보공유 유형은 자체 보상이 있어 숨긴다 */}
-          {/* 셀프 등록 — 앱 밖 수주 건을 본인이 등록 (대표 8/20 보험 기획). 켜면 캐시백·홈프로 선택은 숨긴다 */}
+          {/* 소개수수료 — 정보공유 유형은 자체 보상이 있어 숨긴다 */}
+          {/* 셀프 등록 — 앱 밖 수주 건을 본인이 등록 (대표 8/20 보험 기획). 켜면 소개수수료·홈프로 선택은 숨긴다 */}
           {selfOrder && !isEdit && (
           <Section>
             <Label>셀프보장등록</Label>
-            <div style={{ fontSize: 15, color: THEME.text, lineHeight: 1.5 }}>앱 밖에서 직접 수주한 일을 등록합니다. 등록하면 바로 나의오더현황에 배정 상태로 들어가고, 현장 체크인·체크아웃 기록으로 보험 적용을 받을 수 있습니다. 캐시백·홈프로 선택은 없습니다.</div>
+            <div style={{ fontSize: 15, color: THEME.text, lineHeight: 1.5 }}>앱 밖에서 직접 수주한 일을 등록합니다. 등록하면 바로 나의오더현황에 배정 상태로 들어가고, 현장 체크인·체크아웃 기록으로 보험 적용을 받을 수 있습니다. 소개수수료·홈프로 선택은 없습니다.</div>
           </Section>
           )}
 
@@ -1940,13 +1975,13 @@ export const OrderCreateContent = () => {
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>
-              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "소개(캐시백)수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
+              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "소개수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
             </LabelRow>
             {b2bPriceType === "hpoint" ? (
-              <div style={{ fontSize: 15, color: THEME.text, margin: "10px 0 12px", lineHeight: 1.5 }}>접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 캐시백이 자동 지급됩니다.</div>
+              <div style={{ fontSize: 15, color: THEME.text, margin: "10px 0 12px", lineHeight: 1.5 }}>접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 소개수수료가 자동 지급됩니다.</div>
             ) : (
             <ChipGrid style={{ marginTop: 12, marginBottom: 12 }}>
-              {COMMON_B2B_FIELDS.referralFee.types.map((t) => (
+              {COMMON_B2B_FIELDS.referralFee.types.filter(forThisCategory).map((t) => (
                 <Chip key={t.value} $selected={referralFeeType === t.value} onClick={() => setReferralFeeType(t.value)}>{t.label}</Chip>
               ))}
             </ChipGrid>
@@ -1966,13 +2001,19 @@ export const OrderCreateContent = () => {
                 )}
               </>
             )}
+            {referralFeeType === "multiple" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Input style={{ flex: 1 }} type="number" min="0" step="0.1" inputMode="decimal" placeholder="숫자 입력" value={referralFeeTimes} onChange={(e) => setReferralFeeTimes(e.target.value)} />
+                <span style={{ fontSize: 16, color: THEME.text, flexShrink: 0 }}>배수</span>
+              </div>
+            )}
             {referralFeeType === "rate" && (
               <ChipGrid>
                 {referralRates.map((r) => (
                   <Chip key={r} $selected={referralFeeRate === String(r)} onClick={() => setReferralFeeRate(String(r))}>{r}%</Chip>
                 ))}
                 <div style={{ width: "100%", fontSize: 14, color: THEME.muted, marginTop: 4 }}>
-                  캐시백 비율은 당사자끼리 정합니다 (상한 없음)
+                  소개수수료 비율은 당사자끼리 정합니다 (상한 없음)
                 </div>
               </ChipGrid>
             )}
@@ -1994,20 +2035,8 @@ export const OrderCreateContent = () => {
           </Section>
           )}
 
-          {/* 보험 조건 — 대표 9/15 카톡 8번. 셀프보장등록·정보공유는 없음 */}
-          {!selfOrder && !isInfoType && (
-          <Section $half>
-            <LabelRow>
-              <Label style={{ marginBottom: 0 }}>도급배상책임보험</Label>
-              {/* 안내 문구 = 대표 9/15 리뷰 원문 */}
-              <HelpBtn type="button" onClick={() => setHelpPopup({ title: "도급배상책임보험 안내", text: "오더를 등록하는 발주자(고객)가 현장 작업중 사고 위험에 대비해 작업자의 보험 가입 조건을 직접 선택할 수 있습니다.\n\n보험가입 선택하시면 현장 안전을 책임지는 안심 배지 보유 기사님이나 건당 안심보험을 활성화한 기사님만 현장에 투입되어 안심하고 맡기실 수 있습니다." })}>?</HelpBtn>
-            </LabelRow>
-            <ChipGrid style={{ marginTop: 12 }}>
-              <Chip $selected={!insuranceRequired} onClick={() => setInsuranceRequired(false)}>선택</Chip>
-              <Chip $selected={insuranceRequired} onClick={() => setInsuranceRequired(true)}>보험가입 필수</Chip>
-            </ChipGrid>
-          </Section>
-          )}
+          {/* 보험 조건(선택/보험가입 필수) 칸은 뺐다 — 오픈 초기에 제한을 두지 않는다 (대표 10/2).
+              대신 상세 요청내용에 '보험 가입 업체 선호' 체크를 둔다. 예전에 필수로 접수된 오더는 수정해도 그대로 유지 */}
 
           {/* 홈프로 선택 — 셀프 등록이면 없음 */}
           {!selfOrder && (

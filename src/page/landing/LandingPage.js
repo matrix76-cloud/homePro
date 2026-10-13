@@ -1,13 +1,15 @@
 /**
  * 홈프로 사업자 랜딩 /intro — 대표 초안 문구 그대로 (리뷰 9/17)
- *  히어로 → 01 오더를 주고받다 → 02 소개수수료 → 03 PG 결제 → 04 배상책임보험
- *  → 홈프로 하나로 → 사업자의 새로운 일하는 방식 → 마무리 [사업자 가입하기]
- * - 문구는 대표 초안에서 바꾸지 않는다.
+ *  히어로 → 01 오더를 주고받다 → 02 소개수수료 → 03 PG 결제 → 04 배상책임보험 → 05 비즈니스 에코시스템(대표 10/1 추가)
+ *  → 홈프로 하나로 → 사업자의 새로운 일하는 방식 → 마무리 [로그인 하기]
+ * - 문구는 대표 초안에서 바꾸지 않는다. 단 버튼은 [로그인 하기] 하나로 통일 (형 10/1 —
+ *   가입 버튼을 따로 두지 않고, 처음 로그인한 사람이 로그인 뒤에 사업자·개인을 고른다. 초안의 버튼 글은 '사업자 가입하기')
  * - 그림: 폰 목업을 쓰지 않는다(형 9/19). 진짜 화면은 첫 화면의 한 장(orders.png)뿐이고,
  *   01~04 는 화면 조각을 새로 그린 것 — LandingArt.js (시안 랩 /lab?tab=landing 첫 화면 2번 + 섹션 1번)
+ * - 01~05 그림 칸은 화면에 들어올 때 사진이 먼저 자리 잡고 카드가 뒤따라 올라온다 (시안 랩 /lab?tab=landingreveal 3번, 형 10/1)
  * - PC 기준 + 반응형(900px 이하 세로 쌓기)
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { FiArrowDown, FiArrowRight, FiCheck } from 'react-icons/fi';
@@ -18,6 +20,9 @@ import { getAppLinks } from '../../service/AppLinkService';
 import { StoreLink } from './AppDownloadPage';
 import usePcWide from '../../hooks/usePcWide';
 import { PC_HEADER_H } from '../../components/pc/PcHeader';
+
+/* PC 에서만 줄을 바꾼다 — 폰 폭에서는 글이 알아서 접히게 둔다. SECTIONS 가 쓰므로 그 위에 둔다 */
+const PcBr = styled.br` @media (max-width: 900px) { display: none; } `;
 
 const SECTIONS = [
   {
@@ -44,12 +49,26 @@ const SECTIONS = [
     title: '사고위험도 관리하다',
     lead: '일은 잘하는 것만큼, 사고에 대비하는 것도 중요합니다.',
   },
+  {
+    id: 'eco',
+    no: '05',
+    title: '비즈니스 에코시스템',
+    lead: <>일감부터 자산·노하우, 그리고 부동산 협업까지—<PcBr /> 사장님의 사업 성장이 순환하는 생태계</>,
+  },
+];
+
+// 05 의 네 가지 — 대표 문구 그대로 (10/1)
+const ECO = [
+  { k: '거래장터', v: '현장에서 필요한 자재, 장비, 소모품을 알뜰하게 나누고 직거래' },
+  { k: '기술전수 교육등록', v: '실전 노하우를 담은 전문 시공 강의 개설 및 수강생 모집' },
+  { k: '양도·매매', v: '창고, 점포부터 시공 팀, 고정 거래처 DB까지 투명한 비즈니스 인수·인계' },
+  { k: '공동중개', v: '부동산 매물과 손님을 공인중개사 파트너와 투명하고 안전하게 공유하는 협업 네트워크' },
 ];
 
 const ONE = [
   { h: '오더를 받고', s: '새로운 일감을 만나고' },
   { h: '오더를 공유하고', s: '소개수익을 만들고' },
-  { h: '결제를 받고', s: '내 매출을 직접 정산받고' },
+  { h: '결제를 받고', s: '내 매출을 정산받고' },
   { h: '사고에 대비하고', s: '안전하게 사업하세요.' },
 ];
 
@@ -60,6 +79,19 @@ const PHOTOS = [
   { src: '/assets/landing/photo/tools.jpg', label: '집수리' },
   { src: '/assets/landing/photo/clean-room.jpg', label: '정기청소' },
 ];
+
+// 01~05 구역의 그림 칸 — 세로로 긴 현장 사진 위에 화면 조각을 걸친다 (시안 랩 landinggap 2번, 형 10/1).
+// 시안용 무료 사진(public/assets/landing/photo/CREDITS.md). 실제 현장 사진을 받으면 여기 파일 이름만 바꾼다.
+// pos = 사진에서 보여 줄 자리(background-position). 조각이 사진 아래쪽 100px쯤을 덮으니 중요한 부분이 그 위에 오게 잡는다.
+// posM = 폰 폭(사진 높이 300)에서 보여 줄 자리. 없으면 pos 를 그대로 쓴다.
+// minH = 그림 칸 최소 높이. 글이 짧은 구역(05)은 기본 740 이면 글 아래가 비어서 줄여 둔다.
+const SECTION_PHOTO = {
+  order: { src: '/assets/landing/photo/worker-phone.jpg', pos: 'center 88%', posM: 'center 25%', label: '작업장에서 휴대폰으로 오더를 확인하는 사업자' },
+  referral: { src: '/assets/landing/photo/pipe.jpg', pos: '30% center', label: '싱크대 배관을 수리하는 전문사업자' },
+  pay: { src: '/assets/landing/photo/pay-card.jpg', pos: 'center 35%', label: '작업대 위에서 카드로 결제하는 모습' },
+  insurance: { src: '/assets/landing/photo/measure-glove.jpg', pos: 'center 30%', label: '장갑을 끼고 치수를 재는 작업자' },
+  eco: { src: '/assets/landing/photo/tool-wall.jpg', pos: 'center 20%', minH: 600, label: '벽에 가지런히 걸린 작업 공구' },
+};
 
 const WAY = ['오더 공유', '소개수익', 'PG 결제', '직접정산', '배상책임보험'];
 
@@ -86,6 +118,30 @@ const COMPANY_FALLBACK = {
   email: 'homepro3364@gmail.com',
 };
 
+// 01~05 그림 칸 — 화면에 들어오면 사진이 먼저 살짝 당겨지며 자리 잡고, 0.35초 뒤 카드가 그 위로 올라온다.
+// 구역마다 처음 한 번만. 기기에서 '동작 줄이기'를 켠 사람에겐 움직임 없이 보여 준다(아래 스타일의 prefers-reduced-motion).
+const Shot = ({ photo, side, children }) => {
+  const ref = useRef(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !('IntersectionObserver' in window)) { setOn(true); return undefined; }
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setOn(true); io.disconnect(); }
+    }, { threshold: 0.25 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <ShotWrap ref={ref} $minH={photo.minH}>
+      <ShotPhoto role="img" aria-label={photo.label} style={{ '--pos': photo.pos, '--pos-m': photo.posM || photo.pos }}>
+        <ShotPhotoImg $on={on} style={{ backgroundImage: `url(${photo.src})` }} />
+      </ShotPhoto>
+      <ShotPiece $side={side} $on={on}>{children}</ShotPiece>
+    </ShotWrap>
+  );
+};
+
 const LandingPage = () => {
   const navigate = useNavigate();
   const pcWide = usePcWide(); // PC 에서는 앱 공통 위 메뉴(PcHeader)가 이 페이지 헤더를 대신한다
@@ -103,7 +159,6 @@ const LandingPage = () => {
     })();
     return () => { cancelled = true; };
   }, []);
-  const goSignup = () => navigate('/MobileSignup');
   const goLogin = () => navigate('/MobileLogin');
 
   const body = {
@@ -166,7 +221,7 @@ const LandingPage = () => {
           { text: '작업 완료' },
           { text: <>고객에게 <b>카드결제 링크 / 결제창 발송</b></> },
           { text: '고객 카드결제' },
-          { text: '사업자 본인 계좌로 직접정산', strong: true },
+          { text: '홈프로를 거쳐 정산계좌로 정산', strong: true },
         ]} />
         <Punch>내 영업은 내가 하고<br />결제도 간편하게</Punch>
         <P>
@@ -196,6 +251,13 @@ const LandingPage = () => {
         <Fine>※ 보험의 보장범위·면책사항·가입조건은 실제 보험상품의 약관 및 계약조건에 따릅니다.</Fine>
       </>
     ),
+    eco: (
+      <CoverTable>
+        {ECO.map((e) => (
+          <CoverRow key={e.k}><CoverK>{e.k}</CoverK><CoverV>{e.v}</CoverV></CoverRow>
+        ))}
+      </CoverTable>
+    ),
   };
 
   return (
@@ -210,10 +272,10 @@ const LandingPage = () => {
               <a href="#referral">소개수익</a>
               <a href="#pay">PG 결제</a>
               <a href="#insurance">배상책임보험</a>
+              <a href="#eco">비즈니스 에코시스템</a>
             </Menu>
             <HeaderBtns>
-              <OutlineBtn onClick={goLogin}>로그인</OutlineBtn>
-              <PrimaryBtn onClick={goSignup}>사업자 가입하기</PrimaryBtn>
+              <PrimaryBtn onClick={goLogin}>로그인 하기</PrimaryBtn>
             </HeaderBtns>
           </Nav>
         </Inner>
@@ -236,13 +298,14 @@ const LandingPage = () => {
                 사업자의 수익을 더 넓게.
               </H1>
               <Lead>
-                홈프로는 전문사업자들이 오더를 공유하고<br />
-                새로운 수익을 만들며,<br />
-                자신의 고객에게 간편하게 결제받고,<br />
+                {/* 대표 10/1 문구 그대로. 줄바꿈은 PC 에서만 — 폰 폭에서는 글이 알아서 접힌다 */}
+                홈프로는 설비·청소·인테리어부터 특수 시공까지—<PcBr />{' '}
+                28개 전문 카테고리, 300여 이상의 세부 종목의<PcBr />{' '}
+                집 전문가들이 모이는 단 하나의 비즈니스 생태계,<PcBr />{' '}
                 작업 중 사고 위험까지 관리할 수 있도록 돕습니다.
               </Lead>
               <HeroBtns>
-                <PrimaryBtn $lg onClick={goSignup}>사업자 가입하기</PrimaryBtn>
+                <PrimaryBtn $lg onClick={goLogin}>로그인 하기</PrimaryBtn>
                 <OutlineBtn $lg as="a" href="#order">자세히 보기</OutlineBtn>
               </HeroBtns>
             </div>
@@ -261,12 +324,12 @@ const LandingPage = () => {
         </Inner>
       </Hero>
 
-      {/* 01 ~ 04 */}
+      {/* 01 ~ 05 */}
       {SECTIONS.map((s, i) => (
         <Section key={s.id} id={s.id} $alt={i % 2 === 0}>
           <Inner>
             <Row $reverse={i % 2 === 1}>
-              <ShotWrap>{PIECES[s.id]}</ShotWrap>
+              <Shot photo={SECTION_PHOTO[s.id]} side={i % 2 === 1 ? 'right' : 'left'}>{PIECES[s.id]}</Shot>
               <div>
                 <No>{s.no}</No>
                 <H2>{s.title}</H2>
@@ -309,7 +372,9 @@ const LandingPage = () => {
       </Section>
 
       {/* 앱 다운로드 — QR 은 /app(기종에 맞는 스토어로 보내는 이동 페이지)을 가리킨다 (형 9/20) */}
-      <Section id="app" style={{ scrollMarginTop: 68 }}>
+      {/* id 를 "app" 으로 두면 안 된다 — App.js 전역 스타일 "#root, #app { height: 100vh }" 에 걸려
+          이 구역만 화면 높이로 늘어나 아래가 통째로 빈다 (형 10/1 "중간에 비는 부분") */}
+      <Section id="app-download" style={{ scrollMarginTop: 68 }}>
         <Inner>
           <AppRow>
             <div>
@@ -345,7 +410,7 @@ const LandingPage = () => {
             위험까지 관리하는 곳으로.
           </ClosingText>
           <ClosingCta>지금 홈프로에서 시작하세요.</ClosingCta>
-          <ClosingBtn onClick={goSignup}>사업자 가입하기</ClosingBtn>
+          <ClosingBtn onClick={goLogin}>로그인 하기</ClosingBtn>
         </Inner>
       </Closing>
 
@@ -501,20 +566,49 @@ const AppQrBox = styled.div`
 `;
 const AppQrText = styled.div` font-size: 15px; line-height: 1.6; color: ${BODY}; margin-top: 18px; b { display: block; font-size: 17px; color: ${INK}; margin-bottom: 2px; } `;
 
-/* 01~04 */
+/* 01~05 */
 const Section = styled.section`
   padding: 92px 0; background: ${({ $alt }) => ($alt ? ALT_BG : '#fff')};
   @media (max-width: 900px) { padding: 64px 0; }
 `;
 const Row = styled.div`
-  display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 72px; align-items: start;
+  display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 72px; align-items: stretch;
   direction: ${({ $reverse }) => ($reverse ? 'rtl' : 'ltr')};
   & > * { direction: ltr; }
   @media (max-width: 900px) { grid-template-columns: 1fr; gap: 36px; direction: ltr; }
 `;
+/* 그림 칸 — 글 높이만큼 늘어난 칸을 사진이 채우고, 화면 조각이 사진 아래쪽에 걸친다 */
 const ShotWrap = styled.div`
-  display: flex; justify-content: center; position: sticky; top: 100px;
-  @media (max-width: 900px) { position: static; order: 2; }
+  position: relative; min-height: ${({ $minH }) => $minH || 740}px;
+  @media (max-width: 900px) { order: 2; min-height: 0; }
+`;
+const REVEAL_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'; // 빠르게 나와서 천천히 멎는다
+/* 사진 틀 — 안쪽 사진이 당겨질 때 둥근 모서리 밖으로 삐져나오지 않게 여기서 자른다 */
+const ShotPhoto = styled.div`
+  position: absolute; top: 0; left: 0; right: 0; bottom: 190px;
+  border-radius: 16px; overflow: hidden;
+  @media (max-width: 900px) { position: static; height: 300px; }
+`;
+const ShotPhotoImg = styled.div`
+  width: 100%; height: 100%;
+  background-size: cover; background-repeat: no-repeat; background-position: var(--pos, center);
+  opacity: ${({ $on }) => ($on ? 1 : 0)};
+  transform: ${({ $on }) => ($on ? 'none' : 'scale(1.06)')};
+  transition: opacity 0.7s ease, transform 1.1s ${REVEAL_EASE};
+  @media (max-width: 900px) { background-position: var(--pos-m, center); }
+  @media (prefers-reduced-motion: reduce) { opacity: 1; transform: none; transition: none; }
+`;
+/* 조각은 글이 있는 쪽으로 36px 내밀어 사진 밖으로 걸친다 ($side = 그림 칸이 놓인 쪽) */
+const ShotPiece = styled.div`
+  position: absolute; bottom: 0;
+  left: ${({ $side }) => ($side === 'right' ? '-36px' : '36px')};
+  right: ${({ $side }) => ($side === 'right' ? '36px' : '-36px')};
+  filter: drop-shadow(0 16px 30px rgba(20, 24, 31, 0.16));
+  opacity: ${({ $on }) => ($on ? 1 : 0)};
+  transform: ${({ $on }) => ($on ? 'none' : 'translateY(28px)')};
+  transition: opacity 0.6s ease 0.35s, transform 0.8s ${REVEAL_EASE} 0.35s;
+  @media (max-width: 900px) { position: relative; left: auto; right: auto; margin: -84px 16px 0; }
+  @media (prefers-reduced-motion: reduce) { opacity: 1; transform: none; transition: none; }
 `;
 const No = styled.div` font-size: 22px; font-weight: 800; color: ${PRIMARY}; margin-bottom: 10px; `;
 const H2 = styled.h2`
@@ -597,14 +691,19 @@ const WaySep = styled.div`
 `;
 
 /* 마무리 */
-const Closing = styled.section` background: #1b1f27; color: #fff; padding: 96px 0; text-align: center; `;
+/* 마무리 — 먹색 면 대신 현장 사진을 깔고 어둡게 덮는다 (시안 랩 landingclosing 1번, 형 10/1).
+   사진을 못 받아도 글이 읽히게 바탕색은 먹색으로 남긴다. 시안용 무료 사진 — 실제 현장 사진을 받으면 파일만 바꾼다. */
+const Closing = styled.section`
+  color: #fff; padding: 96px 0; text-align: center;
+  background: linear-gradient(rgba(20, 24, 31, 0.72), rgba(20, 24, 31, 0.72)), #1b1f27 url('/assets/landing/photo/tools.jpg') center 40% / cover no-repeat;
+`;
 const ClosingBrand = styled.div` font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 12px; `;
 const ClosingTitle = styled.h2`
   font-size: 40px; font-weight: 800; line-height: 1.3; letter-spacing: -0.02em; margin-bottom: 30px;
   @media (max-width: 900px) { font-size: 29px; }
 `;
-const ClosingText = styled.p` font-size: 22px; font-weight: 700; line-height: 1.75; color: #eef0f3; margin-bottom: 36px; `;
-const ClosingCta = styled.p` font-size: 21px; font-weight: 600; color: #eef0f3; margin-bottom: 20px; `;
+const ClosingText = styled.p` font-size: 22px; font-weight: 700; line-height: 1.75; color: #fff; margin-bottom: 36px; `;
+const ClosingCta = styled.p` font-size: 21px; font-weight: 600; color: #fff; margin-bottom: 20px; `;
 const ClosingBtn = styled.button`
   border: none; cursor: pointer; background: #fff; color: ${INK}; font-family: inherit;
   font-size: 19px; font-weight: 800; padding: 18px 40px; border-radius: 10px;

@@ -29,7 +29,7 @@ const {
     REGION, POLICIES, PAYMENTS, USERS, DEFAULT_PLANS,
     db, tsNow, toDate, addMonths, addYears,
     loadInsuranceSettings, perOrderPremium, resolveCaller, userDisplayName, userPhone,
-    tossRequest, chargeBillingKey, maskCardNumber, makeTossOrderId, refreshUserInsurance,
+    tossRequest, chargeBillingKey, maskCardNumber, makeTossOrderId, refreshUserInsurance, subscriptionPlan,
 } = ins;
 
 const ORDERS = "homepro_orders";
@@ -186,8 +186,8 @@ exports.tossPrepare = onCall({ region: REGION }, async (request) => {
         orderName = "홈프로 월 구독";
         meta.planType = "subscription";
         // H-포인트 사용분 — 100P 단위, 잔액·구독료 이내. 전액이면 PG 없이 여기서 바로 처리한다
-        let pointsUsed = Math.max(0, Math.floor(Number(pointsUsedRaw) || 0));
-        pointsUsed = Math.floor(pointsUsed / 100) * 100;
+        // 형 확정 10/13: 구독료는 H-포인트로 내지 않는다(실제 금액만) — 요청에 포인트가 실려 와도 0 으로 본다. 아래 포인트 분기는 예전 결제 건 호환용으로 남김
+        let pointsUsed = 0;
         const balance = Number(user.referralPoints || 0);
         if (pointsUsed > balance) throw new HttpsError("failed-precondition", `H-포인트가 부족합니다. 보유 ${balance.toLocaleString()}P`);
         if (pointsUsed > fee) pointsUsed = fee;
@@ -396,7 +396,7 @@ exports.tossConfirm = onCall({ region: REGION }, async (request) => {
  * 이미 유효한 구독이 남아 있으면(단건으로 결제해 둔 달 포함) 지금은 청구하지 않고 카드만 붙여서
  * 만료일에 첫 자동결제가 되게 한다 — 낸 돈이 겹쳐 사라지지 않게. (resumed:true)
  */
-async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
+async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user, planId }) {
     const sub = (user && user.subscription) || {};
     const now = new Date();
     const curEnd = toDate(sub.endAt);
@@ -405,8 +405,10 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
         throw new HttpsError("failed-precondition", "이미 자동결제로 구독 중입니다.");
     }
 
-    const amount = await subscriptionPrice();
-    const orderName = "홈프로 월 구독";
+    // 고른 상품(1·3·6·12개월) — 금액은 여기서 다시 계산한다. 이 기간마다 같은 금액으로 자동 갱신
+    const plan = subscriptionPlan(String(planId || ""), await subscriptionPrice());
+    const amount = plan.price;
+    const orderName = `홈프로 구독 (${plan.name})`;
     const { billingKey, cardCompany, cardNumberMasked } = await issueBillingKey({ authKey, customerKey: ck });
     const billing = (nextAt) => ({
         billingKey, customerKey: ck, cardCompany, cardNumberMasked,
@@ -418,13 +420,13 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
         await db().collection(USERS).doc(uid).set({
             accessTier: "tier1",
             subscription: {
-                ...sub, autoRenew: true, autoRenewCanceledAt: null,
+                ...sub, autoRenew: true, autoRenewCanceledAt: null, planId: plan.id, months: plan.months,
                 billing: billing(curEnd), updatedAt: tsNow(),
             },
             updatedAt: tsNow(),
         }, { merge: true });
         return {
-            ok: true, resumed: true, amount: 0,
+            ok: true, resumed: true, amount: 0, planId: plan.id, months: plan.months, planPrice: plan.price,
             endAt: curEnd.toISOString(), nextChargeAt: curEnd.toISOString(),
             cardCompany, cardNumberMasked,
         };
@@ -436,7 +438,7 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
     await payRef.set({
         purpose: "subscription", uid, authUid, amount, status: "ready",
         tossOrderId, orderName, method: "billing",
-        meta: { policyId: null, orderId: null, planType: "subscription", pointsUsed: 0 },
+        meta: { policyId: null, orderId: null, planType: "subscription", planId: plan.id, months: plan.months, pointsUsed: 0 },
         createdAt: tsNow(), updatedAt: tsNow(),
     });
 
@@ -463,11 +465,11 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
         raw: result, updatedAt: tsNow(),
     }, { merge: true });
 
-    const endAt = addMonths(now, 1);
+    const endAt = addMonths(now, plan.months);
     await db().collection(USERS).doc(uid).set({
         accessTier: "tier1",
         subscription: {
-            status: "active", autoRenew: true, autoRenewCanceledAt: null,
+            status: "active", autoRenew: true, autoRenewCanceledAt: null, planId: plan.id, months: plan.months,
             startAt: fromDate(now), endAt: fromDate(endAt),
             paymentId: tossOrderId, amount, pointsUsed: 0,
             billing: billing(endAt), updatedAt: tsNow(),
@@ -476,7 +478,7 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
     }, { merge: true });
 
     return {
-        ok: true, resumed: false, paymentId: tossOrderId, amount,
+        ok: true, resumed: false, paymentId: tossOrderId, amount, planId: plan.id, months: plan.months, planPrice: plan.price,
         endAt: endAt.toISOString(), nextChargeAt: endAt.toISOString(),
         cardCompany, cardNumberMasked,
     };
@@ -491,7 +493,7 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user }) {
  *  · 자동결제만 해지된(autoRenew:false) 월 구독형이 아직 유효하면 → 카드만 다시 붙이고 다음 결제일을 endAt 으로(지금 청구 안 함, resumed:true).
  */
 exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
-    const { authKey, customerKey, purpose } = request.data || {};
+    const { authKey, customerKey, purpose, planId } = request.data || {};
     if (!authKey || !customerKey) throw new HttpsError("invalid-argument", "카드 등록 정보(authKey/customerKey)가 없습니다.");
     const { uid, authUid, user } = await resolveCaller(request);
     const ck = String(customerKey);
@@ -499,7 +501,7 @@ exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
 
     // 앱 월 구독 — purpose 를 안 주면 예전처럼 월 구독형 보험으로 본다(기존 호출 호환)
     if (String(purpose || "") === "subscription") {
-        return await issueSubscriptionBilling({ authKey, ck, uid, authUid, user });
+        return await issueSubscriptionBilling({ authKey, ck, uid, authUid, user, planId });
     }
 
     const settings = await loadInsuranceSettings();

@@ -11,7 +11,7 @@ import {
   FiList, FiClipboard, FiGift, FiCpu, FiHome, FiBookOpen, FiShield, FiMessageCircle, FiUser, FiSearch, FiCalendar, FiBell,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
-import { getAccessTier, TIER_LABEL } from "../../utility/tierUtils";
+import { getAccessTier, TIER_LABEL, tierFullLabel } from "../../utility/tierUtils";
 
 export const PC_SIDE_W = 220;
 export const PC_TOP_H = 60;
@@ -32,13 +32,15 @@ const MENU = [
 export const PcSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, userData } = useAuth();
   const tab = new URLSearchParams(location.search).get("tab");
+  // PG 심사 계정에서는 안심케어(보험)를 뺀다 (형 2026-10-07)
+  const menu = userData?.pgReview === true ? MENU.filter((m) => m.to !== "/insurance") : MENU;
   return (
     <Side>
-      <Logo onClick={() => navigate(isLoggedIn ? "/MobileMain?tab=all_orders" : "/intro")}>홈프로</Logo>
+      <Logo onClick={() => navigate("/intro")}>홈프로</Logo>
       <nav>
-        {MENU.map((m) => (
+        {menu.map((m) => (
           <Item key={m.label} $on={m.match(location.pathname, tab)} onClick={() => navigate(m.to)}>
             {m.icon}<span>{m.label}</span>
           </Item>
@@ -61,7 +63,7 @@ export const PcTopBar = () => {
   const points = Number(userData?.referralPoints || userData?.points || 0);
   // 폰 홈의 '회원 등급 · 보유 포인트' 줄을 PC 에서는 이 위 줄이 대신한다
   const tier = userData ? getAccessTier(userData) : null;
-  const tierText = tier ? `${TIER_LABEL[tier] || ""}${tier !== "tier0" ? " · 구독" : ""}` : "";
+  const tierText = tier ? tierFullLabel(tier) : "";
   return (
     <Top>
       {isLoggedIn ? (
@@ -76,10 +78,7 @@ export const PcTopBar = () => {
           </Who>
         </>
       ) : (
-        <>
-          <LoginBtn onClick={() => navigate("/MobileLogin")}>로그인</LoginBtn>
-          <SignupBtn onClick={() => navigate("/MobileSignup")}>사업자 가입하기</SignupBtn>
-        </>
+        <SignupBtn onClick={() => navigate("/MobileLogin")}>로그인 하기</SignupBtn>
       )}
     </Top>
   );
@@ -112,10 +111,6 @@ const TopIcon = styled.button`
 const Who = styled.div` font-size: 15px; color: #14181F; cursor: pointer; margin-left: 8px; display: flex; align-items: center; gap: 10px; b { font-weight: 800; } `;
 const Tier = styled.span` font-weight: 600; padding-left: 10px; border-left: 1px solid #dfe3e8; `;
 const Pt = styled.span` font-weight: 800; color: #00963F; `;
-const LoginBtn = styled.button`
-  border: 1px solid #dfe3e8; background: #fff; color: #14181F; font-weight: 700; font-size: 15px; font-family: inherit;
-  padding: 9px 18px; border-radius: 10px; cursor: pointer; &:hover { border-color: #00963F; color: #00963F; }
-`;
 const SignupBtn = styled.button`
   border: none; background: #00963F; color: #fff; font-weight: 700; font-size: 15px; font-family: inherit;
   padding: 10px 18px; border-radius: 10px; cursor: pointer; &:hover { background: #007A33; }

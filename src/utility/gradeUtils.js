@@ -2,6 +2,9 @@
 import React from "react";
 import styled from "styled-components";
 
+// 등급제도(루키~마스터) 삭제 (대표 10/8) — 화면 표시·등급 상승 알림을 한 곳에서 끈다. 저장된 값과 계산식은 남겨 둔다
+export const GRADE_SYSTEM_ENABLED = false;
+
 export const GRADE_ORDER = ["rookie", "bronze", "silver", "gold", "diamond", "master"];
 
 const DEFAULT_RULES = {
@@ -57,6 +60,7 @@ export function getNextGradeInfo(totalEarnedPoints, gradeRules) {
 
 /** 등급 뱃지 컴포넌트 */
 export const GradeBadge = ({ grade, gradeRules, size = "sm" }) => {
+    if (!GRADE_SYSTEM_ENABLED) return null;
     const rules = gradeRules || DEFAULT_RULES;
     const key = grade || "rookie";
     const rule = rules[key] || rules.rookie;
@@ -71,6 +75,7 @@ export const GradeBadge = ({ grade, gradeRules, size = "sm" }) => {
 
 /** 등급 프로그레스 바 */
 export const GradeProgressBar = ({ totalEarnedPoints, gradeRules }) => {
+    if (!GRADE_SYSTEM_ENABLED) return null;
     const info = getNextGradeInfo(totalEarnedPoints, gradeRules);
     const current = calcGrade(totalEarnedPoints, gradeRules);
     if (!info.nextLabel) {

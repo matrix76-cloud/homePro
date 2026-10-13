@@ -2,7 +2,8 @@
 /**
  * 사업자도구 · PG결제 /mypage/pg (대표 리뷰 9/17)
  *  결제 요청 생성 → 링크 발급 → 고객 결제 → PG Webhook → 결제완료 → 정산상태
- *  유료 구독 사업자 전용. 상태머신은 service/PgPaymentService.js 참고.
+ *  형 확정 2026-10-13: 결제 링크는 구독 여부와 상관없이 모두 보낼 수 있다(예전: 유료 구독 사업자 전용, 대표 리뷰 9/17).
+ *  아이폰 앱만 예전 그대로 구독(0차수) 계정에만 연다(애플 심사). 상태머신은 service/PgPaymentService.js 참고.
  */
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -27,7 +28,7 @@ const PgPaymentPage = () => {
   const navigate = useNavigate();
   const { userData, currentUser } = useAuth();
   const uid = userData?.uid || currentUser?.uid;
-  const subscribed = getAccessTier(userData) === "tier0";
+  const subscribed = !isIosApp() || getAccessTier(userData) === "tier0"; // 웹·안드로이드는 누구나, 아이폰 앱만 0차수
   const sellerName = userData?.bizName || userData?.companyName || userData?.nickname || userData?.name || "";
 
   const pcWide = usePcWide();
@@ -57,7 +58,7 @@ const PgPaymentPage = () => {
     setBusy(true);
     try {
       const o = orders.find((x) => x.id === form.orderId);
-      await createPgRequest(uid, { ...form, amount: amountNum, orderTitle: o?.title || null, sellerName });
+      await createPgRequest(uid, { ...form, amount: amountNum, orderTitle: o?.title || null, sellerName, account: userData?.account || null });
       setForm({ kind: "work", orderId: "", customerName: "", customerPhone: "", amount: "", memo: "" });
       await reload();
       setTab("list");
@@ -73,7 +74,9 @@ const PgPaymentPage = () => {
     flash("결제링크를 발급했습니다.");
   };
   const copy = async (r) => {
-    try { await navigator.clipboard.writeText(pgLinkUrl(r.id)); flash("링크를 복사했습니다."); }
+    // 안내 문구까지 같이 복사 — 카카오톡·문자에 그대로 붙여 넣게 (오더 시공대금 링크와 같은 모양)
+    const text = `[홈프로] ${r.sellerName || "사업자"}님의 결제 요청\n${r.memo ? `${r.memo}\n` : ""}결제 금액 ${Number(r.amount).toLocaleString()}원\n${pgLinkUrl(r.id)}`;
+    try { await navigator.clipboard.writeText(text); flash("결제 링크를 복사했습니다. 카카오톡·문자에 붙여 넣어 보내 주세요."); }
     catch { flash(pgLinkUrl(r.id)); }
   };
   const sms = (r) => {
@@ -92,7 +95,7 @@ const PgPaymentPage = () => {
         <Intro>
           <IntroTitle>사업자용 PG결제</IntroTitle>
           <IntroText>
-            홈프로 오더나 외부 일반 고객의 작업대금, 홈프로에서 생긴 소개수수료를 제휴 PG의 결제링크로 고객(당사자)에게 직접 결제받고, PG사로부터 본인 계좌로 직접 정산받는 편의서비스입니다. 복잡한 가맹계약 절차나 카드결제 단말기가 필요 없습니다.
+            홈프로 오더나 외부 일반 고객의 작업대금, 홈프로에서 생긴 소개수수료를 제휴 PG의 결제링크로 고객(당사자)에게 결제받는 편의서비스입니다. 결제된 대금은 홈프로를 거쳐 등록된 정산계좌로 정산됩니다. 복잡한 가맹계약 절차나 카드결제 단말기가 필요 없습니다.
           </IntroText>
           <Flow>
             {PG_STEPS.map((s, i) => (
@@ -106,9 +109,9 @@ const PgPaymentPage = () => {
 
         {!subscribed ? (
           <Gate>
-            <GateTitle>유료 구독 사업자만 이용할 수 있습니다</GateTitle>
-            <GateText>{isIosApp() ? "PG결제로 고객에게 결제링크를 보내고 직접 정산받는 기능은 월 구독 사업자에게 열려 있습니다." : "월 구독을 시작하면 PG결제로 고객에게 결제링크를 보내고 직접 정산받을 수 있습니다."}</GateText>
-            {!isIosApp() && <PrimaryBtn type="button" onClick={() => navigate("/subscription")}>구독 관리로 가기</PrimaryBtn>}
+            <GateTitle>{isIosApp() ? "이 계정에서는 이용할 수 없습니다" : "유료 구독 사업자만 이용할 수 있습니다"}</GateTitle>
+            <GateText>{isIosApp() ? "PG결제로 고객에게 결제링크를 보내 대금을 받는 기능은 일부 사업자 회원에게 열려 있습니다." : "오더와 상관없이 고객에게 결제링크를 보내 대금을 받는 사업자 도구로, 구독(0차수) 중인 사업자에게만 열립니다. 홈프로 오더의 시공대금 결제 링크는 구독하지 않아도 나의 오더 > 완료한 오더에서 만들 수 있습니다."}</GateText>
+            {!isIosApp() && <PrimaryBtn type="button" onClick={() => navigate("/subscription")}>구독 상품 보기</PrimaryBtn>}
           </Gate>
         ) : (
           <>
@@ -189,8 +192,8 @@ const PgPaymentPage = () => {
                             {r.status === "link_issued" && <LinkBox>{pgLinkUrl(r.id)}</LinkBox>}
                             <BtnRow>
                               {r.status === "requested" && <PrimaryBtn type="button" onClick={() => issue(r)}>링크 발급</PrimaryBtn>}
-                              {r.status === "link_issued" && <PrimaryBtn type="button" onClick={() => sms(r)}>문자로 보내기</PrimaryBtn>}
-                              {r.status === "link_issued" && <GhostBtn type="button" onClick={() => copy(r)}>링크 복사</GhostBtn>}
+                              {/* PC 에는 문자 앱이 없어 [문자로 보내기]가 동작하지 않는다 → 복사만 (형 지적 10/13) */}
+                              {r.status === "link_issued" && <PrimaryBtn type="button" onClick={() => copy(r)}>링크 복사</PrimaryBtn>}
                               <GhostBtn type="button" onClick={() => cancel(r)}>취소</GhostBtn>
                             </BtnRow>
                           </PcActionStrip>

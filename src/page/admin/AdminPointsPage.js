@@ -779,8 +779,8 @@ const AdminPointsPage = () => {
                         </PolicyRow>
                         <PolicyRow>
                             <PolicyLabel>
-                                월 구독료 (포인트)
-                                <PolicyHint>마켓·교육 등 구독 게이트 금액 (기본 16,500P)</PolicyHint>
+                                월 구독료 (원)
+                                <PolicyHint>카드로 결제하는 월 구독료 (기본 16,500원) — 포인트로는 낼 수 없음</PolicyHint>
                             </PolicyLabel>
                             <PolicyInputBox>
                                 <PolicyInput

@@ -29,6 +29,7 @@ const BillingSuccessPage = () => {
 
   const purpose = params.get("purpose") || readPaySession()?.purpose || "insurance_monthly";
   const isSub = purpose === "subscription";
+  const planId = isSub ? (params.get("plan") || readPaySession()?.refId || null) : null;
 
   useEffect(() => {
     if (once.current) return;
@@ -38,7 +39,7 @@ const BillingSuccessPage = () => {
     if (!authKey || !customerKey) { setState("failed"); setMessage("카드 등록 정보를 받지 못했습니다."); return; }
     (async () => {
       try {
-        const r = await issueBilling({ authKey, customerKey, purpose });
+        const r = await issueBilling({ authKey, customerKey, purpose, planId });
         setInfo(r); setState("done");
       } catch (e) {
         console.error("[pay] 빌링키 발급 실패", e);
@@ -60,7 +61,7 @@ const BillingSuccessPage = () => {
         {state === "issuing" && (
           <Centered>
             <PageTitle>카드를 등록하고 있습니다</PageTitle>
-            <PageSub>{isSub ? "첫 달 구독료를 결제하고 있습니다. 이 화면을 닫지 마세요." : "첫 달 보험료를 결제하고 가입을 처리하는 중입니다. 이 화면을 닫지 마세요."}</PageSub>
+            <PageSub>{isSub ? "구독료를 결제하고 있습니다. 이 화면을 닫지 마세요." : "첫 달 보험료를 결제하고 가입을 처리하는 중입니다. 이 화면을 닫지 마세요."}</PageSub>
           </Centered>
         )}
 
@@ -75,12 +76,12 @@ const BillingSuccessPage = () => {
         {state === "done" && (
           <>
             <Card>
-              <PageTitle>{isSub ? "월 구독이 시작됐습니다" : "월 구독형 보험에 가입됐습니다"}</PageTitle>
+              <PageTitle>{isSub ? "구독이 시작됐습니다" : "월 구독형 보험에 가입됐습니다"}</PageTitle>
               <PageSub>
                 {isSub
                   ? (info?.resumed
-                      ? "이미 결제해 둔 구독 기간이 남아 있어 지금은 청구하지 않았습니다. 만료일에 맞춰 첫 자동결제가 이뤄집니다."
-                      : "첫 달 구독료가 결제됐고 매월 같은 날 자동으로 결제됩니다. 해지는 마이페이지 > 구독 관리에서 언제든 할 수 있으며, 해지해도 만료일까지는 0차수가 유지됩니다.")
+                      ? `이미 결제해 둔 구독 기간이 남아 있어 지금은 청구하지 않았습니다. 만료일에 맞춰 ${info?.months || 1}개월 구독료${info?.planPrice ? `(${won(info.planPrice)})` : ""}가 자동으로 결제됩니다.`
+                      : `${info?.months || 1}개월 구독료가 결제됐고, 만료일에 같은 금액으로 자동 결제됩니다. 해지는 마이페이지 > 구독 관리에서 언제든 할 수 있으며, 해지해도 만료일까지는 0차수가 유지됩니다.`)
                   : "첫 달 보험료가 결제됐고 매월 같은 날 자동으로 결제됩니다. 해지는 안심케어의 내 보험 관리에서 언제든 할 수 있으며, 해지해도 만료일까지 보장됩니다."}
                 {!isSub && info?.resumed ? " (이미 등록된 카드라 기존 가입을 이어갑니다)" : ""}
               </PageSub>

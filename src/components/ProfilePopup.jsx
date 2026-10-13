@@ -23,6 +23,7 @@ import { hasBusinessLicense, getCompletedOrderCount, formatUploadedAt } from "..
 import { getMyProDocs } from "../service/ProService";
 import { findActivePolicy, INSURANCE_TYPE_LABEL } from "../service/OrderInsuranceService";
 import { formatDate } from "../service/InsuranceService";
+import { GRADE_SYSTEM_ENABLED } from "../utility/gradeUtils";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { blockUser, isBlocked } from "../service/BlockService";
@@ -176,7 +177,7 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = fals
             <Name>{name}</Name>
             {company && company !== name && <Company>{company}</Company>}
             <MetaRow>
-              {grade && <GradeChip>{GRADE_LABEL[grade] || grade}</GradeChip>}
+              {GRADE_SYSTEM_ENABLED && grade && <GradeChip>{GRADE_LABEL[grade] || grade}</GradeChip>}
               <RatingWrap>
                 <IoStar size={15} color="#F5A623" />
                 {rating > 0 ? rating.toFixed(1) : "-"}

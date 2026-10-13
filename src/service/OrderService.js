@@ -291,7 +291,7 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   // 완료 전환 시 포인트 지급 (레거시 표기 '리뷰'/'정산'도 완료로 취급 — normalizeStatus 와 동일 기준)
   if (newStatus === ORDER_STATUS.COMPLETED || newStatus === "리뷰" || newStatus === "정산") {
     await grantOrderCompletionPoints(orderId);
-    // H-포인트 오더 에스크로 배분 — 홈프로에게 대금, 접수자에게 캐시백 (대표 확정 9/13)
+    // H-포인트 오더 에스크로 배분 — 홈프로에게 대금, 접수자에게 소개수수료 (대표 확정 9/13)
     try { await releaseHpointEscrow(orderId); } catch (e) { console.error("[escrow release]", e); }
   }
   // 취소 전환 시 보관 H-포인트 환급

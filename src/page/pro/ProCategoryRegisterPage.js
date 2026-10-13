@@ -425,6 +425,16 @@ const ProCategoryRegisterPage = () => {
                                             <FieldLabel>세부 전문분야 (복수 선택 가능)</FieldLabel>
                                             <ChipWrap>
                                                 {/* 전문청소는 하위 7개 분야 중에서 고른다 — '기타'는 등록분야가 아니다 (대표 지시 9/10) */}
+                                                {/* 전문청소는 '전체' 한 번에 고르기 — 영역은 각자 골라 중복 선택 (대표 10/8) */}
+                                                {cat.id === "professional_cleaning" && (() => {
+                                                    const all = cat.subcategories.filter((sub) => sub !== "기타");
+                                                    const isAll = all.every((sub) => catSubs.includes(sub));
+                                                    return (
+                                                        <Chip $active={isAll} onClick={() => setSubsByCat((prev) => ({ ...prev, [cat.id]: isAll ? [] : all }))}>
+                                                            전체
+                                                        </Chip>
+                                                    );
+                                                })()}
                                                 {cat.subcategories.filter((sub) => !(cat.id === "professional_cleaning" && sub === "기타")).map((sub) => (
                                                     <Chip
                                                         key={sub}

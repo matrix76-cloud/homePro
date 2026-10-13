@@ -1,10 +1,10 @@
 /* eslint-disable */
-import { getAccessTier } from "../../utility/tierUtils";
+import { getAccessTier, tierFullLabel } from "../../utility/tierUtils";
 import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
-import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline } from "react-icons/io5";
+import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoPersonOutline, IoBriefcaseOutline, IoRibbonOutline, IoCardOutline } from "react-icons/io5";
 import { UserContext } from "../../context/User";
 import { signOutUser, withdrawUser } from "../../service/AuthService";
 import { useAuth } from "../../context/AuthContext";
@@ -14,10 +14,94 @@ import MyPageLayout from "../../screen/Layout/Layout/MyPageLayout";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../api/config";
 import { compressProfileImage } from "../../utility/imageUtils";
-import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade } from "../../utility/gradeUtils";
+import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade, GRADE_SYSTEM_ENABLED } from "../../utility/gradeUtils";
 import { IoHelpCircleOutline, IoCloseOutline, IoChevronBack } from "react-icons/io5";
 import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
+
+/* ─── 마이페이지 윗부분 (시안 3번 — 묶음 둘로 나누기, 대표 10/7) ─── */
+const MyBox = styled.div`
+  margin: ${({ $flush }) => ($flush ? "0 12px" : "12px 12px 0")};
+  background: ${THEME.surface};
+  border: 1px solid #E5E8EC;
+`;
+const MyGroupTitle = styled.div`
+  padding: 20px 16px 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: ${THEME.text};
+`;
+const MyProfileLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+`;
+const MyProfileText = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+const MyProfileName = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 19px;
+  font-weight: 700;
+  color: ${THEME.text};
+  word-break: keep-all;
+`;
+const MyProfileSub = styled.div`
+  font-size: 15px;
+  color: ${THEME.text};
+  margin-top: 3px;
+`;
+const MyProfileLink = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  min-height: 44px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: ${THEME.text};
+  cursor: pointer;
+`;
+const MyRow = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 0 16px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  color: ${THEME.text};
+  cursor: pointer;
+  & + & { border-top: 1px solid #E5E8EC; }
+  & > svg { flex-shrink: 0; }
+`;
+const MyRowText = styled.div`
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  strong { display: block; font-size: 16px; font-weight: 600; }
+  span { display: block; font-size: 14px; margin-top: 2px; word-break: keep-all; }
+`;
+const MyRowValue = styled.span`
+  font-size: 15px;
+  font-weight: 700;
+  color: ${({ $on }) => ($on ? "#15803d" : THEME.text)};
+  text-align: right;
+  word-break: keep-all;
+`;
 
 /* ─── 프로필 카드 ─── (기본 프로필 + 비즈프로필 진입을 한 박스로 — 형 리뷰 7/29) */
 const ProfileCard = styled.div`
@@ -1189,7 +1273,7 @@ const MobileConfigpage = () => {
           <WithdrawSheet onClick={(e) => e.stopPropagation()}>
             <WithdrawTitle>정말 탈퇴하시겠어요</WithdrawTitle>
             <WithdrawDesc>
-              탈퇴하면 보유 포인트와 등급이 모두 사라지고 되돌릴 수 없습니다.
+              탈퇴하면 보유 포인트가 모두 사라지고 되돌릴 수 없습니다.
               진행 중인 오더가 있으면 마무리한 뒤에 탈퇴해 주세요.
             </WithdrawDesc>
             <WithdrawDesc>
@@ -1253,16 +1337,17 @@ const MobileConfigpage = () => {
   if (pcWide) {
     const isBiz = userData?.userType !== "customer";
     const tier = getAccessTier(userData);
-    const subLine = tier === "tier0" ? "구독 중 · 0차수" : `미구독 · ${tier === "tier1" ? "1차수 (2만P 보유)" : "2차수"}`;
+    const subLine = `${tier === "tier0" ? "구독 중" : "미구독"} · ${tierFullLabel(tier)}`;
     const sections = [
       {
         title: "홈프로 활동",
         items: [
-          { t: "홈프로 리스트", d: "등록된 홈프로를 분야별로 찾아봅니다", to: "/pro/list" },
+          // 사업자도구 · PG결제 메뉴는 뺐다 (형 지시 2026-10-13: 오더 시공대금 링크와 헷갈림). 화면(/mypage/pg)은 남겨 둠
           isBiz && { t: "구독 관리", d: subLine, dColor: tier === "tier0" ? "#15803d" : null, to: "/subscription" },
-          isBiz && { t: "사업자도구 · PG결제", d: "결제링크로 고객에게 직접 결제받기", to: "/mypage/pg" },
           { t: "기술전수 수강생모집", d: "교육 공고를 등록하고 수강생을 모집하세요", to: "/education-market?seg=training&only=1" },
-          { t: "거래장터", d: "양도·매매와 자재·장비 장터를 확인하세요", to: "/education-market?seg=market&only=1" },
+          { t: "거래장터", d: "자재 · 장비 · 소모품", to: "/education-market?seg=supplies&only=1" },
+          { t: "양도·매매", d: "사업장 · 팀인력 · 영업권 DB", to: "/education-market?seg=market&only=1" },
+          { t: "홈프로 리스트", d: "등록된 홈프로를 분야별로 찾아봅니다", to: "/pro/list" },
           { t: "커뮤니티", d: "홈프로끼리 묻고 답하는 게시판", to: "/community" },
         ].filter(Boolean),
       },
@@ -1271,12 +1356,17 @@ const MobileConfigpage = () => {
         sub: "'이대로만 따라해요!' 홈프로를 위한 안내서",
         cols: 5,
         items: [
+          { t: "오더 접수 및 수락", d: "무료로 접수하고 수락합니다", to: "/guide/6" },
+          { t: "구독 회원등급", d: "등급별 오더 수락 시점", to: "/guide/7" },
+          { t: "H-포인트", d: "획득 및 사용 안내", to: "/guide/8" },
+          { t: "나의 오더 현황", d: "진행 상황 관리 안내", to: "/guide/9" },
+          userData?.pgReview !== true && { t: "도급배상책임보험", d: "가입 및 보장 안내", to: "/guide/10" },
           { t: "첫 견적 보내기", d: "이렇게 하면 쉬워요", to: "/guide/1" },
           { t: "고객 리뷰 늘리기", d: "가장 효과적인 방법", to: "/guide/2" },
           { t: "홈프로캐시 보상", d: "언제 이루어지나요?", to: "/guide/3" },
           { t: "프로필 사진", d: "이렇게 찍으세요", to: "/guide/4" },
-          { t: "등급 시스템", d: "포인트로 올리세요", to: "/guide/5" },
-        ],
+          GRADE_SYSTEM_ENABLED && { t: "등급 시스템", d: "포인트로 올리세요", to: "/guide/5" },
+        ].filter(Boolean),
       },
       {
         title: "차단 관리",
@@ -1290,7 +1380,7 @@ const MobileConfigpage = () => {
         title: "설정 · 고객지원",
         items: [
           { t: "앱 설정", d: "알림·방해 금지 시간·다크모드", to: "/mypage/app-settings" },
-          isBiz && { t: "결제 내역 (구독·보험)", d: "토스로 결제한 구독료와 보험료", to: "/mypage/payments" },
+          isBiz && (userData?.pgReview === true ? { t: "결제 내역 (구독)", d: "토스로 결제한 구독료", to: "/mypage/payments" } : { t: "결제 내역 (구독·보험)", d: "토스로 결제한 구독료와 보험료", to: "/mypage/payments" }),
           { t: "고객센터", d: "자주 묻는 질문과 1:1 문의", to: "/support" },
           { t: "이용약관", d: "홈프로 서비스 이용약관", to: "/legal/terms" },
           { t: "개인정보처리방침", d: "개인정보를 다루는 기준", to: "/legal/privacy" },
@@ -1310,17 +1400,20 @@ const MobileConfigpage = () => {
                   <ProfileNameRow>
                     <PcName>{nickname}</PcName>
                     <GradeBadge grade={userData?.grade} size="sm" />
+                    {GRADE_SYSTEM_ENABLED && (
                     <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }} aria-label="등급 안내">
                       <IoHelpCircleOutline size={18} color={PC.body} />
                     </GradeHelpBtn>
+                    )}
                   </ProfileNameRow>
-                  <PcLine>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}{userData?.userType === "business" ? " · 사업자회원" : userData?.userType === "customer" ? " · 일반고객" : ""}</PcLine>
+                  <PcLine>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}{userData?.userType === "business" ? " · 사업자회원" : userData?.userType === "freelancer" ? " · 프리랜서회원" : userData?.userType === "customer" ? " · 일반고객" : ""}</PcLine>
                 </div>
               </PcProfileTop>
               {intro && <PcIntro>{intro}</PcIntro>}
               <PcSideBtns>
                 <PcSideBtn type="button" onClick={handleOpenEdit}><strong>기본 프로필</strong><span>사진·닉네임·소개</span></PcSideBtn>
                 <PcSideBtn type="button" onClick={() => navigate("/biz-profile")}><strong>비즈프로필</strong><span>인증·포트폴리오·정산계좌</span></PcSideBtn>
+                {userData?.uid && <PcSideBtn type="button" onClick={() => navigate(`/profile/${userData.uid}`)}><strong>내 프로필 보기</strong><span>다른 사람에게 보이는 모습</span></PcSideBtn>}
               </PcSideBtns>
             </PcSideCard>
 
@@ -1365,103 +1458,65 @@ const MobileConfigpage = () => {
 
   return (
     <MyPageLayout name="마이페이지">
-      {/* 프로필 (기본 프로필 + 비즈프로필을 한 박스로 — 형 리뷰 7/29) */}
-      <ProfileCard>
-        <ProfileTopRow onClick={handleOpenEdit}>
-          <ProfileImgWrap>
-            {userimg ? (
-              <ProfileImg src={userimg} alt="profile" />
-            ) : (
-              <ProfilePlaceholder>
-                <IoPersonCircleOutline size={60} color={THEME.border} />
-              </ProfilePlaceholder>
-            )}
-          </ProfileImgWrap>
-          <ProfileInfo>
-            <ProfileNameRow>
-              <ProfileName>{nickname}</ProfileName>
+      {/* 마이페이지 윗부분 — 시안 3번 '묶음 둘로 나누기' (대표 10/7 확정, /lab?tab=mypage) */}
+      {/* 프로필 한 줄: 사진 · 이름 · 회원 구분, 오른쪽 '내 프로필 보기' */}
+      <MyBox>
+        <MyProfileLine>
+          {userimg ? (
+            <ProfileImg src={userimg} alt="profile" style={{ width: 56, height: 56 }} />
+          ) : (
+            <IoPersonCircleOutline size={56} color={THEME.border} style={{ flexShrink: 0 }} />
+          )}
+          <MyProfileText>
+            <MyProfileName>
+              {nickname}
               <GradeBadge grade={userData?.grade} size="sm" />
-              <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }}>
-                <IoHelpCircleOutline size={16} color={THEME.muted} />
-              </GradeHelpBtn>
-            </ProfileNameRow>
-            <ProfileSub>
-              {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
-            </ProfileSub>
-            {intro && <ProfileIntro>{intro}</ProfileIntro>}
-          </ProfileInfo>
-        </ProfileTopRow>
-        <ProfileDivider />
-        {/* 프로필·비즈프로필 정리 (대표 9/15 리뷰) — 두 진입을 같은 모양의 버튼 두 개로 나란히, 무엇이 다른지 한 줄로 */}
-        <ProfileActionRow>
-          <ProfileActionBtn type="button" onClick={handleOpenEdit}>
-            <strong>기본 프로필</strong>
-            <span>사진·닉네임·소개</span>
-          </ProfileActionBtn>
-          <ProfileActionBtn type="button" onClick={() => navigate("/biz-profile")}>
-            <strong>비즈프로필</strong>
-            <span>인증·포트폴리오·정산계좌</span>
-          </ProfileActionBtn>
-        </ProfileActionRow>
-      </ProfileCard>
+            </MyProfileName>
+            <MyProfileSub>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}</MyProfileSub>
+          </MyProfileText>
+          {userData?.uid && (
+            <MyProfileLink type="button" onClick={() => navigate(`/profile/${userData.uid}`)}>
+              내 프로필 보기 <IoChevronForward size={17} />
+            </MyProfileLink>
+          )}
+        </MyProfileLine>
+      </MyBox>
+
+      <MyGroupTitle>내 정보</MyGroupTitle>
+      <MyBox $flush>
+        <MyRow type="button" onClick={handleOpenEdit}>
+          <IoPersonOutline size={24} color={THEME.text} />
+          <MyRowText><strong>기본 프로필</strong><span>사진 · 닉네임 · 소개</span></MyRowText>
+          <IoChevronForward size={18} color={THEME.text} />
+        </MyRow>
+        <MyRow type="button" onClick={() => navigate("/biz-profile")}>
+          <IoBriefcaseOutline size={24} color={THEME.text} />
+          <MyRowText><strong>비즈프로필</strong><span>인증 · 포트폴리오 · 정산계좌</span></MyRowText>
+          <IoChevronForward size={18} color={THEME.text} />
+        </MyRow>
+      </MyBox>
 
       {profileOverlays}
 
-      {/* 정산 — 포인트·초대는 홈 보유자산 탭과 겹쳐서 뺐다 (대표 9/17) */}
-      <ContentCard>
-        <CardHeader>
-          <div>
-            <CardTitle>정산</CardTitle>
-            <CardDesc>수익과 정산 현황을 확인하세요</CardDesc>
-          </div>
-          <ArrowBtn onClick={() => navigate("/referral/points")}><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-        <CashGrid>
-          <CashItem>
-            <CashAmount>0원</CashAmount>
-            <CashLabel>이번달 수익</CashLabel>
-          </CashItem>
-          <CashDivider />
-          <CashItem>
-            <CashAmount>0원</CashAmount>
-            <CashLabel>정산 대기</CashLabel>
-          </CashItem>
-        </CashGrid>
-      </ContentCard>
-
-      {/* 홈프로 리스트 */}
-      <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div><CardTitle>홈프로 리스트</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-
-      {/* 구독 관리 — 월 16,500원, H-포인트 혼합 결제. 누르면 구독 페이지 (9/14) */}
-      {userData?.userType !== "customer" && (
-      <ContentCard onClick={() => navigate("/subscription")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div><CardTitle>구독 관리</CardTitle></div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-        <SubStatusRow>
-          <SubText style={{ color: getAccessTier(userData) === "tier0" ? "#15803d" : THEME.text, fontWeight: 700 }}>{getAccessTier(userData) === "tier0" ? "구독 중 · 0차수" : `미구독 · ${getAccessTier(userData) === "tier1" ? "1차수 (2만P 보유)" : "2차수"}`}</SubText>
-        </SubStatusRow>
-      </ContentCard>
-      )}
-
-      {/* 사업자도구 · PG결제 — 유료 구독 사업자 전용 (대표 리뷰 9/17) */}
-      {userData?.userType !== "customer" && (
-      <ContentCard onClick={() => navigate("/mypage/pg")} style={{ cursor: "pointer" }}>
-        <CardHeader>
-          <div>
-            <CardTitle>사업자도구 · PG결제</CardTitle>
-            <CardDesc>결제링크로 고객에게 직접 결제받기</CardDesc>
-          </div>
-          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
-        </CardHeader>
-      </ContentCard>
-      )}
+      <MyGroupTitle>정산 · 구독 · 결제</MyGroupTitle>
+      <MyBox $flush>
+        {/* 정산 — 포인트·초대는 홈 보유자산 탭과 겹쳐서 뺐다 (대표 9/17) */}
+        <MyRow type="button" onClick={() => navigate("/referral/points")}>
+          <IoWalletOutline size={24} color={THEME.text} />
+          <MyRowText><strong>정산</strong></MyRowText>
+          <MyRowValue>이번달 0원</MyRowValue>
+          <IoChevronForward size={18} color={THEME.text} />
+        </MyRow>
+        {/* 구독 관리 — 아이폰 앱에서는 결제가 걸린 메뉴를 숨긴다 (형 지시 2026-10-01) */}
+        {userData?.userType !== "customer" && !isIosApp() && (
+        <MyRow type="button" onClick={() => navigate("/subscription")}>
+          <IoRibbonOutline size={24} color={THEME.text} />
+          <MyRowText><strong>구독 관리</strong></MyRowText>
+          <MyRowValue $on={getAccessTier(userData) === "tier0"}>{tierFullLabel(getAccessTier(userData))}</MyRowValue>
+          <IoChevronForward size={18} color={THEME.text} />
+        </MyRow>
+        )}
+      </MyBox>
 
       {/* 기술전수교육 / 거래장터 — 분리 진입 (형 지시 8/8) */}
       {/* 대표 9/15 리뷰: 메뉴명 '기술전수 수강생모집', 기술전수 항목만 관리 (only=1 → 다른 세그먼트 숨김) */}
@@ -1475,12 +1530,31 @@ const MobileConfigpage = () => {
         </CardHeader>
       </ContentCard>
 
-      <ContentCard onClick={() => navigate("/education-market?seg=market&only=1")} style={{ cursor: "pointer" }}>
+      {/* 거래장터(자재·장비·소모품)와 양도·매매(사업장·팀인력·영업권 DB)를 분리 (대표 10/2) */}
+      <ContentCard onClick={() => navigate("/education-market?seg=supplies&only=1")} style={{ cursor: "pointer" }}>
         <CardHeader>
           <div>
             <CardTitle>거래장터</CardTitle>
-            <CardDesc>양도·매매와 자재·장비 장터를 확인하세요</CardDesc>
+            <CardDesc>자재 · 장비 · 소모품</CardDesc>
           </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
+      <ContentCard onClick={() => navigate("/education-market?seg=market&only=1")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div>
+            <CardTitle>양도·매매</CardTitle>
+            <CardDesc>사업장 · 팀인력 · 영업권 DB</CardDesc>
+          </div>
+          <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
+        </CardHeader>
+      </ContentCard>
+
+      {/* 홈프로 리스트 — 거래장터 아래로 (대표 9/22) */}
+      <ContentCard onClick={() => navigate("/pro/list")} style={{ cursor: "pointer" }}>
+        <CardHeader>
+          <div><CardTitle>홈프로 리스트</CardTitle></div>
           <ArrowBtn><IoChevronForward size={22} color={THEME.muted} /></ArrowBtn>
         </CardHeader>
       </ContentCard>
@@ -1490,6 +1564,29 @@ const MobileConfigpage = () => {
         <CardTitle>홈프로 가이드</CardTitle>
         <ConfigCardDesc>'이대로만 따라해요!' 홈프로를 위한 안내서</ConfigCardDesc>
         <ConfigScrollRow>
+          {/* 대표 안내문 5종 (리뷰 10/6) — 맨 앞에 */}
+          <ConfigGuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/6")}>
+            <ConfigGuideIconWrap><IoDocumentTextOutline size={32} color={THEME.primaryDark} /></ConfigGuideIconWrap>
+            <ConfigGuideText>오더 접수 및{"\n"}수락 가이드</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg="#F1EAF6" onClick={() => navigate("/guide/7")}>
+            <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.logoPurple} /></ConfigGuideIconWrap>
+            <ConfigGuideText>구독 회원등급 및{"\n"}오더 수락 안내</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/8")}>
+            <ConfigGuideIconWrap><IoWalletOutline size={32} color="#B45309" /></ConfigGuideIconWrap>
+            <ConfigGuideText>H-포인트{"\n"}획득 및 사용 안내</ConfigGuideText>
+          </ConfigGuideCard>
+          <ConfigGuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/9")}>
+            <ConfigGuideIconWrap><IoChatbubbleOutline size={32} color="#059669" /></ConfigGuideIconWrap>
+            <ConfigGuideText>나의 오더 현황{"\n"}관리 안내</ConfigGuideText>
+          </ConfigGuideCard>
+{userData?.pgReview !== true && (
+                    <ConfigGuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/10")}>
+            <ConfigGuideIconWrap><IoCashOutline size={32} color={THEME.primaryDark} /></ConfigGuideIconWrap>
+            <ConfigGuideText>도급배상책임보험{"\n"}가입 및 보장 안내</ConfigGuideText>
+          </ConfigGuideCard>
+          )}
           <ConfigGuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
             <ConfigGuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><ConfigGuideSubIcon><IoSendOutline size={18} color="#B45309" /></ConfigGuideSubIcon></ConfigGuideIconWrap>
             <ConfigGuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</ConfigGuideText>
@@ -1506,10 +1603,12 @@ const MobileConfigpage = () => {
             <ConfigGuideIconWrap><IoCameraOutline size={32} color="#059669" /></ConfigGuideIconWrap>
             <ConfigGuideText>프로필 사진,{"\n"}이렇게 찍으세요</ConfigGuideText>
           </ConfigGuideCard>
+          {GRADE_SYSTEM_ENABLED && (
           <ConfigGuideCard $bg="#F1EAF6" onClick={() => navigate("/guide/5")}>
             <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></ConfigGuideIconWrap>
             <ConfigGuideText>등급 시스템{"\n"}포인트로 올리세요</ConfigGuideText>
           </ConfigGuideCard>
+          )}
         </ConfigScrollRow>
       </ContentCard>
 
@@ -1555,9 +1654,9 @@ const MobileConfigpage = () => {
       <ContentCard>
         <CardTitle>고객지원</CardTitle>
         <SupportList>
-          {userData?.userType !== "customer" && (
+          {userData?.userType !== "customer" && !isIosApp() && (
           <SupportItem onClick={() => navigate("/mypage/payments")}>
-            <SupportLabel>결제 내역 (구독·보험)</SupportLabel>
+            <SupportLabel>{userData?.pgReview === true ? "결제 내역 (구독)" : "결제 내역 (구독·보험)"}</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
           )}

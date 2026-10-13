@@ -190,6 +190,12 @@ const InsurancePage = () => {
           셀프보장등록
         </GhostBtn>
   );
+  // 보험 1:1 문의 — 문의는 채팅방으로 이어지고 답변도 채팅 목록으로 온다 (대표 10/6)
+  const inquiryBtnEl = (
+        <GhostBtn type="button" style={{ marginBottom: 12 }} onClick={() => navigate("/insurance/inquiry")}>
+          1:1 문의하기
+        </GhostBtn>
+  );
   const myCardEl = (
         <Card>
           <TitleRow>
@@ -335,6 +341,7 @@ const InsurancePage = () => {
               </Card>
               <SideBtns>
                 {selfBtnEl}
+                {inquiryBtnEl}
                 {claimBtnEl}
               </SideBtns>
             </PcSide>
@@ -360,10 +367,13 @@ const InsurancePage = () => {
 
         {coverageEl}
 
-        {/* 사고 접수 — 보장 내용 바로 아래 (형 리뷰 9/16 '형2' 핀 위치) */}
-        {claimBtnEl}
-
         {condEl}
+
+        {/* 화면 아래쪽에 [1:1 문의] [사고접수] 두 칸 나란히 (대표 10/12) */}
+        <BottomPair>
+          <GhostBtn type="button" onClick={() => navigate("/insurance/inquiry")}>1:1 문의</GhostBtn>
+          <GhostBtn type="button" onClick={() => navigate("/insurance/claim")}>사고접수</GhostBtn>
+        </BottomPair>
 
         {disclaimerEl}
       </Wrap>
@@ -379,6 +389,13 @@ const InsurancePage = () => {
 export default InsurancePage;
 
 /* ===================== styles (이 화면 전용) ===================== */
+
+const BottomPair = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+`;
 
 const Hero = styled.div`
   background: ${THEME.surface};

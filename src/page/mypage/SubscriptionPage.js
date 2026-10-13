@@ -1,5 +1,12 @@
 /* eslint-disable */
 /**
+ * 월 구독 — 0차수(접수 즉시 수락) 권리
+ *  대표 확정 9/12: 월 16,500원(부가세 포함). 대표 지시 9/16: 토스 빌링(자동결제)로.
+ *  형 확정 10/13: 구독료는 실제 금액(카드)으로만 — H-포인트 사용·'이번 달만 결제' 화면 삭제.
+ *  형 확정 10/13: 스카이링크처럼 1·3·6·12개월 상품, 길게 끊을수록 할인(subscriptionPlans.js). 고른 기간마다 같은 금액으로 자동 갱신.
+ *   requestBillingAuth(purpose:subscription) → /pay/billing-success → tossBillingIssue, 매달 갱신은 서버 subscriptionAutoCharge(03:20 KST)
+ */
+/**
  * 월 구독 결제 — 1차수(접수 즉시 수락) 권리
  *  대표 확정 9/12: 월 16,500원(부가세 포함), H-포인트로 내면 16,500P.
  *  형 확정 9/13: 결제 화면에 "H-포인트 사용하기" 체크박스 → 전액 사용 또는 사용할 포인트 직접 입력, 나머지 금액만 토스로 결제. 100P 단위(카드 최소 100원).
@@ -18,29 +25,30 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { getPointPolicy } from "../../service/PointService";
-import { preparePayment, requestBillingAuth, cancelBilling } from "../../service/payService";
-import { isSubscriber } from "../../utility/tierUtils";
+import { requestBillingAuth, cancelBilling } from "../../service/payService";
+import { isSubscriber, getAccessTier, tierFullLabel, TIER_GUIDE } from "../../utility/tierUtils";
 import { pcOnly, PC } from "../../pc/pcKit";
 import { isIosApp } from "../../bridge/webviewBridge";
+import { buildSubscriptionPlans, findSubscriptionPlan } from "../../utility/subscriptionPlans";
 
 const SubscriptionPage = () => {
   const navigate = useNavigate();
   const { userData, refreshUser } = useAuth();
   const [policy, setPolicy] = useState(null);
-  const [usePoints, setUsePoints] = useState(false);
-  const [pointMode, setPointMode] = useState("all"); // all | custom
-  const [customPoints, setCustomPoints] = useState("");
+  const [planId, setPlanId] = useState("m1");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
 
-  const userPoints = Number(userData?.referralPoints || 0);
   const monthlyFee = Number(policy?.monthlySubscriptionPoint || 16500);
+  const plans = buildSubscriptionPlans(monthlyFee);
+  const plan = findSubscriptionPlan(plans, planId);
   const isTier1 = isSubscriber(userData);
   const sub = userData?.subscription;
   const subEnd = sub?.endAt?.toDate ? sub.endAt.toDate() : (sub?.endAt ? new Date(sub.endAt) : null);
   const autoOn = sub?.status === "active" && sub?.autoRenew === true;
   const billing = sub?.billing || null;
   const nextChargeAt = billing?.nextChargeAt?.toDate ? billing.nextChargeAt.toDate() : (billing?.nextChargeAt ? new Date(billing.nextChargeAt) : null);
+  const myPlan = findSubscriptionPlan(plans, sub?.planId); // 구독 중인 상품(예전 구독자는 1개월)
   const cardLabel = [billing?.cardCompany, billing?.cardNumberMasked].filter(Boolean).join(" ");
   // 아이폰 앱: 구독 상태·해지만 보이고 결제는 없다 (애플 3.1.1, 형 결정 9/25)
   const ios = isIosApp();
@@ -48,13 +56,6 @@ const SubscriptionPage = () => {
 
   useEffect(() => { getPointPolicy().then(setPolicy).catch(() => setPolicy(null)); }, []);
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2500); };
-
-  // 사용 포인트 계산 — 100P 단위, 잔액·구독료 이내
-  const maxUsable = Math.floor(Math.min(userPoints, monthlyFee) / 100) * 100;
-  let pointsUsed = 0;
-  if (usePoints) pointsUsed = pointMode === "all" ? maxUsable : Math.min(maxUsable, Math.floor((Number(customPoints) || 0) / 100) * 100);
-  const cardAmount = monthlyFee - pointsUsed;
-  const cardTooSmall = cardAmount > 0 && cardAmount < 100;
 
   // 자동결제 등록 — 카드 등록창으로 이동. 전액 카드(포인트 혼합 없음, 형 확정 9/16)
   const handleAutoSubscribe = async () => {
@@ -66,6 +67,7 @@ const SubscriptionPage = () => {
         customerKey: userData.uid,
         customerName: userData.nickname || userData.name || undefined,
         purpose: "subscription",
+        planId: plan.id,
       });
     } catch (e) {
       showToast(e.message || "카드 등록창을 열지 못했습니다");
@@ -76,7 +78,7 @@ const SubscriptionPage = () => {
   // 자동결제 해지 — 만료일까지는 0차수 유지, 다음 달부터 청구 안 함
   const handleCancelAuto = async () => {
     if (busy) return;
-    if (!window.confirm(`자동결제를 해지할까요?\n${subEnd ? `${ymd(subEnd)}까지는 0차수가 그대로 유지되고, ` : ""}다음 달부터 결제되지 않습니다.`)) return;
+    if (!window.confirm(`자동결제를 해지할까요?\n${subEnd ? `${ymd(subEnd)}까지는 0차수가 그대로 유지되고, ` : ""}그 뒤로는 결제되지 않습니다.`)) return;
     setBusy(true);
     try {
       await cancelBilling({ target: "subscription" });
@@ -89,38 +91,31 @@ const SubscriptionPage = () => {
     }
   };
 
-  const handleSubscribe = async () => {
-    if (!userData?.uid) { showToast("로그인이 필요합니다"); return; }
-    if (cardTooSmall) { showToast("카드 결제 금액은 100원 이상이어야 해요. 포인트 사용액을 조정해 주세요"); return; }
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (cardAmount === 0) {
-        // 전액 H-포인트 — 서버가 바로 차감·적용
-        await preparePayment({ purpose: "subscription", pointsUsed });
-        if (refreshUser) await refreshUser();
-        showToast("H-포인트로 구독이 시작되었습니다");
-        setTimeout(() => navigate("/pay/success?pointsOnly=1&purpose=subscription", { replace: true }), 600);
-        return;
-      }
-      navigate(`/pay?purpose=subscription&pointsUsed=${pointsUsed}`);
-    } catch (e) {
-      showToast(e.message || "결제 준비에 실패했습니다");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
-    <SimpleBackLayout NAME="월 구독" hideFooter>
+    <SimpleBackLayout NAME="구독" hideFooter>
       <Wrap>
         {/* PC: 왼쪽 상품 설명·결제 방식 / 오른쪽 고정 결제 요약. 폰에서는 두 묶음 모두 display: contents */}
         <LeftCol>
         <Hero>
-          <HeroTitle>홈프로 월 구독 · 0차수</HeroTitle>
-          {!ios && <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함)</Small></HeroPrice>}
+          <HeroTitle>홈프로 구독 · 0차수</HeroTitle>
+          {!ios && <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함 · 길게 구독하면 할인)</Small></HeroPrice>}
           <HeroDesc>오더가 접수되는 즉시 0초에 수락할 수 있습니다. 미구독은 2만P 이상 보유(1차수) 3분 뒤, 무료회원(2차수) 7분 뒤부터 수락됩니다.</HeroDesc>
         </Hero>
+
+        {/* 파트너 등급 안내 (대표 10/2 원문) — 내 등급 줄은 굵게 */}
+        <Section>
+          <Label>홈프로 등급 안내</Label>
+          {TIER_GUIDE.map((g) => {
+            const mine = getAccessTier(userData) === g.tier;
+            return (
+              <TierRow key={g.tier}>
+                <TierName $mine={mine}>{tierFullLabel(g.tier)}{mine ? " · 내 등급" : ""}</TierName>
+                <TierText>{g.who}</TierText>
+                <TierText><b>{g.rule}</b></TierText>
+              </TierRow>
+            );
+          })}
+        </Section>
 
         {isTier1 && (
           <StatusBox>
@@ -137,77 +132,59 @@ const SubscriptionPage = () => {
           <StatusBox><b>구독하지 않은 상태입니다</b></StatusBox>
         )}
 
-        {/* 자동결제 — 전액 카드 (대표 지시 9/16). 아이폰 앱은 해지만 */}
-        {(!ios || autoOn) && <Section>
-          <Label>자동결제로 구독</Label>
-          {autoOn ? (
-            <>
-              <AutoRow><span>상태</span><b style={{ color: "#15803d" }}>자동결제 중</b></AutoRow>
-              {cardLabel && <AutoRow><span>결제 카드</span><b>{cardLabel}</b></AutoRow>}
-              {nextChargeAt && <AutoRow><span>다음 결제일</span><b>{ymd(nextChargeAt)}</b></AutoRow>}
-              <AutoRow><span>매달 청구</span><b>{monthlyFee.toLocaleString()}원</b></AutoRow>
-              <OutlineBtn onClick={handleCancelAuto} disabled={busy}>자동결제 해지</OutlineBtn>
-              <AutoNote>해지해도 {subEnd ? `${ymd(subEnd)}까지는` : "만료일까지는"} 0차수가 그대로 유지되고, 다음 달부터 결제되지 않습니다.</AutoNote>
-            </>
-          ) : (
-            <>
-              <AutoNote style={{ marginTop: 0 }}>
-                카드를 한 번 등록해 두면 매달 {monthlyFee.toLocaleString()}원이 자동으로 결제돼 구독이 끊기지 않습니다.
-                자동결제는 전액 카드로만 되고, H-포인트를 섞어 내려면 아래 &lsquo;이번 달만 결제&rsquo;를 쓰세요.
-                {isTier1 && subEnd ? ` 지금 등록해도 ${ymd(subEnd)}까지는 청구되지 않고, 그날부터 자동결제가 시작됩니다.` : ""}
-              </AutoNote>
-              <PrimaryBtn onClick={handleAutoSubscribe} disabled={busy}>
-                {busy ? "처리 중..." : "카드 등록하고 자동결제 시작"}
-              </PrimaryBtn>
-            </>
-          )}
-        </Section>}
-
-        {!ios && <>
-        <SectionTitle>이번 달만 결제</SectionTitle>
-        <Section>
-          <Label>H-포인트 사용하기</Label>
-          <CheckRow onClick={() => setUsePoints((v) => !v)}>
-            <CheckBox $on={usePoints}>{usePoints ? "✓" : ""}</CheckBox>
-            <CheckText>보유 {userPoints.toLocaleString()}P 중에서 구독료에 씁니다 (1P = 1원, 100P 단위)</CheckText>
-          </CheckRow>
-          {usePoints && (
-            <>
-              <Radio onClick={() => setPointMode("all")}>
-                <RadioDot $on={pointMode === "all"} />
-                <RadioText>전액 사용 ({maxUsable.toLocaleString()}P)</RadioText>
-              </Radio>
-              <Radio onClick={() => setPointMode("custom")}>
-                <RadioDot $on={pointMode === "custom"} />
-                <RadioText>사용할 포인트 직접 입력</RadioText>
-              </Radio>
-              {pointMode === "custom" && (
-                <InputRow>
-                  <Input inputMode="numeric" placeholder="예: 5000" value={customPoints}
-                    onChange={(e) => setCustomPoints(e.target.value.replace(/[^0-9]/g, ""))} />
-                  <Unit>P</Unit>
-                </InputRow>
-              )}
-            </>
-          )}
-        </Section>
-        </>}
         </LeftCol>
 
-        {!ios && <RightCol>
-        <Summary>
-          <Row><span>구독료</span><b>{monthlyFee.toLocaleString()}원</b></Row>
-          <Row><span>H-포인트 사용</span><b>- {pointsUsed.toLocaleString()}P</b></Row>
-          <Row $total><span>카드 결제(토스)</span><b>{cardAmount.toLocaleString()}원</b></Row>
-          {cardTooSmall && <Warn>카드 결제 금액은 100원 이상이어야 합니다.</Warn>}
-        </Summary>
+        {/* 결제 칸 하나 — 자동결제(카드 등록)만. 형 확정 10/13: H-포인트로 구독료는 내지 않는다 → '이번 달만 결제'·포인트 혼합 화면 삭제 */}
+        <RightCol>
+        {autoOn ? (
+          <Section>
+            <Label>자동결제</Label>
+            <AutoRow><span>상태</span><b style={{ color: "#15803d" }}>자동결제 중</b></AutoRow>
+            {cardLabel && <AutoRow><span>결제 카드</span><b>{cardLabel}</b></AutoRow>}
+            {nextChargeAt && <AutoRow><span>다음 결제일</span><b>{ymd(nextChargeAt)}</b></AutoRow>}
+            <AutoRow><span>구독 상품</span><b>{myPlan.name}</b></AutoRow>
+            <AutoRow><span>{myPlan.months === 1 ? "매달 청구" : `${myPlan.months}개월마다 청구`}</span><b>{myPlan.price.toLocaleString()}원</b></AutoRow>
+            <OutlineBtn onClick={handleCancelAuto} disabled={busy}>자동결제 해지</OutlineBtn>
+            <AutoNote>해지해도 {subEnd ? `${ymd(subEnd)}까지는` : "만료일까지는"} 0차수가 그대로 유지되고, 그 뒤로는 결제되지 않습니다.</AutoNote>
+          </Section>
+        ) : !ios && (
+          <>
+            <Section>
+              <Label>구독 상품</Label>
+              {plans.map((p) => (
+                <PlanOption key={p.id} $on={p.id === plan.id} onClick={() => setPlanId(p.id)}>
+                  <RadioDot $on={p.id === plan.id} />
+                  <PlanBody>
+                    <PlanTop>
+                      <PlanName $on={p.id === plan.id}>{p.name}</PlanName>
+                      <PlanPrice>{p.price.toLocaleString()}원</PlanPrice>
+                    </PlanTop>
+                    {p.months > 1 && (
+                      <PlanDesc>한 달에 {p.perMonth.toLocaleString()}원 꼴 · <Save>{p.percent}% 할인</Save></PlanDesc>
+                    )}
+                  </PlanBody>
+                </PlanOption>
+              ))}
+            </Section>
 
-        <Notice>H-포인트는 보상으로만 쌓이고, 돈으로 살 수 없으며, 출금되지 않습니다. 이 경로는 한 달치만 결제하는 방식이라 다음 달에 다시 결제해야 합니다.</Notice>
+            <Summary>
+              <Row><span>{plan.name} 구독료</span><b>{plan.full.toLocaleString()}원</b></Row>
+              {plan.saved > 0 && <Row><span>장기 구독 할인 ({plan.percent}%)</span><b>- {plan.saved.toLocaleString()}원</b></Row>}
+              <Row $total><span>카드 결제(토스)</span><b>{plan.price.toLocaleString()}원</b></Row>
+            </Summary>
 
-        <SubmitBtn onClick={handleSubscribe} disabled={busy || cardTooSmall}>
-          {busy ? "처리 중..." : cardAmount === 0 ? `${pointsUsed.toLocaleString()}P로 한 달 결제` : `${cardAmount.toLocaleString()}원 결제하고 한 달 구독`}
-        </SubmitBtn>
-        </RightCol>}
+            <Notice>
+              다음 화면에서 카드를 등록하면 {plan.price.toLocaleString()}원이 결제되고 구독이 시작됩니다.
+              {plan.months === 1 ? " 매달" : ` ${plan.months}개월마다`} 같은 금액으로 자동 결제되며, 언제든 해지할 수 있습니다.
+              {isTier1 && subEnd ? ` 지금 등록해도 ${ymd(subEnd)}까지는 청구되지 않고, 그날부터 자동결제가 시작됩니다.` : ""}
+            </Notice>
+
+            <SubmitBtn onClick={handleAutoSubscribe} disabled={busy}>
+              {busy ? "처리 중..." : `${plan.name} 구독 시작하기`}
+            </SubmitBtn>
+          </>
+        )}
+        </RightCol>
         <BottomSpacer />
       </Wrap>
       {toast && <Toast>{toast}</Toast>}
@@ -217,19 +194,42 @@ const SubscriptionPage = () => {
 
 export default SubscriptionPage;
 
-const Wrap = styled.div` background: ${THEME.background}; min-height: 100%; padding: 12px;  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; word-break: keep-all; @media (max-width: 1040px) { grid-template-columns: minmax(0, 1fr); }`} `;
+const Wrap = styled.div` background: ${THEME.background}; min-height: 100%; padding: 12px;  ${pcOnly`max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 28px 32px 60px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; align-items: start; word-break: keep-all; @media (max-width: 1040px) { grid-template-columns: minmax(0, 1fr); }`} `;
 const Hero = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 20px; margin-bottom: 12px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 16px;`} `;
 const HeroTitle = styled.div` font-size: 17px; font-weight: 700; color: ${THEME.text}; margin-bottom: 6px; `;
 const HeroPrice = styled.div` font-size: 28px; font-weight: 800; color: ${THEME.text}; margin-bottom: 8px; `;
 const Small = styled.span` font-size: 14px; font-weight: 400; color: ${THEME.muted}; `;
 const HeroDesc = styled.div` font-size: 15px; line-height: 1.55; color: ${THEME.textSecondary}; word-break: keep-all;  ${pcOnly`color: ${PC.body};`} `;
 const StatusBox = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; font-size: 15px; color: #15803d;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 18px 26px; margin-bottom: 16px;`} `;
-const Section = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 16px; margin-bottom: 12px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 0;`} `;
+const Section = styled.div` background: #fff; border: 1px solid ${THEME.border}; border-radius: 16px; padding: 16px; margin-bottom: 12px;  ${pcOnly`border-radius: 0; border: 1px solid ${PC.line}; padding: 24px 26px; margin-bottom: 16px;`} `;
 const SectionTitle = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin: 18px 4px 8px;  ${pcOnly`font-size: 18px; font-weight: 800; margin: 28px 0 12px;`} `;
 const AutoRow = styled.div` display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; font-size: 15px; color: ${THEME.text}; b { font-weight: 700; }  ${pcOnly`justify-content: flex-start; max-width: 460px; & > span { width: 140px; flex: none; }`} `;
 const AutoNote = styled.div` margin-top: 10px; font-size: 14px; line-height: 1.55; color: ${THEME.textSecondary}; word-break: keep-all;  ${pcOnly`font-size: 15px; color: ${PC.body};`} `;
-const PrimaryBtn = styled.button` width: 100%; min-height: 50px; margin-top: 12px; border: none; border-radius: 10px; background: #1b1f27; color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; }  ${pcOnly`width: auto; padding: 0 26px; margin-top: 18px;`} `;
+const TierRow = styled.div` padding: 12px 0; border-top: 1px solid ${THEME.border}; &:first-of-type { border-top: none; padding-top: 2px; } `;
+const TierName = styled.div` font-size: 16px; font-weight: 700; color: ${({ $mine }) => ($mine ? THEME.primary : THEME.text)}; margin-bottom: 4px; `;
+const TierText = styled.div` font-size: 15px; line-height: 1.55; color: ${THEME.text}; word-break: keep-all; b { font-weight: 700; } `;
+const PrimaryBtn = styled.button` width: 100%; min-height: 50px; margin-top: 12px; border: none; border-radius: 10px; background: ${THEME.button}; color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; }  ${pcOnly`margin-top: 18px;`} `;
 const OutlineBtn = styled.button` width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid ${THEME.border}; border-radius: 10px; background: #fff; color: ${THEME.text}; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; &:disabled { opacity: .5; cursor: default; }  ${pcOnly`width: auto; padding: 0 26px; margin-top: 18px;`} `;
+const PayOption = styled.div`
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; background: #fff;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : THEME.border)}; border-radius: 10px;
+  ${pcOnly`border-radius: 0;`}
+`;
+const PayName = styled.div` font-size: 16px; font-weight: ${({ $on }) => ($on ? 800 : 600)}; color: ${THEME.text}; margin-bottom: 4px; `;
+const PayDesc = styled.div` font-size: 14px; line-height: 1.5; color: ${THEME.text}; word-break: keep-all; `;
+const PointBox = styled.div` margin-top: 14px; padding-top: 14px; border-top: 1px solid ${THEME.border}; `;
+const PlanOption = styled.div`
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 12px 16px; margin-bottom: 10px; cursor: pointer; background: #fff; box-sizing: border-box;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : THEME.border)}; border-radius: 10px;
+  &:last-child { margin-bottom: 0; }
+  ${pcOnly`border-radius: 0;`}
+`;
+const PlanBody = styled.div` flex: 1; min-width: 0; `;
+const PlanTop = styled.div` display: flex; align-items: baseline; justify-content: space-between; gap: 10px; `;
+const PlanName = styled.div` font-size: 16px; font-weight: ${({ $on }) => ($on ? 800 : 600)}; color: ${THEME.text}; `;
+const PlanPrice = styled.div` font-size: 17px; font-weight: 800; color: ${THEME.text}; `;
+const PlanDesc = styled.div` margin-top: 3px; font-size: 14px; line-height: 1.5; color: ${THEME.text}; word-break: keep-all; `;
+const Save = styled.span` font-weight: 700; color: ${THEME.primary}; `;
 const Label = styled.div` font-size: 16px; font-weight: 700; color: ${THEME.text}; margin-bottom: 10px; `;
 const CheckRow = styled.div` display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 4px 0 10px; `;
 const CheckBox = styled.div`
@@ -264,7 +264,7 @@ const SubmitBtn = styled.button`
 `;
 const BottomSpacer = styled.div` height: 40px;  ${pcOnly`display: none;`} `;
 const LeftCol = styled.div` display: contents; ${pcOnly`display: block; min-width: 0;`} `;
-const RightCol = styled.div` display: contents; ${pcOnly`display: block; position: sticky; top: 24px; @media (max-width: 1040px) { position: static; }`} `;
+const RightCol = styled.div` display: contents; ${pcOnly`display: block; min-width: 0;`} `;
 const Toast = styled.div`
   position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff;
   padding: 12px 20px; border-radius: 10px; font-size: 15px; z-index: 1000; white-space: nowrap;

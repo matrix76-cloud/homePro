@@ -71,7 +71,7 @@ export default function AdminPaymentsPage() {
       <PageHead>
         <div>
           <PageTitle>PG 결제 내역</PageTitle>
-          <PageDesc>토스페이먼츠로 들어온 월 구독료·보험료 전부. 회원 간 대금·캐시백은 플랫폼이 받지 않으므로 여기 없습니다.</PageDesc>
+          <PageDesc>토스페이먼츠로 들어온 월 구독료·보험료 전부. 회원 간 대금·소개수수료는 플랫폼이 받지 않으므로 여기 없습니다.</PageDesc>
         </div>
         <HeadRight><SmallBtn type="button" onClick={downloadCsv} disabled={!filtered.length}>CSV 다운로드</SmallBtn></HeadRight>
       </PageHead>

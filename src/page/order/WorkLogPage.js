@@ -87,7 +87,7 @@ const WorkLogPage = () => {
   }, [loading, requested, isWorker, checkIn, checkOut]); // eslint-disable-line
 
   const openSheet = async (type) => {
-    // 체크인은 캐시백 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡). 좌표 없음만 막는다
+    // 체크인은 소개수수료 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡). 좌표 없음만 막는다
     setSheetType(type);
     setPhotos([]);
     setNote("");
@@ -244,7 +244,7 @@ const WorkLogPage = () => {
           </NoticeHead>
           <NoticeText>
             사진과 함께 촬영 시각·위치가 기록되어, 작업 중 파손이나 분쟁이 생겼을 때 증빙 자료로 활용됩니다.
-            작업 전(Before)과 작업 후(After) 사진을 같은 위치에서 찍어 주세요.
+            작업 전(Before)과 작업 후(After) 사진을 같은 위치에서 촬영합니다.
           </NoticeText>
         </NoticeCard>
   );

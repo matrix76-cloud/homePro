@@ -153,7 +153,7 @@ export async function grantPoints(uid, userName, category, options = {}) {
     });
     // 등급 재계산
     try {
-      const { calcGrade, GRADE_ORDER } = await import("../utility/gradeUtils");
+      const { calcGrade, GRADE_ORDER, GRADE_SYSTEM_ENABLED } = await import("../utility/gradeUtils");
       const userSnap = await getDoc(doc(db, USERS_COL, uid));
       const userData = userSnap.data() || {};
       const totalPts = userData.totalEarnedPoints || 0;
@@ -163,7 +163,8 @@ export async function grantPoints(uid, userName, category, options = {}) {
       const oldGrade = userData.grade || "rookie";
       const oldIdx = GRADE_ORDER.indexOf(oldGrade);
       const newIdx = GRADE_ORDER.indexOf(newGrade.key);
-      if (newIdx > oldIdx) {
+      // 등급제도 삭제 (대표 10/8) — 등급 저장·상승 알림을 하지 않는다
+      if (GRADE_SYSTEM_ENABLED && newIdx > oldIdx) {
         await updateDoc(doc(db, USERS_COL, uid), { grade: newGrade.key });
         await addDoc(collection(db, "notifications"), {
           targetUids: [uid],
