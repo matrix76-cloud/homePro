@@ -13,8 +13,11 @@ import { pcOnly, PC } from "../../pc/pcKit";
 const SEGMENTS = [
   { key: "training", label: "기술교육" },
   { key: "market", label: "양도·매매" },
-  { key: "supplies", label: "자재·장비" },
+  { key: "supplies", label: "자재·장비·소모품" },
 ];
+// 마이페이지에서 따로 들어올 때의 화면 제목 — 세 메뉴로 분리 (대표 10/2):
+//  기술전수 수강생모집 / 거래장터(자재·장비·소모품) / 양도·매매(사업장·팀인력·영업권 DB)
+const ONLY_TITLE = { training: "기술전수 수강생모집", supplies: "거래장터", market: "양도·매매" };
 
 const EducationMarketPage = () => {
   // 마이페이지의 기술전수교육/거래장터 분리 진입 — ?seg= 로 초기 세그먼트 지정 (형 지시 8/8)
@@ -23,11 +26,9 @@ const EducationMarketPage = () => {
   const [seg, setSeg] = useState(initSeg);
   // 마이페이지 '기술전수 수강생모집'에서 들어오면 기술전수 항목만 (대표 9/15 리뷰). 거래장터는 양도·매매·자재·장비만
   const only = searchParams.get("only") === "1";
-  const visibleSegs = only
-    ? SEGMENTS.filter((s) => (initSeg === "training" ? s.key === "training" : s.key !== "training"))
-    : SEGMENTS;
+  const visibleSegs = only ? SEGMENTS.filter((s) => s.key === initSeg) : SEGMENTS;
   return (
-    <MainListLayout NAME={only && initSeg === "training" ? "기술전수 수강생모집" : "교육.장터"} footerType="education" hideBack={!only}>
+    <MainListLayout NAME={only ? ONLY_TITLE[initSeg] : "교육.장터"} footerType="education" hideBack={!only}>
       {visibleSegs.length > 1 && (
       <SegRow>
         {visibleSegs.map((s) => (

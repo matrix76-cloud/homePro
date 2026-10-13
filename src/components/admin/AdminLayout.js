@@ -134,8 +134,11 @@ const MENUS = [
             { to: "/admin/blacklist", label: "확인중", end: true },
             { to: "/admin/blacklist/confirmed", label: "권한차단" },
             { to: "/admin/blacklist/dismissed", label: "반려" },
+            { to: "/admin/reports", label: "글·댓글·채팅 신고" },
         ],
     },
+    // 보험 탭 1:1 문의 (대표 10/6) — 홈프로 문의 목록·답변
+    { to: "/admin/insurance-inquiries", icon: IoChatbubblesOutline, label: "보험 문의내역 관리" },
     {
         icon: IoLinkOutline, label: "매칭관리", groupKey: "matching",
         sub: [

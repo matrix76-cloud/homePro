@@ -17,6 +17,7 @@ import {
   dealMethodText, formatDate, LINE, ACTIVE_FACE, INK_BUTTON, DONE_COLOR,
 } from "./suppliesConstants";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const SuppliesDetailPage = () => {
   const { id } = useParams();
@@ -226,7 +227,7 @@ const SuppliesDetailPage = () => {
               <div>
                 <SellerName>{data.authorName || "홈프로 회원"}</SellerName>
                 <SellerMeta>
-                  {data.authorSubscribed ? "월 구독 회원" : "일반 회원"}
+                  {isIosApp() ? "홈프로 회원" : data.authorSubscribed ? "월 구독 회원" : "일반 회원"}
                   {phone ? ` · ${phone}` : " · 채팅으로 연락"}
                 </SellerMeta>
               </div>

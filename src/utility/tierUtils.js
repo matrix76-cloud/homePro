@@ -27,6 +27,15 @@ export const ACCEPT_DELAY_SEC = TIER_DELAY_SEC.tier2;
 
 /** 차수 표시 라벨 */
 export const TIER_LABEL = { tier0: "0차수", tier1: "1차수", tier2: "2차수" };
+/** 차수별 파트너 등급 이름 (대표 10/2) — 화면에는 "2차수 일반무료 회원"처럼 차수 + 이름으로 쓴다 */
+export const TIER_NAME = { tier0: "유료구독 회원", tier1: "앰배서더 회원", tier2: "일반무료 회원" };
+export const tierFullLabel = (tier) => `${TIER_LABEL[tier] || ""} ${TIER_NAME[tier] || ""}`.trim();
+/** 파트너 등급 안내 (대표 10/2 원문) */
+export const TIER_GUIDE = [
+    { tier: "tier2", who: "홈프로에 처음 가입한 직후의 모든 기본 회원", rule: "오더접수 7분 경과 후 오더 수락 권한" },
+    { tier: "tier1", who: "H-포인트 2만 P 이상 보유 또는 적극적인 초대·활동으로 플랫폼에 기여한 회원", rule: "오더접수 3분 경과 후 오더 수락 권한" },
+    { tier: "tier0", who: "월 구독료를 결제한 유료 구독 파트너", rule: "오더접수 \"0\" 실시간 오더 수락 권한" },
+];
 /** 차수 조건 설명 */
 export const TIER_DESC = { tier0: "유료 구독 · 접수 즉시 수락", tier1: "2만P 이상 보유 · 등록 3분 뒤 수락", tier2: "무료회원 · 등록 7분 뒤 수락" };
 

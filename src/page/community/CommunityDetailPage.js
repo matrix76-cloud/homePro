@@ -2,13 +2,15 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { IoHeartOutline, IoHeart, IoSendOutline, IoChatbubbleOutline, IoPersonCircle } from "react-icons/io5";
+import { IoHeartOutline, IoHeart, IoSendOutline, IoChatbubbleOutline, IoPersonCircle, IoEllipsisHorizontal } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { getPostById, toggleLike, checkLiked, getComments, addComment, increaseViewCount, getPosts } from "../../service/CommunityService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import usePcWide from "../../hooks/usePcWide";
+import ReportSheet from "../../components/ReportSheet";
+import { getMyBlocks } from "../../service/BlockService";
 
 const CommunityDetailPage = () => {
   const { postId } = useParams();
@@ -30,6 +32,24 @@ const CommunityDetailPage = () => {
   const commentInputRef = useRef(null);
   const pcWide = usePcWide();
   const [related, setRelated] = useState([]);   // PC 오른쪽 단 "다른 글" — 읽기만 한다
+  // 신고 · 거부 등록 (애플 심사 1.2) — 남의 글·댓글 옆 더보기에서 연다. 거부한 사용자의 글·댓글은 가린다
+  const [sheetTarget, setSheetTarget] = useState(null);
+  const [blockedUids, setBlockedUids] = useState([]);
+  const [toast, setToast] = useState("");
+  const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 2400); };
+
+  useEffect(() => {
+    if (!uid) return;
+    let alive = true;
+    getMyBlocks(uid).then((list) => { if (alive) setBlockedUids(list.map((b) => b.blockedUid)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [uid]);
+
+  const handleBlocked = (t) => {
+    setBlockedUids((prev) => [...prev, t.targetUid]);
+    // 글쓴이를 거부했으면 이 글 자체가 안 보여야 하므로 목록으로 돌아간다
+    if (post?.authorUid && t.targetUid === post.authorUid) setTimeout(() => navigate(-1), 900);
+  };
 
   useEffect(() => {
     if (!pcWide || !post) return;
@@ -89,9 +109,10 @@ const CommunityDetailPage = () => {
   };
 
   // 댓글을 부모-자식 구조로 정리
-  const rootComments = comments.filter((c) => !c.parentId);
+  const visibleComments = comments.filter((c) => !blockedUids.includes(c.authorUid));
+  const rootComments = visibleComments.filter((c) => !c.parentId);
   const childMap = {};
-  comments.filter((c) => c.parentId).forEach((c) => {
+  visibleComments.filter((c) => c.parentId).forEach((c) => {
     if (!childMap[c.parentId]) childMap[c.parentId] = [];
     childMap[c.parentId].push(c);
   });
@@ -106,6 +127,17 @@ const CommunityDetailPage = () => {
 
   if (!post) return null;
 
+  const canActOnPost = !!uid && post.type !== "notice" && !!post.authorUid && post.authorUid !== uid;
+  const openPostSheet = () => setSheetTarget({
+    type: "post", postId: post.id, targetUid: post.authorUid, targetName: post.authorName || "",
+    snippet: `${post.title || ""}\n${post.content || ""}`,
+  });
+  const openCommentSheet = (c) => setSheetTarget({
+    type: "comment", postId: post.id, commentId: c.id, targetUid: c.authorUid || null, targetName: c.authorName || "",
+    snippet: c.text || "",
+  });
+  const canActOnComment = (c) => !!uid && c.authorUid !== uid;
+
   return (
     <SimpleBackLayout NAME="커뮤니티" hideFooter>
       <PageWrap>
@@ -113,12 +145,17 @@ const CommunityDetailPage = () => {
           {/* 작성자 줄 (커뮤니티 시안 2번, 형 9/18) */}
           <AuthorLine>
             <IoPersonCircle size={40} color="#C9CED6" />
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <AuthorName>{post.authorName || (post.type === "notice" ? "홈프로" : "익명")}</AuthorName>
               <AuthorSub>
                 {post.type === "notice" ? "이벤트/공지 · " : ""}{formatDate(post.createdAt)}{post.viewCount ? ` · 조회 ${post.viewCount}` : ""}
               </AuthorSub>
             </div>
+            {canActOnPost && (
+              <MoreBtn type="button" aria-label="신고 · 거부 등록" onClick={openPostSheet}>
+                <IoEllipsisHorizontal size={22} color={THEME.text} />
+              </MoreBtn>
+            )}
           </AuthorLine>
 
           {/* 본문 */}
@@ -160,6 +197,7 @@ const CommunityDetailPage = () => {
                     <CommentMeta>
                       <CommentDate>{formatDate(c.createdAt)}</CommentDate>
                       <ReplyBtn onClick={() => setReplyTo({ id: c.id, authorName: c.authorName })}>답글</ReplyBtn>
+                      {canActOnComment(c) && <ReportBtn type="button" onClick={() => openCommentSheet(c)}>신고</ReportBtn>}
                     </CommentMeta>
                   </CommentItem>
                   {/* 대댓글 */}
@@ -169,6 +207,7 @@ const CommunityDetailPage = () => {
                       <CommentText>{reply.text}</CommentText>
                       <CommentMeta>
                         <CommentDate>{formatDate(reply.createdAt)}</CommentDate>
+                        {canActOnComment(reply) && <ReportBtn type="button" onClick={() => openCommentSheet(reply)}>신고</ReportBtn>}
                       </CommentMeta>
                     </CommentItem>
                   ))}
@@ -230,6 +269,17 @@ const CommunityDetailPage = () => {
           </PcSide>
         )}
       </PageWrap>
+
+      {sheetTarget && (
+        <ReportSheet
+          target={sheetTarget}
+          myUid={uid}
+          onClose={() => setSheetTarget(null)}
+          onBlocked={handleBlocked}
+          showToast={showToast}
+        />
+      )}
+      {toast && <Toast>{toast}</Toast>}
     </SimpleBackLayout>
   );
 };
@@ -283,6 +333,31 @@ const AuthorLine = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+const MoreBtn = styled.button`
+  width: 44px; height: 44px; margin-right: -10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  &:active { opacity: 0.6; }
+`;
+
+const ReportBtn = styled.button`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${THEME.text};
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  &:active { opacity: 0.6; }
+`;
+
+const Toast = styled.div`
+  position: fixed; left: 50%; bottom: 16vh; transform: translateX(-50%);
+  max-width: calc(var(--app-max, 400px) - 48px); width: max-content;
+  background: #1b1f27; color: #fff; padding: 12px 18px; border-radius: 10px;
+  font-size: 15px; line-height: 1.45; text-align: center; word-break: keep-all; z-index: 1100;
 `;
 
 const AuthorName = styled.div`

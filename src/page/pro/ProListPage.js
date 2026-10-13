@@ -8,12 +8,20 @@ import { CATEGORIES, CATEGORY_GROUPS, THEME, COLLECTIONS } from "../../config/ho
 import { useAuth } from "../../context/AuthContext";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { GradeBadge } from "../../utility/gradeUtils";
+import { getAccessTier } from "../../utility/tierUtils";
 import { IoLocationOutline, IoChevronDown, IoStarOutline, IoStar, IoHeartOutline, IoHeart, IoChevronForward, IoFunnelOutline, IoCloseOutline, IoCheckmark } from "react-icons/io5";
 
 const ProListPage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const myUid = userData?.uid;
+  // 프로필 창은 유료구독(0차수)·앰배서더(1차수)만 열린다. 일반무료(2차수)는 목록만 본다 (대표 10/2)
+  const canOpenProfile = getAccessTier(userData) !== "tier2";
+  const PROFILE_GATE_TEXT = "프로필은 유료구독 회원과 앰배서더 회원만 볼 수 있습니다. 일반무료 회원은 목록만 조회할 수 있습니다.";
+  const openProfile = (proUid) => {
+    if (!canOpenProfile && proUid !== myUid) { window.alert(PROFILE_GATE_TEXT); return; }
+    navigate("/biz-profile", { state: { viewUid: proUid } });
+  };
 
   const [pros, setPros] = useState([]);
   const [proProfiles, setProProfiles] = useState({});
@@ -196,7 +204,7 @@ const ProListPage = () => {
             const hasRating = avgRating != null && Number(avgRating) > 0;
 
             return (
-              <ProCard key={pro.id} onClick={() => navigate("/biz-profile", { state: { viewUid: pro.uid } })}>
+              <ProCard key={pro.id} onClick={() => openProfile(pro.uid)}>
                 <ProCardTop>
                   {photo ? (
                     <ProPhoto src={photo} alt="" />

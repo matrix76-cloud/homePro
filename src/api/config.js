@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, initializeAuth, inMemoryPersistence, indexedDBLocalPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, initializeAuth, inMemoryPersistence, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
 /**
@@ -69,9 +69,11 @@ const db = getFirestore(firebaseApp);
 // → 리뷰 폰 프레임(iframe name 이 'rvphone' 으로 시작)에서는 로그인을 메모리에만 두어 프레임마다 따로 산다.
 //   (window.name 은 프레임 안에서 페이지를 옮겨도 유지되므로 쿼리스트링을 끌고 다닐 필요가 없다.)
 const isReviewPhoneFrame = (() => { try { return typeof window !== 'undefined' && /^rvphone/.test(window.name || ''); } catch (e) { return false; } })();
+// initializeAuth 는 getAuth 와 달리 팝업·리다이렉트 처리기를 자동으로 넣어 주지 않는다.
+// 빠지면 웹의 구글·애플 로그인(signInWithPopup)이 팝업도 못 띄우고 auth/argument-error 로 끝난다.
 const auth = isReviewPhoneFrame
-    ? initializeAuth(firebaseApp, { persistence: inMemoryPersistence })
-    : initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+    ? initializeAuth(firebaseApp, { persistence: inMemoryPersistence, popupRedirectResolver: browserPopupRedirectResolver })
+    : initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence], popupRedirectResolver: browserPopupRedirectResolver });
 void getAuth; // getAuth(firebaseApp) 를 부르는 다른 모듈은 위에서 초기화한 같은 인스턴스를 돌려받는다
 const storage = getStorage(firebaseApp);
 

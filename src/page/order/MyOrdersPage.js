@@ -17,7 +17,7 @@ import usePcWide from "../../hooks/usePcWide";
 import { PC, pcOnly, PcFilterRow, PcField, PcTable, PcTHead, PcEmpty, PcGhostBtn } from "../../pc/pcKit";
 
 /* PC 표의 상태 글씨 색 (뱃지 대신 글씨색만) */
-const PC_STATUS_COLOR = { "접수": "#00963F", "대기": "#2b2f36", "선정대기": "#B45309", "배정": "#A16207", "완료": "#2563EB", "취소": "#E5484D" };
+const PC_STATUS_COLOR = { "접수": "#653A80", "대기": "#2b2f36", "선정대기": "#B45309", "배정": "#A16207", "완료": "#2563EB", "취소": "#E5484D" };
 /* PC 표 칸: 작업일 · 상태 · 구분 · 서비스 · 지역/주소 · 금액 · 상대 · 실행 */
 const PC_COLS = "88px 68px 80px minmax(0, 1.25fr) minmax(0, 1fr) 150px 96px 164px";
 const locationText = (order) => (typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" "));
@@ -74,7 +74,7 @@ const STATUS_DESC = {
 // 상태별 색상 통일 (대표 지시 7/23): 접수=보라계열(형 보라금지 룰과 충돌 → 확인 전까지 블루 유지)
 // 배정=노랑 / 완료=현재(초록) / 취소=붉은 / 대기=회색 / 선정대기=연노랑
 const STATUS_STYLE = {
-  "접수":     { bg: THEME.primary, color: "#fff" },  // 강조 초록 (9/17 색 변경 — 원래 대표 지시는 보라계열)
+  "접수":     { bg: THEME.logoPurple, color: "#fff" },  // 로고 보라 (대표 9/21 — 오더목록 접수 글자색과 통일)
   "대기":     { bg: "#9CA3AF", color: "#fff" },   // 회색
   // 대표 9/15 리뷰: 선정대기 = 기존 배정 색, 배정 = 노랑, 완료 = 파랑
   "선정대기": { bg: "#F59E0B", color: "#fff" },   // 기존 배정 색(주황빛 노랑)
@@ -95,9 +95,12 @@ const normalizeStatus = (s) => {
 };
 
 /* ─── 단가유형/요청방식 표시 (메인화면 사양과 동일 포맷) ─── */
-const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청", info: "정보공유" };
+const PRICE_TYPE_LABEL = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", quote: "견적요청", info: "정보공유", contract: "도급", sale: "매매" };
 /* 금액 미정 단가유형 — 수락→배정 후 견적서 전송 (현장견적/견적요청 통합) */
 const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
+/* 전송된 견적가 — 빠른배정은 onsiteQuotedPrice, 비교선정은 선정된 홈프로가 지원 때 보낸 applicantQuotes */
+const quotedAmount = (order) =>
+  Number(order.onsiteQuotedPrice) || (order.matchedProUid ? Number(order.applicantQuotes?.[order.matchedProUid]) : 0) || 0;
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
 
 const formatPriceLine = (order) => {
@@ -110,7 +113,7 @@ const formatPriceLine = (order) => {
   // 현장견적/견적요청: 선정 홈프로가 견적서를 전송하면 그 금액을 함께 표기
   if (UNPRICED_TYPES.includes(order.b2bPriceType)) {
     const label = PRICE_TYPE_LABEL[order.b2bPriceType] || "견적요청";
-    const quoted = Number(order.onsiteQuotedPrice) || (order.matchedProUid ? Number(order.applicantQuotes?.[order.matchedProUid]) : 0) || 0;
+    const quoted = quotedAmount(order);
     return quoted > 0 ? `${label} ${quoted.toLocaleString()}원` : label;
   }
   const amt = Number(order.b2bPriceAmount) || 0;
@@ -380,11 +383,11 @@ export const MyOrdersContent = () => {
           {order.createdBy === uid && order.checkInAt && (
             <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}`); }}>현장기록</ActionBtn>
           )}
-          {order.createdBy === uid && <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
+          {order.createdBy === uid && <ActionBtn $variant="cancel" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
           {order.matchedProUid === uid && (
             <>
               {/* 견적서는 1회만 전송 (의뢰인 확정: 수정·재전송 불가) — 미전송 시에만 버튼 노출 */}
-              {UNPRICED_TYPES.includes(order.b2bPriceType) && !order.onsiteQuotedPrice && (
+              {UNPRICED_TYPES.includes(order.b2bPriceType) && !quotedAmount(order) && (
                 <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); setPriceNotifyOpen({ order }); setNotifyPrice(""); setNotifyMsg(""); }}>
                   견적서 전송
                 </ActionBtn>
@@ -406,7 +409,7 @@ export const MyOrdersContent = () => {
                   onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkout`); }}
                 >작업완료(체크아웃)</ActionBtn>
               )}
-              <ActionBtn $variant="danger" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
+              <ActionBtn $variant="cancel" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
             </>
           )}
         </ActionRow>
@@ -440,7 +443,7 @@ export const MyOrdersContent = () => {
       {/* 접수/대기 카드는 취소·재접수만 (수정·대기 변경은 상세 하단에서) */}
       {displayStatus === "접수" && order.createdBy === uid && (
         <ActionRow>
-          <ActionBtn $variant="danger" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
+          <ActionBtn $variant="cancel" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
         </ActionRow>
       )}
       {displayStatus === "대기" && order.createdBy === uid && (
@@ -531,12 +534,12 @@ export const MyOrdersContent = () => {
                   const statusText = isUnselected(order) ? "미선정" : displayStatus;
                   const isOwner = order.createdBy === uid;
                   const chats = chatsOf(order);
-                  const ins = insuranceLine(order);
+                  const ins = userData?.pgReview === true ? "" : insuranceLine(order); // PG 심사 계정에서는 보험 줄을 뺀다
                   const meta = [order.selfOrder ? "셀프 등록" : (MATCH_TYPE_LABEL[order.matchType] || ""), `접수 ${formatOrderTime(order.createdAt)}`].filter(Boolean).join(" · ");
                   const other = isOwner
                     ? (order.matchedProUid ? (chats[0]?.otherName || "배정된 프로") : (chats.length > 0 ? `견적 ${chats.length}명` : "-"))
                     : (order.writer || "-");
-                  const quoteSent = UNPRICED_TYPES.includes(order.b2bPriceType) && order.onsiteQuotedPrice > 0 && displayStatus === "배정";
+                  const quoteSent = UNPRICED_TYPES.includes(order.b2bPriceType) && quotedAmount(order) > 0 && displayStatus === "배정";
                   return (
                     <PcRow key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
                       <span style={order.workDate === "긴급" ? { color: PC.danger, fontWeight: 800 } : null}>{workDateText(order) || "-"}</span>
@@ -557,7 +560,7 @@ export const MyOrdersContent = () => {
                         <PcSubLine onClick={(e) => e.stopPropagation()}>
                           {quoteSent && (
                             <PcSubText>
-                              전송된 견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
+                              전송된 견적가 <b>{quotedAmount(order).toLocaleString()}원</b>
                               {order.onsiteQuoteMessage ? ` — ${order.onsiteQuoteMessage}` : ""}
                             </PcSubText>
                           )}
@@ -672,16 +675,16 @@ export const MyOrdersContent = () => {
                     <BottomText>{typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" ")}</BottomText>
                     <BottomText>{order.writer}</BottomText>
                     <BottomText>{order.selfOrder ? "셀프 등록" : (MATCH_TYPE_LABEL[order.matchType] || "")}</BottomText>
-                    {insuranceLine(order) && <BottomText style={{ color: order.insurance?.applied ? "#15803d" : THEME.muted, fontWeight: order.insurance?.applied ? 700 : 400 }}>{insuranceLine(order)}</BottomText>}
+                    {userData?.pgReview !== true && insuranceLine(order) && <BottomText style={{ color: order.insurance?.applied ? "#15803d" : THEME.muted, fontWeight: order.insurance?.applied ? 700 : 400 }}>{insuranceLine(order)}</BottomText>}
                     {workDateText(order) && <BottomText>작업일 {workDateText(order)}</BottomText>}
                   </BottomLeft>
                   <PriceText>{formatPriceLine(order)}</PriceText>
                 </CardBottom>
 
                 {/* 견적서 전송 내역 (배정 상태 + 전송됨) */}
-                {UNPRICED_TYPES.includes(order.b2bPriceType) && order.onsiteQuotedPrice > 0 && displayStatus === "배정" && (
+                {UNPRICED_TYPES.includes(order.b2bPriceType) && quotedAmount(order) > 0 && displayStatus === "배정" && (
                   <OnsitePriceBox onClick={(e) => e.stopPropagation()}>
-                    전송된 견적가 <b>{Number(order.onsiteQuotedPrice).toLocaleString()}원</b>
+                    전송된 견적가 <b>{quotedAmount(order).toLocaleString()}원</b>
                     {order.onsiteQuoteMessage ? <div style={{ marginTop: 4, color: THEME.muted }}>{order.onsiteQuoteMessage}</div> : null}
                   </OnsitePriceBox>
                 )}
@@ -1286,6 +1289,7 @@ const CancelReqBtns = styled.div`
 
 const VARIANT_COLORS = {
   danger: "#EF4444",
+  cancel: "#653A80",   // 취소 처리 버튼 — 로고 보라로 통일 (대표 9/21). 실제 '취소' 상태 표시는 붉은색 그대로
   success: "#10B981",
   warning: "#F59E0B",
   primary: "#00963F",
@@ -1303,9 +1307,9 @@ const ActionBtn = styled.button`
   &:active { opacity: 0.7; }
   ${pcOnly`
     width: 100%; padding: 9px 8px; background: #fff; font-weight: 700; font-family: inherit; line-height: 1.3;
-    border-color: ${({ $variant }) => ($variant === "danger" ? PC.line : PC.primary)};
-    color: ${({ $variant }) => ($variant === "danger" ? PC.danger : PC.primaryDeep)};
-    &:hover { border-color: ${({ $variant }) => ($variant === "danger" ? PC.danger : PC.primaryDeep)}; }
+    border-color: ${({ $variant }) => ($variant === "danger" || $variant === "cancel" ? PC.line : PC.primary)};
+    color: ${({ $variant }) => ($variant === "danger" ? PC.danger : $variant === "cancel" ? "#653A80" : PC.primaryDeep)};
+    &:hover { border-color: ${({ $variant }) => ($variant === "danger" ? PC.danger : $variant === "cancel" ? "#653A80" : PC.primaryDeep)}; }
   `}
 `;
 

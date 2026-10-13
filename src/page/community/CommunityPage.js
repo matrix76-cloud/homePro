@@ -8,6 +8,8 @@ import { getPosts } from "../../service/CommunityService";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import Tabs from "../../common/Tabs";
 import usePcWide from "../../hooks/usePcWide";
+import { useAuth } from "../../context/AuthContext";
+import { getMyBlocks } from "../../service/BlockService";
 
 const TABS = ["자유게시판", "이벤트/공지"];
 
@@ -17,8 +19,19 @@ const CommunityPage = () => {
   const navigate = useNavigate();
   const pcWide = usePcWide();
   const [activeTab, setActiveTab] = useState("자유게시판");
-  const [posts, setPosts] = useState([]);
+  const [allPosts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  // 내가 거부 등록한 사용자의 글은 목록에서 가린다 (애플 심사 1.2)
+  const { userData } = useAuth();
+  const myUid = userData?.uid;
+  const [blockedUids, setBlockedUids] = useState([]);
+  useEffect(() => {
+    if (!myUid) return;
+    let alive = true;
+    getMyBlocks(myUid).then((list) => { if (alive) setBlockedUids(list.map((b) => b.blockedUid)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [myUid]);
+  const posts = blockedUids.length ? allPosts.filter((p) => !blockedUids.includes(p.authorUid)) : allPosts;
 
   const type = activeTab === "이벤트/공지" ? "notice" : "free";
 

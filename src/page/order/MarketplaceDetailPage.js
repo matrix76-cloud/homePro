@@ -23,6 +23,7 @@ import {
   premiumText, rentText, regionText, timeAgo, TabBox, TabItem,
 } from "./MarketplaceShared";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { isIosApp } from "../../bridge/webviewBridge";
 
 const MarketplaceDetailPage = () => {
   const navigate = useNavigate();
@@ -223,7 +224,7 @@ const MarketplaceDetailPage = () => {
                 {post.writerPhoto ? <Avatar src={post.writerPhoto} alt="" /> : <AvatarBlank />}
                 <div>
                   <AuthorName>{post.writer || "등록자"}</AuthorName>
-                  <Meta>{isOwner ? "내가 등록한 매물" : post.authorSubscribed ? "월 구독 사업자" : "홈프로 회원"}</Meta>
+                  <Meta>{isOwner ? "내가 등록한 매물" : post.authorSubscribed && !isIosApp() ? "월 구독 사업자" : "홈프로 회원"}</Meta>
                 </div>
               </Author>
             </Card>

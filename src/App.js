@@ -13,7 +13,7 @@ import PcHeader from "./components/pc/PcHeader";
 import { PcSidebar, PcTopBar, PC_SIDE_W, PC_TOP_H } from "./components/pc/PcAppShell";
 import PcOrdersPage from "./pc/PcOrdersPage";
 import PcAuthSplit from "./components/pc/PcAuthSplit";
-import { attachMessageListener, postToRN, sendNavState } from "./bridge/webviewBridge";
+import { attachMessageListener, postToRN, sendNavState, isIosApp } from "./bridge/webviewBridge";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -81,6 +81,7 @@ import EducationMarketPage from "./page/main/EducationMarketPage";
 import InsurancePage from "./page/insurance/InsurancePage";
 import InsuranceMyPage from "./page/insurance/InsuranceMyPage";
 import InsuranceClaimPage from "./page/insurance/InsuranceClaimPage";
+import InsuranceInquiryPage from "./page/insurance/InsuranceInquiryPage";
 import PayPage from "./page/pay/PayPage";
 import PaySuccessPage from "./page/pay/PaySuccessPage";
 import PayFailPage from "./page/pay/PayFailPage";
@@ -120,6 +121,7 @@ import SuppliesDetailPage from "./page/supplies/SuppliesDetailPage";
 import TermsPage from "./page/legal/TermsPage";
 import PrivacyPage from "./page/legal/PrivacyPage";
 import LocationTermsPage from "./page/legal/LocationTermsPage";
+import DeleteAccountPage from "./page/legal/DeleteAccountPage";
 import NoticePage from "./page/notice/NoticePage";
 import SupportPage from "./page/support/SupportPage";
 import CalendarPage from "./page/calendar/CalendarPage";
@@ -153,6 +155,8 @@ import AdminSettingsPage from "./page/admin/AdminSettingsPage";
 import AdminSettlementPage from "./page/admin/AdminSettlementPage";
 import AdminProApprovalPage from "./page/admin/AdminProApprovalPage";
 import AdminBlacklistPage from "./page/admin/AdminBlacklistPage";
+import AdminReportsPage from "./page/admin/AdminReportsPage";
+import AdminInsuranceInquiriesPage from "./page/admin/AdminInsuranceInquiriesPage";
 
 /* Dev 전용 — 리뷰 허브 (프로덕션 빌드에서 라우트 게이트로 제외, lazy로 청크 분리) */
 const AuthReview = React.lazy(() => import("./dev/AuthReview"));
@@ -174,6 +178,14 @@ const PageWrapper = ({ children }) => (
 );
 
 const wrap = (el) => <PageWrapper>{el}</PageWrapper>;
+// 아이폰 앱에서는 결제가 걸린 화면(구독·보험·결제창·결제 내역)을 열지 않는다 — 주소로 들어와도 홈으로 (형 지시 2026-10-01)
+// PG 심사 계정(users.pgReview)은 보험 화면에 들어가지 못한다 (형 2026-10-07 — PG사가 보험을 꺼림)
+const NoPgReview = ({ children }) => {
+  const { userData } = useAuth();
+  return userData?.pgReview === true ? <Navigate to="/MobileMain" replace /> : children;
+};
+const noIos = (el) => (isIosApp() ? <Navigate to="/MobileMain" replace /> : el);
+const noPg = (el) => <NoPgReview>{el}</NoPgReview>;
 
 /* ===================== layout / global ===================== */
 
@@ -423,6 +435,7 @@ const AnimatedRoutes = () => {
           <Route path="/legal/terms" element={wrap(<TermsPage />)} />
           <Route path="/legal/privacy" element={wrap(<PrivacyPage />)} />
           <Route path="/legal/location" element={wrap(<LocationTermsPage />)} />
+          <Route path="/legal/delete-account" element={wrap(<DeleteAccountPage />)} />
           {/* 고객용 PG 결제링크 — 로그인 없이 (대표 리뷰 9/17) */}
           <Route path="/pg/:id" element={wrap(<PgLinkPage />)} />
           <Route path="/seed-login" element={<SeedLoginPage />} />
@@ -459,15 +472,17 @@ const AnimatedRoutes = () => {
             <Route path="/pro/list" element={wrap(<ProListPage />)} />
             <Route path="/education-market" element={wrap(<EducationMarketPage />)} />
             {/* 일일 미니보험 안심케어 — 하단탭 (교육.장터 자리 대체, 대표 지시 8/4) */}
-            <Route path="/insurance" element={wrap(<InsurancePage />)} />
+            <Route path="/insurance" element={noPg(noIos(wrap(<InsurancePage />)))} />
             {/* 보험 가입·사고 접수·토스 결제 (9/13) */}
-            <Route path="/insurance/my" element={wrap(<InsuranceMyPage />)} />
-            <Route path="/insurance/claim" element={wrap(<InsuranceClaimPage />)} />
-            <Route path="/insurance/claim/:orderId" element={wrap(<InsuranceClaimPage />)} />
-            <Route path="/pay" element={wrap(<PayPage />)} />
-            <Route path="/pay/success" element={wrap(<PaySuccessPage />)} />
-            <Route path="/pay/fail" element={wrap(<PayFailPage />)} />
-            <Route path="/pay/billing-success" element={wrap(<BillingSuccessPage />)} />
+            <Route path="/insurance/my" element={noPg(noIos(wrap(<InsuranceMyPage />)))} />
+            <Route path="/insurance/claim" element={noPg(noIos(wrap(<InsuranceClaimPage />)))} />
+            {/* 보험 1:1 문의 — 결제가 없어 아이폰 앱에서도 연다 */}
+            <Route path="/insurance/inquiry" element={<NoPgReview>{wrap(<InsuranceInquiryPage />)}</NoPgReview>} />
+            <Route path="/insurance/claim/:orderId" element={noPg(noIos(wrap(<InsuranceClaimPage />)))} />
+            <Route path="/pay" element={noIos(wrap(<PayPage />))} />
+            <Route path="/pay/success" element={noIos(wrap(<PaySuccessPage />))} />
+            <Route path="/pay/fail" element={noIos(wrap(<PayFailPage />))} />
+            <Route path="/pay/billing-success" element={noIos(wrap(<BillingSuccessPage />))} />
             {/* 공동중개 라운지 — 조회는 누구나, 글쓰기·손님공유 연결은 인증 공인중개사만 (대표 9/10 권한 구조, 9/13 반영). 판정은 페이지 안에서 */}
             <Route>
               <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
@@ -511,8 +526,8 @@ const AnimatedRoutes = () => {
             <Route path="/marketplace" element={wrap(<MarketplacePage />)} />
             <Route path="/marketplace/create" element={wrap(<MarketplaceCreatePage />)} />
             <Route path="/marketplace/:marketplaceId" element={wrap(<MarketplaceDetailPage />)} />
-            <Route path="/subscription" element={wrap(<SubscriptionPage />)} />
-            <Route path="/mypage/payments" element={wrap(<PaymentHistoryPage />)} />
+            <Route path="/subscription" element={noIos(wrap(<SubscriptionPage />))} />
+            <Route path="/mypage/payments" element={noIos(wrap(<PaymentHistoryPage />))} />
             <Route path="/mypage/pg" element={wrap(<PgPaymentPage />)} />
 
             {/* Search */}
@@ -565,6 +580,8 @@ const AnimatedRoutes = () => {
               <Route path="pro-approval/:filter" element={<AdminProApprovalPage />} />
               <Route path="blacklist" element={<AdminBlacklistPage />} />
               <Route path="blacklist/:filter" element={<AdminBlacklistPage />} />
+              <Route path="reports" element={<AdminReportsPage />} />
+              <Route path="insurance-inquiries" element={<AdminInsuranceInquiriesPage />} />
               <Route path="matching" element={<AdminMatchingPage />} />
               <Route path="matching/:filter" element={<AdminMatchingPage />} />
               <Route path="chat" element={<AdminChatPage />} />

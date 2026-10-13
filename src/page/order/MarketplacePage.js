@@ -55,7 +55,7 @@ const MarketplacePage = ({ embedded } = {}) => {
 
   const handleWrite = () => {
     if (!canWrite) {
-      if (isIosApp()) { window.alert("양도·매매 글 등록은 월 구독 사업자만 할 수 있습니다."); return; }
+      if (isIosApp()) { window.alert("이 계정에서는 양도·매매 글을 등록할 수 없습니다."); return; }
       if (window.confirm("양도·매매 글 등록은 월 구독 사업자만 할 수 있습니다.\n구독 안내로 이동할까요?")) navigate("/subscription");
       return;
     }

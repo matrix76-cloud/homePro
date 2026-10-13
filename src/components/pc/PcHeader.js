@@ -1,7 +1,8 @@
 /* eslint-disable */
 /**
  * PC 위 메뉴 — 폭 900 이상·앱 밖에서만 뜬다 (형 9/20 "위 메뉴는 실제 동작, 홍보는 홈에서만").
- *  · 로그인 전: 홈(홍보 /intro) + 실제 메뉴, 오른쪽 로그인·가입
+ *  · 로그인 전: 홈(홍보 /intro) + 실제 메뉴, 오른쪽 [로그인 하기] 하나 (형 10/1 — 가입 버튼을 따로 두지 않는다.
+ *    처음 로그인한 사람은 로그인 뒤에 사업자·개인을 고른다)
  *  · 로그인 후: 실제 메뉴, 오른쪽 채팅·마이·이름 (로고 = 오더목록)
  * 폰·앱(WebView)은 이 헤더 없이 기존 하단 탭을 그대로 쓴다.
  */
@@ -34,12 +35,14 @@ const PcHeader = () => {
 
   // 랜딩에서는 QR 이 있는 섹션으로 내려가고, 그 밖에서는 이동 페이지(/app)로
   const goApp = () => {
-    const el = path === "/intro" ? document.getElementById("app") : null;
+    const el = path === "/intro" ? document.getElementById("app-download") : null;
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     else navigate("/app");
   };
 
-  const items = loggedIn ? MENU : [{ label: "홈", to: "/intro", match: (p) => p === "/intro" }, ...MENU];
+  // PG 심사 계정에서는 안심케어(보험)를 뺀다 (형 2026-10-07)
+  const menuList = userData?.pgReview === true ? MENU.filter((m) => m.to !== "/insurance") : MENU;
+  const items = loggedIn ? menuList : [{ label: "홈", to: "/intro", match: (p) => p === "/intro" }, ...menuList];
 
   return (
     <Bar>
@@ -59,8 +62,7 @@ const PcHeader = () => {
           </Right>
         ) : (
           <Right>
-            <LoginBtn onClick={() => navigate("/MobileLogin")}>로그인</LoginBtn>
-            <SignupBtn onClick={() => navigate("/MobileSignup")}>사업자 가입하기</SignupBtn>
+            <SignupBtn onClick={() => navigate("/MobileLogin")}>로그인 하기</SignupBtn>
           </Right>
         )}
       </Inner>
@@ -94,11 +96,6 @@ const IconBtn = styled.button`
   &:hover { color: #00963F; }
 `;
 const Name = styled.span` font-size: 15px; color: #14181F; margin-left: 6px; b { font-weight: 800; } `;
-const LoginBtn = styled.button`
-  border: 1px solid #dfe3e8; background: #fff; color: #14181F; font-weight: 700; font-size: 15px; font-family: inherit;
-  padding: 10px 18px; border-radius: 10px; cursor: pointer; white-space: nowrap;
-  &:hover { border-color: #00963F; color: #00963F; }
-`;
 const SignupBtn = styled.button`
   border: none; background: #00963F; color: #fff; font-weight: 700; font-size: 15px; font-family: inherit;
   padding: 11px 18px; border-radius: 10px; cursor: pointer; white-space: nowrap;

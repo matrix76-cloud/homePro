@@ -24,14 +24,24 @@ const postsRef = collection(db, "community_posts");
 export async function getPosts(type) {
   const q = query(postsRef, where("type", "==", type), orderBy("createdAt", "desc"), limit(20));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  // 신고로 가려진 글(hidden)은 목록에서 뺀다
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.hidden);
 }
 
-/** 게시글 상세 조회 */
-export async function getPostById(postId) {
+/** 게시글 상세 조회 — includeHidden: 관리자가 가려진 글을 확인할 때 */
+export async function getPostById(postId, { includeHidden = false } = {}) {
   const snap = await getDoc(doc(db, "community_posts", postId));
   if (!snap.exists()) return null;
+  if (snap.data().hidden && !includeHidden) return null;
   return { id: snap.id, ...snap.data() };
+}
+
+/** 신고 처리 — 글·댓글 가리기/되살리기 (관리자). 지우지 않고 hidden 표시만 남긴다 */
+export async function setPostHidden(postId, hidden) {
+  await updateDoc(doc(db, "community_posts", postId), { hidden: !!hidden });
+}
+export async function setCommentHidden(postId, commentId, hidden) {
+  await updateDoc(doc(db, "community_posts", postId, "comments", commentId), { hidden: !!hidden });
 }
 
 /** 조회수 +1 — 상세를 열 때 (커뮤니티 시안 4번 "많이 본 글", 형 9/18) */
@@ -124,7 +134,7 @@ export async function getComments(postId) {
     orderBy("createdAt", "asc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => !c.hidden);
 }
 
 /** 댓글/대댓글 추가 + commentCount 증가 */

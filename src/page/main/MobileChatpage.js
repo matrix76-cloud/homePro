@@ -70,8 +70,11 @@ const MobileChatpage = () => {
   const catOfRoom = (r) => {
     if (r.roomType === "quote" || r.orderId) return "오더";
     if (r.roomType === "training") return "기술전수";
-    if (r.roomType === "supply" || r.roomType === "marketplace") return "거래장터";
+    // 거래장터 = 자재·장비·소모품, 양도매매는 따로 (대표 10/2 분리 · 10/4 채팅목록 항목 추가)
+    if (r.roomType === "supply") return "거래장터";
+    if (r.roomType === "marketplace") return "양도매매";
     if (r.roomType === "brokerage") return "공동중개";
+    if (r.roomType === "insurance_inquiry") return "보험문의"; // 보험 탭 1:1 문의 (대표 10/6)
     return "기타";
   };
   // 오더 방은 오더명이 제목, 그 아래 상대 이름·마지막 대화 (대표 9/10)
@@ -99,7 +102,7 @@ const MobileChatpage = () => {
   const normalRooms = rooms.filter((r) => r.roomType !== "open");
   const openRooms = [];
 
-  const NORMAL_CATEGORIES = ["전체", "오더", "거래장터", "기술전수", "공동중개"];
+  const NORMAL_CATEGORIES = ["전체", "오더", "거래장터", "기술전수", "공동중개", "양도매매", "보험문의"];
   const OPEN_CATEGORIES = ["전체", "오더", "인력", "기술교육", "매매양도", "자재.장비"];
   const [openCat, setOpenCat] = useState("전체");
 
@@ -124,7 +127,7 @@ const MobileChatpage = () => {
         </CatTabRow>
       ) : (
         <CatChipRow>
-          {NORMAL_CATEGORIES.filter((c) => c !== "전체").map((c) => {
+          {NORMAL_CATEGORIES.filter((c) => c !== "전체" && !(c === "보험문의" && userData?.pgReview === true)).map((c) => {
             const st = catStat(c);
             const on = normalCat === c;
             return (
@@ -223,7 +226,7 @@ const MobileChatpage = () => {
                     >
                       {room.orderId && getOrderCategoryName(room.orderId)
                         ? getOrderCategoryName(room.orderId) + " ›"
-                        : room.roomType === "brokerage" ? "공동중개" : "채팅"}
+                        : room.roomType === "brokerage" ? "공동중개" : room.roomType === "insurance_inquiry" ? "보험 문의" : "채팅"}
                     </RoomKind>
                     <RoomTime>{formatTime(room.lastMessageAt)}</RoomTime>
                   </RoomTopLine>
@@ -258,10 +261,10 @@ const RoomList = styled.div`
 `;
 
 const CatChipRow = styled.div`
-  display: flex;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)); /* 여섯 칸 — 한 줄에 세 칸씩 두 줄 */
+  gap: 6px;
   padding: 12px;
-  flex-wrap: nowrap;
   border-bottom: 1px solid ${THEME.border};
 `;
 

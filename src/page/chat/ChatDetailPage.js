@@ -9,6 +9,8 @@ import {
   IoPencilOutline, IoTrashOutline, IoCloseCircle, IoStar, IoStarOutline,
   IoReceiptOutline,
 } from "react-icons/io5";
+import { IoAlertCircleOutline } from "react-icons/io5";
+import ReportSheet from "../../components/ReportSheet";
 import { THEME, CATEGORIES } from "../../config/homeproConfig";
 import { db } from "../../api/config";
 import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore";
@@ -109,7 +111,9 @@ const ChatDetailPage = () => {
 
   // 메시지 추가 시 스크롤
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // scrollIntoView 는 바깥 상자(리뷰 페이지 폰 틀 등)까지 같이 밀어서 목록만 내린다
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   // 더보기 메뉴
@@ -119,6 +123,9 @@ const ChatDetailPage = () => {
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [blockBusy, setBlockBusy] = useState(false);
+
+  // 신고 (애플 심사 1.2) — 더보기 메뉴에서 연다
+  const [reportOpen, setReportOpen] = useState(false);
 
   const handleBlockUser = () => {
     setShowMoreMenu(false);
@@ -408,6 +415,8 @@ const ChatDetailPage = () => {
   };
 
   const handleKeyDown = (e) => {
+    // 한글 조합 확정 Enter 와 전송 Enter 가 겹쳐 두 번 보내지는 것 방지
+    if (e.nativeEvent?.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
@@ -1316,6 +1325,9 @@ const ChatDetailPage = () => {
       {showMoreMenu && (
         <MenuOverlay onClick={() => setShowMoreMenu(false)}>
           <MsgMenu onClick={(e) => e.stopPropagation()}>
+            <MsgMenuItem onClick={() => { setShowMoreMenu(false); setReportOpen(true); }}>
+              <IoAlertCircleOutline size={16} /> 신고하기
+            </MsgMenuItem>
             <MsgMenuItem onClick={handleBlockUser}>
               <IoCloseCircle size={16} /> 거부 등록
             </MsgMenuItem>
@@ -1364,6 +1376,16 @@ const ChatDetailPage = () => {
             </BlockBtnRow>
           </CancelModalSheet>
         </CancelModalOverlay>
+      )}
+
+      {reportOpen && (
+        <ReportSheet
+          target={{ type: "chat", roomId, targetUid: otherUid || null, targetName: (typeof roomName === "string" ? roomName : "") || "", snippet: "" }}
+          myUid={myUid}
+          startAt="report"
+          onClose={() => setReportOpen(false)}
+          showToast={showToast}
+        />
       )}
 
       {toast && <ChatToast>{toast}</ChatToast>}

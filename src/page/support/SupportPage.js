@@ -12,7 +12,7 @@ import {
     IoSearchOutline, IoCloseCircle,
 } from "react-icons/io5";
 // 아이폰 앱에서는 구독료 안내(bl-02)를 빼 둔다 — 애플 3.1.1
-const FAQ_ITEMS = ALL_FAQ_ITEMS.filter((i) => !(isIosApp() && i.id === "bl-02"));
+const FAQ_ITEMS = ALL_FAQ_ITEMS.filter((i) => !(isIosApp() && (i.id === "bl-02" || /구독|충전/.test(`${i.q} ${i.a}`))));
 
 const ALL = "all";
 

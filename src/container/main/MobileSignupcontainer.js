@@ -16,14 +16,11 @@ export default function MobileSignupcontainer() {
     const [toast, setToast] = useState("");
     const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
-    // 기본 사업자회원 (대표 지시 8/5). 여기 값이 localStorage 로 업체정보설정 단계까지 이어지므로
-    // 가입 1단계도 같이 business 로 둬야 다음 단계 기본값이 실제로 사업자회원이 된다.
-    const [userType, setUserType] = useState("business"); // "customer" | "business"
+    // 여기서는 아이디·비밀번호만 받는다. 사업자·개인은 가입(=첫 로그인) 직후 다음 단계에서 고른다 (형 10/1).
+    // 소셜 로그인으로 처음 들어온 사람과 같은 화면을 거치게 해서 유형을 두 번 묻지 않는다.
     const [loginId, setLoginId] = useState("");
     const [pw, setPw] = useState("");
     const [pw2, setPw2] = useState("");
-    const [name, setName] = useState("");
-    const isBiz = userType === "business";
 
     const unsubRef = useRef(null);
     const routedRef = useRef(false);
@@ -44,10 +41,9 @@ export default function MobileSignupcontainer() {
         };
     }, [nav]);
 
-    // 일반고객은 이름 입력 없이 가입 (대화명 설정 단계에서 자동추천 대화명 사용 — 리뷰 7/31)
     const canSubmit = useMemo(() => {
-        return !!(safeTrim(loginId) && safeTrim(pw) && (isBiz ? safeTrim(name) : true));
-    }, [loginId, pw, name, isBiz]);
+        return !!(safeTrim(loginId) && safeTrim(pw));
+    }, [loginId, pw]);
 
     const handleSubmit = useCallback(async () => {
         if (busy) return;
@@ -55,19 +51,16 @@ export default function MobileSignupcontainer() {
         const id = safeTrim(loginId);
         const p = safeTrim(pw);
         const p2 = safeTrim(pw2);
-        const n = safeTrim(name);
 
         if (!id) return showToast("아이디를 입력해주세요.");
-        if (isBiz && !n) return showToast("업체명을 입력해주세요.");
         if (!p) return showToast("비밀번호를 입력해주세요.");
         if (p.length < 6) return showToast("비밀번호는 6자 이상으로 해주세요.");
         if (p !== p2) return showToast("비밀번호가 일치하지 않아요.");
 
-        // 회원유형/업체명을 다음 단계(프로필 설정)로 전달
+        // 예전 가입 폼이 남겨 둔 회원유형·업체명 값이 있으면 지운다 (다음 단계에서 새로 고른다)
         try {
-            localStorage.setItem("homepro.signup.userType", userType);
-            if (isBiz) localStorage.setItem("homepro.signup.companyName", n);
-            else localStorage.removeItem("homepro.signup.companyName");
+            localStorage.removeItem("homepro.signup.userType");
+            localStorage.removeItem("homepro.signup.companyName");
         } catch (e) { }
 
         setBusy(true);
@@ -75,7 +68,6 @@ export default function MobileSignupcontainer() {
             const res = await signUpWithEmailPassword({
                 email: id,
                 password: p,
-                displayName: n,
             });
 
             if (!res || res.success !== true) {
@@ -87,7 +79,7 @@ export default function MobileSignupcontainer() {
                 }
                 return;
             }
-            // watchAuthState가 감지 → /MobileLinkPhone 이동
+            // watchAuthState가 감지 → /MobileSetNickname (사업자·개인 고르기)
         } catch (err) {
             const msg = err?.message || "";
             if (msg.includes("already-in-use") || msg.includes("already")) {
@@ -98,7 +90,7 @@ export default function MobileSignupcontainer() {
         } finally {
             setBusy(false);
         }
-    }, [busy, loginId, pw, pw2, name, userType, isBiz]);
+    }, [busy, loginId, pw, pw2]);
 
     return (
         <Wrap>
@@ -116,16 +108,6 @@ export default function MobileSignupcontainer() {
             </Head>
 
             <Card>
-                <Field>
-                    <Label>회원유형</Label>
-                    <TypeRow>
-                        {/* 사업자회원 왼쪽 · 일반고객 오른쪽 (대표 지시 7/24) */}
-                        <TypeBtn type="button" $active={isBiz} onClick={() => setUserType("business")}>사업자회원</TypeBtn>
-                        <TypeBtn type="button" $active={!isBiz} onClick={() => setUserType("customer")}>일반고객</TypeBtn>
-                    </TypeRow>
-                    <TypeHint>{isBiz ? "업체명을 입력하는 사업자(홈프로) 회원입니다." : "대화명으로 이용하는 일반 회원입니다. 가입 후 마이에서 사업자회원 전환도 가능해요."}</TypeHint>
-                </Field>
-
                 <Field>
                     <Label>아이디</Label>
                     <Input
@@ -159,22 +141,9 @@ export default function MobileSignupcontainer() {
                     />
                 </Field>
 
-                {/* 일반고객은 이름 입력 없음 — 다음 단계에서 자동추천 대화명 사용 (리뷰 7/31) */}
-                {isBiz && (
-                    <Field>
-                        <Label>업체명 (필수)</Label>
-                        <Input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="사업자등록증 상호명"
-                            autoComplete="organization"
-                        />
-                    </Field>
-                )}
-
                 <BtnRow>
                     <PrimaryBtn type="button" disabled={!canSubmit || busy || checkingAuth} onClick={handleSubmit}>
-                        가입 완료
+                        다음
                     </PrimaryBtn>
 
                     <GhostBtn
@@ -292,31 +261,6 @@ const BtnRow = styled.div`
   display: flex;
   gap: 12px;
   margin-top: 6px;
-`;
-
-const TypeRow = styled.div`
-  display: flex;
-  gap: 10px;
-`;
-
-const TypeBtn = styled.button`
-  flex: 1;
-  height: 48px;
-  border-radius: 10px;
-  font-size: 17px !important;
-  font-weight: 400;
-  cursor: pointer;
-  font-family: inherit;
-  border: 1px solid ${({ $active }) => ($active ? THEME.button : THEME.border)};
-  background: ${({ $active }) => ($active ? THEME.button : THEME.surface)};
-  color: ${({ $active }) => ($active ? "#fff" : "rgba(17,24,39,0.7)")};
-  &:active { transform: translateY(1px); }
-`;
-
-const TypeHint = styled.div`
-  font-size: 12.5px !important;
-  color: rgba(17, 24, 39, 0.5);
-  line-height: 1.5;
 `;
 
 const PrimaryBtn = styled.button`

@@ -92,7 +92,7 @@ const SuppliesCreatePage = () => {
     if (saving) return;
     if (!isLoggedIn || !userData?.uid) return showToast("로그인 후 등록할 수 있습니다");
     if (!tradeType) return showToast("거래 종류를 선택해주세요");
-    if (blocked) return showToast("판매·구매요청은 월 구독 회원만 등록할 수 있습니다");
+    if (blocked) return showToast(isIosApp() ? "이 계정에서는 판매·구매요청을 등록할 수 없습니다" : "판매·구매요청은 월 구독 회원만 등록할 수 있습니다");
     if (!category) return showToast("카테고리를 선택해주세요");
     if (!condition) return showToast(isBuy ? "원하는 물품 상태를 선택해주세요" : "물품 상태를 선택해주세요");
     if (!title.trim()) return showToast("제목을 입력해주세요");
@@ -175,13 +175,15 @@ const SuppliesCreatePage = () => {
             ))}
           </Seg>
           <Guide>
-            무료나눔은 모든 회원이 등록할 수 있고, 돈이 오가는 판매·구매요청은 월 구독 회원만 등록할 수 있습니다.
+            {isIosApp()
+              ? "무료나눔은 모든 회원이 등록할 수 있고, 돈이 오가는 판매·구매요청은 일부 회원만 등록할 수 있습니다."
+              : "무료나눔은 모든 회원이 등록할 수 있고, 돈이 오가는 판매·구매요청은 월 구독 회원만 등록할 수 있습니다."}
           </Guide>
           {blocked && (
             <Notice>
-              <NoticeTitle>월 구독 회원 전용입니다</NoticeTitle>
+              <NoticeTitle>{isIosApp() ? "이 계정에서는 등록할 수 없습니다" : "월 구독 회원 전용입니다"}</NoticeTitle>
               <NoticeText>
-                상업적 도배·사기 매물·분쟁을 막기 위해 판매·구매요청 글은 월 구독 회원에게만 열려 있습니다.
+                상업적 도배·사기 매물·분쟁을 막기 위해 판매·구매요청 글은 {isIosApp() ? "일부 회원" : "월 구독 회원"}에게만 열려 있습니다.
                 쓰고 남은 자재나 안 쓰는 수공구라면 무료나눔으로 올릴 수 있습니다.
               </NoticeText>
               <NoticeActions>
@@ -336,7 +338,7 @@ const SuppliesCreatePage = () => {
 
       <BottomBar>
         <SubmitButton type="button" onClick={handleSubmit} disabled={saving || !tradeType || blocked}>
-          {saving ? "등록 중..." : blocked ? "월 구독 회원만 등록할 수 있습니다" : "등록하기"}
+          {saving ? "등록 중..." : blocked ? (isIosApp() ? "이 계정에서는 등록할 수 없습니다" : "월 구독 회원만 등록할 수 있습니다") : "등록하기"}
         </SubmitButton>
       </BottomBar>
 

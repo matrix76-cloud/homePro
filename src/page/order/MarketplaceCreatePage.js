@@ -81,7 +81,7 @@ const MarketplaceCreatePage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!canWrite) return showToast("월 구독 사업자만 등록할 수 있습니다");
+    if (!canWrite) return showToast(isIosApp() ? "이 계정에서는 등록할 수 없습니다" : "월 구독 사업자만 등록할 수 있습니다");
     if (!category) return showToast("거래 형태를 선택해주세요");
     if (!title.trim()) return showToast("제목을 입력해주세요");
     if (!sido || !gu) return showToast("지역(시·도 / 시·군·구)을 선택해주세요");
@@ -140,10 +140,11 @@ const MarketplaceCreatePage = () => {
       <SimpleBackLayout NAME="양도·매매 등록" hideFooter>
         <PageWrap>
           <GateBox>
-            <GateTitle>월 구독 사업자 전용</GateTitle>
+            <GateTitle>{isIosApp() ? "이 계정에서는 등록할 수 없습니다" : "월 구독 사업자 전용"}</GateTitle>
             <GateText>
-              양도·매매 매물 등록은 부실 공고와 허위 매물을 막기 위해 월 구독 사업자에게만 열려 있습니다.
-              매물 열람과 문의는 구독 없이도 할 수 있습니다.
+              {isIosApp()
+                ? "양도·매매 매물 등록은 부실 공고와 허위 매물을 막기 위해 일부 사업자 회원에게만 열려 있습니다. 매물 열람과 문의는 누구나 할 수 있습니다."
+                : "양도·매매 매물 등록은 부실 공고와 허위 매물을 막기 위해 월 구독 사업자에게만 열려 있습니다. 매물 열람과 문의는 구독 없이도 할 수 있습니다."}
             </GateText>
             {!isIosApp() && <GateBtn type="button" onClick={() => navigate("/subscription")}>구독 안내 보기</GateBtn>}
           </GateBox>

@@ -28,6 +28,10 @@ import { NoticeCases } from "./NoticeLab";
 import { PointPageCases, PointEmptyCases } from "./PointLab";
 import { LandingHeroCases, LandingArtCases, PcLoginCases } from "./LandingLab";
 import { PcShellCases, LandingPhotoCases } from "./PcShellLab";
+import { LandingGapCases } from "./LandingGapLab";
+import { LandingClosingCases } from "./LandingClosingLab";
+import { LandingRevealCases } from "./LandingRevealLab";
+import { MyPageCases } from "./MyPageLab";
 
 const sortByNo = (a, b) => a.no - b.no;
 
@@ -57,6 +61,10 @@ const TABS = [
   { key: "pclogin", label: "PC 로그인" },
   { key: "pcshell", label: "PC 틀" },
   { key: "landingphoto", label: "랜딩 실사" },
+  { key: "landinggap", label: "랜딩 빈 자리" },
+  { key: "landingclosing", label: "랜딩 마무리" },
+  { key: "landingreveal", label: "랜딩 카드 등장" },
+  { key: "mypage", label: "마이페이지 윗부분" },
 ];
 
 const DesignLab = () => {
@@ -268,6 +276,20 @@ const DesignLab = () => {
           </Grid>
         </>
       )}
+      {tab === "mypage" && (
+        <>
+          <SectionNote>마이페이지 윗부분 여섯 가지(프로필 · 기본 프로필 · 비즈프로필 · 정산 · 구독 관리 · 사업자도구 PG결제)를 다시 짜는 후보입니다. 실제 크기로 머리줄 · 아래 이웃 메뉴 · 풋바와 함께 그렸습니다. 0번이 지금 화면입니다.</SectionNote>
+          <Grid $min={400}>
+            {[...MyPageCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}>
+                <CardTitle>{c.no}. {c.name}</CardTitle>
+                <CardNote>{c.note}</CardNote>
+                {c.render()}
+              </Card>
+            ))}
+          </Grid>
+        </>
+      )}
       {tab === "pointline" && (
         <>
           <SectionNote>홈 맨 위 차수·포인트 줄을 강조하는 후보입니다. 실제 크기로 헤더·탭·필터 줄과 함께 그렸습니다. 0번이 지금 화면입니다.</SectionNote>
@@ -322,6 +344,36 @@ const DesignLab = () => {
           <SectionNote>로그인 전 홈(홍보 화면)입니다. 위 메뉴는 실제 메뉴로 바뀌고 홍보는 '홈'에서만 보입니다. 사진은 시안용 무료 사진이며, 실제 현장 사진을 받으면 바꿉니다. 0번이 지금 화면입니다.</SectionNote>
           <Grid $min={1100}>
             {[...LandingPhotoCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "landingclosing" && (
+        <>
+          <SectionNote>랜딩(/intro) 맨 아래 마무리 구역(검은 띠)입니다. PC 실제 크기로 그렸습니다. 글은 대표님 초안 그대로이고 배치·면·사진만 다릅니다. 1번을 골라 적용했습니다(형 10/1). 사진은 시안용 무료 사진입니다. 0번이 지금 화면입니다.</SectionNote>
+          <Grid $min={1100}>
+            {[...LandingClosingCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "landingreveal" && (
+        <>
+          <SectionNote>랜딩(/intro) 01~05 구역에서 사진 위에 걸친 카드가 스크롤할 때 어떻게 나타날지입니다(형 10/1). 05 구역을 PC 실제 크기로 그렸습니다. 각 칸이 화면에 들어오면 움직이고, [다시 보기]로 다시 볼 수 있습니다. 실제 랜딩에 넣을 땐 구역마다 처음 한 번만 움직이고, 기기에서 '동작 줄이기'를 켠 사람에겐 움직임 없이 보여 줍니다. 3번을 골라 01~05 다섯 구역에 적용했습니다(형 10/1). 0번이 적용 전 화면입니다.</SectionNote>
+          <Grid $min={1100}>
+            {[...LandingRevealCases].sort(sortByNo).map((c) => (
+              <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
+            ))}
+          </Grid>
+        </>
+      )}
+      {tab === "landinggap" && (
+        <>
+          <SectionNote>랜딩(/intro) 01~04 구역에서 그림 카드 아래가 비어 보이는 자리입니다. 글이 가장 긴 02 구역을 PC 실제 크기로 그렸고, 2번을 골라 네 구역에 적용했습니다(형 10/1). 사진은 시안용 무료 사진이며 실제 현장 사진을 받으면 바꿉니다. 0번이 지금 화면입니다.</SectionNote>
+          <Grid $min={1100}>
+            {[...LandingGapCases].sort(sortByNo).map((c) => (
               <Card key={c.no} $on={c.no === 0}><CardTitle>{c.no}. {c.name}</CardTitle><CardNote>{c.note}</CardNote>{c.render()}</Card>
             ))}
           </Grid>
