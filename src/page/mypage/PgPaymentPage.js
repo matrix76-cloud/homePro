@@ -18,6 +18,7 @@ import { isIosApp } from "../../bridge/webviewBridge";
 import {
   PG_STEPS, PG_STATUS_LABEL, PG_SETTLE_LABEL, PG_KIND, stepIndex,
   createPgRequest, issuePgLink, cancelPgRequest, listMyPgRequests, listMyOrdersForPg, pgLinkUrl,
+  PG_MAX_AMOUNT, PG_MAX_MSG,
 } from "../../service/PgPaymentService";
 
 const toDate = (v) => (v?.toDate ? v.toDate() : null);
@@ -55,6 +56,7 @@ const PgPaymentPage = () => {
 
   const submit = async () => {
     if (!canSubmit || busy) return;
+    if (amountNum > PG_MAX_AMOUNT) { window.alert(PG_MAX_MSG); return; }
     setBusy(true);
     try {
       const o = orders.find((x) => x.id === form.orderId);
@@ -153,7 +155,8 @@ const PgPaymentPage = () => {
                   </Field>
                   <Field>
                     <Label>결제 금액 (원)</Label>
-                    <Input inputMode="numeric" value={form.amount ? amountNum.toLocaleString() : ""} onChange={(e) => set("amount", e.target.value.replace(/[^0-9]/g, ""))} placeholder="최소 1,000원" />
+                    <Input inputMode="numeric" value={form.amount ? amountNum.toLocaleString() : ""} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ""); if (Number(v) > PG_MAX_AMOUNT) { set("amount", String(PG_MAX_AMOUNT)); flash(PG_MAX_MSG); return; } set("amount", v); }} placeholder="1,000원 ~ 3,000,000원" />
+                    {amountNum > PG_MAX_AMOUNT && <Warn>{PG_MAX_MSG}</Warn>}
                   </Field>
                   <Field>
                     <Label>결제 내용 (선택)</Label>

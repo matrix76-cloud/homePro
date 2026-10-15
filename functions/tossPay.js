@@ -1,6 +1,6 @@
 /**
  * 토스페이먼츠 결제 — 보험(1년·건당·월 구독형 빌링) + 앱 월 구독. 사양: docs/insurance-dev-spec.md 3절
- * 스카이링크 functions/tossPay.js(tossPrepare/tossConfirm) 를 홈프로 스키마(purpose 별 후처리)로 옮긴 것.
+ * 장비야 functions/tossPay.js(tossPrepare/tossConfirm) 를 홈프로 스키마(purpose 별 후처리)로 옮긴 것.
  *
  *  ① tossPrepare({ purpose, refId })
  *       서버가 금액을 계산한다(앞단 금액 불신) → payments/{tossOrderId} ready → { tossOrderId, amount, orderName }

@@ -441,7 +441,7 @@ exports.insuranceExpireSweep = onSchedule(
  * 쿼리는 accessTier=='tier1' 등호 하나만(복합 인덱스 불필요) 하고 나머지 조건은 메모리에서 거른다.
  */
 /**
- * 구독 상품 — 1·3·6·12개월, 길게 끊을수록 할인 (형 확정 2026-10-13, 스카이링크와 같은 구조).
+ * 구독 상품 — 1·3·6·12개월, 길게 끊을수록 할인 (형 확정 2026-10-13, 장비야와 같은 구조).
  * 할인율 0·5·10·15%는 임시(대표 확정 필요), 천 원 아래는 버린다.
  * ★앞단 src/utility/subscriptionPlans.js 와 같은 식이어야 한다.
  */
@@ -684,6 +684,7 @@ module.exports = {
     SUBSCRIPTION_PLANS,
     subscriptionPlan,
     secretKey,
+    billingSecretKey,
     db,
     tsNow,
     toDate,

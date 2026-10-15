@@ -15,7 +15,7 @@
  * Cloud Functions 는 asia-northeast3 (functions 리전과 반드시 같아야 한다 — AuthService 와 같은 방식)
  */
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 import { firebaseApp, FUNCTIONS_REGION } from "../api/config";
 import {
   TOSS_CLIENT_KEY, TOSS_BILLING_CLIENT_KEY, TOSS_SUCCESS_PATH, TOSS_FAIL_PATH, TOSS_BILLING_SUCCESS_PATH,
@@ -170,5 +170,44 @@ export async function cancelBilling({ policyId, target }) {
     return res?.data || {};
   } catch (e) {
     throw humanError(e, "자동결제 해지에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+}
+
+/* ───────────── 결제 링크 (/pg/:id — 로그인 없이 결제) ───────────── */
+
+/**
+ * 결제 링크의 카드 결제창 열기. 서버(payLinkPrepare)가 요청 문서의 금액으로 주문을 만들고, 토스 결제창(카드)으로 넘어간다.
+ * 결제위젯이 아니라 결제창이라 'API 개별 연동 키'(구독 자동결제와 같은 쌍)를 쓴다. 비회원 결제라 customerKey 는 ANONYMOUS.
+ * 끝나면 같은 링크 화면(/pg/:id)으로 paymentKey·orderId·amount 를 붙여 돌아온다(페이지 이동).
+ */
+export async function requestPayLinkPayment(requestId) {
+  let prep;
+  try {
+    prep = (await call("payLinkPrepare")({ requestId }))?.data || {};
+  } catch (e) {
+    throw humanError(e, "결제 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+  if (!prep.tossOrderId || !(Number(prep.amount) > 0)) throw new Error("결제 정보를 준비하지 못했습니다.");
+  const toss = await loadTossPayments(TOSS_BILLING_CLIENT_KEY);
+  const payment = toss.payment({ customerKey: ANONYMOUS });
+  const back = `${window.location.origin}/pg/${encodeURIComponent(requestId)}`;
+  await payment.requestPayment({
+    method: "CARD",
+    amount: { currency: "KRW", value: Number(prep.amount) },
+    orderId: prep.tossOrderId,
+    orderName: String(prep.orderName || "홈프로 시공대금").slice(0, 100),
+    successUrl: back,
+    failUrl: `${back}?fail=1`,
+    customerName: prep.customerName || undefined,
+    card: { useEscrow: false, flowMode: "DEFAULT", useCardPoint: false, useAppCardOnly: false },
+  });
+}
+
+/** 결제 링크 승인 (서버 payLinkConfirm) — 새로고침으로 두 번 불려도 서버가 다시 승인하지 않는다 */
+export async function confirmPayLinkPayment({ paymentKey, orderId, amount }) {
+  try {
+    return (await call("payLinkConfirm")({ paymentKey, orderId, amount: Number(amount) }))?.data || {};
+  } catch (e) {
+    throw humanError(e, "결제 승인에 실패했습니다. 카드에서 돈이 빠졌다면 고객센터에 주문번호를 알려 주세요.");
   }
 }

@@ -54,6 +54,7 @@ export const PAY_PURPOSE_LABEL = {
   insurance_monthly: "월 구독형 보험",
   insurance_order: "건당 단기보험",
   subscription: "구독",
+  paylink: "시공대금 결제 링크",
 };
 
 /** 토스 결제수단 코드 → 한국어 */

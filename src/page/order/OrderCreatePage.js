@@ -22,6 +22,11 @@ import { IoCloseCircle } from "react-icons/io5";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { PG_MAX_AMOUNT, PG_MAX_MSG } from "../../service/PgPaymentService";
+
+/* 예약날짜는 오늘부터 1개월 안쪽만 — PG 신청서의 서비스 제공 기간(1개월)에 맞춤 (PG사 보완 요청 2026-10-14) */
+const ymdLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const reserveMaxDate = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); return ymdLocal(d); };
 
 const MAX_PHOTOS = 4;
 // 금액을 입력받는 단가유형 (도급·매매는 금액 입력 없음 — 대표 10/7)
@@ -1061,6 +1066,7 @@ export const OrderCreateContent = () => {
     if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return false; }
     if (!workDate) { showToast("작업날짜를 선택해주세요"); return false; }
     if (workDate === "예약날짜" && !workDatePicker) { showToast("예약날짜(달력)를 선택해주세요"); return false; }
+    if (workDate === "예약날짜" && workDatePicker > reserveMaxDate()) { showToast("예약날짜는 오늘부터 1개월 안에서 골라주세요"); return false; }
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
@@ -1075,6 +1081,8 @@ export const OrderCreateContent = () => {
         if (!(v >= inc.rate.min && v <= inc.rate.max)) { showToast(`정률 소개비는 ${inc.rate.min}% ~ ${inc.rate.max}% 사이로 입력해주세요`); return false; }
       }
     }
+    // 시공금액·잔금은 300만원까지 — 접수 때 알럿으로 막는다 (PG 심사 요청, 형 지시 2026-10-15)
+    if (["fixed", "balance"].includes(b2bPriceType) && Number(b2bPriceAmount) > PG_MAX_AMOUNT) { window.alert(PG_MAX_MSG); return false; }
     if (payMode === "prepay" && !(isPricedType && Number(b2bPriceAmount) > 0)) { showToast("선결제는 금액이 정해진 단가유형에서만 고를 수 있어요"); return false; }
     return true;
   };
@@ -1831,7 +1839,7 @@ export const OrderCreateContent = () => {
               ))}
             </ChipGrid>
             {workDate === "예약날짜" && (
-              <Input style={{ marginTop: 10 }} type="date" value={workDatePicker} onChange={(e) => setWorkDatePicker(e.target.value)} />
+              <Input style={{ marginTop: 10 }} type="date" min={ymdLocal(new Date())} max={reserveMaxDate()} value={workDatePicker} onChange={(e) => setWorkDatePicker(e.target.value)} />
             )}
           </Section>
 
@@ -1905,7 +1913,13 @@ export const OrderCreateContent = () => {
               const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
               const unit = opt?.unit || "원";
               return (
-                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={`금액 입력 (${unit})`} value={withComma(b2bPriceAmount)} onChange={(e) => setB2bPriceAmount(onlyDigits(e.target.value))} />
+                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={unit === "원" ? "금액 입력 (원, 최대 300만원)" : `금액 입력 (${unit})`} value={withComma(b2bPriceAmount)}
+                  onChange={(e) => {
+                    const v = onlyDigits(e.target.value);
+                    // 원 단위 금액은 입력부터 300만원까지만 (PG 심사 요청 2026-10-15)
+                    if (unit === "원" && Number(v) > PG_MAX_AMOUNT) { setB2bPriceAmount(String(PG_MAX_AMOUNT)); showToast(PG_MAX_MSG); return; }
+                    setB2bPriceAmount(v);
+                  }} />
               );
             })()}
             {/* 정보공유 유형 — 소개비(인센티브) 설정 정액/정률 (대표 9/15 리뷰) */}

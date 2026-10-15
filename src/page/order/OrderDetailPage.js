@@ -12,7 +12,7 @@ import {
   getReferralFeeAmount, isCheckInBlockedByReferral, isWorkPayApplicable, getUserAccount,
   buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived, getMoneyPriceAmount,
 } from "../../service/PayFlowService";
-import { createOrderPayLink, cancelOrderPayLink, sharePayLink, payLinkMessage, getPgRequest, PG_STATUS_LABEL } from "../../service/PgPaymentService";
+import { PG_MAX_AMOUNT, PG_MAX_MSG, createOrderPayLink, cancelOrderPayLink, sharePayLink, payLinkMessage, getPgRequest, PG_STATUS_LABEL } from "../../service/PgPaymentService";
 import { isInsuranceRequired, getOrderInsuranceState, needsInsuranceDecision, computeOrderPremium, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, findActivePolicy, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
@@ -226,6 +226,7 @@ const OrderDetailPage = () => {
     if (payBusy) return;
     const amt = Number(String(payAmount).replace(/[^0-9]/g, ""));
     if (!(amt > 0)) { showToast("결제 금액을 입력해 주세요"); return; }
+    if (amt > PG_MAX_AMOUNT) { window.alert(PG_MAX_MSG); return; }
     if (!window.confirm(`${amt.toLocaleString()}원 결제 링크를 만드시겠습니까?`)) return;
     setPayBusy(true);
     try {
@@ -1090,8 +1091,12 @@ const OrderDetailPage = () => {
               <>
                 <PayNote>작업을 마쳤으면 결제 링크를 만들어 접수자나 고객에게 보내 주세요. 결제된 시공대금은 홈프로를 거쳐 등록된 정산계좌로 정산됩니다.</PayNote>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-                  <input inputMode="numeric" placeholder="결제 금액" value={payAmount ? Number(String(payAmount).replace(/[^0-9]/g, "")).toLocaleString() : ""}
-                    onChange={(e) => setPayAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                  <input inputMode="numeric" placeholder="결제 금액 (최대 300만원)" value={payAmount ? Number(String(payAmount).replace(/[^0-9]/g, "")).toLocaleString() : ""}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      if (Number(v) > PG_MAX_AMOUNT) { setPayAmount(String(PG_MAX_AMOUNT)); showToast(PG_MAX_MSG); return; }
+                      setPayAmount(v);
+                    }}
                     style={{ flex: 1, minWidth: 0, height: 52, padding: "0 14px", border: `1px solid ${THEME.border}`, borderRadius: 10, fontSize: 17, fontWeight: 700, fontFamily: "inherit", color: THEME.text, textAlign: "right", boxSizing: "border-box", outline: "none" }} />
                   <span style={{ fontSize: 16, color: THEME.text }}>원</span>
                 </div>

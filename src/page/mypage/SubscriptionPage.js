@@ -3,7 +3,7 @@
  * 월 구독 — 0차수(접수 즉시 수락) 권리
  *  대표 확정 9/12: 월 16,500원(부가세 포함). 대표 지시 9/16: 토스 빌링(자동결제)로.
  *  형 확정 10/13: 구독료는 실제 금액(카드)으로만 — H-포인트 사용·'이번 달만 결제' 화면 삭제.
- *  형 확정 10/13: 스카이링크처럼 1·3·6·12개월 상품, 길게 끊을수록 할인(subscriptionPlans.js). 고른 기간마다 같은 금액으로 자동 갱신.
+ *  형 확정 10/13: 장비야처럼 1·3·6·12개월 상품, 길게 끊을수록 할인(subscriptionPlans.js). 고른 기간마다 같은 금액으로 자동 갱신.
  *   requestBillingAuth(purpose:subscription) → /pay/billing-success → tossBillingIssue, 매달 갱신은 서버 subscriptionAutoCharge(03:20 KST)
  */
 /**

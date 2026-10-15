@@ -45,7 +45,7 @@
   createdAt, updatedAt, canceledAt,
 }
 ```
-### `payments/{tossOrderId}` — 토스 결제 1건 (스카이링크와 같은 구조 + purpose)
+### `payments/{tossOrderId}` — 토스 결제 1건 (장비야와 같은 구조 + purpose)
 ```js
 {
   purpose: "insurance_yearly" | "insurance_monthly" | "insurance_order" | "subscription",
@@ -77,7 +77,7 @@ selfOrder: true          // 셀프 등록 오더 (앱 밖 수주, 캐시백·매
 
 ## 3. 결제 흐름 (토스)
 - 클라이언트 키 `REACT_APP_TOSS_CLIENT_KEY`(없으면 문서 테스트 키 `test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm`), 서버 `TOSS_SECRET_KEY`(functions/.env.*, 없으면 `test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6`).
-- SDK `@tosspayments/tosspayments-sdk` v2 결제위젯(스카이링크 `payService.js` 방식). 성공 `/pay/success`, 실패 `/pay/fail`.
+- SDK `@tosspayments/tosspayments-sdk` v2 결제위젯(장비야 `payService.js` 방식). 성공 `/pay/success`, 실패 `/pay/fail`.
 - Cloud Functions(v2 onCall, region asia-northeast3):
   - `tossPrepare({ purpose, refId })` → 서버가 금액을 계산(설정 문서·오더 금액 기반, 앞단 금액 불신) → `payments` ready 문서 → `{ tossOrderId, amount, orderName }`
   - `tossConfirm({ paymentKey, orderId(tossOrderId), amount })` → 금액 대조 → 토스 승인 → `payments` done → **서버에서** purpose별 후처리(policy 생성/연장, users.insurance 갱신, orders.insurance 갱신). 중복 호출 안전.

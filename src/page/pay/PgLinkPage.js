@@ -1,22 +1,62 @@
 /* eslint-disable */
 /**
  * 고객용 결제링크 화면 /pg/:id — 로그인 없이 연다 (대표 리뷰 9/17)
- *  사업자가 보낸 결제 요청을 보여 주고, 제휴 PG 결제창으로 넘긴다.
- *  제휴 PG 계약 전이라 결제 버튼은 준비 중 안내만 한다. 연결되면 여기서 PG 결제창을 띄우고
- *  status 를 paying 으로 바꾼 뒤, 승인(paid)은 PG Webhook 서버 함수가 확정한다.
+ *  사업자가 보낸 결제 요청을 보여 주고, [카드로 결제하기]로 토스페이먼츠 카드 결제창을 연다 (2026-10-14 연결).
+ *  결제가 끝나면 토스가 이 화면으로 paymentKey·orderId·amount 를 붙여 돌려보내고, 여기서 서버 승인(payLinkConfirm)을 한 번 요청한다.
+ *  서버가 승인한 뒤 요청 문서를 paid 로 바꾼다. 분배(홈프로 정산계좌 → 사업자)는 아직 없다.
  */
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
 import { getPgRequest, PG_KIND } from "../../service/PgPaymentService";
+import { requestPayLinkPayment, confirmPayLinkPayment } from "../../service/payService";
+import { TOSS_BILLING_CLIENT_KEY, TOSS_FAIL_REASON } from "../../utility/tossConfig";
 
 const PgLinkPage = () => {
   const { id } = useParams();
   const [r, setR] = useState(undefined);
   const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const once = useRef(false);
 
-  useEffect(() => { getPgRequest(id).then(setR).catch(() => setR(null)); }, [id]);
+  const load = () => getPgRequest(id).then(setR).catch(() => setR(null));
+
+  useEffect(() => {
+    const paymentKey = params.get("paymentKey");
+    const orderId = params.get("orderId");
+    const amount = params.get("amount");
+    // 토스 결제창에서 돌아온 경우 — 승인을 한 번만 요청하고 주소의 결제 값은 지운다(새로고침으로 다시 부르지 않게)
+    if (paymentKey && orderId && amount) {
+      if (once.current) return;
+      once.current = true;
+      setBusy(true);
+      setNotice("결제를 확인하고 있습니다. 이 화면을 닫지 마세요.");
+      confirmPayLinkPayment({ paymentKey, orderId, amount })
+        .then(() => setNotice(""))
+        .catch((e) => setNotice(e?.message || "결제를 마치지 못했습니다."))
+        .finally(() => { setBusy(false); setParams({}, { replace: true }); load(); });
+      return;
+    }
+    if (params.get("fail")) {
+      const code = params.get("code");
+      setNotice(TOSS_FAIL_REASON[code] || params.get("message") || "결제를 마치지 못했습니다. 다시 시도해 주세요.");
+      setParams({}, { replace: true });
+    }
+    load();
+    // eslint-disable-next-line
+  }, [id]);
+
+  const pay = async () => {
+    if (busy) return;
+    setBusy(true); setNotice("");
+    try { await requestPayLinkPayment(id); }
+    catch (e) {
+      // 결제창을 닫은 것은 오류로 보이지 않게
+      if (e?.code !== "USER_CANCEL" && e?.code !== "PAY_PROCESS_CANCELED") setNotice(e?.message || "결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally { setBusy(false); }
+  };
 
   const body = () => {
     if (r === undefined) return <Msg>불러오는 중...</Msg>;
@@ -30,16 +70,18 @@ const PgLinkPage = () => {
         <Box>
           <Row><K>청구 내용</K><V>{r.memo || r.orderTitle || PG_KIND[r.kind]?.label}</V></Row>
           <Row><K>받는 분</K><V>{r.customerName}</V></Row>
+          {r.workDate && <Row><K>작업 날짜</K><V>{r.workDate}</V></Row>}
           <Row $last><K>결제 금액</K><Amount>{Number(r.amount).toLocaleString()}원</Amount></Row>
         </Box>
         {done ? (
           <DoneText>결제가 완료되었습니다.</DoneText>
         ) : (
-          <PayBtn type="button" onClick={() => setNotice("카드결제는 제휴 PG사 연결 후 이 화면에서 바로 이용할 수 있습니다.")}>
-            카드로 결제하기
+          <PayBtn type="button" onClick={pay} disabled={busy}>
+            {busy ? "잠시만 기다려 주세요" : "카드로 결제하기"}
           </PayBtn>
         )}
         {notice && <Notice>{notice}</Notice>}
+        {!done && String(TOSS_BILLING_CLIENT_KEY).startsWith("test_") && <Notice>지금은 테스트 결제입니다. 실제로 돈이 빠지지 않습니다.</Notice>}
         {/* 결제 링크는 어디서 만들었든 PG → 홈프로 정산계좌 → 사업자에게 분배 (형 확정 2026-10-13) */}
         <Foot>결제 대금은 홈프로를 거쳐 사업자에게 정산됩니다.</Foot>
       </>
@@ -71,6 +113,7 @@ const Amount = styled.div` font-size: 20px; font-weight: 700; color: ${THEME.tex
 const PayBtn = styled.button`
   width: 100%; min-height: 56px; margin-top: 20px; border: none; border-radius: 10px; background: ${THEME.button}; color: #fff;
   font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;
+  &:disabled { opacity: 0.6; cursor: default; }
 `;
 const Notice = styled.div` margin-top: 12px; font-size: 15px; color: ${THEME.text}; line-height: 1.5; text-align: center; word-break: keep-all; `;
 const DoneText = styled.div` margin-top: 20px; font-size: 17px; font-weight: 700; color: #15803d; text-align: center; `;

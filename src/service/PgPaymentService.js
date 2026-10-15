@@ -52,9 +52,26 @@ export function stepIndex(r) {
   return 0;
 }
 
+/** 오더의 작업 날짜를 실제 날짜로 — '오늘·긴급·내일'은 접수일 기준으로 바꾸고, 날짜가 없는 선택지(협의 등)는 그 말 그대로 */
+export function workDateOf(order) {
+  const f = (d) => `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+  if (order?.workDatePicker) return order.workDatePicker.replace(/-/g, ".").replace(/\.0/g, ".");
+  const wd = order?.workDate || order?.schedule;
+  if (!wd) return null;
+  const base = order.createdAt?.toDate ? order.createdAt.toDate() : new Date();
+  if (wd === "오늘" || wd === "긴급") return f(base);
+  if (wd === "내일") { const d = new Date(base); d.setDate(d.getDate() + 1); return f(d); }
+  return wd;
+}
+
+/** 결제 한 건 최대 금액 — PG 심사 요청 (형 지시 2026-10-15). 서버 functions/payLink.js 도 같은 값으로 막는다 */
+export const PG_MAX_AMOUNT = 3000000;
+export const PG_MAX_MSG = "결제 금액은 최대 3,000,000원까지 가능합니다";
+
 export const pgLinkUrl = (id) => `${window.location.origin}/pg/${id}`;
 
 export async function createPgRequest(uid, { kind, amount, customerName, customerPhone, memo, orderId, orderTitle, sellerName, account = null }) {
+  if (Number(amount) > PG_MAX_AMOUNT) throw new Error(PG_MAX_MSG);
   const ref = await addDoc(collection(db, PG_COL), {
     uid,
     sellerName: sellerName || "",
@@ -124,6 +141,8 @@ export async function createOrderPayLink(order, { uid, sellerName, amount, accou
     orderTitle: order.title || null,
     sellerName,
   });
+  // 결제 화면에 작업 날짜를 보여준다 — PG 심사 '서비스 제공 기간' (2026-10-14). 고객은 로그인 없이 보므로 오더를 못 읽어 여기 적어 둔다
+  const workDateLabel = workDateOf(order);
   // 플랫폼 정산 → 분배 대기. 분배받을 계좌는 만든 시점의 정산계좌를 적어 둔다
   await updateDoc(doc(db, PG_COL, id), {
     settleRoute: "platform",
@@ -133,6 +152,7 @@ export async function createOrderPayLink(order, { uid, sellerName, amount, accou
       account: { bank: account.bank || "", number: account.number || "", holder: account.holder || "" },
     },
     payerUid: order.createdBy || null,
+    workDate: workDateLabel,
   });
   await issuePgLink(id);
   await updateDoc(doc(db, "homepro_orders", order.id), {

@@ -572,6 +572,11 @@ exports.tossConfirm = tossPayFns.tossConfirm;
 exports.tossBillingIssue = tossPayFns.tossBillingIssue;
 exports.tossBillingCancel = tossPayFns.tossBillingCancel;
 
+// ─── 결제 링크(/pg/:id) 카드 결제 — 로그인 없이 여는 화면이라 따로 둔다 (functions/payLink.js) ───
+const payLinkFns = require("./payLink");
+exports.payLinkPrepare = payLinkFns.payLinkPrepare;
+exports.payLinkConfirm = payLinkFns.payLinkConfirm;
+
 const insuranceFns = require("./insurance");
 exports.insuranceMonthlyCharge = insuranceFns.insuranceMonthlyCharge;
 exports.insuranceExpireSweep = insuranceFns.insuranceExpireSweep;
