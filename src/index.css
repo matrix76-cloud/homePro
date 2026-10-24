@@ -34,3 +34,17 @@ a {
 /* dev 리뷰 허브(/review)용 — 스크롤바 숨김 */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 다크모드 — utility/darkMode.js 가 html 에 hp-dark 를 붙인다. 사진 · 영상 · 지도는 한 번 더 뒤집어 원래 색 */
+html.hp-dark {
+  background: #F7F8FA;
+  filter: invert(1) hue-rotate(180deg);
+}
+html.hp-dark img,
+html.hp-dark video,
+html.hp-dark picture,
+html.hp-dark canvas,
+html.hp-dark iframe,
+html.hp-dark [style*="background-image"] {
+  filter: invert(1) hue-rotate(180deg);
+}

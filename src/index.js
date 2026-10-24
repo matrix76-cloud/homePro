@@ -4,6 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 import { UserProvider } from './context/User';
+import { initDarkMode } from './utility/darkMode';
+
+initDarkMode();
 
 // 초대 딥링크 캡처 — 라우팅(BrowserRouter) 마운트 전에 동기 실행해야 한다.
 // App 내부 useEffect 로 처리하면 로그아웃 상태에서 "/" → 로그인 리다이렉트(child Navigate)가

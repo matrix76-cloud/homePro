@@ -17,7 +17,7 @@ import {
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
-import { regionToDisplayName } from "../../utility/regionUtils";
+import { proRegionText } from "../../utility/regionUtils";
 import {
     TbSparkles, TbSpray, TbShieldCheck, TbWashMachine, TbBed, TbBuildingStore,
     TbRipple, TbDropletSearch, TbDroplet, TbTools, TbFlame, TbAirConditioning,
@@ -105,7 +105,7 @@ const ProCategoryRegisterPage = () => {
     // step 2 — 공통 입력
     const [experience, setExperience] = useState("");
     const [intro, setIntro] = useState("");
-    const [region, setRegion] = useState(null); // { sido, gu }
+    const [region, setRegion] = useState([]); // 시·도 이름 배열 또는 ["전국"] (대표 10/14)
     const [showRegionModal, setShowRegionModal] = useState(false);
     const [certs, setCerts] = useState([]); // [{ id, certName, file, preview }]
     const certFileRefs = useRef({});
@@ -137,7 +137,8 @@ const ProCategoryRegisterPage = () => {
 
     // ─── step 1 handlers ───
     const handleToggleCat = (catId) => {
-        if (proCategories.includes(catId)) return;
+        // 이미 등록한 분야는 눌러서 상세(수정 · 삭제)로 간다 (대표 10/14 "기존 전문분야를 수정·삭제할 수 없습니다")
+        if (proCategories.includes(catId)) { navigate(`/pro/category-detail/${catId}`); return; }
         if (selectedCats.includes(catId)) {
             setSelectedCats(selectedCats.filter((id) => id !== catId));
             setSubsByCat((prev) => {
@@ -365,7 +366,7 @@ const ProCategoryRegisterPage = () => {
                                     {selectedCats.length}/{MAX_CATS} 선택
                                 </SelectCount>
                             </SectionTitleRow>
-                            <HelpText>최대 {MAX_CATS}개까지 함께 선택해 한 번에 등록할 수 있습니다.</HelpText>
+                            <HelpText>최대 {MAX_CATS}개까지 함께 선택해 한 번에 등록할 수 있습니다.{proCategories.length > 0 && " 체크 표시된 분야는 이미 등록한 분야로, 누르면 수정하거나 삭제할 수 있습니다."}</HelpText>
                             {/* 소비자용 그룹 + 전문분야 등록 전용 그룹(공동중개) */}
                             {[...CATEGORY_GROUPS, ...PRO_ONLY_CATEGORY_GROUPS].map((group) => (
                                 <div key={group.id}>
@@ -379,10 +380,9 @@ const ProCategoryRegisterPage = () => {
                                                 <CatGridItem
                                                     key={cat.id}
                                                     $selected={isSelected}
-                                                    $disabled={isRegistered}
                                                     onClick={() => handleToggleCat(cat.id)}
                                                 >
-                                                    <CatGridIcon $selected={isSelected} $disabled={isRegistered}>
+                                                    <CatGridIcon $selected={isSelected}>
                                                         {Icon ? <Icon /> : <CatFallbackChar>{cat.shortName.charAt(0)}</CatFallbackChar>}
                                                         {isRegistered && (
                                                             <CatCheckBadge>
@@ -390,7 +390,7 @@ const ProCategoryRegisterPage = () => {
                                                             </CatCheckBadge>
                                                         )}
                                                     </CatGridIcon>
-                                                    <CatGridName $disabled={isRegistered} $selected={isSelected}>{cat.shortName}</CatGridName>
+                                                    <CatGridName $selected={isSelected}>{cat.shortName}</CatGridName>
                                                 </CatGridItem>
                                             );
                                         })}
@@ -529,16 +529,17 @@ const ProCategoryRegisterPage = () => {
                         <Section>
                             <SectionTitle>활동 지역</SectionTitle>
                             <RegionSelectBtn type="button" onClick={() => setShowRegionModal(true)}>
-                                <IoLocationOutline size={18} color={region ? THEME.primary : THEME.muted} />
-                                <RegionBtnText $hasValue={!!region}>
-                                    {region ? regionToDisplayName(region) : "지역을 선택하세요"}
+                                <IoLocationOutline size={18} color={region.length ? THEME.primary : THEME.muted} />
+                                <RegionBtnText $hasValue={region.length > 0}>
+                                    {region.length ? proRegionText({ regions: region }) : "지역을 선택하세요 (여러 곳 · 전국 가능)"}
                                 </RegionBtnText>
                             </RegionSelectBtn>
                             <RegionSelectModal
                                 open={showRegionModal}
                                 onClose={() => setShowRegionModal(false)}
+                                multi
                                 onSelect={(r) => setRegion(r)}
-                                defaultValue={region || { sido: "서울", gu: "전체" }}
+                                value={region}
                             />
                         </Section>
 

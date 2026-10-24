@@ -14,7 +14,7 @@ import {
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { getProsByCategory } from "../../service/ProService";
 import { UserContext } from "../../context/User";
-import { parseDisplayName } from "../../utility/regionUtils";
+import { parseDisplayName, proRegionText } from "../../utility/regionUtils";
 
 /* ─── 플레이스홀더 색상 ─── */
 const PH_COLORS = [
@@ -63,7 +63,7 @@ const CategoryProListPage = () => {
     title: p.detail?.intro || category?.shortName || "",
     description: `경력 ${p.detail?.experience || "?"}년 · ${p.detail?.subcategories?.join(", ") || ""}`,
     photoCount: p.photoUrls?.length || 0,
-    location: p.region ? `${p.region.sido} ${p.region.gu || ""}`.trim() : "",
+    location: proRegionText(p),
     rating: 0,
     reviews: 0,
     career: `${p.detail?.experience || "?"}년`,

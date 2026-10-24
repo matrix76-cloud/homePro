@@ -21,7 +21,7 @@ const MENU = [
   { label: "AI 견적", to: "/MobileMain?tab=ai_estimate", match: (p, t) => (p === "/MobileMain" && t === "ai_estimate") || p.startsWith("/order/ai-estimate") },
   { label: "공동중개", to: "/brokerage", match: (p) => p.startsWith("/brokerage") },
   { label: "교육·장터", to: "/education-market", match: (p) => p.startsWith("/education-market") || p.startsWith("/training") || p.startsWith("/supplies") },
-  { label: "안심케어", to: "/insurance", match: (p) => p.startsWith("/insurance") },
+  { label: "보험", to: "/insurance", match: (p) => p.startsWith("/insurance") },
 ];
 
 const PcHeader = () => {

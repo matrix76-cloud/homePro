@@ -35,7 +35,7 @@ const TAB_LIST = [
   {
     // 대표 지시 8/4: 교육.장터는 마이 안으로 옮기고, 이 자리는 일일 미니보험(안심케어)에 배정
     key: "insurance",
-    label: "안심케어",
+    label: "보험", // 대표 10/16 "마크 > [보험]"
     path: "/insurance",
     ActiveIcon: IoShieldCheckmark,
     InactiveIcon: IoShieldCheckmarkOutline,

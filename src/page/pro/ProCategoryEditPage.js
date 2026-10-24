@@ -9,7 +9,7 @@ import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, uploadC
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
-import { regionToDisplayName } from "../../utility/regionUtils";
+import { proRegionList, proRegionText } from "../../utility/regionUtils";
 
 const ProCategoryEditPage = () => {
     const navigate = useNavigate();
@@ -20,7 +20,7 @@ const ProCategoryEditPage = () => {
     const [selectedSubs, setSelectedSubs] = useState([]);
     const [experience, setExperience] = useState("");
     const [intro, setIntro] = useState("");
-    const [region, setRegion] = useState(null);
+    const [region, setRegion] = useState([]); // 시·도 이름 배열 (대표 10/14)
     const [showRegionModal, setShowRegionModal] = useState(false);
     const [extraFields, setExtraFields] = useState({});
     const [certs, setCerts] = useState([]);
@@ -54,7 +54,7 @@ const ProCategoryEditPage = () => {
             setSelectedSubs(d.subcategories || []);
             setExperience(d.experience || "");
             setIntro(d.intro || "");
-            setRegion(data.region || d.region || null);
+            setRegion(proRegionList(data.region || data.regions ? data : d));
             // 저장된 자격증에는 id가 없어 수정/삭제가 동작하지 않았음 → 로드 시 id 부여 + 사진 미리보기 복원
             const savedCerts = Array.isArray(d.certs) ? d.certs : [];
             setCerts(savedCerts.map((c, i) => ({
@@ -244,16 +244,17 @@ const ProCategoryEditPage = () => {
                 <Section>
                     <SectionTitle>활동 지역</SectionTitle>
                     <RegionSelectBtn type="button" onClick={() => setShowRegionModal(true)}>
-                        <IoLocationOutline size={18} color={region ? THEME.primary : THEME.muted} />
-                        <RegionBtnText $hasValue={!!region}>
-                            {region?.sido ? regionToDisplayName(region) : "지역을 선택하세요"}
+                        <IoLocationOutline size={18} color={region.length ? THEME.primary : THEME.muted} />
+                        <RegionBtnText $hasValue={region.length > 0}>
+                            {region.length ? proRegionText({ regions: region }) : "지역을 선택하세요 (여러 곳 · 전국 가능)"}
                         </RegionBtnText>
                     </RegionSelectBtn>
                     <RegionSelectModal
                         open={showRegionModal}
                         onClose={() => setShowRegionModal(false)}
+                        multi
                         onSelect={(r) => setRegion(r)}
-                        defaultValue={region || { sido: "서울", gu: "전체" }}
+                        value={region}
                     />
                 </Section>
 

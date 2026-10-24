@@ -148,7 +148,7 @@ const InsurancePage = () => {
     );
     if (pcWide) {
       return (
-        <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+        <MainListLayout NAME="보험" footerType="insurance" hideBack hideActions>
           <Wrap className="ins-pc">
             <PcCols>
               <PcStack>{identityCard}{identityNotice}</PcStack>
@@ -160,7 +160,7 @@ const InsurancePage = () => {
       );
     }
     return (
-      <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+      <MainListLayout NAME="보험" footerType="insurance" hideBack hideActions>
         <Wrap $bottom={130}>
           {identityCard}
           {identityNotice}
@@ -292,7 +292,7 @@ const InsurancePage = () => {
             <Item>오더의 체크인·체크아웃 기록이 서버에 있어야 그 작업이 보장됩니다. 매칭오더와 셀프 등록한 오더 모두 같습니다.</Item>
             <Item>월 구독형·1년형 가입자는 오더마다 추가 결제 없이 "보험 적용" 안내만 받습니다.</Item>
             <Item>보험은 필수가 아니라 선택입니다. 다만 접수자가 "보험가입 필수"로 등록한 오더는 배정 뒤 건당·월·년 중 하나로 가입해야 체크인할 수 있습니다.</Item>
-            <Item>사고가 나면 안심케어 탭에서 사고 접수를 합니다. 현장기록의 사진·시각·위치가 증빙이 됩니다.</Item>
+            <Item>사고가 나면 보험 탭에서 사고 접수를 합니다. 현장기록의 사진·시각·위치가 증빙이 됩니다.</Item>
           </ItemList>
         </Card>
   );
@@ -310,7 +310,7 @@ const InsurancePage = () => {
   if (pcWide) {
     const sel = plan ? plans?.[plan] : null;
     return (
-      <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+      <MainListLayout NAME="보험" footerType="insurance" hideBack hideActions>
         <Wrap className="ins-pc">
           <PcCols>
             <PcStack>
@@ -353,7 +353,7 @@ const InsurancePage = () => {
   }
 
   return (
-    <MainListLayout NAME="안심케어" footerType="insurance" hideBack hideActions>
+    <MainListLayout NAME="보험" footerType="insurance" hideBack hideActions>
       <Wrap $bottom={120}>
         {heroEl}
 

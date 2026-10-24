@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { proRegionText } from "../../utility/regionUtils";
 import { isCertifiedBroker } from "../../service/BrokerService";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -30,7 +31,7 @@ import { blockUser, unblockUser, isBlocked as isBlockedCheck } from "../../servi
 import { IoShieldOutline, IoBanOutline, IoImageOutline } from "react-icons/io5";
 import {
   MAX_CERTIFICATES, saveBusinessLicense, removeBusinessLicense,
-  addCertificate, removeCertificate, hasBusinessLicense,
+  addCertificate, removeCertificate, hasBusinessLicense, bizStatusLabel, isFreelancerNoBiz,
   formatUploadedAt, getCompletedOrderCount,
 } from "../../service/CertificateService";
 
@@ -240,6 +241,22 @@ const BizProfilePage = () => {
       alert("저장 실패: " + (e.message || e));
     } finally {
       setSavingSns(false);
+    }
+  };
+
+  const freelancerNoBiz = isFreelancerNoBiz(myProfile);
+  const [savingFreelancer, setSavingFreelancer] = useState(false);
+  const handleFreelancerToggle = async (on) => {
+    if (!myUid) return;
+    setSavingFreelancer(true);
+    try {
+      const { upsertUserProfile } = await import("../../service/UserProfileService");
+      await upsertUserProfile(myUid, { noBizLicense: on });
+      setMyProfile((p) => ({ ...(p || {}), noBizLicense: on }));
+    } catch (err) {
+      alert("저장 실패: " + (err.message || err));
+    } finally {
+      setSavingFreelancer(false);
     }
   };
 
@@ -539,8 +556,8 @@ const BizProfilePage = () => {
               {/* 타인 열람 — 신뢰요소 (인증·지역·주요 카테고리·경력·누적 완료) */}
               {isViewingOther && (
                 <TrustSection>
-                  <TrustCertLine $verified={licenseVerified}>
-                    {licenseVerified ? "사업자등록증 인증" : "사업자등록증 미등록"}
+                  <TrustCertLine $verified={bizStatusLabel(myProfile).ok}>
+                    {bizStatusLabel(myProfile).text}
                   </TrustCertLine>
                   {regionText && (
                     <TrustRow><TrustKey>활동 지역</TrustKey><TrustVal>{regionText}</TrustVal></TrustRow>
@@ -710,13 +727,27 @@ const BizProfilePage = () => {
                 <CertBlock>
                   <CertBlockHead>
                     <CertBlockTitle>사업자등록증</CertBlockTitle>
-                    <CertRequired>필수</CertRequired>
+                    {!freelancerNoBiz && <CertRequired>필수</CertRequired>}
                   </CertBlockHead>
-                  <CertStateLine $verified={!!bizLicense}>
+                  <CertStateLine $verified={!!bizLicense || freelancerNoBiz}>
                     {bizLicense
                       ? `등록됨${formatUploadedAt(bizLicense.uploadedAt) ? ` · ${formatUploadedAt(bizLicense.uploadedAt)}` : ""}`
-                      : "아직 등록되지 않았습니다"}
+                      : freelancerNoBiz
+                        ? "개인 프리랜서 (사업자등록 없음)로 표시됩니다"
+                        : "아직 등록되지 않았습니다"}
                   </CertStateLine>
+                  {/* 사업자등록이 없는 개인 프리랜서 고르기 (대표 10/14) — 등록증을 올리면 자동으로 인증 표시가 우선 */}
+                  {!bizLicense && (
+                    <FreelancerCheck>
+                      <input
+                        type="checkbox"
+                        checked={freelancerNoBiz}
+                        disabled={savingFreelancer}
+                        onChange={(e) => handleFreelancerToggle(e.target.checked)}
+                      />
+                      <span>사업자등록이 없는 개인 프리랜서입니다</span>
+                    </FreelancerCheck>
+                  )}
                   <CertActionRow>
                     <CertActionBtn
                       onClick={() => bizFileRef.current?.click()}
@@ -833,8 +864,8 @@ const BizProfilePage = () => {
                 <AccountSub>
                   사업자등록증은 개인정보 보호를 위해 인증 여부만 표시됩니다
                 </AccountSub>
-                <CertStateLine $verified={licenseVerified}>
-                  {licenseVerified ? "사업자등록증 인증" : "사업자등록증 미등록"}
+                <CertStateLine $verified={bizStatusLabel(myProfile).ok}>
+                  {bizStatusLabel(myProfile).text}
                 </CertStateLine>
                 {certificates.length > 0 ? (
                   <CertList>
@@ -911,7 +942,7 @@ const BizProfilePage = () => {
                 <ProGrid>
                 {viewPros.map((pro) => {
                   const badge = getStatusBadge(pro.status);
-                  const region = pro.region ? `${pro.region.sido} ${pro.region.gu || ""}`.trim() : "";
+                  const region = proRegionText(pro);
                   return (
                     <ProCard key={pro.id} onClick={() => navigate(`/pro/category-detail/${pro.categoryId}`, isViewingOther ? { state: { viewUid: viewUid } } : undefined)}>
                       <ProCardHeader>
@@ -1013,11 +1044,11 @@ const BizProfilePage = () => {
               </EmptyWrap>
             ) : (
               pros.map((pro) => {
-                const region = pro.region ? `${pro.region.sido} ${pro.region.gu || ""}`.trim() : "";
+                const region = proRegionText(pro);
                 const profile = proProfiles[pro.uid];
                 const avatarUrl = profile?.photoURL || profile?.profileImage;
                 return (
-                  <FindProCard key={pro.id} onClick={() => navigate(`/service/${pro.categoryId}/${pro.id}`, { state: { service: { id: pro.id, uid: pro.uid, proName: pro.detail?.intro || getCatName(pro.categoryId) + " 전문가", title: pro.detail?.intro || "", description: `경력 ${pro.detail?.experience || "?"}년`, location: pro.region ? `${pro.region.sido} ${pro.region.gu || ""}`.trim() : "", career: `${pro.detail?.experience || "?"}년`, rating: 0, reviews: 0, price: "", tags: pro.detail?.subcategories?.slice(0, 3) || [], photoCount: 0 }, category: CATEGORIES.find(c => c.id === pro.categoryId) } })}>
+                  <FindProCard key={pro.id} onClick={() => navigate(`/service/${pro.categoryId}/${pro.id}`, { state: { service: { id: pro.id, uid: pro.uid, proName: pro.detail?.intro || getCatName(pro.categoryId) + " 전문가", title: pro.detail?.intro || "", description: `경력 ${pro.detail?.experience || "?"}년`, location: proRegionText(pro), career: `${pro.detail?.experience || "?"}년`, rating: 0, reviews: 0, price: "", tags: pro.detail?.subcategories?.slice(0, 3) || [], photoCount: 0 }, category: CATEGORIES.find(c => c.id === pro.categoryId) } })}>
                     <FindProTop>
                       <FindProAvatar>
                         {avatarUrl ? (
@@ -1877,6 +1908,17 @@ const CertRequired = styled.div`
 const CertCountText = styled.div`
   font-size: 14px;
   color: ${THEME.muted};
+`;
+
+const FreelancerCheck = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 12px;
+  font-size: 15px;
+  color: ${THEME.text};
+  cursor: pointer;
+  input { width: 18px; height: 18px; accent-color: ${THEME.primary}; margin: 0; flex: none; }
 `;
 
 const CertStateLine = styled.div`

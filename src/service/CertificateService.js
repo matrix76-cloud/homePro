@@ -108,6 +108,20 @@ export function hasBusinessLicense(profile) {
   return !!(profile && profile.businessLicense && profile.businessLicense.url);
 }
 
+/** 사업자등록 없는 개인 프리랜서로 표시하기로 했는지 (대표 10/14 — 본인이 비즈프로필에서 고름, 프리랜서 회원은 기본) */
+export function isFreelancerNoBiz(profile) {
+  if (!profile || hasBusinessLicense(profile)) return false;
+  if (typeof profile.noBizLicense === "boolean") return profile.noBizLicense;
+  return profile.userType === "freelancer";
+}
+
+/** 남에게 보이는 사업자 상태 한 줄 — ok 면 인증 색 */
+export function bizStatusLabel(profile) {
+  if (hasBusinessLicense(profile)) return { ok: true, text: "사업자등록증 인증" };
+  if (isFreelancerNoBiz(profile)) return { ok: true, text: "개인 프리랜서 (사업자등록 없음)" };
+  return { ok: false, text: "사업자등록증 미등록" };
+}
+
 /** 업로드 일시 표기 (ISO 문자열 · Firestore Timestamp 모두 처리) */
 export function formatUploadedAt(value) {
   if (!value) return "";

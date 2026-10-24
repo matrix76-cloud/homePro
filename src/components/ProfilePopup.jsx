@@ -19,7 +19,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../api/config";
 import { THEME, CATEGORIES } from "../config/homeproConfig";
 import { getUserProfileByUid } from "../service/UserProfileService";
-import { hasBusinessLicense, getCompletedOrderCount, formatUploadedAt } from "../service/CertificateService";
+import { hasBusinessLicense, bizStatusLabel, getCompletedOrderCount, formatUploadedAt } from "../service/CertificateService";
 import { getMyProDocs } from "../service/ProService";
 import { findActivePolicy, INSURANCE_TYPE_LABEL } from "../service/OrderInsuranceService";
 import { formatDate } from "../service/InsuranceService";
@@ -207,8 +207,8 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = fals
               <Section>
                 <SectionTitle>인증 · 보험</SectionTitle>
                 <StatusRow>
-                  {licenseVerified ? <IoCheckmarkCircle size={20} color={OK_COLOR} /> : <IoEllipseOutline size={20} color={THEME.muted} />}
-                  <StatusText $ok={licenseVerified}>{licenseVerified ? "사업자등록증 인증" : "사업자등록증 미등록"}</StatusText>
+                  {bizStatusLabel(p).ok ? <IoCheckmarkCircle size={20} color={OK_COLOR} /> : <IoEllipseOutline size={20} color={THEME.muted} />}
+                  <StatusText $ok={bizStatusLabel(p).ok}>{bizStatusLabel(p).text}</StatusText>
                 </StatusRow>
                 <StatusRow>
                   {insured ? <IoShieldCheckmark size={20} color={OK_COLOR} /> : <IoShieldOutline size={20} color={THEME.muted} />}

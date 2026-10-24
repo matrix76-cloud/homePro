@@ -129,7 +129,7 @@ const PayPage = () => {
         <Card>
           <CardTitle>결제 안내</CardTitle>
           <CardNote>
-            결제가 끝나면 보험 가입이 바로 처리되고 안심케어의 내 보험에서 확인할 수 있습니다.
+            결제가 끝나면 보험 가입이 바로 처리되고 보험 탭의 내 보험에서 확인할 수 있습니다.
             {purpose === "insurance_order" ? " 결제 기록이 있어야 이 오더의 체크인이 열립니다." : ""}
             {isTossTestKey() ? " 지금은 토스 테스트 키로 열려 있어 실제로 돈이 빠지지 않습니다." : ""}
           </CardNote>

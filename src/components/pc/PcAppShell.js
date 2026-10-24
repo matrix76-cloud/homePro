@@ -21,10 +21,10 @@ const MENU = [
   { label: "오더목록", icon: <FiList />, to: "/MobileMain?tab=all_orders", match: (p, t) => (p === "/MobileMain" && (!t || t === "all_orders")) || p.startsWith("/order/detail") || p === "/order/create" },
   { label: "나의 오더", icon: <FiClipboard />, to: "/MobileMain?tab=my_orders", match: (p, t) => (p === "/MobileMain" && t === "my_orders") || p.startsWith("/order/my-orders") || p === "/my-orders" },
   { label: "AI 견적", icon: <FiCpu />, to: "/MobileMain?tab=ai_estimate", match: (p, t) => (p === "/MobileMain" && t === "ai_estimate") || p.startsWith("/order/ai-estimate") },
-  { label: "보유자산", icon: <FiGift />, to: "/MobileMain?tab=assets", match: (p, t) => p === "/MobileMain" && t === "assets" },
+  { label: "초대코드·자산", icon: <FiGift />, to: "/MobileMain?tab=assets", match: (p, t) => p === "/MobileMain" && t === "assets" },
   { label: "공동중개", icon: <FiHome />, to: "/brokerage", match: (p) => p.startsWith("/brokerage") },
   { label: "교육·장터", icon: <FiBookOpen />, to: "/education-market", match: (p) => p.startsWith("/education-market") || p.startsWith("/training") || p.startsWith("/supplies") },
-  { label: "안심케어", icon: <FiShield />, to: "/insurance", match: (p) => p.startsWith("/insurance") },
+  { label: "보험", icon: <FiShield />, to: "/insurance", match: (p) => p.startsWith("/insurance") },
   { label: "채팅", icon: <FiMessageCircle />, to: "/MobileChat", match: (p) => p.startsWith("/MobileChat") || p.startsWith("/chat/") },
   { label: "마이", icon: <FiUser />, to: "/MobileConfig", match: (p) => p.startsWith("/MobileConfig") || p.startsWith("/biz-profile") },
 ];

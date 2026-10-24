@@ -8,6 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { applyDarkMode } from "../../utility/darkMode";
 
 const LS_KEY = "homepro.appSettings";
 
@@ -35,6 +36,7 @@ const AppSettingsPage = () => {
   const uid = userData?.uid;
   const [settings, setSettings] = useState(loadLocal);
   const loadedRemote = useRef(false);
+  const touched = useRef(false);
 
   // Firestore 저장본이 있으면 우선
   useEffect(() => {
@@ -46,15 +48,21 @@ const AppSettingsPage = () => {
         const { db } = await import("../../api/config");
         const snap = await getDoc(doc(db, "users", uid));
         const remote = snap.exists() ? snap.data().appSettings : null;
-        if (remote) {
-          setSettings({ ...DEFAULT_SETTINGS, ...remote, dnd: { ...DEFAULT_SETTINGS.dnd, ...(remote.dnd || {}) } });
+        // 불러오는 사이 이미 스위치를 눌렀으면 그 값을 지킨다
+        if (remote && !touched.current) {
+          const merged = { ...DEFAULT_SETTINGS, ...remote, dnd: { ...DEFAULT_SETTINGS.dnd, ...(remote.dnd || {}) } };
+          setSettings(merged);
+          applyDarkMode(merged.darkMode);
+          try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
         }
       } catch {}
     })();
   }, [uid]);
 
   const persist = async (next) => {
+    touched.current = true;
     setSettings(next);
+    applyDarkMode(next.darkMode);
     try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch {}
     if (!uid) return;
     try {
@@ -118,7 +126,7 @@ const AppSettingsPage = () => {
         <ToggleRow $last>
           <ToggleText>
             <ToggleLabel>다크모드</ToggleLabel>
-            <ToggleDesc>어두운 테마는 화면별로 순차 적용됩니다</ToggleDesc>
+            <ToggleDesc>켜면 모든 화면이 어두운 색으로 바뀝니다</ToggleDesc>
           </ToggleText>
           <ToggleSwitch $on={settings.darkMode} onClick={() => toggle("darkMode")} />
         </ToggleRow>

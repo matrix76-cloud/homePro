@@ -118,3 +118,36 @@ export function parseDisplayName(str) {
         gu: parts.length >= 2 ? parts.slice(1).join(" ") : "전체",
     };
 }
+
+/**
+ * 전문분야 활동 지역 (대표 10/14 — 광역시·도 여러 곳 + 전국)
+ * 새 문서: regions: ["경기","서울"] 또는 ["전국"], region 은 첫 지역(옛 화면 · 쿼리 호환)
+ * 옛 문서: region: { sido, gu } 만 있음
+ */
+export function proRegionList(p) {
+    if (Array.isArray(p?.regions) && p.regions.length) return p.regions;
+    if (p?.region?.sido) return [p.region.sido];
+    return [];
+}
+
+export function proRegionText(p) {
+    if (Array.isArray(p?.regions) && p.regions.length) {
+        return p.regions.includes("전국") ? "전국" : p.regions.join(" · ");
+    }
+    const r = p?.region;
+    return r?.sido ? `${r.sido} ${r.gu && r.gu !== "전체" ? r.gu : ""}`.trim() : "";
+}
+
+/** 이 프로가 { sido, gu } 지역에서 활동하는지 */
+export function proCoversRegion(p, region) {
+    if (!region?.sido) return true;
+    if (Array.isArray(p?.regions) && p.regions.length) {
+        return p.regions.includes("전국") || p.regions.includes(region.sido);
+    }
+    const r = p?.region;
+    if (!r?.sido) return false;
+    if (r.sido === "전국") return true;
+    if (r.sido !== region.sido) return false;
+    if (!region.gu || region.gu === "전체" || !r.gu || r.gu === "전체") return true;
+    return r.gu === region.gu;
+}

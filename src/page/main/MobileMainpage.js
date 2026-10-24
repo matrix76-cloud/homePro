@@ -14,7 +14,7 @@ import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
 import { IoAddCircle, IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline, IoSearchOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
-import { getAccessTier, TIER_LABEL, tierFullLabel } from "../../utility/tierUtils";
+import { getAccessTier, TIER_LABEL, TIER_NAME, tierFullLabel } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
 import EmptyOrders from "../../components/EmptyOrders";
 import usePcWide from "../../hooks/usePcWide";
@@ -66,19 +66,25 @@ export const STATUS_COLOR = {
 };
 
 /* ─── 필터 옵션 ─── */
-const DISTANCE_OPTIONS = ["전체", "내 동네", "같은 시", "타지역"];
-// 거리 선택 시트의 반경 안내 (대표 9/14 리뷰). 오더 좌표가 없어 구·시 단위로 거르므로 대략값으로 보여 준다
+// 거리 5단계 (대표 10/16) — 기본은 광역권
+export const DISTANCE_OPTIONS = ["내 동네", "근거리", "광역권", "원거리", "전국"];
+export const DEFAULT_DIST = "광역권";
+const DISTANCE_KM = { "내 동네": 15, "근거리": 40, "광역권": 70, "원거리": 120 };
+// 오더 좌표가 없어 시·도 대표 지점 사이 거리로 어림한다 (같은 시·도 안은 구가 같으면 0, 다르면 광역시 20 · 도 45km)
 const DISTANCE_RADIUS_HINT = {
-  "내 동네": "같은 구 · 반경 약 5km",
-  "같은 시": "같은 시·도 · 반경 약 20km",
-  "타지역": "다른 시·도 · 20km 이상",
+  "내 동네": "반경 약 15km",
+  "근거리": "반경 약 40km",
+  "광역권": "반경 약 70km",
+  "원거리": "반경 약 120km",
+  "전국": "거리 상관없이 전체",
 };
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
 export const SORT_OPTIONS = ["등록순", "가까운거리순", "서비스순", "지역순", "요청방식순", "단가유형순"];
 
 /* ─── 지역 헬퍼: order.location 문자열에서 시/구 추출 + 사용자 region과 비교 ─── */
 const SIDO_NORMALIZE_RE = /(특별자치시|특별자치도|광역시|특별시|도|시)$/;
-const normalizeSido = (raw) => (raw || "").replace(SIDO_NORMALIZE_RE, "");
+const SIDO_LONG = { 충청남: "충남", 충청북: "충북", 전라남: "전남", 전라북: "전북", 경상남: "경남", 경상북: "경북" };
+const normalizeSido = (raw) => { const v = (raw || "").replace(SIDO_NORMALIZE_RE, ""); return SIDO_LONG[v] || v; };
 
 const extractRegionFromLocation = (location) => {
   if (!location) return null;
@@ -91,17 +97,55 @@ const extractRegionFromLocation = (location) => {
   return { sido: normalizeSido(parts[0]), gu: parts[1] || "" };
 };
 
-export const getDistanceCategory = (orderLocation, myRegion) => {
+// 시·도 대표 지점 (위도, 경도)
+const SIDO_POINT = {
+  서울: [37.57, 126.98], 인천: [37.46, 126.71], 경기: [37.27, 127.03], 강원: [37.60, 128.10],
+  대전: [36.35, 127.38], 세종: [36.48, 127.29], 충북: [36.64, 127.49], 충남: [36.55, 126.85],
+  광주: [35.16, 126.85], 전북: [35.82, 127.15], 전남: [34.90, 126.90],
+  대구: [35.87, 128.60], 경북: [36.30, 128.70], 부산: [35.18, 129.08], 울산: [35.54, 129.31], 경남: [35.30, 128.40],
+  제주: [33.50, 126.53],
+};
+const METRO_SIDO = new Set(["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종"]);
+const kmBetween = ([a1, o1], [a2, o2]) => {
+  const r = Math.PI / 180;
+  const h = Math.sin(((a2 - a1) * r) / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(((o2 - o1) * r) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+};
+// 내 지역 ↔ 오더 지역 어림 거리(km). 모르면 null
+export const approxDistanceKm = (orderLocation, myRegion) => {
   if (!myRegion?.sido) return null;
   const ord = extractRegionFromLocation(orderLocation);
   if (!ord?.sido) return null;
   const mySido = normalizeSido(myRegion.sido);
-  if (ord.sido !== mySido) return "타지역";
-  if (myRegion.gu && ord.gu && myRegion.gu === ord.gu) return "내 동네";
-  return "같은 시";
+  if (ord.sido === mySido) {
+    if (myRegion.gu && ord.gu && myRegion.gu === ord.gu) return 0;
+    return METRO_SIDO.has(mySido) ? 20 : 45;
+  }
+  const a = SIDO_POINT[mySido], b = SIDO_POINT[ord.sido];
+  if (!a || !b) return null;
+  return Math.max(20, kmBetween(a, b));
 };
 
-const DISTANCE_RANK = { "내 동네": 0, "같은 시": 1, "타지역": 2 };
+// 오더가 들어가는 가장 좁은 거리 단계 (내 동네 → … → 전국). 모르면 null
+export const getDistanceCategory = (orderLocation, myRegion) => {
+  const km = approxDistanceKm(orderLocation, myRegion);
+  if (km === null) return null;
+  return DISTANCE_OPTIONS.find((d) => DISTANCE_KM[d] !== undefined && km <= DISTANCE_KM[d]) || "전국";
+};
+
+// 고른 거리 안에 드는가 — 내 지역이나 오더 지역을 모르면 숨기지 않는다
+export const withinDistance = (orderLocation, myRegion, dist) => {
+  if (!dist || dist === "전국" || dist === "전체") return true;
+  const km = approxDistanceKm(orderLocation, myRegion);
+  if (km === null) return true;
+  return km <= (DISTANCE_KM[dist] ?? Infinity);
+};
+
+// 가까운거리순 정렬 값 (모르면 맨 뒤)
+export const distanceRank = (orderLocation, myRegion) => {
+  const km = approxDistanceKm(orderLocation, myRegion);
+  return km === null ? 99999 : km;
+};
 
 /* ─── 지역 표시 라벨 (스크린샷 사양) ───
    서울 → 구만 / 광역시 → 약칭+구 / 도+시 → 시만 / 일반시+자치구 → 시(시제거)+구
@@ -596,7 +640,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   // 마감·취소 숨기기 (기본 켜짐) — 지원할 수 있는 오더만 보이게 (형 지시 7/28)
   const [hideClosed, setHideClosed] = useState(true);
   const [activeCatFilters, setActiveCatFilters] = useState([]);
-  const [activeDist, setActiveDist] = useState("전체");
+  const [activeDist, setActiveDist] = useState(DEFAULT_DIST);
   const [activePeriod, setActivePeriod] = useState("전체");
   const [activeSort, setActiveSort] = useState("등록순");
   const [showCatSheet, setShowCatSheet] = useState(false);
@@ -745,13 +789,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     return true;
   };
 
-  // 거리 필터 (지역 단순화: 내 동네 / 같은 시 / 타지역)
-  const filterByDistance = (order) => {
-    if (activeDist === "전체") return true;
-    const cat = getDistanceCategory(order.location, myRegion);
-    if (!cat) return false;
-    return cat === activeDist;
-  };
+  // 거리 필터 — 고른 반경 안 (대표 10/16 5단계)
+  const filterByDistance = (order) => withinDistance(order.location, myRegion, activeDist);
 
   // 상태 + 카테고리 + 기간 + 거리 필터 적용
   const filteredOrders = allOrders.filter((o) => {
@@ -779,11 +818,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       return list.sort((a, b) => getDate(b) - getDate(a));
     }
     if (activeSort === "가까운거리순") {
-      // 내 동네(0) → 같은 시(1) → 타지역(2) → 미상(3), 같은 등급은 최근 등록순
-      const rank = (o) => {
-        const cat = getDistanceCategory(o.location, myRegion);
-        return cat ? DISTANCE_RANK[cat] : 3;
-      };
+      // 가까운 순 → 모르는 지역은 뒤, 같은 거리는 최근 등록순
+      const rank = (o) => distanceRank(o.location, myRegion);
       return list.sort((a, b) => {
         const r = rank(a) - rank(b);
         if (r !== 0) return r;
@@ -831,7 +867,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     const list = [];
     if (activeSort !== "등록순") list.push({ key: "sort", label: activeSort, clear: () => setActiveSort("등록순") });
     if (activeStatusFilter !== "전체") list.push({ key: "status", label: activeStatusFilter, clear: () => setActiveStatusFilter("전체") });
-    if (activeDist !== "전체") list.push({ key: "dist", label: activeDist, clear: () => setActiveDist("전체") });
+    if (activeDist !== DEFAULT_DIST) list.push({ key: "dist", label: activeDist, clear: () => setActiveDist(DEFAULT_DIST) });
     if (activePeriod !== "전체") list.push({ key: "period", label: activePeriod, clear: () => setActivePeriod("전체") });
     if (activeCatFilters.length > 0) list.push({ key: "cat", label: "카테고리 " + activeCatFilters.length, clear: () => setActiveCatFilters([]) });
     return list;
@@ -845,7 +881,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     { key: "my_orders", label: "나의오더현황", wide: true },
     { key: "ai_estimate", label: "AI견적" },
     // 초대코드 탭은 보유자산 탭에 통합 (대표 9/14 리뷰) — 보유자산 맨 위에 초대 내용을 먼저 보인다
-    { key: "assets", label: "보유자산" },
+    // 탭 이름 '초대코드·자산' (대표 10/24)
+    { key: "assets", label: "초대코드·자산", wide: true },
   ];
 
   return (
@@ -858,10 +895,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             {/* 파트너 등급 = 차수 + 이름 (대표 10/2). 누르면 구독 화면(등급 안내 포함), 아이폰 앱은 등급 안내 가이드 */}
             <PointCell onClick={() => navigate(isIosApp() ? "/guide/7" : "/subscription")}>
               <div>
-                <PointCellLabel>홈프로 등급</PointCellLabel>
-                <PointLineTier>
-                  {tierFullLabel(getAccessTier(userData))}
-                </PointLineTier>
+                {/* 대표 10/24 "홈프로 등급 > 2차수, 하단에 일반무료회원" — 위 차수, 아래 등급 이름 */}
+                <PointLineTier style={{ marginTop: 0 }}>{TIER_LABEL[getAccessTier(userData)]}</PointLineTier>
+                <PointCellSub>{TIER_NAME[getAccessTier(userData)]}</PointCellSub>
               </div>
             </PointCell>
             <PointCellDivider />
@@ -1037,8 +1073,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               {activeSort}
               <FilterChevron><IoChevronDown size={14} /></FilterChevron>
             </FilterToggleBtn>
-            <FilterToggleBtn $on={activeDist !== "전체"} onClick={() => setShowDistSheet(true)}>
-              {activeDist !== "전체" ? activeDist : "거리"}
+            <FilterToggleBtn $on={activeDist !== DEFAULT_DIST} onClick={() => setShowDistSheet(true)}>
+              {activeDist}
               <FilterChevron><IoChevronDown size={14} /></FilterChevron>
             </FilterToggleBtn>
             <FilterToggleBtn $on={activeStatusFilter !== "전체"} onClick={() => setShowStatusSheet(true)}>
@@ -1085,7 +1121,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               title={activeFilterChips.length > 0 ? "조건에 맞는 오더가 없어요" : "아직 올라온 오더가 없어요"}
               desc={activeFilterChips.length > 0 ? "거리를 넓히거나 기간을 늘려 보세요." : "새 오더가 올라오면 여기에 바로 보입니다."}
               onReset={activeFilterChips.length > 0 ? () => {
-                setActiveSort("등록순"); setActiveStatusFilter("전체"); setActiveDist("전체");
+                setActiveSort("등록순"); setActiveStatusFilter("전체"); setActiveDist(DEFAULT_DIST);
                 setActivePeriod("전체"); setActiveCatFilters([]);
               } : null}
             />
@@ -1653,6 +1689,12 @@ const PointCellDivider = styled.div`
 const PointCellLabel = styled.div`
   font-size: 13px;
   color: #2b2f36;
+`;
+
+const PointCellSub = styled.div`
+  font-size: 14px;
+  color: #2b2f36;
+  margin-top: 2px;
 `;
 
 const PointLineTier = styled.div`

@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { proRegionText } from "../../utility/regionUtils";
 import React, { useContext, useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import styled from "styled-components";
@@ -65,8 +66,7 @@ const ProCategoryDetailPage = () => {
     const rawCerts = detail.certifications || detail.certs || [];
     const certs = Array.isArray(rawCerts) ? rawCerts : [];
     const catFields = PRO_DETAIL_FIELDS[categoryId] || [];
-    const region = docData?.region;
-    const regionText = region ? `${region.sido || ""} ${region.gu || ""}`.trim() : "";
+    const regionText = proRegionText(docData);
 
     const getStatusBadge = (status) => {
         if (status === "approved") return { label: "승인완료", bg: THEME.success, color: "#fff" };

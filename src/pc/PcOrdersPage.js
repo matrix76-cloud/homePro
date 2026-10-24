@@ -13,13 +13,11 @@ import { useAuth } from "../context/AuthContext";
 import { CATEGORIES } from "../config/homeproConfig";
 import { subscribeToAllOrders, formatOrderTime } from "../service/OrderService";
 import {
-  STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, formatRegionLabel, formatPriceType, formatMatchType, formatOrderScheduleShort, isUrgentNow,
+  STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, withinDistance, distanceRank, DISTANCE_OPTIONS, DEFAULT_DIST, formatRegionLabel, formatPriceType, formatMatchType, formatOrderScheduleShort, isUrgentNow,
 } from "../page/main/MobileMainpage";
 
 const STATUS_OPTIONS = ["전체", "접수", "대기", "마감", "취소"];
-const DISTANCE_OPTIONS = ["전체", "내 동네", "같은 시", "타지역"];
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
-const DISTANCE_RANK = { "내 동네": 0, "같은 시": 1, "타지역": 2 };
 
 // 상태 묶음 — 폰 오더목록과 같은 규칙
 const mapStatus = (status) => {
@@ -41,7 +39,7 @@ const PcOrdersPage = () => {
   const [rawOrders, setRawOrders] = useState(null);
   const [sort, setSort] = useState("등록순");
   const [status, setStatus] = useState("전체");
-  const [dist, setDist] = useState("전체");
+  const [dist, setDist] = useState(DEFAULT_DIST);
   const [period, setPeriod] = useState("전체");
   const [catId, setCatId] = useState("전체");
   const [hideClosed, setHideClosed] = useState(true);
@@ -95,12 +93,12 @@ const PcOrdersPage = () => {
         if (status !== "전체" && o._status !== status) return false;
         if (catId !== "전체" && o.categoryId !== catId) return false;
         if (!inPeriod(o)) return false;
-        if (dist !== "전체" && getDistanceCategory(o.location, myRegion) !== dist) return false;
+        if (!withinDistance(o.location, myRegion, dist)) return false;
         return true;
       });
     const byDate = (a, b) => toDate(b) - toDate(a);
     if (sort === "가까운거리순") {
-      const rank = (o) => { const c = getDistanceCategory(o.location, myRegion); return c ? DISTANCE_RANK[c] : 3; };
+      const rank = (o) => distanceRank(o.location, myRegion);
       return list.sort((a, b) => rank(a) - rank(b) || byDate(a, b));
     }
     if (sort === "서비스순") return list.sort((a, b) => (a.categoryName || "").localeCompare(b.categoryName || "", "ko"));
@@ -111,7 +109,7 @@ const PcOrdersPage = () => {
   }, [rawOrders, uid, myRegion, sort, status, dist, period, catId, hideClosed]);
 
   const filtersOn = sort !== "등록순" || status !== "전체" || dist !== "전체" || period !== "전체" || catId !== "전체";
-  const resetFilters = () => { setSort("등록순"); setStatus("전체"); setDist("전체"); setPeriod("전체"); setCatId("전체"); };
+  const resetFilters = () => { setSort("등록순"); setStatus("전체"); setDist(DEFAULT_DIST); setPeriod("전체"); setCatId("전체"); };
 
   const openOrder = (order) => {
     if (order._status === "마감") return showToast("이미 마감된 항목은 확인할 수 없습니다");

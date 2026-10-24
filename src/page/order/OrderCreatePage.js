@@ -124,6 +124,13 @@ const PickedEdit = styled.span`
   flex-shrink: 0;
 `;
 
+const WageLabel = styled.div`
+  font-size: 15px;
+  font-weight: 500;
+  color: ${THEME.text};
+  margin-top: 16px;
+`;
+
 const Label = styled.div`
   font-size: 17px;
   font-weight: 700;
@@ -675,6 +682,10 @@ export const OrderCreateContent = () => {
   const [infoIncRate, setInfoIncRate] = useState(String(COMMON_B2B_FIELDS.infoIncentive.rate.default));
   const [b2bPriceType, setB2bPriceType] = useState("");
   const [b2bPriceAmount, setB2bPriceAmount] = useState("");
+  // 팀원.기술자 구인 — 단가유형 대신 지급금액(금액 · 방식 · 시점), 소개수수료 없음 (대표 10/14)
+  const [wageAmount, setWageAmount] = useState("");
+  const [wageMethod, setWageMethod] = useState("");
+  const [wageTiming, setWageTiming] = useState("");
   const [referralFeeType, setReferralFeeType] = useState("none");
   const [referralFeeFixed, setReferralFeeFixed] = useState("");
   const [referralFeeFixedCustom, setReferralFeeFixedCustom] = useState("");
@@ -770,6 +781,11 @@ export const OrderCreateContent = () => {
     setContactPhone(editOrder.contactPhone || "");
     setCustomerPhone(editOrder.customerPhone || "");
     setB2bPriceType(editOrder.b2bPriceType || "");
+    if (editOrder.wagePay) {
+      setWageAmount(editOrder.wagePay.amount ? String(editOrder.wagePay.amount) : "");
+      setWageMethod(editOrder.wagePay.method || "");
+      setWageTiming(editOrder.wagePay.timing || "");
+    }
     setB2bPriceAmount(editOrder.b2bPriceAmount ? String(editOrder.b2bPriceAmount) : "");
     setPayMode(editOrder.payMode || (editOrder.paymentMethod === "선결제" ? "prepay" : editOrder.paymentMethod ? "later" : ""));
     setInfoReward(editOrder.infoReward ? String(editOrder.infoReward) : "");
@@ -1038,6 +1054,7 @@ export const OrderCreateContent = () => {
   // 금액이 정해진 유형(시공금액·잔금)만 선결제 가능 — H-포인트 유형은 대금이 H-포인트라 결제방식 칸 자체가 없다 (형 확정 9/12)
   const isPricedType = COMMON_B2B_FIELDS.priceType.pricedTypes.includes(b2bPriceType);
   const isInfoType = b2bPriceType === "info";
+  const isWorkerCall = selectedCategory === "worker_call";
   // 카테고리 한정 선택지(정기청소 전용 도급·매매·배수) 거르기
   const forThisCategory = (o) => !o.onlyCategories || o.onlyCategories.includes(selectedCategory);
   useEffect(() => {
@@ -1059,7 +1076,15 @@ export const OrderCreateContent = () => {
     else if (referralFeeType === "hpoint") setReferralFeeType("none");
   }, [b2bPriceType, referralFeeType, payMode]);
   useEffect(() => { if (referralFeeRate && Number(referralFeeRate) > referralRateCap) setReferralFeeRate(""); }, [referralRateCap, referralFeeRate]);
-  useEffect(() => { if ((isInfoType || isBalanceType) && referralFeeType !== "none") setReferralFeeType("none"); }, [isInfoType, isBalanceType, referralFeeType]);
+  useEffect(() => { if ((isInfoType || isBalanceType || isWorkerCall) && referralFeeType !== "none") setReferralFeeType("none"); }, [isInfoType, isBalanceType, isWorkerCall, referralFeeType]);
+  useEffect(() => { if (isWorkerCall && b2bPriceType) setB2bPriceType(""); }, [isWorkerCall, b2bPriceType]);
+
+  // "일급 200,000원 · 당일 지급" / "협의 · 월 단위 지급"
+  const wageText = () => {
+    const amt = Number(wageAmount) > 0 ? ` ${Number(wageAmount).toLocaleString()}원` : "";
+    const timing = wageTiming ? (wageTiming === "협의" ? " · 지급 시점 협의" : ` · ${wageTiming} 지급`) : "";
+    return `${wageMethod || "협의"}${wageMethod === "협의" ? "" : amt}${timing}`;
+  };
 
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
@@ -1070,6 +1095,11 @@ export const OrderCreateContent = () => {
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
+    if (isWorkerCall) {
+      if (!wageMethod) { showToast("지급 방식을 선택해주세요"); return false; }
+      if (wageMethod !== "협의" && !(Number(wageAmount) > 0)) { showToast("지급 금액을 입력해주세요"); return false; }
+      if (!wageTiming) { showToast("지급 시점을 선택해주세요"); return false; }
+    }
     if (referralFeeType === "multiple" && !(Number(referralFeeTimes) > 0)) { showToast("소개수수료 배수를 숫자로 입력해주세요"); return false; }
     if (b2bPriceType === "info") {
       const inc = COMMON_B2B_FIELDS.infoIncentive;
@@ -1191,6 +1221,7 @@ export const OrderCreateContent = () => {
         directPrice: priceType === "direct" ? directPrice : "",
         // 금액 표기 = 단가유형 기준 (예: "시공금액 330,000원" / "현장견적" / "견적요청")
         price: (() => {
+          if (isWorkerCall) return wageText();
           const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", info: "정보공유", contract: "도급", sale: "매매" };
           const label = map[b2bPriceType] || "견적요청";
           if (AMOUNT_PRICE_TYPES.includes(b2bPriceType) && b2bPriceAmount) {
@@ -1218,9 +1249,10 @@ export const OrderCreateContent = () => {
         infoIncentive: isInfoType
           ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : { type: "fixed", amount: Number(infoIncFixed) })
           : null,
+        wagePay: isWorkerCall ? { amount: Number(wageAmount) || null, method: wageMethod, timing: wageTiming } : null,
         b2bPriceType: b2bPriceType || null,
         b2bPriceAmount: AMOUNT_PRICE_TYPES.includes(b2bPriceType) ? Number(b2bPriceAmount) || null : null,
-        referralFee: referralFeeType === "none" || isInfoType ? null : referralFeeValue,
+        referralFee: referralFeeType === "none" || isInfoType || isWorkerCall ? null : referralFeeValue,
         // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
         referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
         matchType: selfOrder ? null : (matchType || null),
@@ -1297,6 +1329,7 @@ export const OrderCreateContent = () => {
     if (priceType === "direct") items.push({ k: "단가(직접)", v: `${Number(directPrice).toLocaleString()}원` });
     if (workDate) items.push({ k: "작업 날짜", v: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate });
     if (workTimeMode) items.push({ k: "작업 시간", v: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : workTimeMode });
+    if (isWorkerCall && wageMethod) items.push({ k: "지급금액", v: wageText() });
     if (b2bPriceType) {
       const ptLabel = labelOf(COMMON_B2B_FIELDS.priceType.options, b2bPriceType);
       const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
@@ -1340,6 +1373,7 @@ export const OrderCreateContent = () => {
     : "상세 입력";
   const pcPickedItems = selectedSub.map((k) => (k.includes(":") ? k.split(":")[1] : k)).join(", ");
   const pcPriceText = (() => {
+    if (isWorkerCall) return wageMethod ? wageText() : "";
     if (!b2bPriceType) return "";
     const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
     return `${opt?.label || ""}${(opt?.hasInput && b2bPriceAmount) ? ` ${Number(b2bPriceAmount).toLocaleString()}${opt?.unit || ""}` : ""}`;
@@ -1898,7 +1932,34 @@ export const OrderCreateContent = () => {
           </Section>
           )}
 
+          {/* 팀원.기술자 구인 — 지급금액 (대표 10/14) */}
+          {isWorkerCall && (
+          <Section>
+            <Label>지급금액</Label>
+            <WageLabel>지급 방식</WageLabel>
+            <ChipGrid $min={90} style={{ marginTop: 8 }}>
+              {["일급", "시급", "건당", "월급", "협의"].map((m) => (
+                <Chip key={m} $selected={wageMethod === m} onClick={() => setWageMethod(m)}>{m}</Chip>
+              ))}
+            </ChipGrid>
+            {wageMethod !== "협의" && (
+              <>
+                <WageLabel>지급 금액</WageLabel>
+                <Input style={{ marginTop: 8 }} inputMode="numeric" placeholder="금액 직접 입력 (원)" value={withComma(wageAmount)}
+                  onChange={(e) => setWageAmount(onlyDigits(e.target.value))} />
+              </>
+            )}
+            <WageLabel>지급 시점</WageLabel>
+            <ChipGrid $min={90} style={{ marginTop: 8 }}>
+              {["당일", "주 단위", "월 단위", "협의"].map((t) => (
+                <Chip key={t} $selected={wageTiming === t} onClick={() => setWageTiming(t)}>{t}</Chip>
+              ))}
+            </ChipGrid>
+          </Section>
+          )}
+
           {/* 단가유형 */}
+          {!isWorkerCall && (
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.priceType.label}</Label>
@@ -1948,6 +2009,7 @@ export const OrderCreateContent = () => {
               );
             })()}
           </Section>
+          )}
 
           {/* 결제방식 — 선결제 / 후불 (형·대표님 확정 9/11). 금액 없는 유형은 선결제 불가. H-포인트 유형은 대금이 H-포인트라 결제방식 없음 (9/12) */}
           {/* 9/13 대표 확정: 홈프로에는 선결제가 없다 — 결제방식 칸을 화면에서 뺀다 (payMode 는 구 오더 호환용으로만 남김) */}
@@ -1985,7 +2047,7 @@ export const OrderCreateContent = () => {
           </Section>
           )}
 
-          {!isInfoType && !isBalanceType && !selfOrder && (
+          {!isInfoType && !isBalanceType && !selfOrder && !isWorkerCall && (
           <Section>
             <LabelRow>
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>

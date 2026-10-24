@@ -5,7 +5,60 @@ import { IoClose } from "react-icons/io5";
 import { THEME } from "../config/homeproConfig";
 import { KR_AREAS } from "../utility/constants";
 
-const RegionSelectModal = ({ open, onClose, onSelect, defaultValue }) => {
+// multi: 광역시·도 단위로 여러 곳을 고르고 '전국'도 고를 수 있다 (대표 10/14 전문분야 활동 지역)
+//   value/onSelect 는 시·도 이름 배열 — ["경기", "서울"] 또는 ["전국"]
+const RegionSelectModal = (props) => (props.multi ? <MultiRegionSheet {...props} /> : <SingleRegionSheet {...props} />);
+
+const MultiRegionSheet = ({ open, onClose, onSelect, value }) => {
+  const [picked, setPicked] = useState(value || []);
+  useEffect(() => { if (open) setPicked(value || []); }, [open]);
+  if (!open) return null;
+
+  const all = picked.includes("전국");
+  const toggle = (name) => {
+    if (name === "전국") { setPicked(all ? [] : ["전국"]); return; }
+    const base = picked.filter((x) => x !== "전국");
+    setPicked(base.includes(name) ? base.filter((x) => x !== name) : [...base, name]);
+  };
+
+  return (
+    <Overlay onClick={onClose}>
+      <Sheet onClick={(e) => e.stopPropagation()}>
+        <Handle />
+        <Header>
+          <Title>지역 선택</Title>
+          <CloseBtn onClick={onClose}>
+            <IoClose size={22} color={THEME.text} />
+          </CloseBtn>
+        </Header>
+        <MultiBody>
+          <MultiHint>광역시 · 도 단위로 여러 곳을 고를 수 있습니다.</MultiHint>
+          <MultiGrid>
+            {["전국", ...KR_AREAS.map((x) => x.sido)].map((name) => {
+              const on = name === "전국" ? all : !all && picked.includes(name);
+              return (
+                <MultiCell key={name} type="button" $on={on} $wide={name === "전국"} onClick={() => toggle(name)}>
+                  {name}
+                </MultiCell>
+              );
+            })}
+          </MultiGrid>
+        </MultiBody>
+        <Footer>
+          <GhostBtn onClick={onClose}>취소</GhostBtn>
+          <PrimaryBtn
+            disabled={picked.length === 0}
+            onClick={() => { onSelect?.(picked); onClose?.(); }}
+          >
+            {picked.length === 0 ? "지역을 골라 주세요" : all ? "전국 적용" : `${picked.length}곳 적용`}
+          </PrimaryBtn>
+        </Footer>
+      </Sheet>
+    </Overlay>
+  );
+};
+
+const SingleRegionSheet = ({ open, onClose, onSelect, defaultValue }) => {
   const defaultSido = defaultValue?.sido || "서울";
   const defaultGu = defaultValue?.gu || "전체";
 
@@ -200,6 +253,38 @@ const Item = styled.button`
   &:active { background: rgba(0,0,0,0.04); }
 `;
 
+const MultiBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 18px 18px;
+`;
+
+const MultiHint = styled.div`
+  font-size: 14px;
+  color: ${THEME.text};
+  margin-bottom: 12px;
+`;
+
+const MultiGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+`;
+
+const MultiCell = styled.button`
+  grid-column: ${({ $wide }) => ($wide ? "1 / -1" : "auto")};
+  min-height: 52px;
+  border-radius: 10px;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : THEME.border)};
+  background: #fff;
+  color: ${({ $on }) => ($on ? THEME.primary : THEME.text)};
+  font-weight: ${({ $on }) => ($on ? 600 : 400)};
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+`;
+
 const Footer = styled.div`
   display: flex;
   gap: 10px;
@@ -235,4 +320,5 @@ const PrimaryBtn = styled.button`
   font-family: inherit;
   cursor: pointer;
   &:active { opacity: 0.9; }
+  &:disabled { opacity: 0.45; cursor: default; }
 `;

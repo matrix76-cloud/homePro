@@ -197,7 +197,7 @@ export const CATEGORIES = [
     {
         id: "leak_detection",
         name: "누수탐지공사",
-        shortName: "누수탐지",
+        shortName: "누수탐지.공사", // 누수공사가 빠진 것처럼 보인다 (대표 10/14)
         group: "repair",
         description: "누수 탐지 및 누수 공사",
         subcategories: ["누수탐지", "누수공사", "욕실누수", "천장누수", "배관누수", "옥상.외벽누수", "기타"],

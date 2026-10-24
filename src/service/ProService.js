@@ -3,6 +3,7 @@ import { db, storage } from "../api/config";
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { COLLECTIONS, PRO_APPROVAL_REQUIRED_CATEGORIES } from "../config/homeproConfig";
+import { proCoversRegion } from "../utility/regionUtils";
 
 /**
  * 관리자 승인이 필요한 카테고리인지 (현재는 공동중개(부동산)만)
@@ -86,7 +87,11 @@ export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls
     if (status === "approved") {
         data.approvedAt = serverTimestamp();
     }
-    if (region?.sido) {
+    // region: 시·도 이름 배열(새 화면, 여러 곳 · 전국) 또는 { sido, gu }(옛 방식)
+    if (Array.isArray(region) && region.length) {
+        data.regions = region.includes("전국") ? ["전국"] : region;
+        data.region = { sido: data.regions[0], gu: "전체" };
+    } else if (region?.sido) {
         data.region = { sido: region.sido, gu: region.gu || "전체" };
     }
     await setDoc(doc(db, COLLECTIONS.PROS, docId), data);
@@ -133,36 +138,14 @@ export async function getMyProDocs(uid) {
  * @returns {object[]} 프로 목록
  */
 export async function getProsByCategory(categoryId, region) {
-    let q;
-
-    if (region?.sido && region.gu && region.gu !== "전체") {
-        // 시/도 + 구/군 모두 지정
-        q = query(
-            collection(db, COLLECTIONS.PROS),
-            where("categoryId", "==", categoryId),
-            where("status", "==", "approved"),
-            where("region.sido", "==", region.sido),
-            where("region.gu", "==", region.gu)
-        );
-    } else if (region?.sido) {
-        // 시/도만 지정 (전체)
-        q = query(
-            collection(db, COLLECTIONS.PROS),
-            where("categoryId", "==", categoryId),
-            where("status", "==", "approved"),
-            where("region.sido", "==", region.sido)
-        );
-    } else {
-        // 지역 미지정 → 전체 조회
-        q = query(
-            collection(db, COLLECTIONS.PROS),
-            where("categoryId", "==", categoryId),
-            where("status", "==", "approved")
-        );
-    }
-
+    // 활동 지역이 여러 곳 · 전국일 수 있어 지역은 받아 온 뒤 거른다 (대표 10/14)
+    const q = query(
+        collection(db, COLLECTIONS.PROS),
+        where("categoryId", "==", categoryId),
+        where("status", "==", "approved")
+    );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => proCoversRegion(p, region));
 }
 
 /**
@@ -171,28 +154,10 @@ export async function getProsByCategory(categoryId, region) {
  * @returns {object[]} 프로 목록
  */
 export async function getProsByRegion(region) {
-    let q;
-
-    if (region?.sido && region.gu && region.gu !== "전체") {
-        q = query(
-            collection(db, COLLECTIONS.PROS),
-            where("status", "==", "approved"),
-            where("region.sido", "==", region.sido),
-            where("region.gu", "==", region.gu)
-        );
-    } else if (region?.sido) {
-        q = query(
-            collection(db, COLLECTIONS.PROS),
-            where("status", "==", "approved"),
-            where("region.sido", "==", region.sido)
-        );
-    } else {
-        q = query(
-            collection(db, COLLECTIONS.PROS),
-            where("status", "==", "approved")
-        );
-    }
-
+    const q = query(
+        collection(db, COLLECTIONS.PROS),
+        where("status", "==", "approved")
+    );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => proCoversRegion(p, region));
 }
