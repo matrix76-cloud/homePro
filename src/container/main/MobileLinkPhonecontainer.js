@@ -40,7 +40,7 @@ const formatKRPhone = (raw) => {
 export default function MobileLinkPhonecontainer() {
     const nav = useNavigate();
     const { dispatch } = useContext(UserContext);
-    const { currentUser, refreshUser } = useAuth();
+    const { currentUser, refreshUser, logout } = useAuth();
 
     const uid = currentUser?.uid || "";
     const [busy, setBusy] = useState(false);
@@ -199,7 +199,8 @@ export default function MobileLinkPhonecontainer() {
             });
 
             const resolvedPrimaryUid = result?.primaryUid || uid;
-            dispatch({ primaryUid: resolvedPrimaryUid });
+            // 통합되면 소셜 uid 문서는 사라진다 — 이후 화면이 대표 uid 로 저장·조회하게 USERS_ID 도 대표 uid 로 (B7)
+            dispatch({ primaryUid: resolvedPrimaryUid, USERS_ID: resolvedPrimaryUid });
             try { localStorage.setItem("__primaryUid", resolvedPrimaryUid); } catch (e) {}
 
             // 가입 환영 포인트 1,000P (누구나 최초 1회 — 대표 확정 2026-07-30)
@@ -214,7 +215,8 @@ export default function MobileLinkPhonecontainer() {
                 console.warn("가입 환영 포인트 지급 실패:", e?.message);
             }
 
-            await refreshUser();
+            // 탈퇴 계정으로 통합된 경우 refreshUser 가 로그아웃 + 로그인 화면 이동을 맡는다 (B4)
+            if ((await refreshUser()) === "withdrawn") return;
             if (result?.merged) {
                 window.alert("같은 번호로 가입된 계정이 있어 하나로 연결했습니다.");
                 try { sessionStorage.setItem("homepro.justSignedUp", "1"); } catch (e) { }
@@ -325,9 +327,9 @@ export default function MobileLinkPhonecontainer() {
                         type="button"
                         disabled={busy || otpBusy}
                         onClick={async () => {
+                            // FCM 토큰 · 대표 uid 기억까지 지우는 공용 로그아웃 (B11)
                             try {
-                                const { signOutUser } = await import("../../service/AuthService");
-                                await signOutUser();
+                                await logout();
                             } catch (e) { /* 로그아웃 실패해도 로그인 화면으로 이동 */ }
                             nav("/MobileLogin", { replace: true });
                         }}

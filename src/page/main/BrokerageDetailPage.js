@@ -4,7 +4,7 @@
  *   책임 안내를 버튼 바로 위에 두어 연결 전에 반드시 보이게 한다.
  *   매물마다 주소가 생겨 링크로 보낼 수 있다.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNavigate, useParams } from "react-router-dom";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -69,10 +69,14 @@ const BrokerageDetailPage = () => {
     window.location.href = `tel:${post.authorPhone}`;
   };
 
+  const chatLockRef = useRef(false);
   const startChat = async () => {
     if (!uid) { window.alert("로그인이 필요합니다."); return; }
     if (post.authorUid === uid) { window.alert("본인 게시글입니다."); return; }
     if (post.type === "demand" && !isBroker) { askRegister(); return; }
+    // 진행 중 잠금 — 방 찾기·만들기가 끝나기 전 두 번째 누름으로 방이 두 개 생기지 않게
+    if (chatLockRef.current) return;
+    chatLockRef.current = true;
     try {
       const myName = userData?.companyName || userData?.nickname || userData?.name || "중개사";
       const myPhoto = userData?.profileImage || userData?.photoURL || "";
@@ -83,6 +87,7 @@ const BrokerageDetailPage = () => {
       );
       navigate(`/chat/${roomId}`);
     } catch (e) {
+      chatLockRef.current = false;
       window.alert("채팅방을 열지 못했습니다.");
     }
   };
@@ -131,7 +136,7 @@ const BrokerageDetailPage = () => {
             <SideRow><span>등록</span><b>{timeAgo(post.createdAt)}</b></SideRow>
           </SideSummary>
           {blocked ? (
-            <Note>손님공유 상세·연결은 인증 공인중개사만 할 수 있습니다.</Note>
+            <Note>손님공유 글의 전화·채팅 연결은 인증 공인중개사만 할 수 있습니다.</Note>
           ) : mine ? (
             <Note>내가 등록한 글입니다. 공동중개 목록의 내 글 탭에서 거래 종료를 관리할 수 있습니다.</Note>
           ) : closed ? (

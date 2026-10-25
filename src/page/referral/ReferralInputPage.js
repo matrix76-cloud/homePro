@@ -38,8 +38,8 @@ export default function ReferralInputPage() {
                 try { localStorage.removeItem("homepro.pendingReferralCode"); } catch (e) { /* ignore */ }
                 setResultMsg(res.message);
                 setIsError(false);
-                // 1.5초 후 닉네임 설정으로 이동
-                setTimeout(() => nav("/MobileSetNickname", { replace: true }), 1500);
+                // 1.5초 후 스플래시로 — 스플래시가 가입 완료 안내(/welcome)와 로그인 전 보려던 화면을 처리한다 (B12)
+                setTimeout(() => nav("/MobileSplash", { replace: true }), 1500);
             } else {
                 setResultMsg(res.message);
                 setIsError(true);
@@ -53,7 +53,7 @@ export default function ReferralInputPage() {
     };
 
     const handleSkip = () => {
-        nav("/MobileSetNickname", { replace: true });
+        nav("/MobileSplash", { replace: true });
     };
 
     return (

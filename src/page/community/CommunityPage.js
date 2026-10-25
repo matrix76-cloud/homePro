@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { IoHeartOutline, IoChatbubbleOutline, IoEyeOutline, IoCreateOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
-import { getPosts } from "../../service/CommunityService";
+import { getPosts, getNotices } from "../../service/CommunityService";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import Tabs from "../../common/Tabs";
 import usePcWide from "../../hooks/usePcWide";
@@ -38,7 +38,12 @@ const CommunityPage = () => {
   useEffect(() => {
     setLoading(true);
     setPosts([]);
-    getPosts(type)
+    // '이벤트/공지' 탭은 관리자 [공지 관리]가 쓰는 notices 컬렉션을 읽는다 — 예전엔
+    // community_posts type=notice(쓰는 곳 없음)를 읽어 늘 비어 있었다. /notice 와 같은 목록.
+    const load = type === "notice"
+      ? getNotices().then((list) => list.map((n) => ({ ...n, _notice: true })))
+      : getPosts(type);
+    load
       // (전수검사 7/29) 가짜 공지 폴백 제거 — "오픈 기념 이벤트" 같은 실체 없는
       // 이벤트 안내가 하드코딩으로 노출되고 있었음. 없으면 빈 상태로 정직하게.
       .then((result) => setPosts(result))
@@ -66,7 +71,10 @@ const CommunityPage = () => {
     ? [...popularPool].sort((x, y) => score(y) - score(x)).slice(0, 3)
     : [];
 
-  const goPost = (post) => !post.id.startsWith("default_") && navigate(`/community/${post.id}`);
+  const goPost = (post) => {
+    if (post._notice) { navigate(`/notice?id=${encodeURIComponent(post.id)}`); return; }
+    if (!post.id.startsWith("default_")) navigate(`/community/${post.id}`);
+  };
 
   /* PC — 탭 상자 + 글쓰기 버튼 한 줄, 아래는 글 목록 표(왼쪽) · 많이 본 글(오른쪽) */
   if (pcWide) {
@@ -85,7 +93,7 @@ const CommunityPage = () => {
           <PcBody $side={popular.length > 0}>
             <PcTableBox>
               <PcHead $cols={COLS}>
-                <span>제목</span><span>작성자</span><span>날짜</span>
+                <span>제목</span><span>{type === "notice" ? "구분" : "작성자"}</span><span>날짜</span>
                 {type === "free" && <><span>조회</span><span>좋아요</span><span>댓글</span></>}
               </PcHead>
               {(loading || posts.length === 0) && <PcEmpty>{loading ? "불러오는 중..." : "게시글이 없습니다"}</PcEmpty>}
@@ -95,7 +103,7 @@ const CommunityPage = () => {
                     {post.images && post.images.length > 0 && <img src={post.images[0]} alt="" />}
                     <b>{post.title}</b>
                   </PcTitleCell>
-                  <span>{post.authorName || "-"}</span>
+                  <span>{post._notice ? `${post.category || "공지"}${post.pinned ? " · 고정" : ""}` : (post.authorName || "-")}</span>
                   <span>{formatDate(post.createdAt)}</span>
                   {type === "free" && <><span>{post.viewCount || 0}</span><span>{post.likeCount || 0}</span><span>{post.commentCount || 0}</span></>}
                 </PcRow>
@@ -150,7 +158,9 @@ const CommunityPage = () => {
                   <PostMain>
                     <PostTitle>{post.title}</PostTitle>
                     <PostInfo>
-                      {post.authorName && <span>{post.authorName}</span>}
+                      {post._notice && post.pinned && <PinnedText>고정</PinnedText>}
+                      {post._notice && <span>{post.category || "공지"}</span>}
+                      {!post._notice && post.authorName && <span>{post.authorName}</span>}
                       <span>{formatDate(post.createdAt)}</span>
                       {type === "free" && (
                         <>
@@ -185,6 +195,12 @@ const CommunityPage = () => {
 export default CommunityPage;
 
 /* ===================== Styles ===================== */
+
+/* 고정 공지 표시 — 딱지 없이 글씨 색·굵기로만 */
+const PinnedText = styled.span`
+  color: ${THEME.primary};
+  font-weight: 600;
+`;
 
 /* ===== PC 전용 ===== */
 const PcWrap = styled.div` max-width: 1180px; margin: 0 auto; padding: 30px 32px 80px; box-sizing: border-box; color: #14181F; word-break: keep-all; `;

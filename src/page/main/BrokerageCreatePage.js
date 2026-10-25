@@ -73,13 +73,13 @@ const BrokerageCreatePage = () => {
             <TypeBtn $active={!isListing} onClick={() => setType("demand")}>손님공유</TypeBtn>
             <TypeBtn $active={isListing} onClick={() => setType("listing")}>매물공유</TypeBtn>
           </Row>
-          <Hint>{isListing ? "공동매물 등록(보안형) — 상세 번지는 노출되지 않고 '○○시 ○○구 ○○동'까지만 표시됩니다." : "찾는 손님(수요)을 등록합니다. 매물 있는 중개사와 매칭됩니다."}</Hint>
+          <Hint>{isListing ? "공동매물을 등록합니다. 지역은 적은 그대로 공개되니 상세 번지는 빼고 '○○시 ○○구 ○○동'까지만 적어 주세요." : "찾는 손님(수요)을 등록합니다. 매물 있는 중개사와 매칭됩니다."}</Hint>
         </Section>
 
         <Section>
           <Label>지역 <Req>*</Req></Label>
           <Input placeholder="예: 마포구 공덕동" value={region} onChange={(e) => setRegion(e.target.value)} />
-          {isListing && <Hint>상세 번지수는 노출되지 않습니다.</Hint>}
+          {isListing && <Hint>적은 그대로 보입니다. 번지수는 적지 마세요.</Hint>}
         </Section>
 
         <Section $span={2}>

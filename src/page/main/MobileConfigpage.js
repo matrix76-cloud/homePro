@@ -6,7 +6,8 @@ import styled from "styled-components";
 import { useAtom } from "jotai";
 import { IoPersonCircleOutline, IoCameraOutline, IoClose, IoChevronForward, IoAddOutline, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoPersonOutline, IoBriefcaseOutline, IoRibbonOutline, IoCardOutline } from "react-icons/io5";
 import { UserContext } from "../../context/User";
-import { signOutUser, withdrawUser } from "../../service/AuthService";
+import { withdrawUser } from "../../service/AuthService";
+import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 import { THEME, CATEGORIES, APP_VERSION } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
@@ -1016,7 +1017,7 @@ const ToggleSwitch = styled.div`
 const MobileConfigpage = () => {
   const navigate = useNavigate();
   const { user, dispatch } = useContext(UserContext);
-  const { userData, refreshUser } = useAuth();
+  const { userData, refreshUser, logout } = useAuth();
   const [proCategories] = useAtom(proCategoriesAtom);
   const [showEditModal, setShowEditModal] = useState(false);
   const uid = userData?.uid || user?.USERS_ID;
@@ -1123,17 +1124,25 @@ const MobileConfigpage = () => {
     const trimmed = editNickname.trim();
     if (!trimmed) return;
     const introTrimmed = editIntro.trim();
+    // 저장 대상은 Firestore 문서 id(userData.uid) — USERS_ID 는 대표 도메인 · 새로고침 뒤 비어 있어
+    //  저장을 건너뛰고도 화면은 저장된 것처럼 보였다 (B8)
+    const saveUid = userData?.uid || user?.USERS_ID;
+    if (!saveUid) {
+      toast("로그인 정보를 확인할 수 없어 저장하지 못했습니다. 다시 로그인해 주세요.");
+      return;
+    }
+    const prevInfo = { nickname, intro, userimg };
     dispatch({ USERINFO: { nickname: trimmed, intro: introTrimmed, userimg: editImg } });
-    // Firestore 저장
-    const uid = user?.USERS_ID;
-    if (uid) {
-      try {
-        const { upsertUserProfile } = await import("../../service/UserProfileService");
-        await upsertUserProfile(uid, { nickname: trimmed, name: trimmed, intro: introTrimmed, profileImage: editImg, photoURL: editImg });
-        await refreshUser();
-      } catch (e) {
-        console.error("프로필 저장 실패:", e);
-      }
+    try {
+      const { upsertUserProfile } = await import("../../service/UserProfileService");
+      await upsertUserProfile(saveUid, { nickname: trimmed, name: trimmed, intro: introTrimmed, profileImage: editImg, photoURL: editImg });
+      await refreshUser();
+    } catch (e) {
+      console.error("프로필 저장 실패:", e);
+      // 저장 실패 — 화면 값을 원래대로 돌리고 알린다 (편집 화면은 열어 둬서 다시 시도할 수 있게)
+      dispatch({ USERINFO: prevInfo });
+      toast("프로필 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
     }
     setShowEditModal(false);
   };
@@ -1149,7 +1158,9 @@ const MobileConfigpage = () => {
     if (withdrawText.trim() !== WITHDRAW_WORD) return;
     setWithdrawing(true);
     try {
-      await withdrawUser(userData?.uid || user?.USERS_ID);
+      await withdrawUser(userData?.uid || user?.USERS_ID, "", { skipSignOut: true });
+      // FCM 토큰 삭제 · 대표 uid 기억 정리까지 하는 공용 로그아웃 (B11)
+      try { await logout(); } catch (e) { /* 로그아웃 실패해도 로그인 화면으로 */ }
       dispatch(null);
       setProCats([]);
       navigate("/MobileLogin", { replace: true });
@@ -1161,7 +1172,8 @@ const MobileConfigpage = () => {
   };
 
   const handleLogout = async () => {
-    await signOutUser();
+    // signOutUser 만 부르면 FCM 토큰이 남아 로그아웃 뒤에도 전 사용자 푸시가 온다 (B11)
+    try { await logout(); } catch (e) { /* 로그아웃 실패해도 로그인 화면으로 */ }
     dispatch(null);
     setProCats([]);
     navigate("/MobileLogin", { replace: true });

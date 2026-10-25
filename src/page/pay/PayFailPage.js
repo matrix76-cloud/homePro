@@ -18,16 +18,24 @@ const PayFailPage = () => {
   const message = TOSS_FAIL_REASON[code] || params.get("message") || "결제를 마치지 못했습니다.";
   const canceled = code === "PAY_PROCESS_CANCELED" || code === "USER_CANCEL";
 
-  const purpose = session?.purpose || "";
+  const purpose = session?.purpose || params.get("purpose") || "";
   const refId = session?.refId || null;
   const isOrder = purpose === "insurance_order";
-  const isBilling = purpose === "insurance_monthly";
+  // 구독 카드 등록 실패 — 세션 purpose 가 subscription 이거나 상품(plan)이 실려 온 경우 (D14)
+  const isSubscription = purpose === "subscription" || !!params.get("plan");
+  const isBilling = purpose === "insurance_monthly" || isSubscription;
   const what = isBilling ? "카드 등록" : "결제";
 
-  const goBack = () => { clearPaySession(); navigate(isOrder && refId ? `/order/detail/${refId}` : "/insurance", { replace: true }); };
+  const goBack = () => {
+    clearPaySession();
+    if (isSubscription) navigate("/subscription", { replace: true });
+    else navigate(isOrder && refId ? `/order/detail/${refId}` : "/insurance", { replace: true });
+  };
   const retry = () => {
     clearPaySession();
-    if (isBilling) navigate("/insurance", { replace: true });
+    // 구독 실패의 [다시 시도]가 /pay?purpose=subscription(1개월 단건 결제)으로 가던 것을 구독 화면으로 (D14)
+    if (isSubscription) navigate("/subscription", { replace: true });
+    else if (isBilling) navigate("/insurance", { replace: true });
     else if (isOrder && refId) navigate(`/pay?purpose=insurance_order&refId=${refId}`, { replace: true });
     else if (purpose) navigate(`/pay?purpose=${purpose}`, { replace: true });
     else navigate("/insurance", { replace: true });
@@ -46,7 +54,7 @@ const PayFailPage = () => {
       </Wrap>
       <FixedBar>
         <BtnRow>
-          <GhostBtn onClick={goBack}>{isOrder ? "오더로" : "보험으로"}</GhostBtn>
+          <GhostBtn onClick={goBack}>{isSubscription ? "구독으로" : isOrder ? "오더로" : "보험으로"}</GhostBtn>
           <PrimaryBtn onClick={retry} style={{ flex: 2 }}>다시 시도</PrimaryBtn>
         </BtnRow>
       </FixedBar>

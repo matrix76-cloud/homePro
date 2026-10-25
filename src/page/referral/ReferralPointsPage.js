@@ -134,7 +134,7 @@ const ReferralPointsPage = () => {
   const pcWide = usePcWide();
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
-  const uid = user?.USERS_ID || userData?.uid;
+  const uid = userData?.uid || user?.USERS_ID; // 통합 뒤 USERS_ID 가 사라질 소셜 uid 일 수 있어 문서 id 우선 (B7)
   const [history, setHistory] = useState([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);

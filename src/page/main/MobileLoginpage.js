@@ -5,7 +5,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { signInWithCustomToken } from "firebase/auth";
 import { UserContext } from "../../context/User";
-import { signInWithSocial, signInWithEmailPassword, consumeKakaoRedirectIfAny, resumeNativeSocialSignIn } from "../../service/AuthService";
+import { signInWithSocial, signInWithEmailPassword, consumeKakaoRedirectIfAny, consumeRedirectResultIfAny, resumeNativeSocialSignIn } from "../../service/AuthService";
+import { useAuth } from "../../context/AuthContext";
 import { isInRnWebView, readPendingSignin } from "../../bridge/webviewBridge";
 import { auth } from "../../api/config";
 import usePcWide from "../../hooks/usePcWide";
@@ -249,6 +250,31 @@ const MobileLoginpage = () => {
     setTimeout(() => setToast(""), 2500);
   };
 
+  // 이미 로그인된 상태로 로그인 화면에 들어오면 스플래시가 갈 곳을 정한다 (B18)
+  const { isLoggedIn, loading: authLoading } = useAuth() || {};
+  useEffect(() => {
+    if (authLoading || !isLoggedIn) return;
+    navigate("/MobileSplash", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, authLoading]);
+
+  // 웹: 팝업이 막혀 리다이렉트 로그인으로 다녀온 경우 결과를 한 번 받아 마무리 (B18)
+  useEffect(() => {
+    let alive = true;
+    consumeRedirectResultIfAny()
+      .then((res) => {
+        if (!alive || !res) return;
+        if (res.consumed && res.success) {
+          navigate("/MobileSplash", { replace: true });
+        } else if (res.consumed && !res.success) {
+          setError(res.error_message || "소셜 로그인에 실패했습니다.");
+        }
+      })
+      .catch(() => { /* 리다이렉트 결과가 없으면 그대로 로그인 화면 */ });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 카카오 로그인 리다이렉트 복귀 처리 (?code= 가 있으면 마무리)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -345,6 +371,8 @@ const MobileLoginpage = () => {
       const res = await signInWithSocial({ provider });
       if (res.success) {
         navigate("/MobileSplash", { replace: true });
+      } else if (res.cancelled) {
+        // 팝업을 닫은 것 — 오류 문구 없이 로그인 화면으로 돌아온다 (B18)
       } else {
         setError(res.error_message || "소셜 로그인에 실패했습니다.");
       }

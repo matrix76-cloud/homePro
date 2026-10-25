@@ -67,7 +67,8 @@ export const AIEstimateContent = () => {
   };
 
   const handleRealEstimate = () => {
-    navigate("/order/create", { state: { fromAI: true, categoryId: selectedCat, subcategories: selectedSubs, spaceType, description, aiEstimate: result } });
+    // OrderCreatePage(aiPrefill)가 이 키 이름 그대로 읽어 카테고리 · 서비스/종목 · 공간 · 면적 · 설명을 미리 채운다
+    navigate("/order/create", { state: { fromAI: true, categoryId: selectedCat, subcategories: selectedSubs, spaceType, area, description, aiEstimate: result } });
   };
 
   const formatPrice = (n) => !n || n === 0 ? "상담 후 결정" : n.toLocaleString() + "원";

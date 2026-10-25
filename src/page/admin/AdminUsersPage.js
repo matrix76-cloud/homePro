@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import styled from "styled-components";
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy, limit, serverTimestamp } from "firebase/firestore";
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
-import { getAccessTier, TIER_LABEL, TIER_DESC } from "../../utility/tierUtils";
+import { getAccessTier, isSubscriber, TIER_LABEL, TIER_DESC } from "../../utility/tierUtils";
 import { IoSearchOutline, IoCloseOutline } from "react-icons/io5";
 
 // ─── Helpers ───
@@ -54,7 +54,12 @@ const pointTypeMap = {
     earn: { label: "적립", color: "#059669" },
     use: { label: "사용", color: "#DC2626" },
     refund: { label: "환불", color: "#2563EB" },
+    // 결제 · 에스크로가 실제로 쓰는 유형 (D13)
+    spend: { label: "사용", color: "#DC2626" },
+    transfer_in: { label: "이체 입금", color: "#2563EB" },
 };
+const isOutPoint = (t) => t === "use" || t === "spend";
+const isInPoint = (t) => t === "earn" || t === "refund" || t === "transfer_in";
 
 const formatDate = (v) => {
     if (!v) return "-";
@@ -149,9 +154,11 @@ const AdminUsersPage = () => {
             data.pro = proSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             // 포인트 잔액 계산
+            //  spend 는 금액이 음수로 저장되니 절댓값으로 더하고 빼기 (D13)
             data.pointBalance = data.points.reduce((acc, p) => {
-                if (p.type === "earn" || p.type === "refund") return acc + (p.amount || 0);
-                if (p.type === "use") return acc - (p.amount || 0);
+                const amt = Math.abs(Number(p.amount) || 0);
+                if (isInPoint(p.type)) return acc + amt;
+                if (isOutPoint(p.type)) return acc - amt;
                 return acc;
             }, 0);
         } catch (e) {
@@ -223,15 +230,40 @@ const AdminUsersPage = () => {
     // 구독·포인트 결제 연동 전까지는 관리자가 여기서 직접 올려준다.
     const handleToggleTier = async (e, user) => {
         e.stopPropagation();
-        const next = user.accessTier === "tier1" ? "tier2" : "tier1";
+        // 결제로 구독한 회원(subscription.status active)도 구독자로 본다 — 해제 대상 (D7)
+        const next = isSubscriber(user) ? "tier2" : "tier1";
         const msg = next === "tier1"
             ? `"${user.name || user.id}" 회원을 구독자(0차수 · 오더 즉시 수락)로 전환하시겠습니까?`
             : `"${user.name || user.id}" 회원의 구독자 표시를 해제하시겠습니까? (포인트 2만P 이상이면 1차수, 아니면 2차수)`;
         if (!window.confirm(msg)) return;
         try {
-            await updateDoc(doc(db, "users", user.id), { accessTier: next });
-            setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, accessTier: next } : u)));
-            setSelectedUser((prev) => (prev && prev.id === user.id ? { ...prev, accessTier: next } : prev));
+            const patch = { accessTier: next };
+            let nextSub = user.subscription;
+            // 해제할 때 subscription 도 해지 상태로 — accessTier 만 내리면 status active 라 0차수가 그대로 남고
+            //  자동결제·만료 정리 대상에서도 빠져 영구 무료가 됐다 (D7)
+            //  필드 이름은 서버 tossBillingCancel(autoRenew · billing.nextChargeAt) · 만료 스윕(status) 과 같게
+            if (next === "tier2" && user.subscription && typeof user.subscription === "object") {
+                patch["subscription.status"] = "canceled";
+                patch["subscription.canceledAt"] = serverTimestamp();
+                patch["subscription.autoRenew"] = false;
+                patch["subscription.updatedAt"] = serverTimestamp();
+                if (user.subscription.billing && typeof user.subscription.billing === "object") {
+                    patch["subscription.billing.nextChargeAt"] = null;
+                }
+                nextSub = {
+                    ...user.subscription,
+                    status: "canceled",
+                    canceledAt: new Date(),
+                    autoRenew: false,
+                    ...(user.subscription.billing && typeof user.subscription.billing === "object"
+                        ? { billing: { ...user.subscription.billing, nextChargeAt: null } }
+                        : {}),
+                };
+            }
+            await updateDoc(doc(db, "users", user.id), patch);
+            const apply = (u) => ({ ...u, accessTier: next, ...(nextSub !== undefined ? { subscription: nextSub } : {}) });
+            setUsers((prev) => prev.map((u) => (u.id === user.id ? apply(u) : u)));
+            setSelectedUser((prev) => (prev && prev.id === user.id ? apply(prev) : prev));
         } catch (err) {
             alert("차수 전환 중 오류가 발생했습니다.");
         }
@@ -331,7 +363,7 @@ const AdminUsersPage = () => {
                         {TIER_DESC[getAccessTier(selectedUser)]}
                     </TierHint>
                     <ActionBtn $outline onClick={(e) => handleToggleTier(e, selectedUser)}>
-                        {selectedUser.accessTier === "tier1" ? "구독자 해제" : "구독자(0차수) 전환"}
+                        {isSubscriber(selectedUser) ? "구독자 해제" : "구독자(0차수) 전환"}
                     </ActionBtn>
                 </FV>
             </FieldRow>
@@ -443,7 +475,7 @@ const AdminUsersPage = () => {
                     <PointBox>
                         <PointBoxLabel>총 사용</PointBoxLabel>
                         <PointBoxValue $color="#DC2626">
-                            {points.filter(p => p.type === "use").reduce((a, p) => a + (p.amount || 0), 0).toLocaleString()} P
+                            {points.filter(p => isOutPoint(p.type)).reduce((a, p) => a + Math.abs(Number(p.amount) || 0), 0).toLocaleString()} P
                         </PointBoxValue>
                     </PointBox>
                 </PointSummary>
@@ -458,7 +490,7 @@ const AdminUsersPage = () => {
                                 return (
                                     <tr key={p.id}>
                                         <MTd><MiniStatus $color={info.color}>{info.label}</MiniStatus></MTd>
-                                        <MTd style={{ fontWeight: 600 }}>{(p.amount || 0).toLocaleString()} P</MTd>
+                                        <MTd style={{ fontWeight: 600 }}>{isOutPoint(p.type) ? "-" : ""}{Math.abs(Number(p.amount) || 0).toLocaleString()} P</MTd>
                                         <MTd>{p.reason || p.category || "-"}</MTd>
                                         <MTd>{formatDate(p.createdAt)}</MTd>
                                     </tr>
@@ -622,7 +654,7 @@ const AdminUsersPage = () => {
                                                 </>
                                             )}
                                             <ActionBtn $outline onClick={(e) => handleToggleTier(e, u)}>
-                                                {u.accessTier === "tier1" ? "구독자 해제" : "구독자 전환"}
+                                                {isSubscriber(u) ? "구독자 해제" : "구독자 전환"}
                                             </ActionBtn>
                                             <ActionBtn $bg={THEME.danger} onClick={(e) => handleDelete(e, u)}>삭제</ActionBtn>
                                         </Td>

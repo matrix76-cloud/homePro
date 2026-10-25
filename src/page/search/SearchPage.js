@@ -145,6 +145,10 @@ const SearchPage = () => {
           /* ══════ 검색 전: 최근/인기 검색어 ══════ */
           <>
             <PcHint>서비스 이름이나 세부 항목(예: 입주청소, 누수, 도배)으로 찾을 수 있습니다. 찾은 서비스를 누르면 그 서비스 화면으로 이동합니다.</PcHint>
+            {/* 폰에서 최근 검색어가 없으면 화면이 통째로 비어 보였다 — 안내 한 줄 (10/25 전면 점검) */}
+            {recentSearches.length === 0 && (
+              <MobileHint>서비스 이름이나 세부 항목(예: 입주청소, 누수, 도배)을 입력해 보세요.<br />찾은 서비스를 누르면 그 화면으로 이동합니다.</MobileHint>
+            )}
             {recentSearches.length > 0 && (
               <Section>
                 <SectionHeader>
@@ -308,6 +312,14 @@ const PcTitle = styled.h1`
 const PcHint = styled.div`
   display: none;
   .pc-mode & { display: block; max-width: 620px; margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #2b2f36; word-break: keep-all; }
+`;
+const MobileHint = styled.div`
+  padding: 28px 4px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #2b2f36;
+  word-break: keep-all;
+  .pc-mode & { display: none; }
 `;
 
 /* ── 검색 헤더 ── */

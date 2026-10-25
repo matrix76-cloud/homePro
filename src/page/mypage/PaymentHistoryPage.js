@@ -31,7 +31,9 @@ const PaymentHistoryPage = () => {
     let alive = true;
     getDocs(query(collection(db, "payments"), where("uid", "==", uid)))
       .then((snap) => {
+        // 결제창을 열기만 해도 ready 문서가 생긴다 — 내 내역엔 실제로 결과가 난 것만 (D18)
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((p) => p.status !== "ready")
           .sort((a, b) => (toDate(b.approvedAt || b.createdAt)?.getTime() || 0) - (toDate(a.approvedAt || a.createdAt)?.getTime() || 0));
         if (alive) setRows(list);
       })

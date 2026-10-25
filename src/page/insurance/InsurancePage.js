@@ -1,5 +1,5 @@
 /**
- * 홈프로 도급배상책임보험 — /insurance (하단탭 안심케어)
+ * 홈프로 도급배상책임보험 — /insurance (하단탭 보험)
  *
  * 대표 8/20 기획 · 형 확정 2026-09-13 (docs/insurance-dev-spec.md 4절)
  *   내 보험 상태 → 가입 유형 3카드 → 보장 내용 → [가입하기]
@@ -103,8 +103,10 @@ const InsurancePage = () => {
   };
 
   const activeTypeLabel = active ? (plans?.[active.type]?.label || active.type) : "";
+  // 서버 해지(tossBillingCancel)는 status 를 active 로 두고 autoRenew:false 만 남긴다 — billingKey 만 보면 해지 뒤에도 "켜짐" (D16)
+  const autoPayCanceled = active?.status === "canceled" || active?.autoRenew === false;
   const autoPayText = active?.type === "monthly"
-    ? (active.status === "canceled" ? "해지됨 (만료일까지 보장)" : active.billing?.billingKey ? `자동결제 켜짐${active.billing?.cardCompany ? ` · ${active.billing.cardCompany}` : ""}` : "자동결제 정보 없음")
+    ? (autoPayCanceled ? "해지됨 (만료일까지 보장)" : active.billing?.billingKey ? `자동결제 켜짐${active.billing?.cardCompany ? ` · ${active.billing.cardCompany}` : ""}` : "자동결제 정보 없음")
     : "해당 없음";
 
   /* ───────── 본인 확인 단계 ───────── */

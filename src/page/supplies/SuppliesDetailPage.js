@@ -29,6 +29,9 @@ const SuppliesDetailPage = () => {
   const [toast, setToast] = useState("");
   const [photoIdx, setPhotoIdx] = useState(0);
   const [busy, setBusy] = useState(false);
+  // 채팅 문의 진행 중 잠금 — 두 번 눌러도 방은 하나 (방 찾기·만들기가 끝나기 전 두 번째 누름 차단)
+  const chatLockRef = useRef(false);
+  const [chatBusy, setChatBusy] = useState(false);
   const toastTimer = useRef(null);
   const slidesRef = useRef(null);
   // PC 는 마우스로 옆으로 밀기 어려워 이전·다음 버튼으로 사진을 넘긴다 (버튼은 PC 에서만 보인다)
@@ -74,6 +77,9 @@ const SuppliesDetailPage = () => {
     if (!myUid) return showToast("로그인이 필요합니다");
     if (!data?.createdBy) return showToast("등록자 정보가 없어 채팅할 수 없습니다");
     if (isAuthor) return showToast("본인이 등록한 글입니다");
+    if (chatLockRef.current) return;
+    chatLockRef.current = true;
+    setChatBusy(true);
     try {
       const roomId = await createChatRoom(
         myUid,
@@ -88,6 +94,8 @@ const SuppliesDetailPage = () => {
     } catch (e) {
       console.error("채팅 시작 실패:", e);
       showToast("채팅 시작에 실패했습니다");
+      chatLockRef.current = false;
+      setChatBusy(false);
     }
   };
 
@@ -264,7 +272,7 @@ const SuppliesDetailPage = () => {
             <OutlineBtn type="button" onClick={handleCall}>
               <IoCallOutline size={18} /> 전화
             </OutlineBtn>
-            <FilledBtn type="button" onClick={handleChat}>
+            <FilledBtn type="button" onClick={handleChat} disabled={chatBusy}>
               <IoChatbubbleEllipsesOutline size={18} /> 채팅 문의
             </FilledBtn>
           </>

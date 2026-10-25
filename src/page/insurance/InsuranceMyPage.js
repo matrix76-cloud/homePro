@@ -61,11 +61,14 @@ const InsuranceMyPage = () => {
     const end = tsToDate(p.endAt)?.getTime() || 0;
     if (p.status === "active" && end && end < now) return { text: "만료", tone: "none" };
     if (p.status === "canceled" && end > now) return { text: "해지됨 (만료일까지 보장)", tone: "on" };
+    // 서버 해지는 status 를 active 로 두고 autoRenew:false 만 남긴다 (D16)
+    if (p.status === "active" && p.type === "monthly" && p.autoRenew === false) return { text: "해지됨 (만료일까지 보장)", tone: "on" };
     if (p.status === "active") return { text: "보장 중", tone: "on" };
     return { text: POLICY_STATUS_LABEL[p.status] || p.status, tone: p.status === "pending" ? "off" : "none" };
   };
 
-  const canCancel = (p) => p.type === "monthly" && p.status === "active" && !!p.billing?.billingKey;
+  // 이미 자동결제를 끊은(autoRenew:false) 보험엔 [자동결제 해지]를 다시 보이지 않는다 (D16)
+  const canCancel = (p) => p.type === "monthly" && p.status === "active" && !!p.billing?.billingKey && p.autoRenew !== false;
 
   const doCancel = async (p) => {
     if (busyId) return;
@@ -74,7 +77,7 @@ const InsuranceMyPage = () => {
     setBusyId(p.id);
     try {
       const r = await cancelBilling({ policyId: p.id });
-      setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "canceled", endAt: r?.endAt || x.endAt, canceledAt: new Date() } : x)));
+      setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "canceled", autoRenew: false, endAt: r?.endAt || x.endAt, canceledAt: new Date() } : x)));
       showToast(r?.already ? "이미 해지된 자동결제입니다" : "자동결제를 해지했습니다");
     } catch (e) {
       showToast(e?.message || "해지에 실패했습니다");
@@ -111,7 +114,7 @@ const InsuranceMyPage = () => {
                       </KVRow>
                       <KVRow>
                         <K>다음 결제</K>
-                        <V>{p.status === "active" && p.billing?.nextChargeAt ? formatDate(p.billing.nextChargeAt) : "없음 (자동 연장 안 함)"}</V>
+                        <V>{p.status === "active" && p.autoRenew !== false && p.billing?.nextChargeAt ? formatDate(p.billing.nextChargeAt) : "없음 (자동 연장 안 함)"}</V>
                       </KVRow>
                     </>
                   )}

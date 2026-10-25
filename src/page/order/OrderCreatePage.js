@@ -6,7 +6,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../api/config";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { assertHpointBalanceForCreate } from "../../service/PayFlowService";
+import { assertHpointBalanceForCreate, formatWagePay } from "../../service/PayFlowService";
 import { serverTimestamp } from "firebase/firestore";
 import {
   CATEGORIES,
@@ -39,20 +39,35 @@ const JPEG_QUALITY = 0.7;
 const onlyDigits = (s) => String(s ?? "").replace(/[^0-9]/g, "");
 const withComma = (s) => { const d = onlyDigits(s); return d ? Number(d).toLocaleString() : ""; };
 
+// 읽을 수 없는 파일(HEIC 미지원 브라우저 · 깨진 파일)이나 캔버스 변환 실패는 reject — "압축 중"에 멈추지 않게
 function resizeAndCompress(file) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
+    const src = URL.createObjectURL(file);
     img.onload = () => {
-      const scale = Math.min(RESIZE_PX / img.width, RESIZE_PX / img.height, 1);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      canvas.toBlob((blob) => resolve(blob), "image/jpeg", JPEG_QUALITY);
+      try {
+        const scale = Math.min(RESIZE_PX / img.width, RESIZE_PX / img.height, 1);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(src);
+          if (blob) resolve(blob);
+          else reject(new Error("image/compress-failed"));
+        }, "image/jpeg", JPEG_QUALITY);
+      } catch (e) {
+        URL.revokeObjectURL(src);
+        reject(e);
+      }
     };
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(src);
+      reject(new Error("image/load-failed"));
+    };
+    img.src = src;
   });
 }
 
@@ -620,12 +635,14 @@ export const OrderCreateContent = () => {
   const { state: navState } = useLocation();
   const editOrder = navState?.order || null; // 수정 모드: 기존 오더
   const isEdit = !!editOrder;
+  // AI 견적 → [실제 견적 요청하기] 로 넘어온 값 (AIEstimatePage handleRealEstimate 와 키 이름을 맞춘다)
+  const aiPrefill = !editOrder && navState?.fromAI && CATEGORIES.some((c) => c.id === navState.categoryId && !c.proOnly) ? navState : null;
   const { user } = useContext(UserContext);
   const { userData } = useAuth();
   const pcShellRef = useRef(null);
   const pcWide = usePcWide(); // PC — 왼쪽 요약 단 + 오른쪽 단계 내용 (배치만 다르고 상태·핸들러는 같다)
 
-  const [selectedCategory, setSelectedCategory] = useState(categoryId || "");
+  const [selectedCategory, setSelectedCategory] = useState(categoryId || aiPrefill?.categoryId || "");
   const [expandedGroup, setExpandedGroup] = useState(null);
   const [selectedSub, setSelectedSub] = useState([]);
   const [selectedService, setSelectedService] = useState(""); // 서비스(subGroup 라벨) 드릴다운
@@ -647,6 +664,8 @@ export const OrderCreateContent = () => {
   const [directPrice, setDirectPrice] = useState("");
   const [spaceType, setSpaceType] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // 중복 접수 잠금 — state 는 다음 렌더에야 바뀌어 빠른 두 번 누름을 못 막는다. 성공하면 화면을 떠날 때까지 풀지 않는다
+  const submittingRef = useRef(false);
   const [toast, setToast] = useState("");
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); }, []);
   const [photos, setPhotos] = useState([]);
@@ -767,7 +786,19 @@ export const OrderCreateContent = () => {
     setInputValues(editOrder.inputs || {});
     setItemQty(editOrder.itemQty || {});
     setDetail(editOrder.description || "");
-    setAddress(editOrder.address || editOrder.location || "");
+    // 주소 — 구버전 location 은 {sido, gu} 객체일 수 있어 문자열로 바꿔 쓴다.
+    // 상세주소는 따로 저장된 addressDetail 이 있으면 그것, 없으면 location("주소 상세")에서 주소를 뺀 나머지 (수정 저장 때 상세주소가 지워지던 문제)
+    const locStr = typeof editOrder.location === "string"
+      ? editOrder.location
+      : (editOrder.location && typeof editOrder.location === "object" ? [editOrder.location.sido, editOrder.location.gu].filter(Boolean).join(" ") : "");
+    const baseAddr = typeof editOrder.address === "string" && editOrder.address ? editOrder.address : locStr;
+    setAddress(baseAddr || "");
+    if (typeof editOrder.addressDetail === "string") setAddressDetail(editOrder.addressDetail);
+    else setAddressDetail(baseAddr && locStr.startsWith(baseAddr) ? locStr.slice(baseAddr.length).trim() : "");
+    // 기존 사진 — URL 그대로 칸에 보여 주고, 저장 때 남은 것 + 새로 올린 것을 합친다
+    setPhotos((Array.isArray(editOrder.photos) ? editOrder.photos : [])
+      .filter((u) => typeof u === "string" && u)
+      .map((url) => ({ preview: url, url, existing: true, size: 0 })));
     setWorkDate(editOrder.workDate || "");
     setWorkDatePicker(editOrder.workDatePicker || "");
     if (typeof editOrder.workTime === "string" && editOrder.workTime) {
@@ -814,6 +845,77 @@ export const OrderCreateContent = () => {
     setInsurancePreferred(editOrder.insurancePreferred === true);
     setDirectPhone(editOrder.directPhone || "");
   }, [editOrder]);
+
+  // ── AI 견적에서 넘어온 경우: 카테고리 · 서비스/종목 · 공간 · 면적 · 설명을 미리 채운다 (한 번만) ──
+  //  AI 견적의 세부 항목은 대부분 접수 폼의 '서비스'(subGroups 라벨), 일부는 '종목'과 이름이 같다.
+  //  자리를 못 찾은 값은 버리지 않고 상세 요청내용 끝에 한 줄로 남긴다.
+  const aiPrefilledRef = useRef(false);
+  const aiAreaRef = useRef(null); // 면적은 카테고리 기본 면적 effect 가 덮지 않게 그쪽에서 꺼내 쓴다
+  useEffect(() => {
+    if (!aiPrefill || aiPrefilledRef.current) return;
+    aiPrefilledRef.current = true;
+    const catId = aiPrefill.categoryId;
+    const cat = CATEGORIES.find((c) => c.id === catId);
+    const cfg = ORDER_FORM_CONFIG[catId];
+    const subs = (Array.isArray(aiPrefill.subcategories) ? aiPrefill.subcategories : []).filter(Boolean);
+    const norm = (v) => String(v || "").replace(/\s+/g, "");
+    const leftover = [];
+    setSelectedCategory(catId);
+    if (cfg?.subGroups) {
+      const groups = cfg.subGroups;
+      const pickedGroups = [];
+      const pickedItems = [];
+      subs.forEach((sv) => {
+        const g = groups.find((x) => norm(x.label) === norm(sv));
+        if (g) { if (!pickedGroups.includes(g.label)) pickedGroups.push(g.label); return; }
+        const gi = groups.find((x) => (x.items || []).some((it) => norm(it) === norm(sv)));
+        if (gi) {
+          const item = gi.items.find((it) => norm(it) === norm(sv));
+          if (!pickedGroups.includes(gi.label)) pickedGroups.push(gi.label);
+          pickedItems.push(`${gi.label}:${item}`);
+          return;
+        }
+        leftover.push(sv);
+      });
+      if (cfg.multiService) {
+        setSelectedServices(pickedGroups.filter((l) => l !== "기타"));
+        setSelectedSub(pickedItems);
+      } else if (pickedGroups.length) {
+        // 한 번에 서비스 하나만 고를 수 있다 — 첫 서비스만 잡고 나머지는 상세 요청내용에 남긴다
+        const first = pickedGroups[0];
+        setSelectedService(first);
+        setSelectedSub(first === "기타" ? ["기타:기타"] : pickedItems.filter((k) => k.startsWith(`${first}:`)));
+        pickedGroups.slice(1).forEach((l) => leftover.push(l));
+        pickedItems.filter((k) => !k.startsWith(`${first}:`)).forEach((k) => leftover.push(k.split(":")[1]));
+      }
+    } else if (cat?.subcategories?.length) {
+      const ok = subs.filter((sv) => cat.subcategories.includes(sv));
+      setSelectedSub(ok);
+      subs.filter((sv) => !ok.includes(sv)).forEach((sv) => leftover.push(sv));
+    }
+    // 공간 — 접수 폼에 건물유형 칩이 있으면 그쪽, 없으면 공간유형
+    const sp = aiPrefill.spaceType || "";
+    if (sp && !cfg?.noBuildingType) {
+      if (cfg?.buildingTypes) { if (cfg.buildingTypes.includes(sp)) setBuildingType(sp); else leftover.push(`공간 ${sp}`); }
+      else if (SPACE_TYPES.includes(sp)) setSpaceType(sp);
+    }
+    // 면적 — "30평" · "100m²" 같은 자유 입력
+    const areaText = String(aiPrefill.area || "").trim();
+    if (areaText) {
+      const m = /(\d+(?:\.\d+)?)\s*(평|m2|m²|㎡|제곱미터)?/i.exec(areaText);
+      const units = cfg?.areaInput ? (Array.isArray(cfg.areaInput) ? cfg.areaInput : ["평", "m2"]) : null;
+      if (m && units) {
+        const u = m[2] ? (m[2] === "평" ? "평" : "m2") : "";
+        aiAreaRef.current = { cat: catId, value: m[1], unit: u && units.includes(u) ? u : "" };
+      } else {
+        leftover.push(`면적 ${areaText}`);
+      }
+    }
+    const desc = String(aiPrefill.description || "").trim();
+    const extra = leftover.length ? `AI 견적에서 고른 항목: ${leftover.join(", ")}` : "";
+    const text = [desc, extra].filter(Boolean).join("\n");
+    if (text) setDetail(text);
+  }, [aiPrefill]);
 
   const category = CATEGORIES.find((c) => c.id === selectedCategory);
   const formConfig = ORDER_FORM_CONFIG[selectedCategory];
@@ -954,6 +1056,14 @@ export const OrderCreateContent = () => {
   // 수정 모드에서는 기존 입력값을 덮지 않는다.
   useEffect(() => {
     if (isEdit) return;
+    // AI 견적에서 면적을 들고 왔으면 그 값을 먼저 쓴다 (같은 카테고리일 때 한 번만)
+    const ai = aiAreaRef.current;
+    if (ai && ai.cat === selectedCategory) {
+      aiAreaRef.current = null;
+      setAreaValue(ai.value);
+      if (ai.unit) setAreaUnit(ai.unit);
+      return;
+    }
     const def = ORDER_FORM_CONFIG[selectedCategory]?.areaDefault;
     setAreaValue(def ? String(def) : "");
   }, [selectedCategory, isEdit]);
@@ -994,18 +1104,26 @@ export const OrderCreateContent = () => {
   const handlePhotoAdd = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    const remaining = MAX_PHOTOS - photos.length;
+    const remaining = Math.max(0, MAX_PHOTOS - photos.length); // 기존 사진이 한도를 넘는 옛 오더면 0
     const toProcess = files.slice(0, remaining);
     e.target.value = "";
+    if (toProcess.length === 0) return;
     setCompressing(true);
     try {
-      const newPhotos = await Promise.all(
+      // 한 장이 실패해도 나머지는 넣는다 — 실패한 장 수만 알린다
+      const results = await Promise.allSettled(
         toProcess.map(async (f) => {
           const blob = await resizeAndCompress(f);
           return { preview: URL.createObjectURL(blob), blob, originalSize: f.size, size: blob.size };
         })
       );
-      setPhotos((prev) => [...prev, ...newPhotos]);
+      const newPhotos = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+      const failed = results.length - newPhotos.length;
+      if (newPhotos.length) setPhotos((prev) => [...prev, ...newPhotos]);
+      if (failed) showToast(`사진 ${failed}장을 불러오지 못했어요. 다른 사진으로 다시 골라 주세요`);
+    } catch (err) {
+      console.error("사진 압축 실패:", err);
+      showToast("사진을 불러오지 못했어요. 다시 골라 주세요");
     } finally {
       setCompressing(false);
     }
@@ -1013,7 +1131,8 @@ export const OrderCreateContent = () => {
 
   const handlePhotoRemove = (idx) => {
     setPhotos((prev) => {
-      URL.revokeObjectURL(prev[idx].preview);
+      const p = prev[idx];
+      if (p && !p.existing && p.preview) URL.revokeObjectURL(p.preview); // 기존 사진(URL)은 되돌릴 게 없다
       return prev.filter((_, i) => i !== idx);
     });
     setUploadProgress([]);
@@ -1080,11 +1199,8 @@ export const OrderCreateContent = () => {
   useEffect(() => { if (isWorkerCall && b2bPriceType) setB2bPriceType(""); }, [isWorkerCall, b2bPriceType]);
 
   // "일급 200,000원 · 당일 지급" / "협의 · 월 단위 지급"
-  const wageText = () => {
-    const amt = Number(wageAmount) > 0 ? ` ${Number(wageAmount).toLocaleString()}원` : "";
-    const timing = wageTiming ? (wageTiming === "협의" ? " · 지급 시점 협의" : ` · ${wageTiming} 지급`) : "";
-    return `${wageMethod || "협의"}${wageMethod === "협의" ? "" : amt}${timing}`;
-  };
+  // 목록 화면(PayFlowService.formatPriceType)과 같은 문구가 되도록 같은 함수를 쓴다
+  const wageText = () => formatWagePay({ amount: wageAmount, method: wageMethod, timing: wageTiming });
 
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
@@ -1100,7 +1216,37 @@ export const OrderCreateContent = () => {
       if (wageMethod !== "협의" && !(Number(wageAmount) > 0)) { showToast("지급 금액을 입력해주세요"); return false; }
       if (!wageTiming) { showToast("지급 시점을 선택해주세요"); return false; }
     }
+    // 단가유형 · 금액 — 구인(worker_call)은 이 칸이 없고 위 지급금액 검사만 한다
+    if (!isWorkerCall) {
+      const ptOpt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
+      if (!b2bPriceType) { showToast("단가유형을 선택해주세요"); return false; }
+      if (AMOUNT_PRICE_TYPES.includes(b2bPriceType) && !(Number(b2bPriceAmount) > 0)) {
+        showToast(`${ptOpt?.label || "단가"} 금액을 입력해주세요`); return false;
+      }
+    }
+    // 소개수수료 — 칸이 보일 때(정보공유 · 잔금 · 셀프 · 구인 제외)만. 정액 · 정률 · H-포인트를 골랐으면 액수가 있어야 한다
+    if (!isWorkerCall && !isInfoType && !isBalanceType && !selfOrder) {
+      if (referralFeeType === "fixed") {
+        const amt = referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed);
+        if (!(amt > 0)) { showToast("소개수수료 정액 금액을 선택하거나 입력해주세요"); return false; }
+      } else if (referralFeeType === "rate") {
+        if (!(Number(referralFeeRate) > 0)) { showToast("소개수수료 정률(%)을 선택해주세요"); return false; }
+      } else if (referralFeeType === "hpoint") {
+        const pt = referralFeeHpoint === "custom" ? Number(referralFeeHpointCustom) : Number(referralFeeHpoint);
+        if (!(pt > 0)) { showToast("소개수수료 H-포인트를 선택하거나 입력해주세요"); return false; }
+      }
+    }
     if (referralFeeType === "multiple" && !(Number(referralFeeTimes) > 0)) { showToast("소개수수료 배수를 숫자로 입력해주세요"); return false; }
+    // 홈프로 선택(매칭방식) — 셀프보장등록은 칸이 없다
+    if (!selfOrder) {
+      if (!matchType) { showToast("홈프로 선택(빠른배정 · 비교선정 · 지정배정)을 골라주세요"); return false; }
+      if (matchType === "direct") {
+        const raw = String(directPhone || "").trim();
+        if (!raw) { showToast("지정할 홈프로 전화번호를 입력해주세요"); return false; }
+        const digits = raw.replace(/[\s-]/g, "").replace(/^\+82/, "0");
+        if (!/^010\d{7,8}$/.test(digits)) { showToast("지정할 홈프로 전화번호를 010으로 시작하는 번호로 정확히 입력해주세요"); return false; }
+      }
+    }
     if (b2bPriceType === "info") {
       const inc = COMMON_B2B_FIELDS.infoIncentive;
       if (infoIncType === "fixed") {
@@ -1124,162 +1270,171 @@ export const OrderCreateContent = () => {
   };
 
   const handleSubmit = async (asWaiting = false) => {
-    if (submitting) return;
-    // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 작성 불가 (형 지시 7/31)
-    if (userData?.orderBlocked) {
-      alert("블랙리스트 신고 확인 결과, 관리자에 의해 오더 작성 권한이 차단된 계정입니다.\n문의는 고객센터를 이용해주세요.");
-      return;
-    }
-    if (!validateForm()) return;
-    // H-포인트 오더: 접수자 잔액이 대금보다 적으면 접수 불가 (대표 확정 9/13)
-    if (b2bPriceType === "hpoint" && !isEdit) {
-      try { await assertHpointBalanceForCreate(user?.uid || userData?.uid, Number(b2bPriceAmount) || 0); }
-      catch (e) { showToast(e.message || "H-포인트가 부족합니다"); return; }
-    }
-    const confirmMsg = isEdit
-      ? "수정한 내용을 저장하시겠습니까?"
-      : (asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?");
-    if (!window.confirm(confirmMsg)) return;
-    setSubmitting(true);
+    // 첫 줄에서 잠근다 — H-포인트 잔액 확인(await) · 확인창 사이에 다시 눌려도 두 번 접수되지 않게
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    let keepLock = false; // 성공하면 화면을 떠날 때까지 잠금 유지
     try {
-      // 사진 업로드 — 장별 진행률 표시 (형 지시 7/28). 업로드 전 이미 압축된 blob 사용.
-      if (photos.length) setUploadProgress(photos.map(() => 0));
-      const uploaded = await Promise.all(
-        photos.map((p, i) => new Promise((resolve, reject) => {
-          const path = `${STORAGE_PATH_PREFIX}/orders/${user?.uid || "anon"}/${Date.now()}_${i}.jpg`;
-          const task = uploadBytesResumable(ref(storage, path), p.blob, { contentType: "image/jpeg" });
-          task.on(
-            "state_changed",
-            (snap) => {
-              const pct = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
-              setUploadProgress((prev) => { const next = [...prev]; next[i] = pct; return next; });
-            },
-            reject,
-            async () => {
-              setUploadProgress((prev) => { const next = [...prev]; next[i] = 100; return next; });
-              resolve(await getDownloadURL(task.snapshot.ref));
-            },
-          );
-        }))
-      );
-      const photoURLs = uploaded.length ? uploaded : (isEdit ? (editOrder.photos || []) : []);
+      // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 작성 불가 (형 지시 7/31)
+      if (userData?.orderBlocked) {
+        alert("블랙리스트 신고 확인 결과, 관리자에 의해 오더 작성 권한이 차단된 계정입니다.\n문의는 고객센터를 이용해주세요.");
+        return;
+      }
+      if (!validateForm()) return;
+      // H-포인트 오더: 접수자 잔액이 대금보다 적으면 접수 불가 (대표 확정 9/13)
+      if (b2bPriceType === "hpoint" && !isEdit) {
+        try { await assertHpointBalanceForCreate(user?.uid || userData?.uid, Number(b2bPriceAmount) || 0); }
+        catch (e) { showToast(e.message || "H-포인트가 부족합니다"); return; }
+      }
+      const confirmMsg = isEdit
+        ? "수정한 내용을 저장하시겠습니까?"
+        : (asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?");
+      if (!window.confirm(confirmMsg)) return;
+      setSubmitting(true);
+      try {
+        // 사진 업로드 — 장별 진행률 표시 (형 지시 7/28). 업로드 전 이미 압축된 blob 사용.
+        // 수정 모드의 기존 사진(existing)은 올리지 않고 URL 그대로 — 순서를 지켜 남은 기존 사진 + 새 사진을 합친다
+        if (photos.length) setUploadProgress(photos.map((p) => (p.existing ? 100 : 0)));
+        const uploaded = await Promise.all(
+          photos.map((p, i) => p.existing ? Promise.resolve(p.url) : new Promise((resolve, reject) => {
+            const path = `${STORAGE_PATH_PREFIX}/orders/${user?.uid || "anon"}/${Date.now()}_${i}.jpg`;
+            const task = uploadBytesResumable(ref(storage, path), p.blob, { contentType: "image/jpeg" });
+            task.on(
+              "state_changed",
+              (snap) => {
+                const pct = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
+                setUploadProgress((prev) => { const next = [...prev]; next[i] = pct; return next; });
+              },
+              reject,
+              async () => {
+                setUploadProgress((prev) => { const next = [...prev]; next[i] = 100; return next; });
+                resolve(await getDownloadURL(task.snapshot.ref));
+              },
+            );
+          }))
+        );
+        const photoURLs = uploaded.filter(Boolean);
 
-      const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
-      const writerPhoto = userData?.profileImage || userData?.photoURL || user?.USERINFO?.userimg || "";
-      // 소개수수료 값 계산
-      let referralFeeValue = null;
-      if (referralFeeType === "fixed") {
-        referralFeeValue = { type: "fixed", amount: referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed) };
-      } else if (referralFeeType === "rate") {
-        referralFeeValue = { type: "rate", rate: Number(referralFeeRate) };
-      } else if (referralFeeType === "multiple") {
-        referralFeeValue = { type: "multiple", times: Number(referralFeeTimes) };
-      } else if (referralFeeType === "hpoint") {
-        referralFeeValue = { type: "hpoint", point: referralFeeHpoint === "custom" ? Number(referralFeeHpointCustom) : Number(referralFeeHpoint) };
-      }
+        const nickname = userData?.nickname || userData?.name || user?.USERINFO?.nickname || "익명";
+        const writerPhoto = userData?.profileImage || userData?.photoURL || user?.USERINFO?.userimg || "";
+        // 소개수수료 값 계산
+        let referralFeeValue = null;
+        if (referralFeeType === "fixed") {
+          referralFeeValue = { type: "fixed", amount: referralFeeFixed === "custom" ? Number(referralFeeFixedCustom) : Number(referralFeeFixed) };
+        } else if (referralFeeType === "rate") {
+          referralFeeValue = { type: "rate", rate: Number(referralFeeRate) };
+        } else if (referralFeeType === "multiple") {
+          referralFeeValue = { type: "multiple", times: Number(referralFeeTimes) };
+        } else if (referralFeeType === "hpoint") {
+          referralFeeValue = { type: "hpoint", point: referralFeeHpoint === "custom" ? Number(referralFeeHpointCustom) : Number(referralFeeHpoint) };
+        }
 
-      const orderPayload = {
-        categoryId: selectedCategory,
-        categoryName: category?.shortName || "",
-        subcategories: selectedSub.map((s) => s.includes(":") ? `${s.split(":")[0]} ${s.split(":")[1]}` : s),
-        subcategory: selectedSub.map((s) => s.includes(":") ? `${s.split(":")[0]} ${s.split(":")[1]}` : s).join(", "),
-        title: `${category?.shortName || ""} ${(() => { const first = selectedSub[0] || "요청"; return first.includes(":") ? first.split(":")[1] : first; })()}`,
-        description: detail,
-        spaceType,
-        buildingType,
-        options: selectedOptions,
-        optionEtc: (optionEtc && selectedOptions.some((o) => o.includes("기타"))) ? optionEtc : null,
-        areaValue: areaValue ? `${areaValue}${areaUnit}` : "",
-        spaceFields: Object.keys(spaceFields).length > 0 ? spaceFields : null,
-        // 카테고리별 추가 속성 (오염유형·발생시점·설치유형 등) — 빈 값은 제외하고 저장
-        attrs: (() => {
-          const picked = Object.entries(attrValues).filter(([, v]) => Array.isArray(v) && v.length > 0);
-          return picked.length ? Object.fromEntries(picked) : null;
-        })(),
-        // 직접 입력값 (주소·수량·치수·차량정보 등)
-        // 화면에 안 뜨는 필드는 저장하지 않는다 — 숙련도를 골랐다 해제하거나 서비스를 바꾸면
-        // 이전에 친 값이 state 에 남아 유령 데이터로 저장되던 문제 (조건부 필드 도입 8/7)
-        inputs: (() => {
-          const out = {};
-          visibleInputSections.forEach((sec) => {
-            const filled = visibleFieldsOf(sec)
-              .map((f) => [f.key, inputValues[sec.key]?.[f.key]])
-              .filter(([, v]) => String(v ?? "").trim() !== "");
-            if (filled.length) out[sec.key] = Object.fromEntries(filled);
-          });
-          return Object.keys(out).length ? out : null;
-        })(),
-        // 종목별 수량
-        itemQty: (() => {
-          const filled = Object.entries(itemQty).filter(([, v]) => Number(v) > 0);
-          return filled.length ? Object.fromEntries(filled) : null;
-        })(),
-        customInput: customInput || null,
-        schedule: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate, // 예약날짜는 날짜만 표기
-        address,
-        priceType,
-        directPrice: priceType === "direct" ? directPrice : "",
-        // 금액 표기 = 단가유형 기준 (예: "시공금액 330,000원" / "현장견적" / "견적요청")
-        price: (() => {
-          if (isWorkerCall) return wageText();
-          const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", info: "정보공유", contract: "도급", sale: "매매" };
-          const label = map[b2bPriceType] || "견적요청";
-          if (AMOUNT_PRICE_TYPES.includes(b2bPriceType) && b2bPriceAmount) {
-            return `${label} ${Number(b2bPriceAmount).toLocaleString()}${b2bPriceType === "hpoint" ? "P" : "원"}`;
-          }
-          return label;
-        })(),
-        createdBy: user?.uid || userData?.uid || "",
-        writer: nickname,
-        writerPhoto,
-        location: addressDetail ? `${address} ${addressDetail}` : address,
-        photos: photoURLs,
-        // B2B 공통 필드
-        workDate: workDate || null,
-        workDatePicker: workDate === "예약날짜" ? workDatePicker : null,
-        workTime: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : (workTimeMode || null),
-        contactPhone: contactPhone || null,
-        customerPhone: customerPhone || null,
-        // 결제방식 — payMode 가 진실, paymentMethod 는 화면 표기용 문자열 (구 오더 호환)
-        payMode: payMode || null,
-        paymentMethod: payMode === "prepay" ? "선결제" : payMode === "later" ? "후불 (당사자 정산)" : (paymentMethod || null),
-        // 정보공유 보상 (정보공유 유형일 때만)
-        infoReward: null,
-        contractBonus: null,
-        infoIncentive: isInfoType
-          ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : { type: "fixed", amount: Number(infoIncFixed) })
-          : null,
-        wagePay: isWorkerCall ? { amount: Number(wageAmount) || null, method: wageMethod, timing: wageTiming } : null,
-        b2bPriceType: b2bPriceType || null,
-        b2bPriceAmount: AMOUNT_PRICE_TYPES.includes(b2bPriceType) ? Number(b2bPriceAmount) || null : null,
-        referralFee: referralFeeType === "none" || isInfoType || isWorkerCall ? null : referralFeeValue,
-        // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
-        referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
-        matchType: selfOrder ? null : (matchType || null),
-        insuranceRequired: !selfOrder && !isInfoType && insuranceRequired,
-        insurancePreferred: !selfOrder && !isInfoType && insurancePreferred,
-        directPhone: !selfOrder && matchType === "direct" ? directPhone : null,
-        orderStatus: asWaiting ? "대기" : "접수",
-      };
-      // 셀프 등록 오더: 등록자 본인이 홈프로. 바로 배정 상태로 두고 메인 목록(접수)에는 안 나온다. 소개수수료 없음.
-      if (selfOrder) {
-        const me = user?.uid || userData?.uid || "";
-        Object.assign(orderPayload, { selfOrder: true, matchedProUid: me, orderStatus: "배정", assignedAt: serverTimestamp(), referralFee: null, referralPayMethod: null, matchType: null, directPhone: null });
+        const orderPayload = {
+          categoryId: selectedCategory,
+          categoryName: category?.shortName || "",
+          subcategories: selectedSub.map((s) => s.includes(":") ? `${s.split(":")[0]} ${s.split(":")[1]}` : s),
+          subcategory: selectedSub.map((s) => s.includes(":") ? `${s.split(":")[0]} ${s.split(":")[1]}` : s).join(", "),
+          title: `${category?.shortName || ""} ${(() => { const first = selectedSub[0] || "요청"; return first.includes(":") ? first.split(":")[1] : first; })()}`,
+          description: detail,
+          spaceType,
+          buildingType,
+          options: selectedOptions,
+          optionEtc: (optionEtc && selectedOptions.some((o) => o.includes("기타"))) ? optionEtc : null,
+          areaValue: areaValue ? `${areaValue}${areaUnit}` : "",
+          spaceFields: Object.keys(spaceFields).length > 0 ? spaceFields : null,
+          // 카테고리별 추가 속성 (오염유형·발생시점·설치유형 등) — 빈 값은 제외하고 저장
+          attrs: (() => {
+            const picked = Object.entries(attrValues).filter(([, v]) => Array.isArray(v) && v.length > 0);
+            return picked.length ? Object.fromEntries(picked) : null;
+          })(),
+          // 직접 입력값 (주소·수량·치수·차량정보 등)
+          // 화면에 안 뜨는 필드는 저장하지 않는다 — 숙련도를 골랐다 해제하거나 서비스를 바꾸면
+          // 이전에 친 값이 state 에 남아 유령 데이터로 저장되던 문제 (조건부 필드 도입 8/7)
+          inputs: (() => {
+            const out = {};
+            visibleInputSections.forEach((sec) => {
+              const filled = visibleFieldsOf(sec)
+                .map((f) => [f.key, inputValues[sec.key]?.[f.key]])
+                .filter(([, v]) => String(v ?? "").trim() !== "");
+              if (filled.length) out[sec.key] = Object.fromEntries(filled);
+            });
+            return Object.keys(out).length ? out : null;
+          })(),
+          // 종목별 수량
+          itemQty: (() => {
+            const filled = Object.entries(itemQty).filter(([, v]) => Number(v) > 0);
+            return filled.length ? Object.fromEntries(filled) : null;
+          })(),
+          customInput: customInput || null,
+          schedule: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate, // 예약날짜는 날짜만 표기
+          address,
+          priceType,
+          directPrice: priceType === "direct" ? directPrice : "",
+          // 금액 표기 = 단가유형 기준 (예: "시공금액 330,000원" / "현장견적" / "견적요청")
+          price: (() => {
+            if (isWorkerCall) return wageText();
+            const map = { fixed: "시공금액", balance: "잔금", hpoint: "H-포인트", onsite: "현장견적", estimate: "견적요청", info: "정보공유", contract: "도급", sale: "매매" };
+            const label = map[b2bPriceType] || "견적요청";
+            if (AMOUNT_PRICE_TYPES.includes(b2bPriceType) && b2bPriceAmount) {
+              return `${label} ${Number(b2bPriceAmount).toLocaleString()}${b2bPriceType === "hpoint" ? "P" : "원"}`;
+            }
+            return label;
+          })(),
+          createdBy: user?.uid || userData?.uid || "",
+          writer: nickname,
+          writerPhoto,
+          location: addressDetail.trim() ? `${address} ${addressDetail.trim()}` : address,
+          addressDetail: addressDetail.trim() || null, // 수정 때 상세주소를 되살리려고 따로 저장
+          photos: photoURLs,
+          // B2B 공통 필드
+          workDate: workDate || null,
+          workDatePicker: workDate === "예약날짜" ? workDatePicker : null,
+          workTime: workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : (workTimeMode || null),
+          contactPhone: contactPhone || null,
+          customerPhone: customerPhone || null,
+          // 결제방식 — payMode 가 진실, paymentMethod 는 화면 표기용 문자열 (구 오더 호환)
+          payMode: payMode || null,
+          paymentMethod: payMode === "prepay" ? "선결제" : payMode === "later" ? "후불 (당사자 정산)" : (paymentMethod || null),
+          // 정보공유 보상 (정보공유 유형일 때만)
+          infoReward: null,
+          contractBonus: null,
+          infoIncentive: isInfoType
+            ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : { type: "fixed", amount: Number(infoIncFixed) })
+            : null,
+          wagePay: isWorkerCall ? { amount: Number(wageAmount) || null, method: wageMethod, timing: wageTiming } : null,
+          b2bPriceType: b2bPriceType || null,
+          b2bPriceAmount: AMOUNT_PRICE_TYPES.includes(b2bPriceType) ? Number(b2bPriceAmount) || null : null,
+          referralFee: referralFeeType === "none" || isInfoType || isWorkerCall ? null : referralFeeValue,
+          // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
+          referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
+          matchType: selfOrder ? null : (matchType || null),
+          insuranceRequired: !selfOrder && !isInfoType && insuranceRequired,
+          insurancePreferred: !selfOrder && !isInfoType && insurancePreferred,
+          directPhone: !selfOrder && matchType === "direct" ? directPhone : null,
+          orderStatus: asWaiting ? "대기" : "접수",
+        };
+        // 셀프 등록 오더: 등록자 본인이 홈프로. 바로 배정 상태로 두고 메인 목록(접수)에는 안 나온다. 소개수수료 없음.
+        if (selfOrder) {
+          const me = user?.uid || userData?.uid || "";
+          Object.assign(orderPayload, { selfOrder: true, matchedProUid: me, orderStatus: "배정", assignedAt: serverTimestamp(), referralFee: null, referralPayMethod: null, matchType: null, directPhone: null });
+        }
+        if (isEdit) {
+          await updateOrder(editOrder.id, orderPayload); // 상태값은 유지, 내용만 갱신
+        } else {
+          await createOrder(orderPayload);
+        }
+        keepLock = true;
+        showToast(isEdit ? "수정되었습니다" : (asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!"));
+        // 접수 → 자동으로 나의오더현황으로 이동
+        // PC 폭에서 /MobileMain 은 전체 오더목록(PcOrdersPage)이 떠서 나의 오더 화면으로 바로 보낸다. 폰은 메인의 나의오더현황 탭
+        try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
+        setTimeout(() => navigate(pcWide ? "/order/my-orders" : "/MobileMain"), 1000);
+      } catch (err) {
+        console.error(isEdit ? "오더 수정 실패:" : "오더 등록 실패:", err);
+        alert((isEdit ? "수정" : "등록") + "에 실패했습니다. 다시 시도해주세요.");
       }
-      if (isEdit) {
-        await updateOrder(editOrder.id, orderPayload); // 상태값은 유지, 내용만 갱신
-      } else {
-        await createOrder(orderPayload);
-      }
-      showToast(isEdit ? "수정되었습니다" : (asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!"));
-      // 접수 → 자동으로 나의오더현황으로 이동
-      try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
-      setTimeout(() => navigate("/MobileMain"), 1000);
-    } catch (err) {
-      console.error(isEdit ? "오더 수정 실패:" : "오더 등록 실패:", err);
-      alert((isEdit ? "수정" : "등록") + "에 실패했습니다. 다시 시도해주세요.");
     } finally {
-      setSubmitting(false);
+      if (!keepLock) { submittingRef.current = false; setSubmitting(false); }
     }
   };
 
@@ -1814,7 +1969,8 @@ export const OrderCreateContent = () => {
             <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoAdd} />
             {/* 4칸을 항상 박스로 채워 보여준다 (형 지시 7/28) — 채워진 칸 / + 추가 칸 / 빈 칸 */}
             <PhotoGrid>
-              {Array.from({ length: MAX_PHOTOS }).map((_, i) => {
+              {/* 옛 오더에 기존 사진이 한도보다 많으면 칸을 늘려 다 보여 준다 (지우지 않으면 그대로 저장) */}
+              {Array.from({ length: Math.max(MAX_PHOTOS, photos.length) }).map((_, i) => {
                 const p = photos[i];
                 if (p) {
                   const pct = uploadProgress[i];

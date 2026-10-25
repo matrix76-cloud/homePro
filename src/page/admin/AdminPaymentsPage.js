@@ -52,7 +52,9 @@ export default function AdminPaymentsPage() {
     });
   }, [rows, purpose, status, from, to, q]);
 
-  const sum = (st) => filtered.filter((p) => p.status === st).reduce((a, p) => a + Number(p.amount || 0), 0);
+  // 합계에서 결제 대기(ready — 결제창만 열고 끝낸 것)는 뺀다. 목록에는 그대로 둔다 (D18)
+  const sum = (st) => filtered.filter((p) => p.status === st && p.status !== "ready").reduce((a, p) => a + Number(p.amount || 0), 0);
+  const readyCount = filtered.filter((p) => p.status === "ready").length;
   const pointsSum = filtered.filter((p) => p.status === "done").reduce((a, p) => a + Number(p.meta?.pointsUsed || 0), 0);
 
   const downloadCsv = () => {
@@ -102,6 +104,7 @@ export default function AdminPaymentsPage() {
             <th>H-포인트 사용 합계</th><td>{pointsSum.toLocaleString()}P</td>
             <th>환불</th><td>{sum("refund").toLocaleString()}원</td>
             <th>실패</th><td>{filtered.filter((p) => p.status === "fail").length}건</td>
+            <th>결제 대기</th><td>{readyCount}건 (합계 제외)</td>
           </tr>
         </tbody>
       </SummaryTable>

@@ -9,6 +9,7 @@ import { useAuth } from "../../context/AuthContext";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { GradeBadge } from "../../utility/gradeUtils";
 import { getAccessTier } from "../../utility/tierUtils";
+import { proRegionText } from "../../utility/regionUtils";
 import { IoLocationOutline, IoChevronDown, IoStarOutline, IoStar, IoHeartOutline, IoHeart, IoChevronForward, IoFunnelOutline, IoCloseOutline, IoCheckmark } from "react-icons/io5";
 
 const ProListPage = () => {
@@ -93,6 +94,8 @@ const ProListPage = () => {
   }, [myUid]);
 
   const myRegion = userData?.region;
+  // 거리 필터는 내 좌표가 있어야 동작한다 — users.region 엔 보통 {sido,gu} 만 있어 눌러도 아무 일이 없었다 (B19)
+  const hasMyCoords = !!(myRegion?.lat && myRegion?.lng);
 
   // 거리 계산 (km)
   const getDistanceKm = (lat1, lng1, lat2, lng2) => {
@@ -112,7 +115,7 @@ const ProListPage = () => {
     }
     if (selectedCat !== "all" && p.categoryId !== selectedCat) return false;
     // 거리 필터
-    if (selectedDist !== "all" && myRegion?.lat && myRegion?.lng) {
+    if (selectedDist !== "all" && hasMyCoords) {
       const profile = proProfiles[p.uid];
       const pRegion = profile?.region;
       const dist = getDistanceKm(myRegion.lat, myRegion.lng, pRegion?.lat, pRegion?.lng);
@@ -154,14 +157,16 @@ const ProListPage = () => {
         {/* 결과 수 + 필터 */}
         <ResultRow>
           <ResultCount><b>{filteredPros.length}</b>명의 전문가</ResultCount>
-          <DistFilterBtn $active={selectedDist !== "all"} onClick={() => setShowDistFilter(true)}>
-            <IoFunnelOutline size={14} />
-            {selectedDist === "all" ? "거리" : `${selectedDist}km`}
-          </DistFilterBtn>
+          {hasMyCoords && (
+            <DistFilterBtn $active={selectedDist !== "all"} onClick={() => setShowDistFilter(true)}>
+              <IoFunnelOutline size={14} />
+              {selectedDist === "all" ? "거리" : `${selectedDist}km`}
+            </DistFilterBtn>
+          )}
         </ResultRow>
 
         {/* 거리 필터 바텀시트 */}
-        {showDistFilter && (
+        {hasMyCoords && showDistFilter && (
           <FilterOverlay onClick={() => setShowDistFilter(false)}>
             <FilterSheet onClick={(e) => e.stopPropagation()}>
               <FilterSheetHeader>
@@ -197,7 +202,9 @@ const ProListPage = () => {
             const name = profile.companyName || profile.name || "전문가";
             const photo = profile.photoURL || profile.profileImage;
             const intro = profile.intro || pro.detail?.intro || "";
-            const region = profile.region;
+            // 활동 지역은 이 분야 문서의 regions/region 기준 — users.region 은 GPS 현재 위치 (B16)
+            const regionText = proRegionText(pro)
+              || (profile.region?.sido ? `${profile.region.sido} ${profile.region.gu || ""}`.trim() : "");
             const avgRating = pro.avgRating || profile.avgRating;
             const reviewCount = pro.reviewCount || profile.reviewCount || 0;
 
@@ -218,12 +225,12 @@ const ProListPage = () => {
                     </ProNameRow>
                     <ProMeta>
                       <ProCat>{getCatName(pro.categoryId)}</ProCat>
-                      {region?.sido && (
+                      {regionText && (
                         <>
                           <MetaDot />
                           <ProRegion>
                             <IoLocationOutline size={12} />
-                            {region.sido} {region.gu || ""}
+                            {regionText}
                           </ProRegion>
                         </>
                       )}

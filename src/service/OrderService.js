@@ -16,6 +16,7 @@ import {
   limit,
   startAfter,
   writeBatch,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "../api/config";
 import { COLLECTIONS, ORDER_STATUS } from "../config/homeproConfig";
@@ -311,44 +312,73 @@ export async function updateOrder(orderId, data) {
 }
 
 /** 우선배정호출 — 홈프로가 수락하기 */
+// 끝난 오더 — 수락·지원·선정이 들어오면 안 되는 상태 (10/25 전면 점검: 취소 오더를 수락해 배정으로 되살리던 구멍)
+const ENDED_STATUSES = new Set([ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED, ORDER_STATUS.REJECTED, "마감", "리뷰"]);
+const assertOpenForMatch = (d) => {
+  if (ENDED_STATUSES.has(d.orderStatus)) throw new Error(`${d.orderStatus}된 오더입니다`);
+  if (d.orderStatus === ORDER_STATUS.WAITING) throw new Error("접수자가 보류 중인 오더입니다");
+};
+
 export const acceptOrder = async (orderId, proUid) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-  const orderSnap = await getDoc(orderRef);
-  if (!orderSnap.exists()) throw new Error("오더를 찾을 수 없습니다");
-  const data = orderSnap.data();
-  if (data.matchedProUid) throw new Error("배정된 오더입니다");
-  // 보험 필수(9/14): 건당 보험을 선결제한 홈프로가 있으면 그 사람만 수락 가능
-  if (data.insurance?.applied && data.insurance.prepaidBy && data.insurance.prepaidBy !== proUid) throw new Error("다른 홈프로가 보험을 결제한 오더입니다");
-  // H-포인트 오더는 배정 순간 접수자 H-포인트를 차감해 보관한다 — 부족하면 배정 자체를 막는다 (대표 확정 9/13)
-  if (data.b2bPriceType === "hpoint") await holdHpointEscrow(orderId, data);
-  await updateDoc(orderRef, {
-    matchedProUid: proUid,
-    orderStatus: ORDER_STATUS.ASSIGNED,
-    assignedAt: serverTimestamp(),
+  // 1) 트랜잭션으로 선점 — 두 홈프로가 거의 동시에 눌러도 한 명만 통과한다 (읽고-쓰기 경쟁 제거, 10/25)
+  const data = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists()) throw new Error("오더를 찾을 수 없습니다");
+    const d = snap.data() || {};
+    if (d.matchedProUid) throw new Error("배정된 오더입니다");
+    assertOpenForMatch(d);
+    // 보험 필수(9/14): 건당 보험을 선결제한 홈프로가 있으면 그 사람만 수락 가능
+    if (d.insurance?.applied && d.insurance.prepaidBy && d.insurance.prepaidBy !== proUid) throw new Error("다른 홈프로가 보험을 결제한 오더입니다");
+    tx.update(orderRef, {
+      matchedProUid: proUid,
+      orderStatus: ORDER_STATUS.ASSIGNED,
+      assignedAt: serverTimestamp(),
+    });
+    return d;
   });
+  // 2) H-포인트 오더는 배정 순간 접수자 H-포인트를 차감해 보관한다 — 부족하면 선점을 되돌리고 막는다 (대표 확정 9/13)
+  if (data.b2bPriceType === "hpoint") {
+    try {
+      await holdHpointEscrow(orderId, data);
+    } catch (e) {
+      await updateDoc(orderRef, { matchedProUid: null, orderStatus: ORDER_STATUS.REGISTERED, assignedAt: null }).catch(() => {});
+      throw new Error(e?.message ? `접수자 H-포인트 문제로 배정할 수 없습니다: ${e.message}` : "접수자 H-포인트가 부족해 배정할 수 없습니다");
+    }
+  }
 };
 
 /** 다중비교호출 — 홈프로가 지원하기 */
 export const applyToOrder = async (orderId, proUid, proData = {}) => {
   const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
-  // 중복 지원 체크
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  // 중복 지원 체크 (서브컬렉션)
   const q = query(applicantsRef, where("proUid", "==", proUid));
   const existing = await getDocs(q);
   if (!existing.empty) throw new Error("이미 지원한 오더입니다");
-  // 지원 등록
-  await addDoc(applicantsRef, {
-    proUid,
-    proName: proData.proName || "",
-    proProfile: proData.proProfile || "",
-    appliedAt: serverTimestamp(),
-    rejected: false,
+  // 상태 확인 + 등록 + 카운트를 한 트랜잭션으로 — 배정·마감·취소된 오더에 지원이 들어가 상태를 덮어쓰던 구멍 (10/25)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists()) throw new Error("오더를 찾을 수 없습니다");
+    const d = snap.data() || {};
+    if (d.matchedProUid || d.orderStatus === ORDER_STATUS.ASSIGNED) throw new Error("배정이 끝난 오더입니다");
+    if (d.orderStatus === ORDER_STATUS.SELECTING) throw new Error("지원이 마감된 오더입니다");
+    assertOpenForMatch(d);
+    const uids = Array.isArray(d.applicantUids) ? d.applicantUids : [];
+    if (uids.includes(proUid)) throw new Error("이미 지원한 오더입니다");
+    tx.set(doc(applicantsRef), {
+      proUid,
+      proName: proData.proName || "",
+      proProfile: proData.proProfile || "",
+      appliedAt: serverTimestamp(),
+      rejected: false,
+    });
+    // 지원자 수 비정규화 + 지원자 uid 배열(나의오더현황 노출용) + 3명 이상이면 자동 마감
+    const count = Math.max(uids.length + 1, (Number(d.applicantCount) || 0) + 1);
+    const updates = { applicantCount: count, applicantUids: arrayUnion(proUid) };
+    if (count >= 3) updates.orderStatus = ORDER_STATUS.SELECTING;
+    tx.update(orderRef, updates);
   });
-  // 지원자 수 카운트 비정규화 + 지원자 uid 배열 저장(나의오더현황 노출용) + 3명 이상이면 자동 마감
-  const allApplicants = await getDocs(applicantsRef);
-  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-  const updates = { applicantCount: allApplicants.size, applicantUids: arrayUnion(proUid) };
-  if (allApplicants.size >= 3) updates.orderStatus = ORDER_STATUS.SELECTING;
-  await updateDoc(orderRef, updates);
 };
 
 /** 내가 지원한 오더 조회 (비교선정 — 선정 전에도 나의오더현황에 노출) */
@@ -386,19 +416,33 @@ export const getApplicants = async (orderId) => {
 /** 다중비교 — 접수자가 1명 선정 */
 export const selectPro = async (orderId, selectedProUid) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-  const cur = await getDoc(orderRef);
-  if (cur.exists() && cur.data().matchedProUid) throw new Error("이미 선정된 오더입니다"); // 중복선정 방지
-  if (cur.exists() && cur.data().b2bPriceType === "hpoint") await holdHpointEscrow(orderId, cur.data());
-  // 비교선정: 다른 지원자가 건당 보험을 선결제해 뒀는데 그 사람이 선정되지 않으면 보험 적용을 풀고 환불 대상으로 표시(환불은 관리자 수동)
-  const curIns = cur.exists() ? cur.data().insurance : null;
-  const insPatch = curIns?.applied && curIns.prepaidBy && curIns.prepaidBy !== selectedProUid
-    ? { insurance: { applied: false, refundNeeded: true, refundOf: curIns, resetAt: serverTimestamp() } } : {};
-  await updateDoc(orderRef, {
-    ...insPatch,
-    matchedProUid: selectedProUid,
-    orderStatus: ORDER_STATUS.ASSIGNED,
-    assignedAt: serverTimestamp(),
+  // 선점을 트랜잭션으로 — 두 번 눌러도 한 번만 선정된다 (10/25)
+  const data = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists()) throw new Error("오더를 찾을 수 없습니다");
+    const d = snap.data() || {};
+    if (d.matchedProUid) throw new Error("이미 선정된 오더입니다"); // 중복선정 방지
+    if (ENDED_STATUSES.has(d.orderStatus)) throw new Error(`${d.orderStatus}된 오더입니다`);
+    // 비교선정: 다른 지원자가 건당 보험을 선결제해 뒀는데 그 사람이 선정되지 않으면 보험 적용을 풀고 환불 대상으로 표시(환불은 관리자 수동)
+    const curIns = d.insurance;
+    const insPatch = curIns?.applied && curIns.prepaidBy && curIns.prepaidBy !== selectedProUid
+      ? { insurance: { applied: false, refundNeeded: true, refundOf: curIns, resetAt: serverTimestamp() } } : {};
+    tx.update(orderRef, {
+      ...insPatch,
+      matchedProUid: selectedProUid,
+      orderStatus: ORDER_STATUS.ASSIGNED,
+      assignedAt: serverTimestamp(),
+    });
+    return d;
   });
+  if (data.b2bPriceType === "hpoint") {
+    try {
+      await holdHpointEscrow(orderId, data);
+    } catch (e) {
+      await updateDoc(orderRef, { matchedProUid: null, orderStatus: ORDER_STATUS.REGISTERED, assignedAt: null }).catch(() => {});
+      throw new Error(e?.message ? `H-포인트 문제로 선정할 수 없습니다: ${e.message}` : "H-포인트가 부족해 선정할 수 없습니다");
+    }
+  }
   // 나머지 지원자 rejected 처리
   const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
   const snap = await getDocs(applicantsRef);
@@ -414,6 +458,10 @@ export const selectPro = async (orderId, selectedProUid) => {
 /** 대기 전환 */
 export const setOrderWaiting = async (orderId) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  // 배정된 뒤에는 대기로 못 돌린다 — 배정 홈프로가 알림 없이 떨어지고 체크인·보험·보관 포인트가 남던 구멍 (10/25)
+  const cur = await getDoc(orderRef);
+  if (cur.exists() && cur.data()?.matchedProUid) throw new Error("배정된 오더는 대기로 돌릴 수 없습니다. 취소를 이용해 주세요");
+  if (cur.exists() && ENDED_STATUSES.has(cur.data()?.orderStatus)) throw new Error(`${cur.data().orderStatus}된 오더입니다`);
   await updateDoc(orderRef, {
     orderStatus: ORDER_STATUS.WAITING,
     matchedProUid: null,

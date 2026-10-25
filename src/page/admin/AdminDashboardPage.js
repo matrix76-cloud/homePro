@@ -154,10 +154,11 @@ const AdminDashboardPage = () => {
             let totalPoints = 0, earnPoints = 0, usePoints = 0, refundPoints = 0;
             pointsSnap.forEach(d => {
                 const data = d.data();
-                const amt = data.amount || 0;
+                // spend(구독료·오더 보관 차감)는 금액이 음수로, transfer_in(보관 포인트 지급·환급)은 양수로 저장된다 (D13)
+                const amt = Math.abs(Number(data.amount) || 0);
                 if (data.type === "earn") { earnPoints += amt; totalPoints += amt; }
-                else if (data.type === "use") { usePoints += amt; totalPoints -= amt; }
-                else if (data.type === "refund") { refundPoints += amt; totalPoints += amt; }
+                else if (data.type === "use" || data.type === "spend") { usePoints += amt; totalPoints -= amt; }
+                else if (data.type === "refund" || data.type === "transfer_in") { refundPoints += amt; totalPoints += amt; }
             });
 
             // 정산 분류

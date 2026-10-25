@@ -50,7 +50,8 @@ const BillingSuccessPage = () => {
   }, [params]);
 
   const goBack = () => navigate(isSub ? "/subscription" : "/insurance", { replace: true });
-  const goMy = () => navigate(isSub ? "/mypage" : "/insurance/my", { replace: true });
+  // "/mypage" 는 없는 주소 — 마이페이지는 /MobileConfig (D15)
+  const goMy = () => navigate(isSub ? "/MobileConfig" : "/insurance/my", { replace: true });
   const card = info?.cardCompany || info?.cardNumberMasked
     ? `${info?.cardCompany || ""}${info?.cardCompany && info?.cardNumberMasked ? " " : ""}${info?.cardNumberMasked || ""}`
     : "";

@@ -141,15 +141,21 @@ function decodeJwtPayload(idToken) {
     }
 }
 
+// 브라우저가 팝업을 막은 경우에만 리다이렉트 로그인으로 넘긴다 (B18).
+//  사용자가 팝업을 닫은 것(popup-closed-by-user)·겹친 요청(cancelled-popup-request)까지
+//  리다이렉트로 보내면, 취소했는데 화면이 구글 로그인 페이지로 넘어가 버린다.
 function isPopupBlockedError(e) {
     const code = String(e?.code || "").toLowerCase();
-    const msg = String(e?.message || "").toLowerCase();
+    return code.includes("auth/popup-blocked");
+}
+
+// 사용자가 스스로 닫은 팝업 — 오류 문구 없이 조용히 취소
+function isPopupCancelledError(e) {
+    const code = String(e?.code || "").toLowerCase();
     return (
-        code.includes("auth/popup-blocked") ||
         code.includes("auth/popup-closed-by-user") ||
         code.includes("auth/cancelled-popup-request") ||
-        msg.includes("popup") ||
-        msg.includes("blocked")
+        code.includes("auth/user-cancelled")
     );
 }
 
@@ -185,6 +191,9 @@ async function webSignInWithGoogle({ keepLogin }) {
             strategy: "web_popup",
         };
     } catch (e) {
+        if (isPopupCancelledError(e)) {
+            return { success: false, cancelled: true, provider: "google", error_code: e?.code || "popup_cancelled", error_message: "" };
+        }
         if (isPopupBlockedError(e)) {
             await signInWithRedirect(auth, provider);
             return {
@@ -269,6 +278,9 @@ async function webSignInWithApple({ keepLogin }) {
 
         return { success: true, provider: "apple", uid, user: userCred.user, strategy: "web_popup" };
     } catch (e) {
+        if (isPopupCancelledError(e)) {
+            return { success: false, cancelled: true, provider: "apple", error_code: e?.code || "popup_cancelled", error_message: "" };
+        }
         if (isPopupBlockedError(e)) {
             await signInWithRedirect(auth, provider);
             return { success: true, provider: "apple", uid: "", user: null, strategy: "web_redirect_started" };
@@ -564,14 +576,15 @@ export async function signOutUser() {
  *   기록은 남기되 다시 로그인해도 들어올 수 없게 막는다.
  *   실제 계정 삭제는 관리자가 확인 후 처리한다 (진행 중 오더·정산 확인이 필요하기 때문).
  */
-export async function withdrawUser(uid, reason = "") {
+export async function withdrawUser(uid, reason = "", { skipSignOut = false } = {}) {
     if (!uid) throw new Error("로그인 정보가 없습니다.");
     await setDoc(doc(db, "users", uid), {
         withdrawn: true,
         withdrawnAt: serverTimestamp(),
         withdrawReason: reason || "",
     }, { merge: true });
-    await signOutUser();
+    // 화면이 useAuth().logout 으로 마무리할 때는 여기서 로그아웃하지 않는다 (FCM 토큰을 먼저 지워야 해서 — B11)
+    if (!skipSignOut) await signOutUser();
     return true;
 }
 

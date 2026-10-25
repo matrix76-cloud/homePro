@@ -133,14 +133,14 @@ const GuidePage = () => {
 
   if (!guide) {
     return (
-      <SimpleBackLayout title="가이드">
+      <SimpleBackLayout NAME="가이드">
         <Empty>존재하지 않는 가이드입니다.</Empty>
       </SimpleBackLayout>
     );
   }
 
   return (
-    <SimpleBackLayout title="홈프로 가이드">
+    <SimpleBackLayout NAME="홈프로 가이드">
       <Wrap>
         <Hero $bg={guide.color}>
           <HeroTitle>{guide.title}</HeroTitle>

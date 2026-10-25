@@ -84,13 +84,15 @@ const MobileSplashpage = () => {
     sendWebReadyOnce();
     if (isInPreviewFrame()) return; // 리뷰 미리보기 — 스플래시에서 정지
 
+    let guestTimer = null;
     const unsubscribe = watchAuthState(async (user) => {
       if (resolving.current) return;
       resolving.current = true;
 
       // 비회원도 홈부터 둘러본다. 로그인은 필요한 메뉴에서 유도 (대표 9/17)
+      //  (화면을 벗어나면 타이머도 지운다 — 탈퇴 계정 안내로 로그인 화면에 간 뒤 메인으로 끌려가지 않게)
       if (!user?.uid) {
-        setTimeout(() => {
+        guestTimer = setTimeout(() => {
           navigate("/MobileMain", { replace: true });
         }, 1500);
         return;
@@ -98,6 +100,10 @@ const MobileSplashpage = () => {
 
       try {
         const profile = await getUserProfileByUid(user.uid);
+
+        // 탈퇴한 계정 — AuthContext 가 로그아웃 + "탈퇴한 계정입니다" 안내 + 로그인 화면 이동을 맡는다 (B4).
+        //  여기서 메인으로 보내면 안내 전에 앱 안으로 들어가 버리므로 분기를 멈춘다.
+        if (profile?.withdrawn === true) return;
 
         if (!profile) {
           // 프로필 없음 (신규) → 닉네임/역할 설정
@@ -151,7 +157,7 @@ const MobileSplashpage = () => {
       }
     });
 
-    return () => unsubscribe?.();
+    return () => { if (guestTimer) clearTimeout(guestTimer); unsubscribe?.(); };
   }, []);
 
   return (

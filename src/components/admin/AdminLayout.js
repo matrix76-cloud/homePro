@@ -174,7 +174,7 @@ const MENUS = [
             { to: "/admin/points", label: "전체 포인트 내역", end: true },
             { to: "/admin/points/earn", label: "포인트 적립 내역" },
             { to: "/admin/points/use", label: "포인트 사용 내역" },
-            { to: "/admin/points/refund", label: "포인트 환불 내역" },
+            { to: "/admin/points/refund", label: "포인트 환불 · 이체 내역" },
         ],
     },
     {

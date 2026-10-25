@@ -303,7 +303,7 @@ async function renewMonthlyPolicy(policyDoc, settings) {
             await createNotification(
                 "insurance_expired",
                 "보험 자동결제 실패로 보험이 만료되었습니다",
-                `월 구독형 보험 자동결제가 ${MAX_BILLING_FAILS}회 실패해 보험이 만료되었습니다. 안심케어에서 다시 가입해 주세요.`,
+                `월 구독형 보험 자동결제가 ${MAX_BILLING_FAILS}회 실패해 보험이 만료되었습니다. 보험 탭에서 다시 가입해 주세요.`,
                 [uid],
                 { policyId, reason: "billing_failed", failCode: code },
             );
@@ -417,7 +417,7 @@ exports.insuranceExpireSweep = onSchedule(
                 await createNotification(
                     "insurance_expired",
                     "보험 기간이 끝났습니다",
-                    `${p.type === "yearly" ? "1년 단체보험" : "월 구독형 보험"} 보장 기간이 끝났습니다. 계속 보장받으려면 안심케어에서 다시 가입해 주세요.`,
+                    `${p.type === "yearly" ? "1년 단체보험" : "월 구독형 보험"} 보장 기간이 끝났습니다. 계속 보장받으려면 보험 탭에서 다시 가입해 주세요.`,
                     [p.uid],
                     { policyId: d.id, reason: "term_end" },
                 );
@@ -457,6 +457,36 @@ function subscriptionPlan(planId, monthly) {
     const p = SUBSCRIPTION_PLANS.find((x) => x.id === planId) || SUBSCRIPTION_PLANS[0];
     const price = p.months === 1 ? m : Math.floor((m * p.months * (1 - p.discount)) / 1000) * 1000;
     return { ...p, name: `${p.months}개월`, price };
+}
+
+const SUBSCRIPTION_DEFAULT_MONTHLY = 16500;
+/**
+ * 월 구독료(1개월 기준) — 서버에서 구독료를 읽는 곳은 전부 이 함수 하나만 쓴다(점검 D1).
+ *   첫 결제(tossPay.tossPrepare) · 자동결제 등록(tossPay.tossBillingIssue) · 갱신(subscriptionAutoCharge)
+ * 읽는 순서:
+ *   ① settings/point_rules._policy.monthlySubscriptionPoint — 관리자 화면(AdminPointsPage)이 쓰고, 구독 화면(SubscriptionPage → PointService.getPointPolicy)이 읽는 값
+ *   ② settings/point_rules.monthlySubscriptionPoint (예전 최상위 필드)
+ *   ③ settings/subscription.monthlyPrice (예전 갱신 함수가 보던 곳)
+ *   ④ 16500
+ * 0 이하·숫자 아닌 값은 "없음"으로 보고 다음 순서로 넘어간다.
+ * 읽기 자체가 실패하면 기본값으로 청구하지 않고 그대로 에러를 올린다(틀린 금액으로 결제하는 것보다 실패가 낫다).
+ */
+async function getMonthlySubscriptionPrice() {
+    const pos = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const pr = await db().doc("settings/point_rules").get();
+    if (pr.exists) {
+        const d = pr.data() || {};
+        const a = pos(d._policy && d._policy.monthlySubscriptionPoint);
+        if (a) return a;
+        const b = pos(d.monthlySubscriptionPoint);
+        if (b) return b;
+    }
+    const s = await db().doc("settings/subscription").get();
+    if (s.exists) {
+        const c = pos((s.data() || {}).monthlyPrice);
+        if (c) return c;
+    }
+    return SUBSCRIPTION_DEFAULT_MONTHLY;
 }
 
 async function chargeSubscription(userDoc, price) {
@@ -554,8 +584,9 @@ async function chargeSubscription(userDoc, price) {
 exports.subscriptionAutoCharge = onSchedule(
     { schedule: "every day 03:20", timeZone: "Asia/Seoul", region: REGION, timeoutSeconds: 540 },
     async () => {
-        const settings = await db().doc("settings/subscription").get();
-        const price = Number((settings.exists && settings.data().monthlyPrice) || 0) || 16500;
+        // (점검 D1) 첫 결제 · 자동결제 등록과 같은 곳에서 읽는다 — 관리자가 정한 _policy.monthlySubscriptionPoint 가 우선
+        const price = await getMonthlySubscriptionPrice();
+        console.log(`[subscription] 월 구독료 기준 ${price}원`);
         const nowMs = Date.now();
         const snap = await db().collection("users").where("accessTier", "==", "tier1").get();
         const due = snap.docs.filter((d) => {
@@ -683,6 +714,7 @@ module.exports = {
     MAX_BILLING_FAILS,
     SUBSCRIPTION_PLANS,
     subscriptionPlan,
+    getMonthlySubscriptionPrice,
     secretKey,
     billingSecretKey,
     db,

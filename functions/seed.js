@@ -13,13 +13,20 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // 호출 보안 토큰 (배포 후 외부 호출용)
+// ★이 값은 웹 번들(SeedLoginPage · reviewAuth)에도 들어 있어 사실상 공개값이다 — 비밀이 아니다.
+//   그래서 이 값으로 할 수 있는 일은 "seed_ 계정 전용"으로만 묶어 둔다(getSeedLoginToken 은 seed_ uid 만 토큰 발급).
+//   전체 삭제(cleanAllTestData)는 index.js 에서 export 를 빼 배포되지 않는다.
 const SECRET = "homepro-seed-2026-x9k3p";
 
 const REGION = "asia-northeast3";
 
+// 시드 계정 uid 규칙 — seed_A1 · seed_B9 처럼 seed_ 로 시작하는 것만. 실제 회원(카카오·구글·전화) uid 는 통과 못 한다.
+const SEED_UID_RE = /^seed_[A-Za-z0-9_]+$/;
+
 /* ──────────────────────────────────────────
-   3) 시드 계정 로그인용 customToken 발급
+   3) 시드 계정 로그인용 customToken 발급 — ★seed_ 계정 전용
    - uid 또는 email 받음 (email은 admin.auth().getUserByEmail로 uid 조회)
+   - 찾은 uid 가 SEED_UID_RE 에 맞지 않으면 403 (실제 회원 계정 토큰 발급 차단 — 점검 B1)
    ────────────────────────────────────────── */
 exports.getSeedLoginToken = onRequest({ region: REGION, cors: true }, async (req, res) => {
   const secret = req.headers["x-seed-secret"] || req.query.secret;
@@ -32,10 +39,18 @@ exports.getSeedLoginToken = onRequest({ region: REGION, cors: true }, async (req
     return res.status(400).json({ error: "uid or email required" });
   }
   try {
-    let targetUid = uidParam;
+    let targetUid = uidParam ? String(uidParam) : "";
     if (!targetUid && emailParam) {
-      const userRecord = await auth.getUserByEmail(emailParam);
-      targetUid = userRecord.uid;
+      try {
+        const userRecord = await auth.getUserByEmail(String(emailParam));
+        targetUid = userRecord.uid;
+      } catch (_) {
+        // 없는 이메일과 seed_ 가 아닌 이메일을 구분해 알려주지 않는다(가입 여부 조회 차단)
+        return res.status(403).json({ error: "forbidden" });
+      }
+    }
+    if (!SEED_UID_RE.test(targetUid)) {
+      return res.status(403).json({ error: "forbidden" });
     }
     const token = await auth.createCustomToken(targetUid);
     return res.json({ token, uid: targetUid });

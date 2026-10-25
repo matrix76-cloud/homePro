@@ -184,12 +184,14 @@ const ScheduleCreatePage = () => {
             const weekDates = row.map((d) => d ? toKey(calYear, calMonth + 1, d) : null);
             const ws = weekDates.find((x) => x);
             const we = [...weekDates].reverse().find((x) => x);
+            // 바에 원래 목록 위치(_idx)를 실어 둔다 — 복사본이라 indexOf 로는 못 찾아 빼기가 안 되던 문제
             const bars = (ws && we) ? schedList
-              .filter((b) => b.startDate <= we && b.endDate >= ws)
-              .map((b) => {
+              .map((b, idx) => ({ b, idx }))
+              .filter(({ b }) => b.startDate <= we && b.endDate >= ws)
+              .map(({ b, idx }) => {
                 const sc = weekDates.findIndex((x) => x && x >= b.startDate);
                 const ec = 6 - [...weekDates].reverse().findIndex((x) => x && x <= b.endDate);
-                return { ...b, col: Math.max(0, sc) + 1, colEnd: Math.min(7, ec) + 2 };
+                return { ...b, _idx: idx, col: Math.max(0, sc) + 1, colEnd: Math.min(7, ec) + 2 };
               }) : [];
             const barRows = [];
             const lanes = [];
@@ -227,7 +229,7 @@ const ScheduleCreatePage = () => {
                   <BarRow key={bri}>
                     {bRow.map((bar, bi) => (
                       <Bar key={bi} $col={bar.col} $colEnd={bar.colEnd}
-                        onClick={() => removeFromList(schedList.indexOf(bar))}>
+                        onClick={() => removeFromList(bar._idx)}>
                         {bar.title}
                       </Bar>
                     ))}

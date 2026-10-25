@@ -252,7 +252,7 @@ const InsAdminPoliciesPage = () => {
                                     <tr><td className="l">보험료</td><td className="v" style={{ fontWeight: 700 }}>{formatMoney(selected.price)}</td></tr>
                                     <tr><td className="l">결제 ID</td><td className="v"><Mono>{selected.paymentId || "-"}</Mono></td></tr>
                                     {selected.type === "perOrder" && (
-                                        <tr><td className="l">오더</td><td className="v">{selected.orderId ? <a href={`/order/${selected.orderId}`} target="_blank" rel="noreferrer" style={{ color: "#14181F", fontWeight: 600 }}>{selected.orderId}</a> : "-"}</td></tr>
+                                        <tr><td className="l">오더</td><td className="v">{selected.orderId ? <a href={`/order/detail/${selected.orderId}`} target="_blank" rel="noreferrer" style={{ color: "#14181F", fontWeight: 600 }}>{selected.orderId}</a> : "-"}</td></tr>
                                     )}
                                     {selected.type === "monthly" && (
                                         <tr>

@@ -171,7 +171,7 @@ const MobileChatpage = () => {
             const memberCount = (room.participants || []).length;
             const joined = (room.participants || []).includes(myUid);
             return (
-              <RoomItem key={room.id} onClick={() => handleEnterOpenRoom(room)}>
+              <RoomItem key={room.id} onClick={() => navigate(`/chat/${room.id}`)}>
                 <Avatar>
                   <IoPeopleOutline size={26} color={THEME.primary} />
                 </Avatar>

@@ -263,15 +263,16 @@ const OrderDetailPage = () => {
 
   // 남은 시간 1초 카운트다운 (0 되면 인터벌 스스로 정리 → 버튼 정상 복귀)
   useEffect(() => {
-    if (myTier !== "tier2" || isOwner || !order) return;
-    if (getAcceptRemainSec(order, Date.now()) <= 0) return;
+    // 1차수(3분)도 돌아야 한다 — tier2 만 돌려서 1차수는 시간이 멈춰 있었다 (10/25 전면 점검)
+    if (myDelaySec <= 0 || isOwner || !order) return;
+    if (getAcceptRemainSec(order, Date.now(), myDelaySec) <= 0) return;
     const timer = setInterval(() => {
       const n = Date.now();
       setNowMs(n);
-      if (getAcceptRemainSec(order, n) <= 0) clearInterval(timer);
+      if (getAcceptRemainSec(order, n, myDelaySec) <= 0) clearInterval(timer);
     }, 1000);
     return () => clearInterval(timer);
-  }, [myTier, isOwner, order?.id, order?.createdAt]);
+  }, [myDelaySec, isOwner, order?.id, order?.createdAt]);
 
   useEffect(() => {
     if (!myUid) return;
@@ -1296,13 +1297,17 @@ const OrderDetailPage = () => {
             </OutlinedBtn>
             {order.orderStatus === "대기" ? (
               <OutlinedBtn onClick={handleOwnerReregister}>재접수</OutlinedBtn>
-            ) : (
-              <OutlinedBtn
-                onClick={() => { if (!CLOSED_STATUSES.has(order.orderStatus)) handleOwnerWaiting(); }}
-                disabled={CLOSED_STATUSES.has(order.orderStatus)}
-                style={CLOSED_STATUSES.has(order.orderStatus) ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
-              >대기</OutlinedBtn>
-            )}
+            ) : (() => {
+              // 배정된 뒤에는 대기로 못 돌린다 — 배정 홈프로가 알림 없이 떨어져 나가던 구멍 (10/25 전면 점검)
+              const waitBlocked = CLOSED_STATUSES.has(order.orderStatus) || HP_ASSIGNED_STATUSES.has(order.orderStatus) || !!order.matchedProUid;
+              return (
+                <OutlinedBtn
+                  onClick={() => { if (waitBlocked) { if (order.matchedProUid) showToast("배정된 오더는 대기로 돌릴 수 없어요. 취소를 이용해 주세요"); return; } handleOwnerWaiting(); }}
+                  disabled={waitBlocked}
+                  style={waitBlocked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+                >대기</OutlinedBtn>
+              );
+            })()}
             <OutlinedBtn
               $danger
               onClick={() => { if (!CLOSED_STATUSES.has(order.orderStatus)) setShowCancelModal(true); }}
@@ -1322,8 +1327,8 @@ const OrderDetailPage = () => {
                 <IoChatbubbleEllipsesOutline size={18} style={{ marginRight: 6, verticalAlign: "middle" }} /> 접수자와 채팅
               </PrimaryCTA>
             </ActionRow>
-            {/* 정보공유 오더는 체크인 생략 (대표 지시 8/20) */}
-            {!isInfoOrder && (() => {
+            {/* 정보공유 오더는 체크인 생략 (대표 지시 8/20). 취소된 오더에는 체크인·현장기록을 열지 않는다 (10/25 전면 점검) */}
+            {!isInfoOrder && (order.orderStatus === "배정" || (order.orderStatus === "완료" && order.checkInAt)) && (() => {
               // 소개수수료 입금 확인 전에는 체크인을 막는다 (대표 확정 9/13)
               // 체크인은 소개수수료 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡)
               // 단 접수자가 '보험가입 필수'로 등록한 오더는 보험 적용 전 체크인 불가 (대표 9/15 카톡 8번)
@@ -1356,6 +1361,13 @@ const OrderDetailPage = () => {
         ) : isUnselectedApplicant ? (
           /* 비교선정 미선정 — 다른 홈프로가 선정됨 */
           <ApplyStatusLine $muted>미선정 · 다른 홈프로가 선정되었습니다</ApplyStatusLine>
+        ) : (CLOSED_STATUSES.has(order.orderStatus) || !!order.matchedProUid || order.orderStatus === "배정" || order.orderStatus === "선정대기") ? (
+          /* 끝났거나 이미 배정된 오더 — 수락·지원 버튼을 그리지 않는다 (취소 오더를 수락해 되살리던 구멍, 10/25 전면 점검) */
+          <ApplyStatusLine $muted>
+            {order.orderStatus === "선정대기" ? "지원이 마감된 오더입니다 (접수자 선정 대기 중)"
+              : (order.matchedProUid || order.orderStatus === "배정") && !CLOSED_STATUSES.has(order.orderStatus) ? "이미 배정된 오더입니다"
+              : `${order.orderStatus}된 오더입니다`}
+          </ApplyStatusLine>
         ) : matchType === "priority" ? (
           /* 우선배정호출 — 전화 제거, 수락하기만 (2차수는 등록 5분 후 해제) */
           <>

@@ -75,7 +75,8 @@ const WorkLogPage = () => {
   const { checkIn, checkOut } = useMemo(() => summarizeLogs(logs), [logs]);
   const isWorker = !!order && order.matchedProUid === uid;
   const isOwner = !!order && order.createdBy === uid;
-  const canWrite = isWorker && !checkOut;
+  // 취소·완료된 오더에서는 기록을 못 쓴다 — 취소 오더를 체크아웃해 완료로 되살리던 구멍 (10/25 전면 점검)
+  const canWrite = isWorker && !checkOut && (!order.orderStatus || order.orderStatus === "배정");
 
   // 카드에서 넘어올 때 열 시트를 지정(?open=checkin) — 버튼 한 번으로 바로 등록 흐름 진입
   const requested = params.get("open");
@@ -414,12 +415,17 @@ const WorkLogPage = () => {
                 ? "위치 확인 중..."
                 : geoState.geo
                   ? `위치 확인됨 (오차 약 ${geoState.geo.accuracy}m)`
-                  : GEO_ERROR_TEXT[geoState.geoError] || "위치 정보 없음"}
+                  : (sheetType === WORKLOG_TYPES.PROGRESS
+                    ? (GEO_ERROR_TEXT[geoState.geoError] || "위치 정보 없음")
+                    : "위치를 확인하지 못했습니다")}
             </GeoBox>
             {geoState && !geoState.geo && (
               <GeoWarn>
                 <IoAlertCircleOutline size={14} color={THEME.accent} />
-                위치가 없으면 증빙 효력이 약해집니다. 가능하면 위치 권한을 켜고 다시 시도해 주세요.
+                {/* 체크인·체크아웃은 좌표가 없으면 등록이 막힌다(대표 9/12) — "좌표 없이 기록됩니다"라고 하던 문구와 동작이 달랐다 (10/25) */}
+                {sheetType === WORKLOG_TYPES.PROGRESS
+                  ? "위치가 없으면 증빙 효력이 약해집니다. 가능하면 위치 권한을 켜고 다시 시도해 주세요."
+                  : "체크인 · 체크아웃은 위치가 꼭 필요합니다. 위치 권한을 켜고 다시 시도해 주세요."}
               </GeoWarn>
             )}
 

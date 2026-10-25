@@ -249,6 +249,8 @@ export function subscribeMessages(roomId, callback) {
 
 /**
  * 내부: lastMessage 업데이트 + 상대방 unreadCount +1 + messageCount +1
+ * 숫자는 increment() 로 올린다 — 읽은 값에 +1 해서 덮어쓰면, 그 사이 받는 쪽이 0 으로
+ * 지운 것을 옛 값+1 로 되살려 "안 읽음 1" 이 남았다.
  */
 async function updateRoomAfterSend(roomId, senderId, lastMessage) {
   const roomRef = doc(db, "chatRooms", roomId);
@@ -259,14 +261,27 @@ async function updateRoomAfterSend(roomId, senderId, lastMessage) {
   const updates = {
     lastMessage,
     lastMessageAt: serverTimestamp(),
-    messageCount: (data.messageCount || 0) + 1,
+    messageCount: increment(1),
   };
   (data.participants || []).forEach((uid) => {
     if (uid !== senderId) {
-      updates[`unreadCount.${uid}`] = (data.unreadCount?.[uid] || 0) + 1;
+      updates[`unreadCount.${uid}`] = increment(1);
     }
   });
   await updateDoc(roomRef, updates);
+}
+
+/** 내부: 고치거나 지운 메시지가 방의 마지막 메시지면 목록에 보이는 lastMessage 도 맞춘다 */
+async function syncLastMessageIfLatest(roomId, messageId, lastMessage) {
+  try {
+    const snap = await getDocs(query(messagesRef(roomId), orderBy("createdAt", "desc"), limit(1)));
+    const latest = snap.docs[0];
+    if (latest && latest.id === messageId) {
+      await updateDoc(doc(db, "chatRooms", roomId), { lastMessage });
+    }
+  } catch (e) {
+    console.warn("lastMessage 갱신 실패:", e?.message);
+  }
 }
 
 /**
@@ -352,6 +367,7 @@ export async function deleteMessage(roomId, messageId) {
   await updateDoc(doc(db, "chatRooms", roomId, "messages", messageId), {
     deleted: true,
   });
+  await syncLastMessageIfLatest(roomId, messageId, "삭제된 메시지입니다");
 }
 
 /**
@@ -362,20 +378,32 @@ export async function editMessage(roomId, messageId, newText) {
     text: newText,
     editedAt: serverTimestamp(),
   });
+  await syncLastMessageIfLatest(roomId, messageId, newText);
 }
 
 // ════════════════════════════════════════
 // 읽음 처리
 // ════════════════════════════════════════
 
-export async function clearUnread(roomId, uid) {
+/**
+ * 안 읽은 수 지우기
+ * @param {number} [knownUnread] 화면이 방 문서를 구독해 이미 아는 내 안 읽은 수.
+ *   넘기면 그 값으로 판단(다시 읽지 않음), 안 넘기면 문서를 읽어 판단한다.
+ */
+export async function clearUnread(roomId, uid, knownUnread) {
   const roomRef = doc(db, "chatRooms", roomId);
-  const snap = await getDoc(roomRef);
-  if (snap.exists() && (snap.data().unreadCount?.[uid] || 0) > 0) {
-    await updateDoc(roomRef, { [`unreadCount.${uid}`]: 0 });
+  try {
+    let need = Number(knownUnread || 0) > 0;
+    if (knownUnread === undefined) {
+      const snap = await getDoc(roomRef);
+      need = snap.exists() && (snap.data().unreadCount?.[uid] || 0) > 0;
+    }
+    if (need) await updateDoc(roomRef, { [`unreadCount.${uid}`]: 0 });
+  } catch (e) {
+    console.warn("안 읽은 수 지우기 실패:", e?.message);
   }
   // 안 읽은 메시지들에 readBy 추가
-  markMessagesAsRead(roomId, uid);
+  markMessagesAsRead(roomId, uid).catch((e) => console.warn("읽음 표시 실패:", e?.message));
 }
 
 /** 메시지별 readBy에 uid 추가 */
@@ -462,6 +490,20 @@ export async function completeWork(roomId, orderId) {
 /** 리뷰 등록 */
 export async function submitReview(roomId, reviewData) {
   const { addDoc, collection, increment } = await import("firebase/firestore");
+  // 한 방(오더)에 리뷰는 한 번 — 두 번 등록되면 프로 reviewCount·ratingSum 이 이중으로 오른다
+  const roomSnap = await getDoc(doc(db, "chatRooms", roomId));
+  if (roomSnap.exists() && roomSnap.data().reviewId) {
+    throw new Error("이미 리뷰를 등록했습니다");
+  }
+  if (reviewData.orderId) {
+    try {
+      const { COLLECTIONS } = await import("../config/homeproConfig");
+      const orderSnap = await getDoc(doc(db, COLLECTIONS.ORDERS, reviewData.orderId));
+      if (orderSnap.exists() && orderSnap.data().reviewed) throw new Error("이미 리뷰를 등록했습니다");
+    } catch (e) {
+      if (e?.message === "이미 리뷰를 등록했습니다") throw e;
+    }
+  }
   const reviewRef = await addDoc(collection(db, "homepro_reviews"), {
     ...reviewData,
     createdAt: serverTimestamp(),

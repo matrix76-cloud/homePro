@@ -104,15 +104,20 @@ const InsuranceInquiryPage = () => {
           ) : mine.length === 0 ? (
             <Empty>아직 남긴 문의가 없습니다.</Empty>
           ) : (
-            mine.map((r) => (
-              <MineRow key={r.id} type="button" onClick={() => navigate(`/chat/${r.id}`)}>
-                <MineTitle>{r.inquiryTitle || "보험 문의"}</MineTitle>
-                <MineMeta>
-                  {r.inquiryType} · {fmt(r.createdAt)} ·{" "}
-                  <b style={{ color: isInquiryUnanswered(r) ? "#B45309" : THEME.primaryDark }}>{isInquiryUnanswered(r) ? "답변 대기" : "답변 완료"}</b>
-                </MineMeta>
-              </MineRow>
-            ))
+            mine.map((r) => {
+              // 관리자가 [확인만] 해도 미답변 표시가 내려가 "답변 완료"로 보였다 —
+              //  실제 답변(answeredAt · answer)이 있고 그 뒤 새 문의가 없을 때만 완료 (D20)
+              const answered = !!(r.answeredAt || r.answer) && !isInquiryUnanswered(r);
+              return (
+                <MineRow key={r.id} type="button" onClick={() => navigate(`/chat/${r.id}`)}>
+                  <MineTitle>{r.inquiryTitle || "보험 문의"}</MineTitle>
+                  <MineMeta>
+                    {r.inquiryType} · {fmt(r.createdAt)} ·{" "}
+                    <b style={{ color: answered ? THEME.primaryDark : "#B45309" }}>{answered ? "답변 완료" : "답변 대기"}</b>
+                  </MineMeta>
+                </MineRow>
+              );
+            })
           )}
         </Card>
       </Wrap>

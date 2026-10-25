@@ -121,7 +121,7 @@ const InsAdminSettingsPage = () => {
             <PageHead>
                 <div>
                     <PageTitle>설정</PageTitle>
-                    <PageDesc>보험료·보장 문구·대리점 담당자를 편집합니다. 저장하면 사용자 안심케어 화면과 건당 보험료 계산에 바로 반영됩니다.</PageDesc>
+                    <PageDesc>보험료·보장 문구·대리점 담당자를 편집합니다. 저장하면 사용자 보험 탭 화면과 건당 보험료 계산에 바로 반영됩니다.</PageDesc>
                 </div>
                 <HeadRight>
                     {saved && <SavedText>저장되었습니다</SavedText>}

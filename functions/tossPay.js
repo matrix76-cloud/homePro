@@ -30,11 +30,13 @@ const {
     db, tsNow, toDate, addMonths, addYears,
     loadInsuranceSettings, perOrderPremium, resolveCaller, userDisplayName, userPhone,
     tossRequest, chargeBillingKey, maskCardNumber, makeTossOrderId, refreshUserInsurance, subscriptionPlan,
+    getMonthlySubscriptionPrice,
 } = ins;
 
 const ORDERS = "homepro_orders";
 const PURPOSES = ["insurance_yearly", "insurance_monthly", "insurance_order", "subscription"];
-const SUBSCRIPTION_DEFAULT_PRICE = 16500;
+// (점검 D9) 오더 저장값은 한글(src/config/homeproConfig.js ORDER_STATUS: 완료·취소·거부). 예전 영문 값도 같이 막는다.
+const CLOSED_ORDER_STATUSES = ["완료", "취소", "거부", "completed", "canceled", "cancelled", "rejected"];
 const RENEW_WINDOW_DAYS = 30; // 유효한 1년/월 보험이 이보다 많이 남아 있으면 1년 보험을 또 팔지 않는다
 const Timestamp = () => admin.firestore.Timestamp;
 const fromDate = (d) => Timestamp().fromDate(d);
@@ -88,13 +90,28 @@ function orderBaseAmount(order) {
     return c > 0 ? c : 0;
 }
 
-/** 구독료 — settings/subscription.monthlyPrice → settings/point_rules.monthlySubscriptionPoint(앱이 쓰는 값) → 16500 */
-async function subscriptionPrice() {
-    const s = await db().doc("settings/subscription").get();
-    if (s.exists && Number(s.data().monthlyPrice) > 0) return Number(s.data().monthlyPrice);
-    const pr = await db().doc("settings/point_rules").get();
-    if (pr.exists && Number(pr.data().monthlySubscriptionPoint) > 0) return Number(pr.data().monthlySubscriptionPoint);
-    return SUBSCRIPTION_DEFAULT_PRICE;
+// 구독료는 insurance.getMonthlySubscriptionPrice() 하나로만 읽는다(점검 D1 — 첫 결제·자동결제 등록·갱신이 같은 값).
+
+/**
+ * customerKey 규칙 — 앞단 src/utility/tossConfig.js makeCustomerKey 와 같은 식이어야 한다(점검 D2).
+ * 토스 규칙: 영문 대소문자·숫자·- _ 만, 2~50자 → uid 에서 그 밖의 문자(카카오 uid "kakao:123" 의 ":")를 지우고 "hp_" 를 붙여 50자로 자른다.
+ */
+const CUSTOMER_KEY_PREFIX = "hp_";
+function makeCustomerKey(uid) {
+    const cleaned = String(uid || "").replace(/[^A-Za-z0-9\-_]/g, "");
+    if (cleaned.length < 2) return "";
+    return `${CUSTOMER_KEY_PREFIX}${cleaned}`.slice(0, 50);
+}
+/** 앞단이 보낸 customerKey 가 이 회원(users 문서 ID 또는 Auth uid) 것인지 */
+function customerKeyMatches(ck, ...uids) {
+    const key = String(ck || "");
+    if (!key) return false;
+    return uids.filter(Boolean).some((u) => {
+        const expected = makeCustomerKey(u);
+        if (expected && key === expected) return true;
+        // 예전 호출 호환 — 정규화가 필요 없는 uid 를 그대로 담은 키
+        return key.includes(String(u)) && String(u).length >= 2;
+    });
 }
 
 /** 새 policy 문서의 공통 뼈대(사양 2절) */
@@ -163,7 +180,7 @@ exports.tossPrepare = onCall({ region: REGION }, async (request) => {
             if (!by || by === uid || by === authUid) throw new HttpsError("failed-precondition", "이미 보험이 적용된 오더입니다.");
             throw new HttpsError("failed-precondition", "다른 홈프로가 이미 이 오더의 보험을 결제했습니다.");
         }
-        if (["completed", "canceled", "cancelled"].includes(order.orderStatus)) throw new HttpsError("failed-precondition", "끝났거나 취소된 오더에는 보험을 적용할 수 없습니다.");
+        if (CLOSED_ORDER_STATUSES.includes(String(order.orderStatus || "").trim())) throw new HttpsError("failed-precondition", "끝났거나 취소된 오더에는 보험을 적용할 수 없습니다.");
         const cur = await findActiveGeneralPolicy(uid);
         if (cur) throw new HttpsError("failed-precondition", `이미 ${cur.type === "yearly" ? "1년 단체보험" : "월 구독형 보험"}에 가입되어 있어 추가 결제 없이 적용됩니다.`);
         const plan = settings.plans.perOrder;
@@ -182,7 +199,7 @@ exports.tossPrepare = onCall({ region: REGION }, async (request) => {
         meta.base = prem.base;
         meta.categoryId = order.categoryId || null;
     } else if (purpose === "subscription") {
-        const fee = await subscriptionPrice();
+        const fee = await getMonthlySubscriptionPrice();
         orderName = "홈프로 월 구독";
         meta.planType = "subscription";
         // H-포인트 사용분 — 100P 단위, 잔액·구독료 이내. 전액이면 PG 없이 여기서 바로 처리한다
@@ -406,7 +423,7 @@ async function issueSubscriptionBilling({ authKey, ck, uid, authUid, user, planI
     }
 
     // 고른 상품(1·3·6·12개월) — 금액은 여기서 다시 계산한다. 이 기간마다 같은 금액으로 자동 갱신
-    const plan = subscriptionPlan(String(planId || ""), await subscriptionPrice());
+    const plan = subscriptionPlan(String(planId || ""), await getMonthlySubscriptionPrice());
     const amount = plan.price;
     const orderName = `홈프로 구독 (${plan.name})`;
     const { billingKey, cardCompany, cardNumberMasked } = await issueBillingKey({ authKey, customerKey: ck });
@@ -497,7 +514,8 @@ exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
     if (!authKey || !customerKey) throw new HttpsError("invalid-argument", "카드 등록 정보(authKey/customerKey)가 없습니다.");
     const { uid, authUid, user } = await resolveCaller(request);
     const ck = String(customerKey);
-    if (!(ck.includes(uid) || ck.includes(authUid))) throw new HttpsError("permission-denied", "customerKey 가 로그인한 회원과 맞지 않습니다.");
+    // (점검 D2) 앞단 makeCustomerKey 가 ":" 등을 지운 키("kakao:123" → "hp_kakao123")를 보내므로 서버도 같은 규칙으로 맞춰 비교한다
+    if (!customerKeyMatches(ck, uid, authUid)) throw new HttpsError("permission-denied", "customerKey 가 로그인한 회원과 맞지 않습니다.");
 
     // 앱 월 구독 — purpose 를 안 주면 예전처럼 월 구독형 보험으로 본다(기존 호출 호환)
     if (String(purpose || "") === "subscription") {

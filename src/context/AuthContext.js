@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { watchAuthState, signOutUser } from "../service/AuthService";
 import { getUserProfileByUid } from "../service/UserProfileService";
 import { auth } from "../api/config";
@@ -10,6 +11,18 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+// 로그아웃 전에 FCM 토큰을 지운다 — 로그아웃 뒤에는 규칙에 막혀 못 지울 수 있다.
+// 네트워크가 느려도 로그아웃이 멈추지 않게 3초까지만 기다린다.
+const removeFcmTokenBeforeSignOut = async (uid) => {
+    if (!uid) return;
+    try {
+        await Promise.race([
+            removeFcmToken(uid),
+            new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+    } catch (e) { /* 토큰 삭제 실패해도 로그아웃은 진행 */ }
+};
+
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [userData, setUserData] = useState(null);
@@ -17,6 +30,20 @@ export const AuthProvider = ({ children }) => {
     const [debugMode, setDebugMode] = useState(false);
     const [debugInfo, setDebugInfo] = useState({});
     const pendingFcmToken = useRef(null);
+    const navigate = useNavigate();
+
+    // 탈퇴한 계정으로 다시 들어온 경우 — 로그아웃시키고 로그인 화면으로 (B4)
+    //  withdrawUser 가 users 문서에 withdrawn:true 를 남기는데 읽는 곳이 없어 그대로 입장됐다.
+    const signOutWithdrawn = async (firestoreUid) => {
+        await removeFcmTokenBeforeSignOut(firestoreUid);
+        try { localStorage.removeItem("__primaryUid"); } catch (e) {}
+        try { if (isInRnWebView()) postToRN("START_SIGNOUT"); } catch (e) {}
+        try { await signOutUser(); } catch (e) {}
+        setCurrentUser(null);
+        setUserData(null);
+        window.alert("탈퇴한 계정입니다. 다시 이용하시려면 고객센터로 문의해 주세요.");
+        navigate("/MobileLogin", { replace: true });
+    };
 
     useEffect(() => {
         const unsubscribe = watchAuthState(async (firebaseUser) => {
@@ -24,6 +51,11 @@ export const AuthProvider = ({ children }) => {
                 setCurrentUser(firebaseUser);
                 try {
                     const profile = await getUserProfileByUid(firebaseUser.uid);
+                    if (profile?.withdrawn === true) {
+                        await signOutWithdrawn(profile.uid || firebaseUser.uid);
+                        setLoading(false);
+                        return;
+                    }
                     setUserData(profile || {
                         uid: firebaseUser.uid,
                         email: firebaseUser.email,
@@ -119,6 +151,9 @@ export const AuthProvider = ({ children }) => {
         if (!currentUser) return;
         try {
             const profile = await getUserProfileByUid(currentUser.uid);
+            // 같은 번호 재가입이 탈퇴 계정으로 통합된 경우 등 — 갱신 때도 탈퇴 여부를 본다 (B4)
+            //  호출한 화면이 뒤이어 다른 곳으로 보내지 않게 "withdrawn" 을 돌려준다
+            if (profile?.withdrawn === true) { await signOutWithdrawn(profile.uid || currentUser.uid); return "withdrawn"; }
             if (profile) setUserData(profile);
         } catch (err) {
             console.error("refreshUser 실패:", err);
@@ -131,9 +166,8 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         const firestoreUid = userData?.uid || currentUser?.uid;
-        if (firestoreUid) {
-            removeFcmToken(firestoreUid).catch(() => {});
-        }
+        // 기다리지 않고 바로 signOut 하면 삭제 요청이 로그아웃 뒤에 도착해 막힐 수 있다 (B11)
+        await removeFcmTokenBeforeSignOut(firestoreUid);
         // 계정 통합 대표 UID — 남겨두면 다음 사용자의 온보딩이 이전 사용자
         // 계정에 프로필을 덮어쓴다 (검수 7/28)
         try { localStorage.removeItem("__primaryUid"); } catch (e) {}

@@ -18,6 +18,7 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { proRegionText } from "../../utility/regionUtils";
+import { isFreelancerNoBiz } from "../../service/CertificateService";
 import {
     TbSparkles, TbSpray, TbShieldCheck, TbWashMachine, TbBed, TbBuildingStore,
     TbRipple, TbDropletSearch, TbDroplet, TbTools, TbFlame, TbAirConditioning,
@@ -119,7 +120,7 @@ const ProCategoryRegisterPage = () => {
     const activityFileRef = useRef(null);
 
     const { userData } = useAuth();
-    const uid = user?.USERS_ID || userData?.uid;
+    const uid = userData?.uid || user?.USERS_ID; // 통합 뒤 USERS_ID 가 사라질 소셜 uid 일 수 있어 문서 id 우선 (B7)
 
     useEffect(() => () => clearTimeout(toastTimer.current), []);
 
@@ -251,11 +252,19 @@ const ProCategoryRegisterPage = () => {
             alert("로그인이 필요합니다.");
             return;
         }
+        // 지역을 안 고르면 regions 가 비어 어떤 목록에도 안 보인다 (B15)
+        if (!region || region.length === 0) {
+            showToast("활동 지역을 골라 주세요");
+            return;
+        }
         setSubmitting(true);
         const registered = [];
         try {
             // 공통 서류·사진은 한 번만 업로드해서 카테고리별 문서가 같은 URL을 공유
-            const licenseUrl = await uploadBusinessLicense(uid, selectedCats[0], imageFile);
+            //  개인 프리랜서가 사업자등록증 없이 등록하면 빈 값으로 저장 (B14)
+            const licenseUrl = imageFile
+                ? await uploadBusinessLicense(uid, selectedCats[0], imageFile)
+                : "";
             const photoUrls = activityPhotos.length > 0
                 ? await uploadActivityPhotos(uid, selectedCats[0], activityPhotos.map((p) => p.file))
                 : [];
@@ -317,12 +326,15 @@ const ProCategoryRegisterPage = () => {
     const missingSubCat = selectedCatObjs.find(
         (c) => c.subcategories?.length > 0 && !(subsByCat[c.id]?.length > 0)
     );
+    // 개인 프리랜서(사업자등록 없음)는 사업자등록증이 선택 항목 (B14)
+    //  단 관리자 승인이 필요한 분야(공동중개)는 서류 확인이 승인 근거라 그대로 필수
+    const licenseOptional = isFreelancerNoBiz(userData) && !selectedCats.some((id) => isApprovalRequiredCategory(id));
     const canSubmit =
         selectedCats.length > 0 &&
         !missingSubCat &&
         experience.trim() !== "" &&
         intro.trim() !== "" &&
-        !!imageFile &&
+        (!!imageFile || licenseOptional) &&
         !submitting;
 
     const handleBack = () => goPrev();
@@ -545,7 +557,10 @@ const ProCategoryRegisterPage = () => {
 
                         {/* 사업자등록증 */}
                         <Section>
-                            <SectionTitle>사업자등록증</SectionTitle>
+                            <SectionTitle>사업자등록증{licenseOptional ? " (선택)" : ""}</SectionTitle>
+                            {licenseOptional && (
+                                <HelpText style={{ marginTop: 0, marginBottom: 10 }}>개인 프리랜서는 사업자등록증 없이 등록할 수 있습니다.</HelpText>
+                            )}
                             <UploadBox onClick={() => fileRef.current?.click()}>
                                 {imagePreview ? (
                                     <PreviewImg src={imagePreview} alt="사업자등록증 미리보기" />

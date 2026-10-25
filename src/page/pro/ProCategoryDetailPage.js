@@ -9,8 +9,10 @@ import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import { getProCategoryDoc, deleteProCategory } from "../../service/ProService";
+import { hasBusinessLicense, isFreelancerNoBiz } from "../../service/CertificateService";
+import { getUserProfileByUid } from "../../service/UserProfileService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCheckmarkCircleOutline, IoCreateOutline } from "react-icons/io5";
+import { IoCheckmarkCircleOutline, IoCreateOutline, IoAlertCircleOutline } from "react-icons/io5";
 
 const ProCategoryDetailPage = () => {
     const navigate = useNavigate();
@@ -27,7 +29,7 @@ const ProCategoryDetailPage = () => {
     const slideRef = useRef(null);
 
     const { userData } = useAuth();
-    const uid = viewUid || user?.USERS_ID || userData?.uid;
+    const uid = viewUid || userData?.uid || user?.USERS_ID; // 문서 id 우선 (B7)
     const isViewingOther = !!viewUid;
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 
@@ -38,6 +40,18 @@ const ProCategoryDetailPage = () => {
             .catch(() => {})
             .finally(() => setLoading(false));
     }, [uid, categoryId]);
+
+    // 남의 분야를 볼 때는 그 프로의 회원 정보로 프리랜서 여부를 판정한다 (B14)
+    const [viewedProfile, setViewedProfile] = useState(null);
+    useEffect(() => {
+        if (!viewUid) return;
+        let alive = true;
+        getUserProfileByUid(viewUid)
+            .then((p) => { if (alive) setViewedProfile(p || null); })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, [viewUid]);
+    const ownerProfile = isViewingOther ? viewedProfile : userData;
 
     const handleDelete = async () => {
         if (!uid || deleting) return;
@@ -166,11 +180,29 @@ const ProCategoryDetailPage = () => {
                 {/* 제출 서류 */}
                 <Section>
                     <SectionTitle>제출 서류</SectionTitle>
-                    <DocRow>
-                        <IoCheckmarkCircleOutline size={18} color={THEME.success} />
-                        <DocText>사업자등록증 제출 완료</DocText>
-                        <DocStatus>{docStatusLabel}</DocStatus>
-                    </DocRow>
+                    {/* 사업자등록증 — 제출 · 개인 프리랜서 · 미제출 상태대로 (B14) */}
+                    {(() => {
+                        const submitted = !!docData?.licenseUrl || hasBusinessLicense(ownerProfile);
+                        if (submitted) return (
+                            <DocRow>
+                                <IoCheckmarkCircleOutline size={18} color={THEME.success} />
+                                <DocText>사업자등록증 제출 완료</DocText>
+                                <DocStatus>{docStatusLabel}</DocStatus>
+                            </DocRow>
+                        );
+                        if (isFreelancerNoBiz(ownerProfile)) return (
+                            <DocRow>
+                                <IoCheckmarkCircleOutline size={18} color={THEME.success} />
+                                <DocText>개인 프리랜서 (사업자등록 없음)</DocText>
+                            </DocRow>
+                        );
+                        return (
+                            <DocRow>
+                                <IoAlertCircleOutline size={18} color={THEME.muted} />
+                                <DocText>사업자등록증 미제출</DocText>
+                            </DocRow>
+                        );
+                    })()}
                     {certs.length > 0 && certs.map((cert, i) => (
                         <DocRow key={i}>
                             <IoCheckmarkCircleOutline size={18} color={THEME.success} />

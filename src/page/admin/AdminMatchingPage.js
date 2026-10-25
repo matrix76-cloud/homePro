@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import styled from "styled-components";
 import { THEME, CATEGORIES, COLLECTIONS } from "../../config/homeproConfig";
 import { db } from "../../api/config";
+import { updateOrderStatus } from "../../service/OrderService";
 import {
     collection,
     getDocs,
@@ -124,16 +125,26 @@ const AdminMatchingPage = () => {
     };
     const handleStatusChange = async (orderId, newStatus, e) => {
         if (e) e.stopPropagation();
+        const nextOrderStatus = ADMIN_TO_ORDER_STATUS[newStatus] || newStatus;
+        const cur = orders.find((o) => o.id === orderId);
         try {
-            await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-                status: newStatus,
-                orderStatus: ADMIN_TO_ORDER_STATUS[newStatus] || newStatus,
-                updatedAt: new Date(),
-            });
+            // '완료' · '취소' 는 앱과 같은 경로(updateOrderStatus)로 — 직접 updateDoc 하면
+            //  완료 포인트 지급 · H포인트 에스크로 배분/환급이 빠졌다 (D12)
+            //  이미 그 상태인 오더는 정산이 두 번 돌지 않게 영문 status 만 맞춘다
+            const isSettleStatus = nextOrderStatus === "완료" || nextOrderStatus === "취소";
+            if (isSettleStatus && cur?.orderStatus !== nextOrderStatus) {
+                await updateOrderStatus(orderId, nextOrderStatus, { status: newStatus });
+            } else {
+                await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+                    status: newStatus,
+                    orderStatus: nextOrderStatus,
+                    updatedAt: new Date(),
+                });
+            }
             setOrders((prev) =>
                 prev.map((o) =>
                     o.id === orderId
-                        ? { ...o, status: newStatus, updatedAt: new Date() }
+                        ? { ...o, status: newStatus, orderStatus: nextOrderStatus, updatedAt: new Date() }
                         : o
                 )
             );
@@ -141,6 +152,7 @@ const AdminMatchingPage = () => {
                 setSelectedOrder((prev) => ({
                     ...prev,
                     status: newStatus,
+                    orderStatus: nextOrderStatus,
                     updatedAt: new Date(),
                 }));
             }

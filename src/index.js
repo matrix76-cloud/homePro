@@ -5,6 +5,7 @@ import './index.css';
 import App from './App';
 import { UserProvider } from './context/User';
 import { initDarkMode } from './utility/darkMode';
+import ErrorBoundary from './components/ErrorBoundary';
 
 initDarkMode();
 
@@ -28,10 +29,12 @@ initDarkMode();
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <UserProvider>
-        <App />
-      </UserProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <UserProvider>
+          <App />
+        </UserProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -186,12 +186,16 @@ export function callTrainer(n) {
   window.location.href = `tel:${n.phone}`;
 }
 
-/** 채팅 문의 — 수강생은 무료 */
+/** 채팅 문의 — 수강생은 무료
+ *  진행 중 잠금: 방 찾기·만들기가 끝나기 전에 두 번 누르면 방이 두 개 생겼다 → 한 번만 돌게 */
+let _chatTrainerBusy = false;
 export async function chatTrainer(n, userData, navigate) {
   const myUid = userData?.uid;
   if (!myUid) { window.alert("로그인이 필요합니다."); return; }
   if (!n.authorUid) { window.alert("등록자 정보가 없어 채팅할 수 없습니다. 전화로 문의해 주세요."); return; }
   if (n.authorUid === myUid) { window.alert("본인이 등록한 교육입니다."); return; }
+  if (_chatTrainerBusy) return;
+  _chatTrainerBusy = true;
   try {
     const roomId = await createChatRoom(
       myUid,
@@ -206,5 +210,7 @@ export async function chatTrainer(n, userData, navigate) {
   } catch (e) {
     console.error("채팅 시작 실패:", e);
     window.alert("채팅방을 열지 못했습니다.");
+  } finally {
+    _chatTrainerBusy = false;
   }
 }

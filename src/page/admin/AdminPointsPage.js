@@ -158,7 +158,7 @@ const AmountText = styled.span`
     font-weight: 600;
     color: ${({ $type }) =>
         $type === "earn" ? THEME.success :
-        $type === "refund" ? THEME.primary :
+        $type === "refund" || $type === "transfer_in" ? THEME.primary :
         THEME.danger};
 `;
 
@@ -463,7 +463,18 @@ const TYPE_MAP = {
     earn: { label: "적립", bg: THEME.success, color: "#fff" },
     use: { label: "사용", bg: THEME.danger, color: "#fff" },
     refund: { label: "환불", bg: THEME.primary, color: "#fff" },
+    // 실제 결제 · 에스크로가 쓰는 유형 (D13) — spend: 구독료·오더 보관 차감(금액 음수), transfer_in: 보관 포인트 지급·환급(양수)
+    spend: { label: "사용", bg: THEME.danger, color: "#fff" },
+    transfer_in: { label: "이체 입금", bg: THEME.primary, color: "#fff" },
 };
+
+// 탭별로 묶어 보여 줄 유형 — 사용 탭엔 spend, 환불 탭엔 transfer_in 도 (D13)
+const TAB_TYPES = {
+    earn: ["earn"],
+    use: ["use", "spend"],
+    refund: ["refund", "transfer_in"],
+};
+const isOutgoingType = (type) => type === "use" || type === "spend";
 
 const PAGE_SIZE = 20;
 
@@ -481,14 +492,15 @@ const formatDate = (v) => {
 };
 
 const formatAmount = (type, amount) => {
-    const num = Number(amount) || 0;
-    const sign = type === "use" ? "-" : "+";
+    // spend 는 금액이 이미 음수로 저장된다 — 부호는 유형으로 붙이고 숫자는 절댓값
+    const num = Math.abs(Number(amount) || 0);
+    const sign = isOutgoingType(type) ? "-" : "+";
     return `${sign}${num.toLocaleString()}원`;
 };
 
 // ─── Component ───
 
-const FILTER_LABELS = { all: "전체 내역", earn: "적립 내역", use: "사용 내역", refund: "환불 내역" };
+const FILTER_LABELS = { all: "전체 내역", earn: "적립 내역", use: "사용 내역", refund: "환불 · 이체 입금 내역" };
 
 const AdminPointsPage = () => {
     const { filter } = useParams();
@@ -631,7 +643,8 @@ const AdminPointsPage = () => {
     // filter by tab
     const tabFiltered = useMemo(() => {
         if (tab === "all") return records;
-        return records.filter((r) => r.type === tab);
+        const types = TAB_TYPES[tab] || [tab];
+        return records.filter((r) => types.includes(r.type));
     }, [records, tab]);
 
     // filter by search
@@ -689,7 +702,8 @@ const AdminPointsPage = () => {
             // 원장에만 기록돼 사용자 내역엔 뜨는데 상단 잔액 P 는 그대로였음)
             try {
                 const { doc: docRef, updateDoc: upd, increment } = await import("firebase/firestore");
-                const delta = form.type === "earn" ? Number(form.amount) : -Number(form.amount);
+                // 환불은 돌려주는 것이라 잔액 + (그동안 차감해 대시보드 집계와 반대였다 — D13)
+                const delta = form.type === "use" ? -Number(form.amount) : Number(form.amount);
                 await upd(docRef(db, "users", form.uid.trim()), { referralPoints: increment(delta) });
             } catch (e) {
                 console.warn("사용자 잔액 반영 실패:", e.message);

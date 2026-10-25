@@ -28,6 +28,22 @@ export async function getPosts(type) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.hidden);
 }
 
+/**
+ * 공지·이벤트 목록 — 관리자 [공지 관리]가 쓰는 notices 컬렉션 {title, content, category, pinned, createdAt}.
+ * 커뮤니티 '이벤트/공지' 탭과 /notice 가 같은 목록을 보여 주도록 한 곳에서 읽는다.
+ * 고정(pinned) 공지를 먼저, 그 안에서는 최신순.
+ */
+export async function getNotices() {
+  const snap = await getDocs(query(collection(db, "notices"), orderBy("createdAt", "desc")));
+  const toMs = (ts) => (ts?.toMillis ? ts.toMillis() : ts?.seconds ? ts.seconds * 1000 : ts ? new Date(ts).getTime() || 0 : 0);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return toMs(b.createdAt) - toMs(a.createdAt);
+    });
+}
+
 /** 게시글 상세 조회 — includeHidden: 관리자가 가려진 글을 확인할 때 */
 export async function getPostById(postId, { includeHidden = false } = {}) {
   const snap = await getDoc(doc(db, "community_posts", postId));

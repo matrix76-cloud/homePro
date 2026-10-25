@@ -13,7 +13,7 @@ import PcHeader from "./components/pc/PcHeader";
 import { PcSidebar, PcTopBar, PC_SIDE_W, PC_TOP_H } from "./components/pc/PcAppShell";
 import PcOrdersPage from "./pc/PcOrdersPage";
 import PcAuthSplit from "./components/pc/PcAuthSplit";
-import { attachMessageListener, postToRN, sendNavState, isIosApp } from "./bridge/webviewBridge";
+import { attachMessageListener, postToRN, sendNavState, sendWebReady, isInRnWebView, isIosApp } from "./bridge/webviewBridge";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -28,7 +28,7 @@ const IS_BRAND_DOMAIN =
 function RootRedirect() {
   const { loading, isLoggedIn } = useAuth();
   if (!IS_BRAND_DOMAIN) return <Navigate to="/MobileSplash" replace />;
-  if (loading) return null;
+  if (loading) return <AuthLoading />;
   return <Navigate to={isLoggedIn ? "/MobileMain" : "/intro"} replace />;
 }
 
@@ -49,11 +49,14 @@ import RequireAuth from "./components/guards/RequireAuth";
 import RequirePhone from "./components/guards/RequirePhone";
 import RequireAdmin from "./components/guards/RequireAdmin";
 import AdminLayout from "./components/admin/AdminLayout";
+import AuthLoading from "./components/AuthLoading";
+import NotFoundPage from "./page/NotFoundPage";
 
 /* Pages */
-import ColorLab from "./dev/ColorLab";
-import IconLab from "./dev/IconLab";
-import DesignLab from "./dev/DesignLab";
+/* 시안 랩 · 랜딩 · 시드 로그인 — 사용자가 거의 안 여는 화면은 따로 받는다(main.js 3.7MB 를 줄이려고, 10/25) */
+const ColorLab = React.lazy(() => import("./dev/ColorLab"));
+const IconLab = React.lazy(() => import("./dev/IconLab"));
+const DesignLab = React.lazy(() => import("./dev/DesignLab"));
 import MobileSplashpage from "./page/main/MobileSplashpage";
 import MobileLoginpage from "./page/main/MobileLoginpage";
 import MobileSignuppage from "./page/main/MobileSignuppage";
@@ -88,12 +91,12 @@ import PayFailPage from "./page/pay/PayFailPage";
 import BillingSuccessPage from "./page/pay/BillingSuccessPage";
 import RequireInsuranceAdmin from "./page/insurance-admin/RequireInsuranceAdmin";
 import InsuranceAdminLayout from "./page/insurance-admin/InsuranceAdminLayout";
-import InsAdminDashboardPage from "./page/insurance-admin/InsAdminDashboardPage";
-import InsAdminPoliciesPage from "./page/insurance-admin/InsAdminPoliciesPage";
-import InsAdminSettlementPage from "./page/insurance-admin/InsAdminSettlementPage";
-import InsAdminClaimsPage from "./page/insurance-admin/InsAdminClaimsPage";
-import InsAdminSettingsPage from "./page/insurance-admin/InsAdminSettingsPage";
-import AdminPaymentsPage from "./page/admin/AdminPaymentsPage";
+const InsAdminDashboardPage = React.lazy(() => import("./page/insurance-admin/InsAdminDashboardPage"));
+const InsAdminPoliciesPage = React.lazy(() => import("./page/insurance-admin/InsAdminPoliciesPage"));
+const InsAdminSettlementPage = React.lazy(() => import("./page/insurance-admin/InsAdminSettlementPage"));
+const InsAdminClaimsPage = React.lazy(() => import("./page/insurance-admin/InsAdminClaimsPage"));
+const InsAdminSettingsPage = React.lazy(() => import("./page/insurance-admin/InsAdminSettingsPage"));
+const AdminPaymentsPage = React.lazy(() => import("./page/admin/AdminPaymentsPage"));
 import PaymentHistoryPage from "./page/mypage/PaymentHistoryPage";
 import PgPaymentPage from "./page/mypage/PgPaymentPage";
 import PgLinkPage from "./page/pay/PgLinkPage";
@@ -101,9 +104,9 @@ import BrokerageDetailPage from "./page/main/BrokerageDetailPage";
 import ProfileViewPage from "./page/profile/ProfileViewPage";
 import BrokeragePage from "./page/main/BrokeragePage";
 import BrokerageCreatePage from "./page/main/BrokerageCreatePage";
-import SeedLoginPage from "./page/test/SeedLoginPage";
-import LandingPage from "./page/landing/LandingPage";
-import AppDownloadPage from "./page/landing/AppDownloadPage";
+const SeedLoginPage = React.lazy(() => import("./page/test/SeedLoginPage"));
+const LandingPage = React.lazy(() => import("./page/landing/LandingPage"));
+const AppDownloadPage = React.lazy(() => import("./page/landing/AppDownloadPage"));
 import CategoryProListPage from "./page/category/CategoryProListPage";
 import ServiceDetailPage from "./page/category/ServiceDetailPage";
 import ProCategoryRegisterPage from "./page/pro/ProCategoryRegisterPage";
@@ -141,22 +144,22 @@ import AppSettingsPage from "./page/mypage/AppSettingsPage";
 import BlacklistPage from "./page/mypage/BlacklistPage";
 import BlacklistBoardPage from "./page/mypage/BlacklistBoardPage";
 
-/* Admin Pages */
-import AdminLoginPage from "./page/admin/AdminLoginPage";
-import AdminDashboardPage from "./page/admin/AdminDashboardPage";
-import AdminUsersPage from "./page/admin/AdminUsersPage";
-import AdminMatchingPage from "./page/admin/AdminMatchingPage";
-import AdminChatPage from "./page/admin/AdminChatPage";
-import AdminAdsPage from "./page/admin/AdminAdsPage";
-import AdminPointsPage from "./page/admin/AdminPointsPage";
-import AdminNoticePage from "./page/admin/AdminNoticePage";
-import AdminUpdatesPage from "./page/admin/AdminUpdatesPage";
-import AdminSettingsPage from "./page/admin/AdminSettingsPage";
-import AdminSettlementPage from "./page/admin/AdminSettlementPage";
-import AdminProApprovalPage from "./page/admin/AdminProApprovalPage";
-import AdminBlacklistPage from "./page/admin/AdminBlacklistPage";
-import AdminReportsPage from "./page/admin/AdminReportsPage";
-import AdminInsuranceInquiriesPage from "./page/admin/AdminInsuranceInquiriesPage";
+/* Admin Pages — 운영자만 쓰는 화면이라 따로 받는다(lazy). 그래프(recharts) 같은 큰 라이브러리가 main.js 에서 빠진다 */
+const AdminLoginPage = React.lazy(() => import("./page/admin/AdminLoginPage"));
+const AdminDashboardPage = React.lazy(() => import("./page/admin/AdminDashboardPage"));
+const AdminUsersPage = React.lazy(() => import("./page/admin/AdminUsersPage"));
+const AdminMatchingPage = React.lazy(() => import("./page/admin/AdminMatchingPage"));
+const AdminChatPage = React.lazy(() => import("./page/admin/AdminChatPage"));
+const AdminAdsPage = React.lazy(() => import("./page/admin/AdminAdsPage"));
+const AdminPointsPage = React.lazy(() => import("./page/admin/AdminPointsPage"));
+const AdminNoticePage = React.lazy(() => import("./page/admin/AdminNoticePage"));
+const AdminUpdatesPage = React.lazy(() => import("./page/admin/AdminUpdatesPage"));
+const AdminSettingsPage = React.lazy(() => import("./page/admin/AdminSettingsPage"));
+const AdminSettlementPage = React.lazy(() => import("./page/admin/AdminSettlementPage"));
+const AdminProApprovalPage = React.lazy(() => import("./page/admin/AdminProApprovalPage"));
+const AdminBlacklistPage = React.lazy(() => import("./page/admin/AdminBlacklistPage"));
+const AdminReportsPage = React.lazy(() => import("./page/admin/AdminReportsPage"));
+const AdminInsuranceInquiriesPage = React.lazy(() => import("./page/admin/AdminInsuranceInquiriesPage"));
 
 /* Dev 전용 — 리뷰 허브 (프로덕션 빌드에서 라우트 게이트로 제외, lazy로 청크 분리) */
 const AuthReview = React.lazy(() => import("./dev/AuthReview"));
@@ -277,7 +280,23 @@ const AnimatedRoutes = () => {
     const path = location.pathname || "/";
     const isRoot = APP_ROOT_PATHS.includes(path);
     sendNavState({ path, isRoot, canGoBackInWeb: !isRoot && window.history.length > 1 });
+    // 안드로이드 WebView 는 pushState 만 해도 onLoadStart 를 불러 셸이 webReady=false 로 돌린다.
+    // 그러면 셸→웹 메시지(뒤로가기 · 푸시 배너 · 알림 탭 이동 · 토큰)가 전부 대기열에 갇힌다 — 화면이 바뀔 때마다 준비 신호를 다시 보낸다 (10/25 전면 점검)
+    // 아이폰(WKWebView)은 pushState 에 onLoadStart 를 안 부르므로 안드로이드에서만 다시 보낸다
+    if (!isInRnWebView() || !/Android/i.test(navigator.userAgent)) return;
+    const t = setTimeout(() => sendWebReady({ path, reason: "nav" }), 300);
+    return () => clearTimeout(t);
   }, [location.pathname]);
+
+  // 앱이 다시 앞으로 오거나 뒤로가기(popstate)로 화면이 바뀐 뒤에도 같은 이유로 준비 신호를 다시 보낸다
+  useEffect(() => {
+    if (!isInRnWebView() || !/Android/i.test(navigator.userAgent)) return;
+    const again = () => setTimeout(() => sendWebReady({ path: window.location.pathname, reason: "resume" }), 300);
+    const onVis = () => { if (document.visibilityState === "visible") again(); };
+    window.addEventListener("popstate", again);
+    document.addEventListener("visibilitychange", onVis);
+    return () => { window.removeEventListener("popstate", again); document.removeEventListener("visibilitychange", onVis); };
+  }, []);
 
   const isGalaxyFlipUnfolded = useMediaQuery({ minWidth: 450, maxWidth: 767 });
 
@@ -417,6 +436,8 @@ const AnimatedRoutes = () => {
       <Wrapper>
         <ToastContainer position="bottom-center" hideProgressBar closeButton={false} newestOnTop limit={2} />
         <PushToastStyle />
+        {/* 따로 받는 화면(lazy)이 내려오는 동안은 첫 로딩과 같은 로고 + 고리 */}
+        <React.Suspense fallback={<AuthLoading />}>
         <Routes location={location} key={location.pathname}>
           {/* Public - 인증 불필요 */}
           {/* 대표 도메인(tryhomepro.com)으로 들어오면 인트로가 첫 화면. 앱(WebView)·web.app 은 그대로 스플래시 */}
@@ -600,7 +621,11 @@ const AnimatedRoutes = () => {
               <Route path="settings/:filter" element={<AdminSettingsPage />} />
             </Route>
           </Route>
+
+          {/* 없는 주소 — 빈 화면 대신 안내 (10/25 전면 점검) */}
+          <Route path="*" element={wrap(<NotFoundPage />)} />
         </Routes>
+        </React.Suspense>
       </Wrapper>
     </AnimatePresence>
     </PcBody>

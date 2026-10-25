@@ -1,7 +1,7 @@
 /* eslint-disable */
 // 공동중개 = 공인중개 라운지 — 손님찾기/매물등록 카드 피드 + 채팅 매칭
 import { getBrokerStatus } from "../../service/BrokerService";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
@@ -102,11 +102,15 @@ const BrokeragePage = () => {
     if (window.confirm(msg + "\n\n지금 인증하러 갈까요?")) navigate("/pro/register-category?category=brokerage");
   };
 
+  const chatLockRef = useRef(false);
   const startChat = async (post) => {
     if (!uid) { window.alert("로그인이 필요합니다."); return; }
     if (post.authorUid === uid) { window.alert("본인 게시글입니다."); return; }
     // 손님공유(demand) 상세·연결은 공인중개사만, 매물공유(listing)는 회원이면 가능 (대표 9/10)
     if (post.type === "demand" && !isBroker) { askRegister(); return; }
+    // 진행 중 잠금 — 방 찾기·만들기가 끝나기 전 두 번째 누름으로 방이 두 개 생기지 않게
+    if (chatLockRef.current) return;
+    chatLockRef.current = true;
     try {
       const myName = userData?.companyName || userData?.nickname || userData?.name || "중개사";
       const myPhoto = userData?.profileImage || userData?.photoURL || "";
@@ -117,6 +121,7 @@ const BrokeragePage = () => {
       );
       navigate(`/chat/${roomId}`);
     } catch (e) {
+      chatLockRef.current = false;
       window.alert("채팅방을 열지 못했습니다.");
     }
   };

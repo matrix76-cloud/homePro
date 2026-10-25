@@ -80,7 +80,21 @@ const MarketplaceCreatePage = () => {
     });
   };
 
+  // 등록 잠금 — 첫 줄에서 잠그고, 성공하면 화면을 옮길 때까지 풀지 않는다.
+  // (예전엔 성공 뒤 0.6초 이동 대기 사이에 버튼이 다시 살아나 두 번 등록될 수 있었다)
+  const submitLockRef = useRef(false);
   const handleSubmit = async () => {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    let succeeded = false;
+    try {
+      await doSubmit(() => { succeeded = true; });
+    } finally {
+      if (!succeeded) submitLockRef.current = false;
+    }
+  };
+
+  const doSubmit = async (markSucceeded) => {
     if (!canWrite) return showToast(isIosApp() ? "이 계정에서는 등록할 수 없습니다" : "월 구독 사업자만 등록할 수 있습니다");
     if (!category) return showToast("거래 형태를 선택해주세요");
     if (!title.trim()) return showToast("제목을 입력해주세요");
@@ -125,12 +139,12 @@ const MarketplaceCreatePage = () => {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      markSucceeded();
       showToast("등록되었습니다");
       setTimeout(() => navigate(-1), 600);
     } catch (e) {
       console.error(e);
       showToast("등록에 실패했습니다");
-    } finally {
       setSubmitting(false);
     }
   };

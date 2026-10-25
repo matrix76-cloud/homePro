@@ -19,7 +19,8 @@ import {
 } from "../insurance/insuranceStyles";
 
 const WIDGET_MIN_H = 420; // 결제수단(약 300) + 약관(약 100) — 위젯이 늦게 떠도 화면이 흔들리지 않게
-const VALID_PURPOSES = ["insurance_yearly", "insurance_order", "subscription"];
+// 구독은 단건 결제가 아니라 카드 등록(자동결제)로만 — /subscription 화면이 맡는다 (D14, 형 확정 10/13)
+const VALID_PURPOSES = ["insurance_yearly", "insurance_order"];
 
 const PayPage = () => {
   const navigate = useNavigate();
@@ -47,6 +48,8 @@ const PayPage = () => {
   // 결제 준비 + 위젯은 한 번만 (StrictMode 이중 실행 방지)
   useEffect(() => {
     if (!uid || inited.current) return;
+    // 옛 링크 · 다시 시도로 구독 단건 결제에 들어오면 구독 화면으로 (1개월 단건이 결제되던 구멍 — D14)
+    if (purpose === "subscription") { navigate("/subscription", { replace: true }); return; }
     if (!VALID_PURPOSES.includes(purpose)) { setErr("결제 목적이 올바르지 않습니다."); return; }
     if (purpose === "insurance_order" && !refId) { setErr("오더 정보가 없습니다."); return; }
     inited.current = true;

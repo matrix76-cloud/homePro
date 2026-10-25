@@ -25,6 +25,19 @@ import {
   processPayment, completeWork, submitReview, cancelOrder, sendSystemMessage,
 } from "../../service/ChatService";
 import { updateOrderStatus, REVIEW_MIN_LENGTH } from "../../service/OrderService";
+import { isInRnWebView } from "../../bridge/webviewBridge";
+
+// 파일·사진 원본을 바깥에서 연다 — 앱(RN 웹뷰)은 새 창을 못 열어 window.open 이 같은 웹뷰를
+// 덮어 앱이 갇힌다. 앱이면 껍데기에 "open::"+주소 를 보내 폰 브라우저·뷰어로 열게 한다
+// (껍데기는 decodeURI 로 풀기 때문에 encodeURI 로 한 번 감싸 원래 주소가 그대로 가게).
+const openOutside = (url) => {
+  if (!url) return;
+  if (isInRnWebView()) {
+    try { window.ReactNativeWebView.postMessage("open::" + encodeURI(url)); } catch (e) {}
+    return;
+  }
+  window.open(url, "_blank", "noopener");
+};
 
 const formatMsgTime = (timestamp) => {
   if (!timestamp) return "";
@@ -60,6 +73,8 @@ const ChatDetailPage = () => {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // 사진 크게 보기 — 앱 안 오버레이 (window.open 대신)
+  const [viewerUrl, setViewerUrl] = useState(null);
 
   /* ─── 인라인 일정 생성 (기간 선택, 여러 건) ─── */
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -99,9 +114,11 @@ const ChatDetailPage = () => {
   // 입장 시 + 방을 보고 있는 동안 새 메시지 수신 시 unread 초기화
   // (전수검사 7/29: 입장 1회만 지워서, 보고 있는 대화에 뱃지가 계속 쌓이고
   //  상대에겐 안읽음 "1" 이 지워지지 않던 문제)
+  // 방 문서 구독값으로 판단 — 보고 있는 동안 상대가 보내 내 안 읽은 수가 다시 오르면 바로 지운다
+  const myUnread = Number(room?.unreadCount?.[myUid] || 0);
   useEffect(() => {
-    if (roomId && myUid) clearUnread(roomId, myUid);
-  }, [roomId, myUid, messages.length]);
+    if (roomId && myUid) clearUnread(roomId, myUid, myUnread);
+  }, [roomId, myUid, messages.length, myUnread]);
 
   // 메시지 실시간 수신
   useEffect(() => {
@@ -640,13 +657,13 @@ const ChatDetailPage = () => {
   const reviewAutoOpened = useRef(false);
   useEffect(() => {
     if (!navState?.openReview || reviewAutoOpened.current) return;
-    if (!room || hasReview) return;
+    if (!room || hasReview || orderData?.reviewed) return;
     reviewAutoOpened.current = true;
     handleOpenReview();
     // 뒤로가기·새로고침에 다시 열리지 않게 state 를 비운다
     try { navigate(`/chat/${roomId}`, { replace: true, state: {} }); } catch (e) {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navState?.openReview, room, hasReview]);
+  }, [navState?.openReview, room, hasReview, orderData?.reviewed]);
 
   // 리뷰 포인트 적립 조건: 별점 등록 + 본문 15자 이상 (대표 확정 2026-07-30)
   const reviewPointEligible = reviewRating > 0 && reviewText.trim().length >= REVIEW_MIN_LENGTH;
@@ -690,10 +707,17 @@ const ChatDetailPage = () => {
           });
         }
       } catch {}
+      setOrderData((prev) => prev ? { ...prev, reviewed: true } : prev);
       setShowReviewSheet(false);
       showToast("리뷰가 등록되었습니다");
     } catch (e) {
-      showToast("리뷰 등록에 실패했습니다");
+      if (e?.message === "이미 리뷰를 등록했습니다") {
+        setOrderData((prev) => prev ? { ...prev, reviewed: true } : prev);
+        setShowReviewSheet(false);
+        showToast("이미 리뷰를 등록했습니다");
+      } else {
+        showToast("리뷰 등록에 실패했습니다");
+      }
     } finally { setReviewSending(false); }
   };
 
@@ -769,7 +793,7 @@ const ChatDetailPage = () => {
           <OrderInfoText>{orderData.title || "오더 상세 보기"}</OrderInfoText>
           {/* 완료된 오더 — 접수자가 리뷰 작성 (전수검사 7/29: handleOpenReview 를 부르는
               UI 가 없어서 리뷰 파이프라인 전체가 도달 불가였음. 유일한 진입점 복원) */}
-          {orderDisplayStatus === "완료" && isOrderOwner ? (
+          {orderDisplayStatus === "완료" && isOrderOwner && !hasReview && !orderData?.reviewed ? (
             <ReviewOpenBtn onClick={(e) => { e.stopPropagation(); handleOpenReview(); }}>리뷰 작성</ReviewOpenBtn>
           ) : (
             <OrderInfoArrow>상세보기 ›</OrderInfoArrow>
@@ -1088,7 +1112,7 @@ const ChatDetailPage = () => {
                         </EditActions>
                       </EditWrap>
                     ) : msg.type === "image" ? (
-                      <ImageBubble $isMine={isMine} onClick={() => window.open(msg.fileUrl, "_blank")}>
+                      <ImageBubble $isMine={isMine} onClick={() => setViewerUrl(msg.fileUrl)}>
                         <ChatImage src={msg.fileUrl} alt="이미지" />
                       </ImageBubble>
                     ) : (msg.type === "schedule" || msg.type === "schedules") ? (
@@ -1201,7 +1225,7 @@ const ChatDetailPage = () => {
                         );
                       })()
                     ) : msg.type === "file" ? (
-                      <FileBubble $isMine={isMine} onClick={() => window.open(msg.fileUrl, "_blank")}>
+                      <FileBubble $isMine={isMine} onClick={() => openOutside(msg.fileUrl)}>
                         <FileIcon $isMine={isMine}><IoDocumentOutline size={20} /></FileIcon>
                         <FileInfo>
                           <FileName $isMine={isMine}>{msg.fileName}</FileName>
@@ -1386,6 +1410,24 @@ const ChatDetailPage = () => {
           onClose={() => setReportOpen(false)}
           showToast={showToast}
         />
+      )}
+
+      {viewerUrl && (
+        <ViewerOverlay onClick={() => setViewerUrl(null)}>
+          <ViewerTop>
+            <ViewerCloseBtn onClick={(e) => { e.stopPropagation(); setViewerUrl(null); }} aria-label="닫기">
+              <IoCloseOutline size={28} />
+            </ViewerCloseBtn>
+          </ViewerTop>
+          <ViewerBody>
+            <ViewerImg src={viewerUrl} alt="사진" onClick={(e) => e.stopPropagation()} />
+          </ViewerBody>
+          <ViewerBottom>
+            <ViewerOpenBtn onClick={(e) => { e.stopPropagation(); openOutside(viewerUrl); }}>
+              <IoDownloadOutline size={18} /> 원본 열기 · 저장
+            </ViewerOpenBtn>
+          </ViewerBottom>
+        </ViewerOverlay>
       )}
 
       {toast && <ChatToast>{toast}</ChatToast>}
@@ -1999,6 +2041,74 @@ const ChatImage = styled.img`
   width: 100%;
   max-height: 250px;
   object-fit: cover;
+`;
+
+/* ─── 사진 크게 보기 오버레이 ─── */
+
+const ViewerOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  background: rgba(0,0,0,0.92);
+  display: flex;
+  flex-direction: column;
+`;
+
+const ViewerTop = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 12px 0;
+  flex-shrink: 0;
+`;
+
+const ViewerCloseBtn = styled.button`
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+`;
+
+const ViewerBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+`;
+
+const ViewerImg = styled.img`
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+`;
+
+const ViewerBottom = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+`;
+
+const ViewerOpenBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
 `;
 
 const FileBubble = styled.div`

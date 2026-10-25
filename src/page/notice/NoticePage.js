@@ -1,9 +1,9 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import styled from "styled-components";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
-import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
+import { getNotices } from "../../service/CommunityService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoChevronDown, IoChevronUp } from "react-icons/io5";
 import usePcWide from "../../hooks/usePcWide";
@@ -16,16 +16,17 @@ const formatDate = (ts) => {
 
 const NoticePage = () => {
     const pcWide = usePcWide();
-    const [openId, setOpenId] = useState(null);
+    // 커뮤니티 '이벤트/공지' 탭에서 누르고 오면 ?id= 로 그 공지를 펼친 채 연다
+    const [searchParams] = useSearchParams();
+    const [openId, setOpenId] = useState(() => searchParams.get("id"));
     const [notices, setNotices] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         (async () => {
             try {
-                const q = query(collection(db, "notices"), orderBy("createdAt", "desc"));
-                const snap = await getDocs(q);
-                setNotices(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+                // 관리자 저장 형식 notices{title,content,category,pinned,createdAt} — 고정 공지 먼저
+                setNotices(await getNotices());
             } catch (e) {
                 console.error("공지사항 로드 실패:", e);
             } finally {
@@ -33,6 +34,15 @@ const NoticePage = () => {
             }
         })();
     }, []);
+
+    // ?id= 로 연 공지가 화면 밖이면 그 자리로 내린다
+    useEffect(() => {
+        const target = searchParams.get("id");
+        if (loading || !target) return;
+        const el = document.getElementById(`notice-${target}`);
+        if (el) el.scrollIntoView({ block: "start" });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading]);
 
     const toggle = (id) => setOpenId(openId === id ? null : id);
 
@@ -49,10 +59,10 @@ const NoticePage = () => {
                     notices.map((n) => {
                         const isOpen = openId === n.id;
                         return (
-                            <NoticeItem key={n.id}>
+                            <NoticeItem key={n.id} id={`notice-${n.id}`}>
                                 <NoticeRow onClick={() => toggle(n.id)}>
                                     <NoticeLeft>
-                                        <NoticeMeta><span className="kind">{n.badge || "공지"}</span><span className="dot"> · </span><span className="date">{formatDate(n.createdAt)}</span></NoticeMeta>
+                                        <NoticeMeta>{n.pinned && <span className="pin">고정<span className="dot"> · </span></span>}<span className="kind">{n.category || n.badge || "공지"}</span><span className="dot"> · </span><span className="date">{formatDate(n.createdAt)}</span></NoticeMeta>
                                         <NoticeTitle>{n.title}</NoticeTitle>
                                         {!isOpen && n.content && (
                                             <NoticeLead>{String(n.content).split("\n")[0]}</NoticeLead>
@@ -139,9 +149,11 @@ const NoticeLeft = styled.div`
 const NoticeMeta = styled.div`
     font-size: 13px;
     color: ${THEME.muted};
+    .pin { color: ${THEME.primary}; font-weight: 600; }
     .pc-mode & {
         display: contents;
         .kind { grid-column: 1; grid-row: 1; font-size: 16px; font-weight: 700; color: #14181F; }
+        .pin { grid-column: 1; grid-row: 2; font-size: 14px; color: ${THEME.primary}; margin-top: 4px; }
         .dot { display: none; }
         .date { grid-column: 3; grid-row: 1; font-size: 16px; color: #14181F; }
     }

@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
 import { FAQ_CATEGORIES, FAQ_ITEMS as ALL_FAQ_ITEMS, searchFaq } from "../../config/faqData";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { isIosApp } from "../../bridge/webviewBridge";
+import { isIosApp, isInRnWebView } from "../../bridge/webviewBridge";
 import {
     IoChevronDown, IoChevronUp, IoChevronForward,
     IoCallOutline, IoMailOutline, IoChatbubbleEllipsesOutline,
@@ -15,6 +15,19 @@ import {
 const FAQ_ITEMS = ALL_FAQ_ITEMS.filter((i) => !(isIosApp() && (i.id === "bl-02" || /구독|충전/.test(`${i.q} ${i.a}`))));
 
 const ALL = "all";
+
+// 연락처 줄 누르기 — 앱(RN 웹뷰)이면 껍데기에 "open::"+주소 를 보내 전화·메일·카카오톡 앱으로 넘기고
+// (웹뷰 안에서 https 를 열면 앱이 그 페이지에 갇힌다), 웹이면 tel:/mailto: 는 바로, https 는 새 창.
+// 껍데기는 decodeURI 로 풀기 때문에 encodeURI 로 감싸 보낸다.
+const openContact = (url) => {
+    if (!url) return;
+    if (isInRnWebView()) {
+        try { window.ReactNativeWebView.postMessage("open::" + encodeURI(url)); } catch (e) {}
+        return;
+    }
+    if (/^https?:/i.test(url)) window.open(url, "_blank", "noopener");
+    else window.location.href = url;
+};
 
 const SupportPage = () => {
     const nav = useNavigate();
@@ -36,6 +49,13 @@ const SupportPage = () => {
     }, []);
 
     const searching = keyword.trim().length > 0;
+
+    // 연락처 링크 — 값이 있을 때만 눌린다
+    const phoneDigits = String(companyInfo?.phone || "").replace(/[^0-9+]/g, "");
+    const phoneHref = phoneDigits ? `tel:${phoneDigits}` : "";
+    const emailHref = companyInfo?.email ? `mailto:${String(companyInfo.email).trim()}` : "";
+    // 카카오톡 채널 주소(https://pf.kakao.com/...)는 settings/companyInfo 의 kakaoChannelUrl 에서 읽는다
+    const kakaoHref = String(companyInfo?.kakaoChannelUrl || companyInfo?.kakaoUrl || "").trim();
 
     // 검색어가 있으면 카테고리 필터를 무시하고 전체에서 찾는다 (찾으려는 답이 다른 주제에 있어도 걸리게)
     const results = useMemo(() => {
@@ -156,7 +176,7 @@ const SupportPage = () => {
                 {/* 연락처 */}
                 <ContactHead>해결되지 않으셨나요?</ContactHead>
                 <ContactCard>
-                    <ContactRow>
+                    <ContactRow $tap={!!phoneHref} onClick={() => openContact(phoneHref)} role={phoneHref ? "button" : undefined}>
                         <ContactIcon><IoCallOutline size={20} color={THEME.primary} /></ContactIcon>
                         <ContactInfo>
                             <ContactLabel>전화 문의</ContactLabel>
@@ -165,7 +185,7 @@ const SupportPage = () => {
                         <ContactSub>{companyInfo?.phone ? "평일 09:00 ~ 18:00" : ""}</ContactSub>
                     </ContactRow>
                     <Divider />
-                    <ContactRow>
+                    <ContactRow $tap={!!emailHref} onClick={() => openContact(emailHref)} role={emailHref ? "button" : undefined}>
                         <ContactIcon><IoMailOutline size={20} color={THEME.primary} /></ContactIcon>
                         <ContactInfo>
                             <ContactLabel>이메일 문의</ContactLabel>
@@ -174,7 +194,7 @@ const SupportPage = () => {
                         <ContactSub>{companyInfo?.email ? "24시간 접수" : ""}</ContactSub>
                     </ContactRow>
                     <Divider />
-                    <ContactRow>
+                    <ContactRow $tap={!!kakaoHref} onClick={() => openContact(kakaoHref)} role={kakaoHref ? "button" : undefined}>
                         <ContactIcon><IoChatbubbleEllipsesOutline size={20} color={THEME.primary} /></ContactIcon>
                         <ContactInfo>
                             <ContactLabel>카카오톡 문의</ContactLabel>
@@ -436,6 +456,8 @@ const ContactRow = styled.div`
     align-items: center;
     padding: 16px 20px;
     gap: 12px;
+    cursor: ${({ $tap }) => ($tap ? "pointer" : "default")};
+    ${({ $tap }) => ($tap ? `&:active { background: ${THEME.background}; } .pc-mode &:hover { background: #f4f6f8; }` : "")}
     .pc-mode & { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px 12px; padding: 20px 22px; align-items: center; }
 `;
 

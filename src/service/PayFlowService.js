@@ -72,7 +72,51 @@ export function getMoneyPriceAmount(order) {
     const q = order.applicantQuotes && order.matchedProUid ? order.applicantQuotes[order.matchedProUid] : null;
     return q ? Number(q) || null : null;
   }
+  // 팀원.기술자 구인(worker_call) — 단가유형 없이 지급금액(wagePay)만 있다. 그 금액을 대체값으로 쓴다
+  if (!t && order.wagePay) return Number(order.wagePay.amount) || null;
   return null; // hpoint / info 는 돈이 아니다
+}
+
+/* ───────────────────────── 목록·화면 표기 (폰 오더목록 · PC 오더목록 · 접수 화면이 같이 쓴다) ───────────────────────── */
+
+/**
+ * 구인 지급금액 문구 — "일급 200,000원 · 당일 지급" / "협의 · 월 단위 지급"
+ *  withTiming=false 면 지급 시점은 빼고 "일급 200,000원" 까지만 (목록 칸용)
+ */
+export function formatWagePay(wagePay, { withTiming = true } = {}) {
+  if (!wagePay) return "";
+  const method = wagePay.method || "협의";
+  const n = Number(wagePay.amount) || 0;
+  const amt = method !== "협의" && n > 0 ? ` ${n.toLocaleString()}원` : "";
+  const t = wagePay.timing;
+  const timing = withTiming && t ? (t === "협의" ? " · 지급 시점 협의" : ` · ${t} 지급`) : "";
+  return `${method}${amt}${timing}`;
+}
+
+/** 오더목록 단가유형 칸 (사양: "잔금 320K" / "금액 260K" / "현장견적" / "견적요청" / "정보공유" / 구인은 "일급 200,000원") */
+export function formatPriceType(order) {
+  if (!order) return "";
+  const amt = Number(order.b2bPriceAmount) || 0;
+  const k = amt > 0 ? `${Math.round(amt / 1000).toLocaleString()}K` : "";
+  switch (order.b2bPriceType) {
+    case "balance": return amt > 0 ? `잔금 ${k}` : "잔금";
+    case "fixed":   return amt > 0 ? `금액 ${k}` : "금액";
+    case "hpoint":  return amt > 0 ? `H-P ${k}` : "H-P";
+    case "onsite":  return "현장견적";
+    case "estimate": return "견적요청";
+    case "info":    return "정보공유";
+    case "contract": return amt > 0 ? `도급 ${k}` : "도급";
+    case "sale":     return amt > 0 ? `매매 ${k}` : "매매";
+    default: break;
+  }
+  // 팀원.기술자 구인 — 단가유형 대신 지급금액 (대표 10/14)
+  if (order.wagePay) return formatWagePay(order.wagePay, { withTiming: false });
+  if (order.categoryId === "worker_call") return "협의";
+  if (order.priceType === "direct" && order.directPrice) {
+    const v = Number(String(order.directPrice).replace(/[^0-9]/g, ""));
+    return v > 0 ? `금액 ${Math.round(v / 1000).toLocaleString()}K` : "견적요청";
+  }
+  return "견적요청";
 }
 
 /**

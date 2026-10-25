@@ -17,6 +17,8 @@ export function isApprovalRequiredCategory(categoryId) {
  * @returns {string} 다운로드 URL
  */
 export async function uploadBusinessLicense(uid, categoryId, file) {
+    // 개인 프리랜서는 사업자등록증 없이 등록할 수 있다 — 파일이 없으면 빈 값 (B14)
+    if (!file) return "";
     const timestamp = Date.now();
     const storageRef = ref(storage, `homepro/licenses/${uid}/${categoryId}_${timestamp}.jpg`);
     await uploadBytes(storageRef, file);
@@ -93,6 +95,11 @@ export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls
         data.region = { sido: data.regions[0], gu: "전체" };
     } else if (region?.sido) {
         data.region = { sido: region.sido, gu: region.gu || "전체" };
+    } else {
+        // 지역이 비면 regions/region 이 모두 없어 proCoversRegion 이 false — 어떤 목록에도 안 보였다.
+        //  안전장치로 전국으로 저장 (B15)
+        data.regions = ["전국"];
+        data.region = { sido: "전국", gu: "전체" };
     }
     await setDoc(doc(db, COLLECTIONS.PROS, docId), data);
 }

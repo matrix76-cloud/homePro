@@ -17,7 +17,7 @@ export const ColorCases = [
 
 const ColorLab = ({ embedded = false }) => {
   const [tab, setTab] = useState(0);
-  const c = ColorCases.find((x) => x.no === tab) || CASES[0];
+  const c = ColorCases.find((x) => x.no === tab) || ColorCases[0];
   return (
     <Page>
       <Head>

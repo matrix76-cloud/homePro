@@ -63,11 +63,25 @@ exports.kakaoAuth = onCall({ region: "asia-northeast3" }, async (request) => {
         await admin.auth().getUser(uid);
     } catch (e) {
         if (e.code === "auth/user-not-found") {
-            await admin.auth().createUser({
-                uid,
-                email: email || undefined,
-                displayName: nickname || undefined,
-            });
+            try {
+                await admin.auth().createUser({
+                    uid,
+                    email: email || undefined,
+                    displayName: nickname || undefined,
+                });
+            } catch (ce) {
+                // (점검 B6) 같은 이메일로 이미 다른 방법(구글·이메일)으로 가입한 회원이 있으면
+                // auth/email-already-exists 로 영영 실패한다 → Auth 에는 이메일 없이 만들고, 이메일은 Firestore 문서에만 둔다.
+                if (ce.code === "auth/email-already-exists" && email) {
+                    await admin.auth().createUser({
+                        uid,
+                        displayName: nickname || undefined,
+                    });
+                } else if (ce.code !== "auth/uid-already-exists") {
+                    // uid-already-exists 는 동시에 두 번 눌러 생긴 경합 — 이미 만들어졌으니 그대로 진행
+                    throw ce;
+                }
+            }
         } else {
             throw e;
         }
@@ -75,17 +89,26 @@ exports.kakaoAuth = onCall({ region: "asia-northeast3" }, async (request) => {
 
     const customToken = await admin.auth().createCustomToken(uid);
 
-    await db.doc(`users/${uid}`).set(
-        {
-            uid,
-            email,
-            nickname,
-            kakaoId,
-            provider: "kakao",
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-    );
+    // (점검 B10) 로그인마다 nickname · email 을 카카오 값으로 덮어쓰면 회원이 앱에서 정한 대화명이 되돌아간다
+    // → 문서가 없거나 그 필드가 비어 있을 때만 채운다. uid · kakaoId · provider · updatedAt 은 매번 써도 된다.
+    const userRef = db.doc(`users/${uid}`);
+    const userSnap = await userRef.get();
+    const cur = userSnap.exists ? (userSnap.data() || {}) : {};
+    const isBlank = (v) => v === undefined || v === null || String(v).trim() === "";
+    const patch = {
+        uid,
+        kakaoId,
+        provider: "kakao",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (isBlank(cur.email) && email) patch.email = email;
+    if (isBlank(cur.nickname) && nickname) patch.nickname = nickname;
+    if (!userSnap.exists) {
+        // 첫 문서는 예전처럼 email · nickname 키를 빈 문자열로라도 둔다(앞단이 필드 존재를 기대하는 곳 호환)
+        if (patch.email === undefined) patch.email = email;
+        if (patch.nickname === undefined) patch.nickname = nickname;
+    }
+    await userRef.set(patch, { merge: true });
 
     return { customToken, email, kakaoId, uid };
 });
@@ -170,16 +193,30 @@ exports.onNotificationSend = onDocumentCreated(
             return;
         }
 
+        // (점검 C8) FCM data 는 문자열 값만 받는다 — 숫자(amount)·null(paymentId 등)이 섞이면
+        // "data must only contain string values" 로 발송 전체가 실패한다(포인트 적립·보험 결제·청구 푸시).
+        // → null/undefined 는 빼고, 나머지는 전부 문자열로. 객체·배열은 JSON 문자열로.
+        const fcmData = {};
+        const extra = data.data && typeof data.data === "object" ? data.data : {};
+        const merged = { type: data.type || "general", notifId: event.params.notifId || "", ...extra };
+        const FCM_RESERVED = ["from", "notification", "message_type", "collapse_key"];
+        for (const [k, v] of Object.entries(merged)) {
+            if (v === null || v === undefined) continue;
+            if (FCM_RESERVED.includes(k) || k.startsWith("google.") || k.startsWith("gcm.")) continue; // FCM 예약 키는 넣으면 거절된다
+            if (typeof v === "object") {
+                if (v && typeof v.toDate === "function") { fcmData[k] = v.toDate().toISOString(); continue; } // Firestore Timestamp
+                try { fcmData[k] = JSON.stringify(v); } catch { /* 직렬화 못 하는 값은 뺀다 */ }
+                continue;
+            }
+            fcmData[k] = String(v);
+        }
+
         const message = {
             notification: {
-                title: data.title || "홈프로",
-                body: data.body || "",
+                title: String(data.title || "홈프로"),
+                body: String(data.body || ""),
             },
-            data: {
-                type: data.type || "general",
-                notifId: event.params.notifId || "",
-                ...(data.data || {}),
-            },
+            data: fcmData,
         };
 
         const result = await admin.messaging().sendEachForMulticast({
@@ -367,7 +404,11 @@ exports.onOrderUpdated = onDocumentUpdated(
         if (before.orderStatus === after.orderStatus) return;
 
         const targetUids = [];
-        const updatedBy = after.updatedBy || null;
+        // (점검 C9) 바꾼 사람(updatedBy · actorUid)은 이번 쓰기에서 새로 적힌 값일 때만 믿는다.
+        // 예전 쓰기의 값이 남아 있는 채로 다른 경로(관리자 화면 등)가 상태만 바꾸면, 엉뚱한 사람이 알림에서 빠지기 때문.
+        // 같은 사람이 연달아 바꿔 값이 그대로면 못 믿는 쪽으로 — 본인에게 한 번 더 가는 편이 상대가 못 받는 것보다 낫다.
+        const pickActor = (key) => (after[key] && after[key] !== before[key] ? after[key] : null);
+        const updatedBy = pickActor("updatedBy") || pickActor("actorUid") || null;
 
         // 주문자에게 알림 (본인이 변경한 게 아니면)
         if (after.createdBy && after.createdBy !== updatedBy) {
@@ -486,12 +527,17 @@ exports.onChatMessageCreated = onDocumentCreated(
         const senderId = msg.senderId;
         const senderName = msg.senderName || "알 수 없음";
 
+        // (점검 C9) 시스템 메시지(상태 변경·결제 완료·작업 완료 안내 — ChatService.sendSystemMessage)는 채팅 푸시를 보내지 않는다.
+        // 상태 변경은 onOrderUpdated 가 따로 알리므로, 여기서도 보내면 같은 일로 두 번 울리고 바꾼 본인에게도 간다.
+        if (senderId === "system") return;
+
         // 채팅방 참여자 조회
         const roomDoc = await db.collection("chatRooms").doc(roomId).get();
         if (!roomDoc.exists) return;
 
         const room = roomDoc.data();
-        const targetUids = (room.participants || []).filter((uid) => uid !== senderId);
+        const actorUid = msg.actorUid || null; // 메시지를 일으킨 사람이 따로 적혀 있으면 그 사람도 뺀다
+        const targetUids = (room.participants || []).filter((uid) => uid !== senderId && (!actorUid || uid !== actorUid));
         if (targetUids.length === 0) return;
 
         // 메시지 본문 결정
@@ -561,9 +607,14 @@ exports.resetPasswordWithPhone = phoneAuthFns.resetPasswordWithPhone;
 exports.aiEstimate = require("./aiEstimate").aiEstimate;
 
 const seedFns = require("./seed");
-exports.cleanAllTestData = seedFns.cleanAllTestData;
+// (점검 B1) cleanAllTestData(컬렉션 통째 + Auth 회원 전부 삭제)는 공개된 시드 비밀값 하나로 불릴 수 있어 배포에서 뺀다.
+//   함수 본문은 seed.js 에 남겨 둔다 — 꼭 필요하면 에뮬레이터에서만 잠깐 export 해서 쓴다.
+//   배포된 옛 함수를 지우는 대신 같은 이름으로 "막힘" 응답만 두어, 누가 불러도 아무것도 지우지 못하게 한다 (10/25).
+exports.cleanAllTestData = onRequest({ region: "asia-northeast3" }, (req, res) => {
+    res.status(410).json({ ok: false, error: "disabled" });
+});
 exports.seedTestData = seedFns.seedTestData;
-exports.getSeedLoginToken = seedFns.getSeedLoginToken;
+exports.getSeedLoginToken = seedFns.getSeedLoginToken; // seed_ 계정 전용 (seed.js SEED_UID_RE)
 
 // ─── 토스 결제(보험·구독) + 보험 스케줄·트리거 (functions/tossPay.js · functions/insurance.js) ───
 const tossPayFns = require("./tossPay");

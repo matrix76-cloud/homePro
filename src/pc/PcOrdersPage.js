@@ -13,8 +13,9 @@ import { useAuth } from "../context/AuthContext";
 import { CATEGORIES } from "../config/homeproConfig";
 import { subscribeToAllOrders, formatOrderTime } from "../service/OrderService";
 import {
-  STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, withinDistance, distanceRank, DISTANCE_OPTIONS, DEFAULT_DIST, formatRegionLabel, formatPriceType, formatMatchType, formatOrderScheduleShort, isUrgentNow,
+  STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, withinDistance, distanceRank, DISTANCE_OPTIONS, DEFAULT_DIST, formatRegionLabel, formatMatchType, formatOrderScheduleShort, isUrgentNow,
 } from "../page/main/MobileMainpage";
+import { formatPriceType } from "../service/PayFlowService";
 
 const STATUS_OPTIONS = ["전체", "접수", "대기", "마감", "취소"];
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
@@ -108,7 +109,8 @@ const PcOrdersPage = () => {
     return list.sort(byDate);
   }, [rawOrders, uid, myRegion, sort, status, dist, period, catId, hideClosed]);
 
-  const filtersOn = sort !== "등록순" || status !== "전체" || dist !== "전체" || period !== "전체" || catId !== "전체";
+  // 거리는 기본값이 광역권이라 "전체"와 비교하면 늘 켜진 것으로 나왔다 — 기본값과 비교
+  const filtersOn = sort !== "등록순" || status !== "전체" || dist !== DEFAULT_DIST || period !== "전체" || catId !== "전체";
   const resetFilters = () => { setSort("등록순"); setStatus("전체"); setDist(DEFAULT_DIST); setPeriod("전체"); setCatId("전체"); };
 
   const openOrder = (order) => {

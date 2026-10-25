@@ -77,7 +77,7 @@ export const IconTile = ({ c, size, round }) => (
 
 const IconLab = ({ embedded = false }) => {
   const [tab, setTab] = useState(0);
-  const c = IconCases.find((x) => x.no === tab) || CASES[0];
+  const c = IconCases.find((x) => x.no === tab) || IconCases[0];
   return (
     <div style={{ minHeight: "100vh", background: "#F7F8FA", padding: "20px 16px 60px", boxSizing: "border-box", fontFamily: "'Pretendard Variable', Pretendard, -apple-system, 'Malgun Gothic', sans-serif", color: "#14181F" }}>
       {!embedded && <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px" }}>홈프로 앱 아이콘 시안</h1>}

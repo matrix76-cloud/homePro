@@ -23,7 +23,7 @@ const MENU = [
   { label: "AI 견적", icon: <FiCpu />, to: "/MobileMain?tab=ai_estimate", match: (p, t) => (p === "/MobileMain" && t === "ai_estimate") || p.startsWith("/order/ai-estimate") },
   { label: "초대코드·자산", icon: <FiGift />, to: "/MobileMain?tab=assets", match: (p, t) => p === "/MobileMain" && t === "assets" },
   { label: "공동중개", icon: <FiHome />, to: "/brokerage", match: (p) => p.startsWith("/brokerage") },
-  { label: "교육·장터", icon: <FiBookOpen />, to: "/education-market", match: (p) => p.startsWith("/education-market") || p.startsWith("/training") || p.startsWith("/supplies") },
+  { label: "교육·장터", icon: <FiBookOpen />, to: "/education-market", match: (p) => p.startsWith("/education-market") || p.startsWith("/training") || p.startsWith("/supplies") || p.startsWith("/marketplace") },
   { label: "보험", icon: <FiShield />, to: "/insurance", match: (p) => p.startsWith("/insurance") },
   { label: "채팅", icon: <FiMessageCircle />, to: "/MobileChat", match: (p) => p.startsWith("/MobileChat") || p.startsWith("/chat/") },
   { label: "마이", icon: <FiUser />, to: "/MobileConfig", match: (p) => p.startsWith("/MobileConfig") || p.startsWith("/biz-profile") },
@@ -70,7 +70,7 @@ export const PcTopBar = () => {
         <>
           <TopIcon onClick={() => navigate("/search")} aria-label="검색"><FiSearch size={20} /></TopIcon>
           <TopIcon onClick={() => navigate("/calendar")} aria-label="일정"><FiCalendar size={20} /></TopIcon>
-          <TopIcon onClick={() => navigate("/notice")} aria-label="알림"><FiBell size={20} /></TopIcon>
+          <TopIcon onClick={() => navigate("/notice")} aria-label="공지사항" title="공지사항"><FiBell size={20} /></TopIcon>
           <Who onClick={() => navigate("/MobileConfig")}>
             {name && <><b>{name}</b> 님</>}
             {tierText && <Tier onClick={(e) => { e.stopPropagation(); navigate("/subscription"); }}>{tierText}</Tier>}

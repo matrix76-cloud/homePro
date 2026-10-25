@@ -27,6 +27,7 @@ import { GRADE_SYSTEM_ENABLED } from "../utility/gradeUtils";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { blockUser, isBlocked } from "../service/BlockService";
+import { proRegionText } from "../utility/regionUtils";
 
 const GRADE_LABEL = { rookie: "루키", bronze: "브론즈", silver: "실버", gold: "골드", diamond: "다이아", master: "마스터" };
 const OK_COLOR = "#15803d";
@@ -48,6 +49,18 @@ const toRegionText = (v) => {
   if (Array.isArray(v)) return [...new Set(v.map(toRegionText).filter(Boolean))].join(", ");
   if (typeof v === "object") return `${v.sido || ""} ${v.gu || v.gugun || ""}`.trim();
   return String(v);
+};
+// 승인된 분야 문서들의 활동 지역을 합쳐 한 줄로 — 분야가 여럿이면 합치고 중복 제거 (B16)
+const proDocsRegionText = (docs = []) => {
+  const list = [];
+  docs.forEach((d) => {
+    if (Array.isArray(d?.regions) && d.regions.length) list.push(...d.regions);
+    else if (typeof d?.region === "string") list.push(d.region);
+    else { const t = proRegionText(d); if (t) list.push(t); }
+  });
+  const uniq = [...new Set(list.filter(Boolean))];
+  if (!uniq.length) return "";
+  return proRegionText({ regions: uniq });
 };
 const toText = (v) => {
   if (v === null || v === undefined || v === "") return "";
@@ -130,7 +143,8 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = fals
     : Number(p.rating || p.avgRating || 0);
   const reviewCount = reviews.length || Number(p.reviewCount || p.reviewsCount || 0);
 
-  const region = toRegionText(p.region) || toRegionText(approvedPros.map((d) => d.region)) || toRegionText(p.regions) || toRegionText(p.address);
+  // 활동 지역은 분야 문서(regions)가 기준 — users.region 은 GPS 현재 위치라 활동 지역이 아니다 (B16)
+  const region = proDocsRegionText(approvedPros) || toRegionText(p.region) || toRegionText(p.regions) || toRegionText(p.address);
   const categoryText = [...new Set(approvedPros.map((d) => catName(d.categoryId)).filter(Boolean))].join(" · ");
   const subcatText = [...new Set(approvedPros.flatMap((d) => (Array.isArray(d.detail?.subcategories) ? d.detail.subcategories : [])))].join(", ");
   const careerText = (() => {

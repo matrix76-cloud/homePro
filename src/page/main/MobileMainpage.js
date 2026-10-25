@@ -22,6 +22,7 @@ import { PcTable, PcTHead, PcTRow, PcEmpty, PcCard, PcGhostBtn } from "../../pc/
 import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 import { isIosApp } from "../../bridge/webviewBridge";
+import { formatPriceType as formatPriceTypeShared } from "../../service/PayFlowService";
 
 /* ─── 포인트 내역 날짜 표기 ─── */
 const fmtCashDate = (ts) => {
@@ -183,26 +184,8 @@ export const formatRegionLabel = (location) => {
   return [first, second].filter(Boolean).join(" ") || "-";
 };
 
-/* ─── 단가유형 표시 (사양: "잔금 320K" / "금액 260K" / "현장견적" / "견적요청") ─── */
-export const formatPriceType = (order) => {
-  const amt = Number(order.b2bPriceAmount) || 0;
-  const k = amt > 0 ? `${Math.round(amt / 1000).toLocaleString()}K` : "";
-  switch (order.b2bPriceType) {
-    case "balance": return amt > 0 ? `잔금 ${k}` : "잔금";
-    case "fixed":   return amt > 0 ? `금액 ${k}` : "금액";
-    case "hpoint":  return amt > 0 ? `H-P ${Math.round(amt / 1000).toLocaleString()}K` : "H-P";
-    case "onsite":  return "현장견적";
-    case "estimate": return "견적요청";
-    case "contract": return amt > 0 ? `도급 ${k}` : "도급";
-    case "sale":     return amt > 0 ? `매매 ${k}` : "매매";
-    default: break;
-  }
-  if (order.priceType === "direct" && order.directPrice) {
-    const v = Number(String(order.directPrice).replace(/[^0-9]/g, ""));
-    return v > 0 ? `금액 ${Math.round(v / 1000).toLocaleString()}K` : "견적요청";
-  }
-  return "견적요청";
-};
+/* ─── 단가유형 표시 — PC 오더목록과 같은 함수를 쓰도록 PayFlowService 로 옮겼다 (구인 지급금액 · 정보공유 포함). 기존 import 호환용으로 다시 내보낸다 ─── */
+export const formatPriceType = formatPriceTypeShared;
 
 /* ─── 요청방식 표시 (사양: "0/3"=다중비교 / "빠른"=우선배정 / "지정"=지정배정) ─── */
 export const formatMatchType = (order) => {

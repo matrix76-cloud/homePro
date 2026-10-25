@@ -86,20 +86,43 @@ const CommunityDetailPage = () => {
     setLikeCount((prev) => (result ? prev + 1 : prev - 1));
   };
 
+  // 댓글 전송 잠금 — 저장이 끝나기 전 Enter·버튼을 또 누르면 같은 댓글이 두 번 달리고 commentCount 가 +2 됐다
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const handleAddComment = async () => {
-    if (!commentText.trim() || !uid) return;
-    await addComment(postId, {
-      text: commentText.trim(),
-      authorUid: uid,
-      authorName: nickname,
-      parentId: replyTo?.id || null,
-    });
+    const text = commentText.trim();
+    if (!text) return;
+    if (!uid) { showToast("로그인이 필요합니다"); return; }
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    // 입력칸은 먼저 비우고, 실패하면 되돌린다
+    const prevText = commentText;
+    const prevReply = replyTo;
     setCommentText("");
     setReplyTo(null);
-    // 댓글 목록 새로고침
-    const cmts = await getComments(postId);
-    setComments(cmts);
-    setPost((prev) => prev ? { ...prev, commentCount: (prev.commentCount || 0) + 1 } : prev);
+    try {
+      await addComment(postId, {
+        text,
+        authorUid: uid,
+        authorName: nickname,
+        parentId: prevReply?.id || null,
+      });
+      setPost((prev) => prev ? { ...prev, commentCount: (prev.commentCount || 0) + 1 } : prev);
+      // 댓글 목록 새로고침 — 실패해도 등록은 된 것이라 조용히 넘어간다
+      try {
+        const cmts = await getComments(postId);
+        setComments(cmts);
+      } catch (e) { console.warn("댓글 목록 새로고침 실패:", e); }
+    } catch (e) {
+      console.error("댓글 등록 실패:", e);
+      setCommentText(prevText);
+      setReplyTo(prevReply);
+      showToast("댓글을 등록하지 못했습니다. 다시 시도해 주세요");
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
 
   const formatDate = (ts) => {
@@ -233,7 +256,7 @@ const CommunityDetailPage = () => {
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.nativeEvent.isComposing || e.keyCode === 229) return; if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
             />
-            <SendBtn onClick={handleAddComment} disabled={!commentText.trim()}>
+            <SendBtn onClick={handleAddComment} disabled={!commentText.trim() || sending}>
               <IoSendOutline size={20} color={commentText.trim() ? THEME.primary : THEME.muted} />
             </SendBtn>
           </InputRow>

@@ -281,7 +281,9 @@ export function requestNativeSignOut() {
 }
 
 export function requestPushToken() {
-    return postToRN("REQUEST_PUSH_TOKEN", { at: Date.now() });
+    // 껍데기(App.js)는 GET_PUSH_TOKEN 만 받는다 — 옛 이름은 호환용으로 같이 보낸다 (10/25 전면 점검)
+    postToRN("REQUEST_PUSH_TOKEN", { at: Date.now() });
+    return postToRN("GET_PUSH_TOKEN", { at: Date.now() });
 }
 
 const _pushTokenListeners = new Set();

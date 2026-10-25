@@ -157,8 +157,21 @@ const TrainingCreatePage = () => {
     return urls;
   };
 
+  // 등록 잠금 — 잔액 확인·확인창을 기다리는 사이 또 누르면 두 번 등록되고 포인트가 두 번 빠졌다.
+  // 첫 줄에서 잠그고, 성공해 화면을 옮길 때까지 풀지 않는다(실패·취소 때만 푼다).
+  const submitLockRef = useRef(false);
   const handleSubmit = async () => {
-    if (saving) return;
+    if (submitLockRef.current || saving) return;
+    submitLockRef.current = true;
+    let succeeded = false;
+    try {
+      await doSubmit(() => { succeeded = true; });
+    } finally {
+      if (!succeeded) submitLockRef.current = false;
+    }
+  };
+
+  const doSubmit = async (markSucceeded) => {
     if (!uid) return window.alert("로그인이 필요합니다.");
     const e = validate();
     setErrors(e);
@@ -250,6 +263,7 @@ const TrainingCreatePage = () => {
         await activate(); // 한 번 더 시도
       }
 
+      markSucceeded();
       refreshUser?.();
       window.alert("교육 공고가 등록되었습니다.");
       navigate(`/training/${docId}`, { replace: true });

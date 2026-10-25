@@ -1,6 +1,6 @@
 /* eslint-disable */
 // 교육.장터 — 기술교육 + 양도·매매 + 자재·장비 3영역을 한 탭에 세그먼트로 통합
-import React, { useState } from "react";
+import React from "react";
 import { useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
@@ -21,9 +21,18 @@ const ONLY_TITLE = { training: "기술전수 수강생모집", supplies: "거래
 
 const EducationMarketPage = () => {
   // 마이페이지의 기술전수교육/거래장터 분리 진입 — ?seg= 로 초기 세그먼트 지정 (형 지시 8/8)
-  const [searchParams] = useSearchParams();
+  // 고른 탭은 주소(?seg=)에 replace 로 남긴다 — 상세에 갔다 뒤로 와도 그 탭 그대로 (예전엔 늘 기술교육으로 돌아왔다)
+  const [searchParams, setSearchParams] = useSearchParams();
   const initSeg = SEGMENTS.some((s) => s.key === searchParams.get("seg")) ? searchParams.get("seg") : "training";
-  const [seg, setSeg] = useState(initSeg);
+  const seg = initSeg;
+  const setSeg = (key) => {
+    if (key === seg) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("seg", key);
+      return next;
+    }, { replace: true });
+  };
   // 마이페이지 '기술전수 수강생모집'에서 들어오면 기술전수 항목만 (대표 9/15 리뷰). 거래장터는 양도·매매·자재·장비만
   const only = searchParams.get("only") === "1";
   const visibleSegs = only ? SEGMENTS.filter((s) => s.key === initSeg) : SEGMENTS;

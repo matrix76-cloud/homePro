@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import LoginPrompt from "./LoginPrompt";
+import AuthLoading from "../AuthLoading";
 
 const ONBOARDING_PATHS = ["/MobileLinkPhone", "/MobileSetNickname"];
 
@@ -9,12 +10,13 @@ const RequireAuth = () => {
     const { isLoggedIn, loading, userData, currentUser } = useAuth();
     const location = useLocation();
 
-    if (loading) return null;
+    // 로그인 상태를 확인하는 동안 흰 화면이 아니라 로고 + 고리 (10/25)
+    if (loading) return <AuthLoading />;
 
     // 가입/로그인 직후 currentUser 는 잡혔지만 프로필(userData) 조회가 아직
     // 안 끝난 찰나 — 이때 로그아웃으로 오판해 /MobileLogin 으로 보내면
     // 신규가입 온보딩 퍼널이 끊긴다 (심화점검 5 발견). 로딩으로 취급.
-    if (currentUser && !userData) return null;
+    if (currentUser && !userData) return <AuthLoading />;
 
     // 비회원 — 홈은 둘러볼 수 있고, 로그인이 필요한 화면에 들어오면 여기서 가입을 권한다 (대표 9/17)
     if (!isLoggedIn) {

@@ -5,7 +5,8 @@ import styled from "styled-components";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
-import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, uploadCertLicenses, registerProCategory } from "../../service/ProService";
+import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, uploadCertLicenses, registerProCategory, isApprovalRequiredCategory } from "../../service/ProService";
+import { isFreelancerNoBiz } from "../../service/CertificateService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
@@ -36,7 +37,7 @@ const ProCategoryEditPage = () => {
     const activityFileRef = useRef(null);
 
     const { userData } = useAuth();
-    const uid = user?.USERS_ID || userData?.uid;
+    const uid = userData?.uid || user?.USERS_ID; // 통합 뒤 USERS_ID 가 사라질 소셜 uid 일 수 있어 문서 id 우선 (B7)
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 
     const catDetailFields = useMemo(
@@ -52,7 +53,8 @@ const ProCategoryEditPage = () => {
             if (!data) { setLoading(false); return; }
             const d = data.detail || {};
             setSelectedSubs(d.subcategories || []);
-            setExperience(d.experience || "");
+            // 시드 · 옛 문서는 경력이 숫자라 .trim() 에서 흰 화면이 났다 (B20)
+            setExperience(String(d.experience ?? ""));
             setIntro(d.intro || "");
             setRegion(proRegionList(data.region || data.regions ? data : d));
             // 저장된 자격증에는 id가 없어 수정/삭제가 동작하지 않았음 → 로드 시 id 부여 + 사진 미리보기 복원
@@ -136,12 +138,12 @@ const ProCategoryEditPage = () => {
         if (submitting) return;
         if (!uid) { alert("로그인이 필요합니다."); return; }
         const licenseUrl = existingLicenseUrl;
-        if (!licenseUrl && !imageFile) { alert("사업자등록증을 첨부해주세요."); return; }
+        if (!licenseUrl && !imageFile && !licenseOptional) { alert("사업자등록증을 첨부해주세요."); return; }
         setSubmitting(true);
         try {
             const finalLicenseUrl = imageFile
                 ? await uploadBusinessLicense(uid, categoryId, imageFile)
-                : licenseUrl;
+                : (licenseUrl || "");
             const newPhotoUrls = activityPhotos.length > 0
                 ? await uploadActivityPhotos(uid, categoryId, activityPhotos.map((p) => p.file))
                 : [];
@@ -167,7 +169,9 @@ const ProCategoryEditPage = () => {
     };
 
     const totalPhotos = existingPhotoUrls.length + activityPhotos.length;
-    const canSubmit = experience.trim() !== "" && intro.trim() !== "" && (!!imageFile || !!existingLicenseUrl) && !submitting;
+    // 개인 프리랜서(사업자등록 없음)는 사업자등록증이 선택 항목 — 승인 필요 분야(공동중개)는 그대로 필수 (B14)
+    const licenseOptional = isFreelancerNoBiz(userData) && !isApprovalRequiredCategory(categoryId);
+    const canSubmit = String(experience ?? "").trim() !== "" && intro.trim() !== "" && (!!imageFile || !!existingLicenseUrl || licenseOptional) && !submitting;
 
     if (!cat) return null;
     if (loading) return <SimpleBackLayout NAME="수정" hideFooter><LoadingWrap>불러오는 중...</LoadingWrap></SimpleBackLayout>;
@@ -260,7 +264,10 @@ const ProCategoryEditPage = () => {
 
                 {/* 사업자등록증 */}
                 <Section>
-                    <SectionTitle>사업자등록증</SectionTitle>
+                    <SectionTitle>사업자등록증{licenseOptional ? " (선택)" : ""}</SectionTitle>
+                    {licenseOptional && (
+                        <SmallText style={{ marginBottom: 10 }}>개인 프리랜서는 사업자등록증 없이 저장할 수 있습니다.</SmallText>
+                    )}
                     <UploadBox onClick={() => fileRef.current?.click()}>
                         {imagePreview ? <PreviewImg src={imagePreview} /> : existingLicenseUrl ? <PreviewImg src={existingLicenseUrl} /> : (
                             <UploadPlaceholder><IoCameraOutline size={36} color={THEME.muted} /><SmallText>사진 첨부하기</SmallText></UploadPlaceholder>
