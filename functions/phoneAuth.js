@@ -248,6 +248,19 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
         // 폴백이 없으면 기존 계정과 병합 없이 번호를 조용히 가로채게 됨 (검수 7/28)
         const primaryUid = phoneData?.primaryUid || phoneData?.uid || uid;
         const merged = primaryUid !== uid;
+        let rejoined = false;
+
+        // 탈퇴했던 계정이 같은 번호로 다시 가입·로그인하면 탈퇴 표시를 거두고 되살린다.
+        //  (대표 10/26: "탈퇴회원이 재로그인 · 재가입이 안 된다" — 10/25 에 넣은 탈퇴 차단이 재가입까지 막았음)
+        //  이전 탈퇴 기록은 lastWithdrawnAt 에 남긴다.
+        const reviveFields = (u) => (u?.withdrawn === true ? {
+            withdrawn: false,
+            rejoinedAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastWithdrawnAt: u.withdrawnAt || null,
+            lastWithdrawReason: u.withdrawReason || "",
+            withdrawnAt: admin.firestore.FieldValue.delete(),
+            withdrawReason: admin.firestore.FieldValue.delete(),
+        } : {});
 
         if (merged) {
             // 이 번호를 이미 쓰는 계정이 있다 → 그 계정에 현재 로그인 UID 를 연결
@@ -257,6 +270,8 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
                 // 대표 계정 문서가 사라진 경우 → 내 계정을 대표로 승격
                 tx.set(phoneRef, { primaryUid: uid, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
             } else {
+                const primary = primarySnap.data() || {};
+                rejoined = primary.withdrawn === true;
                 const linkField = provider === "email" || provider === "password"
                     ? "linkedEmailUids"
                     : "linkedSocialUids";
@@ -269,6 +284,7 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
                     phone: phoneText,
                     phoneVerified: true,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    ...reviveFields(primary),
                 }, { merge: true });
 
                 // 내 문서는 "내용이 없을 때만" 삭제 (이력이 있으면 남겨둔다)
@@ -287,12 +303,15 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
                 }
             }
         } else {
+            const me = meSnap.exists ? meSnap.data() : null;
+            rejoined = me?.withdrawn === true;
             tx.set(meRef, {
                 phoneE164: e164,
                 phone: phoneText,
                 phoneVerified: true,
                 authUid: uid, // 4단계 조회 1단계가 실제로 동작하도록 기록
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                ...reviveFields(me),
             }, { merge: true });
         }
 
@@ -315,7 +334,7 @@ exports.linkPhoneToAccount = onCall({ region: REGION }, async (request) => {
             }, { merge: true });
         }
 
-        return { primaryUid: merged ? primaryUid : uid, merged };
+        return { primaryUid: merged ? primaryUid : uid, merged, rejoined };
     });
 
     // 보조 인덱스는 항상 대표 UID 를 가리키게 (예전엔 호출 UID 를 써서 어긋났음)

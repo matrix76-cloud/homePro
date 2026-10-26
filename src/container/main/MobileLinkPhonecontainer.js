@@ -215,10 +215,12 @@ export default function MobileLinkPhonecontainer() {
                 console.warn("가입 환영 포인트 지급 실패:", e?.message);
             }
 
-            // 탈퇴 계정으로 통합된 경우 refreshUser 가 로그아웃 + 로그인 화면 이동을 맡는다 (B4)
-            if ((await refreshUser()) === "withdrawn") return;
+            // 탈퇴했던 계정으로 통합되면 서버가 탈퇴 표시를 거두고 rejoined 를 돌려준다 (대표 10/26)
+            await refreshUser();
             if (result?.merged) {
-                window.alert("같은 번호로 가입된 계정이 있어 하나로 연결했습니다.");
+                window.alert(result?.rejoined
+                    ? "탈퇴했던 계정을 다시 연결했습니다. 이전 정보 그대로 이용하실 수 있습니다."
+                    : "같은 번호로 가입된 계정이 있어 하나로 연결했습니다.");
                 try { sessionStorage.setItem("homepro.justSignedUp", "1"); } catch (e) { }
                 nav("/welcome", { replace: true });
             } else {

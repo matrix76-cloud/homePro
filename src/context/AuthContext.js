@@ -1,7 +1,7 @@
 /* eslint-disable */
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { watchAuthState, signOutUser } from "../service/AuthService";
+import { watchAuthState, signOutUser, reactivateWithdrawnUser } from "../service/AuthService";
 import { getUserProfileByUid } from "../service/UserProfileService";
 import { auth } from "../api/config";
 import { postToRN, isInRnWebView, requestPushToken, onPushToken, listenWebviewMessages, appendRnLog } from "../bridge/webviewBridge";
@@ -32,17 +32,16 @@ export const AuthProvider = ({ children }) => {
     const pendingFcmToken = useRef(null);
     const navigate = useNavigate();
 
-    // 탈퇴한 계정으로 다시 들어온 경우 — 로그아웃시키고 로그인 화면으로 (B4)
-    //  withdrawUser 가 users 문서에 withdrawn:true 를 남기는데 읽는 곳이 없어 그대로 입장됐다.
-    const signOutWithdrawn = async (firestoreUid) => {
-        await removeFcmTokenBeforeSignOut(firestoreUid);
-        try { localStorage.removeItem("__primaryUid"); } catch (e) {}
-        try { if (isInRnWebView()) postToRN("START_SIGNOUT"); } catch (e) {}
-        try { await signOutUser(); } catch (e) {}
-        setCurrentUser(null);
-        setUserData(null);
-        window.alert("탈퇴한 계정입니다. 다시 이용하시려면 고객센터로 문의해 주세요.");
-        navigate("/MobileLogin", { replace: true });
+    // 탈퇴했던 계정으로 다시 들어온 경우 — 탈퇴 표시를 거두고 그대로 들여보낸다.
+    //  10/25 에는 로그아웃 + "고객센터 문의" 로 막았는데, 대표 10/26: "탈퇴회원이 재로그인 · 재가입이 안 된다".
+    //  다시 로그인한 것 자체가 돌아오겠다는 뜻이므로 되살린다. 탈퇴 이력은 lastWithdrawnAt 에 남는다.
+    const reviveWithdrawn = async (profile, firebaseUid) => {
+        const id = profile?.uid || firebaseUid;
+        try { await reactivateWithdrawnUser(id, profile); } catch (e) { console.warn("탈퇴 계정 되살리기 실패:", e?.message); }
+        const next = { ...profile, withdrawn: false, lastWithdrawnAt: profile?.withdrawnAt || null };
+        delete next.withdrawnAt;
+        delete next.withdrawReason;
+        return next;
     };
 
     useEffect(() => {
@@ -50,11 +49,10 @@ export const AuthProvider = ({ children }) => {
             if (firebaseUser) {
                 setCurrentUser(firebaseUser);
                 try {
-                    const profile = await getUserProfileByUid(firebaseUser.uid);
+                    let profile = await getUserProfileByUid(firebaseUser.uid);
                     if (profile?.withdrawn === true) {
-                        await signOutWithdrawn(profile.uid || firebaseUser.uid);
-                        setLoading(false);
-                        return;
+                        profile = await reviveWithdrawn(profile, firebaseUser.uid);
+                        window.alert("탈퇴했던 계정입니다. 다시 이용하실 수 있게 되돌렸습니다.");
                     }
                     setUserData(profile || {
                         uid: firebaseUser.uid,
@@ -150,10 +148,9 @@ export const AuthProvider = ({ children }) => {
     const refreshUser = useCallback(async () => {
         if (!currentUser) return;
         try {
-            const profile = await getUserProfileByUid(currentUser.uid);
-            // 같은 번호 재가입이 탈퇴 계정으로 통합된 경우 등 — 갱신 때도 탈퇴 여부를 본다 (B4)
-            //  호출한 화면이 뒤이어 다른 곳으로 보내지 않게 "withdrawn" 을 돌려준다
-            if (profile?.withdrawn === true) { await signOutWithdrawn(profile.uid || currentUser.uid); return "withdrawn"; }
+            let profile = await getUserProfileByUid(currentUser.uid);
+            // 갱신 때 탈퇴 표시가 보이면(서버 통합이 못 거둔 경우 등) 여기서도 되살린다
+            if (profile?.withdrawn === true) profile = await reviveWithdrawn(profile, currentUser.uid);
             if (profile) setUserData(profile);
         } catch (err) {
             console.error("refreshUser 실패:", err);

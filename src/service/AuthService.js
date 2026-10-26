@@ -20,7 +20,7 @@ import {
 } from "firebase/auth";
 
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, deleteField, collection, query, where, getDocs } from "firebase/firestore";
 
 import { firebaseApp, db } from "../api/config";
 
@@ -573,7 +573,8 @@ export async function signOutUser() {
 /**
  * 회원 탈퇴 (대표 9/17)
  *   Firestore 사용자 문서에 탈퇴 표시를 남기고 로그인 정보를 정리한다.
- *   기록은 남기되 다시 로그인해도 들어올 수 없게 막는다.
+ *   기록은 남기고 로그아웃시킨다. 같은 계정·같은 번호로 다시 들어오면 reactivateWithdrawnUser 가 되살린다
+ *   (대표 10/26: 탈퇴 회원도 재로그인 · 재가입이 돼야 한다).
  *   실제 계정 삭제는 관리자가 확인 후 처리한다 (진행 중 오더·정산 확인이 필요하기 때문).
  */
 export async function withdrawUser(uid, reason = "", { skipSignOut = false } = {}) {
@@ -585,6 +586,24 @@ export async function withdrawUser(uid, reason = "", { skipSignOut = false } = {
     }, { merge: true });
     // 화면이 useAuth().logout 으로 마무리할 때는 여기서 로그아웃하지 않는다 (FCM 토큰을 먼저 지워야 해서 — B11)
     if (!skipSignOut) await signOutUser();
+    return true;
+}
+
+/**
+ * 탈퇴했던 계정으로 다시 로그인 — 탈퇴 표시를 거두고 그대로 쓴다 (대표 10/26).
+ *   이전 탈퇴 시각·사유는 lastWithdrawnAt / lastWithdrawReason 에 남긴다.
+ *   같은 번호로 새 소셜 계정을 통합하는 경로는 서버(linkPhoneToAccount)가 같은 일을 한다.
+ */
+export async function reactivateWithdrawnUser(uid, profile = null) {
+    if (!uid) return false;
+    await setDoc(doc(db, "users", uid), {
+        withdrawn: false,
+        rejoinedAt: serverTimestamp(),
+        lastWithdrawnAt: profile?.withdrawnAt || null,
+        lastWithdrawReason: profile?.withdrawReason || "",
+        withdrawnAt: deleteField(),
+        withdrawReason: deleteField(),
+    }, { merge: true });
     return true;
 }
 

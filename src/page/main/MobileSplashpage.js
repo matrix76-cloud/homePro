@@ -101,9 +101,7 @@ const MobileSplashpage = () => {
       try {
         const profile = await getUserProfileByUid(user.uid);
 
-        // 탈퇴한 계정 — AuthContext 가 로그아웃 + "탈퇴한 계정입니다" 안내 + 로그인 화면 이동을 맡는다 (B4).
-        //  여기서 메인으로 보내면 안내 전에 앱 안으로 들어가 버리므로 분기를 멈춘다.
-        if (profile?.withdrawn === true) return;
+        // 탈퇴했던 계정은 AuthContext 가 되살린다(대표 10/26) — 여기서는 보통 계정과 똑같이 분기한다.
 
         if (!profile) {
           // 프로필 없음 (신규) → 닉네임/역할 설정
