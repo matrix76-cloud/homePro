@@ -39,8 +39,8 @@ const InsurancePage = () => {
       ]);
       if (!alive) return;
       setSettings(s); setPolicies(p);
-      const cats = pros.filter((x) => x.status === "approved").map((x) => x.categoryId);
-      setRecId(cats.length ? recommendGroup(cats) : "");
+      const mine = pros.filter((x) => x.status === "approved");
+      setRecId(mine.length ? recommendGroup(mine) : "");
       setLoading(false);
     })();
     return () => { alive = false; };

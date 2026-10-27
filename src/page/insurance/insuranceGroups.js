@@ -5,26 +5,45 @@
  *  · 문구는 대표 기획안 그대로 — 세부 약관 · 안내 문구는 바뀔 수 있다고 대표가 밝힘
  */
 export const INSURANCE_GROUPS = [
-  { id: "A", price: 5900, cats: "생활청소, 정리수거, 방충망·열쇠 출장, 단순 소모품 교체", note: "누수 및 대형 재물 손상 위험이 없는 단순 케어 작업" },
-  { id: "B", price: 7900, cats: "에어컨 분해청소/세척, 하수구·배관 뚫음, 입주청소, 줄눈·탄성", note: "세척수 유출 및 배관 작업 누수 리스크 완벽 커버", rec: true },
-  { id: "C", price: 18000, cats: "에어컨 설치/이전, 욕실·주방 부분시공, 타일·방수, 보일러", note: "배관 결속 및 타구작업 등 부분 시공 리스크 커버" },
-  { id: "D", price: 37000, cats: "종합 인테리어, 철거 공사, 외벽/지붕 방수, 고소 장비 작업", note: "종합 철거 및 중대 제3자 재물 손해 방어" },
+  { id: "A", price: 5900, cats: "홈클리닝, 준공청소, 상업매장청소, 바닥전문청소, 정기청소, 침대·카페트 청소, 가전설치, 집수리, 해충방역, 컴퓨터·프린터, 자동차", note: "저위험 · 일상 케어 & 단순 보수" },
+  { id: "B", price: 7900, cats: "하수구·배관·설비, 가전분해청소, 에어컨 설치·수리, 누수탐지, 특수청소, 화재청소, 곰팡이·단열시공, 페인트·도장·방수(소규모), 용달·포장이사, 부분인테리어", note: "중위험 · 설비 · 부분시공 & 운반", rec: true },
+  { id: "C", price: 18000, cats: "누수공사(대형 배관 교체), 난방·보일러, 전기공사, 종합리모델링, 폐기물처리", note: "고위험 · 누수공사 & 전기" },
+  { id: "D", price: 37000, cats: "외벽·고소청소, 철거, 스카이차·크레인·사다리차·포크레인·지게차", note: "초고위험 · 고소작업 · 철거 & 중장비" },
 ];
 export const GROUP_RANK = { A: 1, B: 2, C: 3, D: 4 };
 
-// 홈프로 카테고리 → 그룹 (카스 임시 배정 — 대표 확인 전. 기획안 업종 예시에 가장 가까운 쪽으로)
+// 홈프로 카테고리 → 그룹 (대표 10/27 카톡 그룹표). 가전렌탈 · 팀원 구인 · 공동중개는 표에 없어 배정하지 않는다
 export const CATEGORY_GROUP = {
-  regular_cleaning: "A", mattress_care: "A", waste: "A", appliance_rental: "A", computer: "A", auto: "A", worker_call: "A",
-  professional_cleaning: "B", appliance_cleaning: "B", drain_pipe: "B", home_repair: "B", pest_control: "B",
-  aircon_install: "C", boiler: "C", leak_detection: "C", partial_interior: "C", paint_waterproof: "C", mold: "C",
-  electrical_work: "C", appliance_install: "C", moving: "C",
-  full_remodel: "D", demolition: "D", heavy_equipment: "D",
+  professional_cleaning: "A", regular_cleaning: "A", mattress_care: "A", appliance_install: "A", home_repair: "A",
+  pest_control: "A", computer: "A", auto: "A",
+  drain_pipe: "B", appliance_cleaning: "B", aircon_install: "B", leak_detection: "B", mold: "B", paint_waterproof: "B",
+  moving: "B", partial_interior: "B",
+  boiler: "C", electrical_work: "C", full_remodel: "C", waste: "C",
+  demolition: "D", heavy_equipment: "D",
+};
+// 세부 항목이 카테고리 기본과 다른 그룹인 것 — 전문청소 · 누수탐지공사는 세부 항목마다 갈린다
+export const SUB_GROUP = {
+  professional_cleaning: { "특수청소": "B", "화재청소": "B", "외벽.고소청소": "D" },
+  leak_detection: { "누수공사": "C" },
 };
 
-/** 여러 업종이면 가장 위험한(높은) 그룹 — "복수 업종 수행 시 가장 위험도가 높은 상위 그룹" */
-export const recommendGroup = (categoryIds = []) => {
+/** 파트너 업종 하나의 그룹 — 고른 세부 항목 중 가장 높은 그룹, 세부 항목이 없으면 카테고리 기본 */
+const proGroup = (categoryId, subs = []) => {
+  const base = CATEGORY_GROUP[categoryId];
+  if (!base) return "";
+  const over = SUB_GROUP[categoryId] || {};
+  const list = subs.length ? subs.map((s) => over[s] || base) : [base];
+  return list.reduce((best, g) => (GROUP_RANK[g] > GROUP_RANK[best] ? g : best));
+};
+
+/** 여러 업종이면 가장 위험한(높은) 그룹 — "복수 업종 수행 시 가장 위험도가 높은 상위 그룹"
+ *  항목은 categoryId 문자열 또는 파트너 등록 문서({ categoryId, detail: { subcategories } }) */
+export const recommendGroup = (items = []) => {
   let best = "";
-  categoryIds.forEach((c) => { const g = CATEGORY_GROUP[c]; if (g && (!best || GROUP_RANK[g] > GROUP_RANK[best])) best = g; });
+  items.forEach((it) => {
+    const g = typeof it === "string" ? proGroup(it) : proGroup(it?.categoryId, it?.detail?.subcategories || []);
+    if (g && (!best || GROUP_RANK[g] > GROUP_RANK[best])) best = g;
+  });
   return best || "B";
 };
 

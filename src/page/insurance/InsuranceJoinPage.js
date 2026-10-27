@@ -81,7 +81,7 @@ const InsuranceJoinPage = () => {
     (async () => {
       const [s, pros] = await Promise.all([getInsuranceSettings(), uid ? getMyProDocs(uid).catch(() => []) : Promise.resolve([])]);
       if (!alive) return;
-      const c = pros.filter((x) => x.status === "approved").map((x) => x.categoryId);
+      const c = pros.filter((x) => x.status === "approved");
       setSettings(s); setCats(c);
       setGroup((g) => g || recommendGroup(c));
     })();
@@ -91,7 +91,7 @@ const InsuranceJoinPage = () => {
   const groups = useMemo(() => groupsWithSettings(settings), [settings]);
   const recId = cats.length ? recommendGroup(cats) : "B";
   const sel = groups.find((g) => g.id === group);
-  const catNames = cats.map((id) => CATEGORIES.find((x) => x.id === id)?.name).filter(Boolean);
+  const catNames = cats.map((p) => CATEGORIES.find((x) => x.id === p.categoryId)?.name).filter(Boolean);
   const allChecked = checks.start && checks.notCovered && checks.exclude;
 
   const go = (n) => { setStep(n); window.scrollTo(0, 0); };
