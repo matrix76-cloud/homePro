@@ -1509,8 +1509,8 @@ const OrderDetailPage = () => {
         ) : matchType === "compare" ? (
           /* 다중비교호출 — 전화 제거, 지원하기만 */
           <ActionRow>
-            {/* 정보공유 오더는 '수락하기' (대표 10/26) */}
-            <PrimaryCTA onClick={handleApplyOrder}>{isInfoOrder ? "수락하기" : "지원하기"}</PrimaryCTA>
+            {/* 비교선정만 '지원하기', 나머지 방식은 모두 '수락하기' (대표 10/27) */}
+            <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
           </ActionRow>
         ) : matchType === "direct" ? (
           /* 지정배정 — 지정된 번호의 홈프로만 수락/거절 가능 (전수검사 7/29:

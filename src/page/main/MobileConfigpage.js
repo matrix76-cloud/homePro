@@ -1431,7 +1431,7 @@ const MobileConfigpage = () => {
 
             <PcSideCard>
               <PcSideHead>
-                <b>정산</b>
+                <b>보유자산</b>
                 <PcTextBtn type="button" onClick={() => navigate("/referral/points")}>자세히 보기</PcTextBtn>
               </PcSideHead>
               <PcLine style={{ marginBottom: 12 }}>수익과 정산 현황을 확인하세요</PcLine>
@@ -1510,12 +1510,12 @@ const MobileConfigpage = () => {
 
       {profileOverlays}
 
-      <MyGroupTitle>정산 · 구독 · 결제</MyGroupTitle>
+      <MyGroupTitle>보유자산 · 구독 · 결제</MyGroupTitle>
       <MyBox $flush>
-        {/* 정산 — 포인트·초대는 홈 보유자산 탭과 겹쳐서 뺐다 (대표 9/17) */}
+        {/* 보유자산(옛 정산, 대표 10/27) — 포인트·초대는 홈 보유자산 탭과 겹쳐서 뺐다 (대표 9/17) */}
         <MyRow type="button" onClick={() => navigate("/referral/points")}>
           <IoWalletOutline size={24} color={THEME.text} />
-          <MyRowText><strong>정산</strong></MyRowText>
+          <MyRowText><strong>보유자산</strong></MyRowText>
           <MyRowValue>이번달 0원</MyRowValue>
           <IoChevronForward size={18} color={THEME.text} />
         </MyRow>
