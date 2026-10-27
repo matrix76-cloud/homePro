@@ -32,10 +32,12 @@ import { LandingGapCases } from "./LandingGapLab";
 import { LandingClosingCases } from "./LandingClosingLab";
 import { LandingRevealCases } from "./LandingRevealLab";
 import { MyPageCases } from "./MyPageLab";
+import { InsuranceTab } from "./InsuranceLab";
 
 const sortByNo = (a, b) => a.no - b.no;
 
 const TABS = [
+  { key: "insurance", label: "배상책임보험" },
   { key: "icon", label: "앱 아이콘" },
   { key: "color", label: "포인트 색" },
   { key: "onboard", label: "온보딩" },
@@ -276,6 +278,7 @@ const DesignLab = () => {
           </Grid>
         </>
       )}
+      {tab === "insurance" && <InsuranceTab />}
       {tab === "mypage" && (
         <>
           <SectionNote>마이페이지 윗부분 여섯 가지(프로필 · 기본 프로필 · 비즈프로필 · 정산 · 구독 관리 · 사업자도구 PG결제)를 다시 짜는 후보입니다. 실제 크기로 머리줄 · 아래 이웃 메뉴 · 풋바와 함께 그렸습니다. 0번이 지금 화면입니다.</SectionNote>
