@@ -1,9 +1,6 @@
 // End-to-end order flow test with seed accounts. Creates 3 QA orders, drives the UI, verifies Firestore, cleans up.
 import { createRequire } from "module";
 import fs from "fs";
-// End-to-end order flow test with seed accounts. Creates 3 QA orders, drives the UI, verifies Firestore, cleans up.
-import { createRequire } from "module";
-import fs from "fs";
 import path from "path";
 const W = "/Users/a1111/Downloads/2026Dev/mainproject/2026Web/homePro";
 const req = createRequire("/Users/a1111/.npm/_npx/55158e48eb5c59f7/");
@@ -148,7 +145,7 @@ try {
   await go(a1, `/order/detail/${P}`, 3500); await shot(a1, "14-A1-detail-completed");
   r = await click(a1, /리뷰 작성/); await sleep(4000); await shot(a1, "15-A1-review-sheet");
   const hasTextarea = await type(a1, "textarea[placeholder*='리뷰'],input[placeholder*='리뷰']", "자동 점검 리뷰입니다. 친절하고 깔끔하게 마무리해 주셨어요.");
-  await sleep(300); r = await click(a1, /^리뷰 등록$/); await sleep(3500); await shot(a1, "16-A1-review-submitted");
+  await sleep(300); r = await click(a1, /^(리뷰 등록|등록)$/, { tags: "button" }); await sleep(3500); await shot(a1, "16-A1-review-submitted");
   const revs = await db.collection("homepro_reviews").where("orderId", "==", P).get();
   o = await order(P);
   const b1After = (await db.collection("users").doc("seed_B1").get()).data() || {};
@@ -196,7 +193,7 @@ try {
   // ===== 8. A1 cancels assigned D with reason =====
   await go(a1, `/order/detail/${D}`, 3500); await shot(a1, "40-A1-detail-D-assigned");
   r = await click(a1, /^취소$/); await sleep(1500); await shot(a1, "41-A1-cancel-sheet");
-  let r2 = await click(a1, /일정변경/); await sleep(500); await sleep(600); let r3 = await click(a1, /^(확인|취소하기|취소 확정|선택 완료)$/); await sleep(3000); await shot(a1, "42-A1-cancelled");
+  let r2 = await click(a1, /^일정변경$/); await sleep(500); await sleep(600); let r3 = await click(a1, /^(확인|취소하기|취소 확정|선택 완료)$/); await sleep(3000); await shot(a1, "42-A1-cancelled");
   o = await order(D);
   push("x1", "배정 오더 취소(사유 선택)", o.orderStatus === "취소", `click=${r.ok}/${r2.ok}/${r3.ok} status=${o.orderStatus} reason=${o.cancelReason || o.cancelledReason || ""} dialog=${lastDialog}`);
 
