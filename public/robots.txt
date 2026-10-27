@@ -1,3 +1,16 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+# 로그인 뒤 화면·개발용 화면은 검색에 안 잡히게
+Disallow: /seed-login
+Disallow: /review
+Disallow: /review-table
+Disallow: /reviewlab
+Disallow: /lab
+Disallow: /colorlab
+Disallow: /iconlab
+Disallow: /qa
+Disallow: /pg/
+Disallow: /pay
+
+Sitemap: https://www.tryhomepro.com/sitemap.xml

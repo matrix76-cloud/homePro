@@ -24,12 +24,13 @@ const APP_ROOT_PATHS = ["/", "/MobileSplash", "/MobileLogin", "/MobileMain", "/i
 const IS_BRAND_DOMAIN =
   typeof window !== "undefined" && /(^|\.)tryhomepro\.com$/i.test(window.location.hostname);
 
-// 첫 주소(/) — 대표 도메인: 로그인 전이면 홍보(/intro), 로그인돼 있으면 바로 오더목록. 그 밖(앱·web.app)은 스플래시
+// 첫 주소(/) — 대표 도메인: 로그인 전이면 홍보(인트로를 / 에서 그대로), 로그인돼 있으면 바로 오더목록. 그 밖(앱·web.app)은 스플래시
 function RootRedirect() {
   const { loading, isLoggedIn } = useAuth();
   if (!IS_BRAND_DOMAIN) return <Navigate to="/MobileSplash" replace />;
   if (loading) return <AuthLoading />;
-  return <Navigate to={isLoggedIn ? "/MobileMain" : "/intro"} replace />;
+  // 로그인 전이면 주소를 옮기지 않고 그 자리에서 인트로를 보여 준다 — 구글이 / 를 대표 페이지로 색인하게 (서치콘솔 색인 누락 10/27)
+  return isLoggedIn ? <Navigate to="/MobileMain" replace /> : <LandingPage />;
 }
 
 // 푸시 data → 이동할 화면. 서버(onNotificationSend)가 data 에 type·orderId·roomId 를 실어 보낸다

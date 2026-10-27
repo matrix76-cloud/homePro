@@ -6,21 +6,24 @@
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#00963F" />
-    <meta name="description" content="집(Home) 전문가들의 수익창출 플랫폼 - 설비, 청소, 인테리어 등 다양한 사장님과 협업" />
+    <meta name="description" content="홈프로는 설비·청소·인테리어·부동산 등 집(Home) 전문 사업자들이 오더를 공유하고 소개수수료로 수익을 만드는 B2B 오더 공유 플랫폼입니다. 윈플래닛이 운영합니다." />
+    <meta name="keywords" content="홈프로, 윈플래닛, 오더 공유, 집 전문가, 설비, 청소, 인테리어, 소개수수료, 사업자 플랫폼, 배상책임보험" />
+    <link rel="canonical" href="https://www.tryhomepro.com/" />
     <!-- Open Graph (카카오톡·밴드 링크 미리보기 — 대표 지시 7/29) -->
-    <meta property="og:title" content="집(Home) 전문가들의 수익창출 플랫폼" />
+    <meta property="og:title" content="홈프로 - 집(Home) 전문가들의 수익창출 플랫폼" />
     <meta property="og:description" content="설비, 청소, 인테리어 등 다양한 사장님과 협업" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="홈프로" />
-    <!-- 도메인은 .env 의 REACT_APP_PUBLIC_BASE_URL 로 주입된다 (서버 이관 시 .env 만 수정) -->
-    <meta property="og:url" content="%REACT_APP_PUBLIC_BASE_URL%/" />
-    <meta property="og:image" content="%REACT_APP_PUBLIC_BASE_URL%/og-image.png" />
+    <meta property="og:locale" content="ko_KR" />
+    <!-- 검색·링크 미리보기용 주소는 대표 도메인으로 고정 (2026-10-21 검색 등록 작업). 초대 링크는 .env 의 REACT_APP_PUBLIC_BASE_URL(앱 주소)을 그대로 쓴다 -->
+    <meta property="og:url" content="https://www.tryhomepro.com/" />
+    <meta property="og:image" content="https://www.tryhomepro.com/og-image.png?v=3" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="집(Home) 전문가들의 수익창출 플랫폼" />
+    <meta name="twitter:title" content="홈프로 - 집(Home) 전문가들의 수익창출 플랫폼" />
     <meta name="twitter:description" content="설비, 청소, 인테리어 등 다양한 사장님과 협업" />
-    <meta name="twitter:image" content="%REACT_APP_PUBLIC_BASE_URL%/og-image.png" />
+    <meta name="twitter:image" content="https://www.tryhomepro.com/og-image.png?v=3" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/homepro-symbol.svg" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <link rel="preload" as="font" type="font/woff2" href="%PUBLIC_URL%/fonts/PretendardVariable.woff2" crossorigin />
@@ -34,10 +37,26 @@
              url('%PUBLIC_URL%/fonts/PretendardVariable.woff2') format('woff2');
       }
     </style>
-    <title>홈프로</title>
+    <title>홈프로 - 집 전문가 오더 공유 플랫폼 | 윈플래닛</title>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "윈플래닛",
+      "alternateName": ["홈프로", "HomePro", "Winplant"],
+      "url": "https://www.tryhomepro.com/",
+      "logo": "https://www.tryhomepro.com/logo512.png",
+      "description": "집(Home) 전문 사업자들이 오더를 공유하고 수익을 만드는 B2B 플랫폼 홈프로를 운영합니다."
+    }
+    </script>
   </head>
   <body>
-    <noscript>홈프로를 사용하려면 JavaScript를 활성화해주세요.</noscript>
+    <noscript>
+      <h1>홈프로 - 집 전문가 오더 공유 플랫폼</h1>
+      <p>홈프로는 설비·청소·인테리어·부동산 등 집(Home) 관련 전문 사업자들이 서로 오더를 공유하고, 소개수수료로 새로운 수익을 만드는 B2B 플랫폼입니다. 내 전문분야 오더를 받고, 내가 직접 하지 않는 일은 다른 전문가에게 연결하세요.</p>
+      <p>카드결제 링크·결제창 발송, 도급업자배상책임보험 연계, 전문가 교육·자재 거래까지 홈프로 하나로. 운영: 윈플래닛.</p>
+      <p>홈프로를 사용하려면 JavaScript를 활성화해주세요.</p>
+    </noscript>
     <div id="root"></div>
   </body>
 </html>
