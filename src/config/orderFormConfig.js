@@ -1136,7 +1136,7 @@ export const COMMON_B2B_FIELDS = {
       // 정보공유 문구 = 대표 9/15 리뷰 원문
       { value: "info", label: "정보공유", hasInput: false, desc: "제휴 사업자에게 오더정보 공유하고, 최종 계약 성사 시 약속된 인센티브(소개비)를 주고받는 상생 공유 모델입니다.\n원칙: 단순 제보가 아닌 실제 계약 및 작업 완료 전제\n주의: 허위·불확실한 정보 공유 시 서비스 이용 제한 및 당사자 간 책임 원칙" },
       // H-포인트 — 배정 때 접수자 H-포인트를 보관하고 완료 때 자동 정산 (PayFlowService ③, 대표 9/15 리뷰 문구)
-      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P", desc: "접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 소개수수료가 자동 지급됩니다." },
+      { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P", inputLabel: "시공(작업)비용 입력 (H-포인트, P)", desc: "시공(작업)비용을 H-포인트로 지급하는 유형입니다(대표 10/26). 접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 소개수수료가 자동 지급됩니다." },
       // 정기청소 전용 (대표 10/4) — 다른 카테고리에는 안 보인다. 금액 입력란은 두지 않는다 (대표 10/7)
       { value: "contract", label: "도급", hasInput: false, onlyCategories: ["regular_cleaning"], desc: "정기청소 현장을 도급으로 맡기는 유형입니다." },
       { value: "sale", label: "매매", hasInput: false, onlyCategories: ["regular_cleaning"], desc: "정기청소 현장(거래처)을 매매하는 유형입니다." },
@@ -1154,7 +1154,14 @@ export const COMMON_B2B_FIELDS = {
   },
   // 정보공유 오더의 소개비(인센티브) 설정 — 대표 9/15 리뷰로 위 두 칸을 대체
   infoIncentive: {
-    label: "소개비(인센티브) 설정",
+    label: "정보공유 소개비 설정", // 대표 10/26 — 미설정 / 고정금액 / 계약금액비율 / 홈프로 제안받기
+    types: [
+      { value: "none", label: "미설정" },
+      { value: "fixed", label: "고정금액(정액)", desc: "계약 성사 시 시공금액과 관계없이 고정 금액" },
+      { value: "rate", label: "계약금액 비율(정률)", desc: "계약 성사 시 시공금액 기준 비율" },
+      { value: "propose", label: "홈프로 제안받기", desc: "수락하는 홈프로가 소개비를 제안합니다" },
+    ],
+    payNote: "계약이 성사되면 수락한 홈프로가 접수자에게 소개비를 지급합니다.",
     fixed: { label: "정액 설정", unit: "원", min: 10000, max: 50000, default: 30000 },
     rate: { label: "정률 설정", unit: "%", min: 3, max: 10, default: 5 },
     notice: "계약 성사 및 완료 확인 후, 당사자 간 계좌로 직접 정산됩니다.",
@@ -1170,6 +1177,8 @@ export const COMMON_B2B_FIELDS = {
       { value: "fixed", label: "정액설정" },
       // 정기청소 전용 (대표 10/4) — 숫자를 넣는 배수. 무엇의 몇 배인지는 대표 확인 전이라 표시만 하고 송금 금액은 계산하지 않는다
       { value: "multiple", label: "배수", onlyCategories: ["regular_cleaning"] },
+      // 단가유형이 H-포인트인 오더에서만 — 미설정 · 정률 · 정액 옆에 같이 고른다 (대표 10/26)
+      { value: "hpoint", label: "H-포인트", onlyPriceType: "hpoint" },
     ],
     fixedAmounts: [10000, 15000, 20000, 25000, 30000, 35000],
     rates: [5, 10, 15, 20, 25, 30],
@@ -1185,6 +1194,15 @@ export const COMMON_B2B_FIELDS = {
       { value: "direct", label: "지정배정", desc: "사전에 약속된 특정 홈프로를 전화번호로 지정해 배정합니다." },
     ],
   },
+};
+
+// 정보공유 소개비 한 줄 표시 — 상세 · 나의오더현황이 같이 쓴다
+export const infoIncentiveText = (inc) => {
+  if (!inc || !inc.type) return "";
+  if (inc.type === "rate") return `계약금액 ${inc.rate}%`;
+  if (inc.type === "fixed") return `고정 ${Number(inc.amount || 0).toLocaleString()}원`;
+  if (inc.type === "propose") return "홈프로 제안받기";
+  return "미설정";
 };
 
 export default ORDER_FORM_CONFIG;

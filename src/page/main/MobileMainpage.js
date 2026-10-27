@@ -2401,6 +2401,11 @@ const HomeTabBtn = styled.button`
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  position: relative;
+  /* 탭 사이 가는 세로선 — 다크모드에서 탭끼리 붙어 보인다는 지적 (대표 10/26) */
+  &:not(:first-child)::before { content: ""; position: absolute; left: 0; top: 15px; bottom: 15px; width: 1px; background: #D5D9E0; }
+  /* 폭 좁은 폰(갤럭시 360 · 화면 확대)에선 글씨가 화면에 비해 커 보인다 — 한 단계 낮춤 (대표 10/26) */
+  @media (max-width: 380px) { font-size: 14px; padding: 13px 4px 11px; }
   &:active { opacity: 0.8; }
   &:focus { outline: none; }
 `;
@@ -2697,6 +2702,7 @@ const FilterBtn = styled.button`
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
+  @media (max-width: 380px) { font-size: 14px; padding: 8px 10px; }
   &:focus { outline: none; }
   &:active { opacity: 0.8; }
 `;
@@ -3101,6 +3107,7 @@ const ThCell = styled.div`
   font-weight: 700;
   color: ${THEME.text};
   white-space: nowrap;
+  @media (max-width: 380px) { font-size: 14px; }
 `;
 
 /* 행 띠(배경) 강조 제거 — 상태 글자에만 색 (형 리뷰 7/29) */

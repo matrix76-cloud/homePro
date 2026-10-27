@@ -16,7 +16,7 @@ import {
   STORAGE_PATH_PREFIX,
 } from "../../config/homeproConfig";
 import { createOrder, updateOrder } from "../../service/OrderService";
-import ORDER_FORM_CONFIG, { COMMON_B2B_FIELDS } from "../../config/orderFormConfig";
+import ORDER_FORM_CONFIG, { COMMON_B2B_FIELDS, infoIncentiveText } from "../../config/orderFormConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCloseCircle } from "react-icons/io5";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
@@ -822,6 +822,7 @@ export const OrderCreateContent = () => {
     setInfoReward(editOrder.infoReward ? String(editOrder.infoReward) : "");
     if (editOrder.infoIncentive?.type === "rate") { setInfoIncType("rate"); setInfoIncRate(String(editOrder.infoIncentive.rate || "")); }
     else if (editOrder.infoIncentive?.type === "fixed") { setInfoIncType("fixed"); setInfoIncFixed(String(editOrder.infoIncentive.amount || "")); }
+    else if (["none", "propose"].includes(editOrder.infoIncentive?.type)) setInfoIncType(editOrder.infoIncentive.type);
     setContractBonus(editOrder.contractBonus ? String(editOrder.contractBonus) : "");
     if (editOrder.referralFee && editOrder.referralFee.type) {
       setReferralFeeType(editOrder.referralFee.type);
@@ -1191,7 +1192,8 @@ export const OrderCreateContent = () => {
   useEffect(() => { if (payMode === "prepay" && !isPricedType) setPayMode(""); }, [isPricedType, payMode]);
   // 단가유형 H-포인트 = 대금을 H-포인트로 받는 오더: 소개수수료도 H-포인트로 고정, 결제방식(선결제/후불)은 없음. 다른 유형으로 바꾸면 H-포인트 소개수수료는 해제 (형 확정 9/12)
   useEffect(() => {
-    if (b2bPriceType === "hpoint") { if (referralFeeType !== "hpoint") setReferralFeeType("hpoint"); if (payMode) setPayMode(""); }
+    // 10/26 대표: H-포인트 유형도 소개수수료를 미설정 · 정률 · 정액 · H-포인트 중에서 고른다 (자동 고정 해제)
+    if (b2bPriceType === "hpoint") { if (payMode) setPayMode(""); }
     else if (referralFeeType === "hpoint") setReferralFeeType("none");
   }, [b2bPriceType, referralFeeType, payMode]);
   useEffect(() => { if (referralFeeRate && Number(referralFeeRate) > referralRateCap) setReferralFeeRate(""); }, [referralRateCap, referralFeeRate]);
@@ -1252,7 +1254,7 @@ export const OrderCreateContent = () => {
       if (infoIncType === "fixed") {
         const v = Number(infoIncFixed);
         if (!(v >= inc.fixed.min && v <= inc.fixed.max)) { showToast(`정액 소개비는 ${inc.fixed.min.toLocaleString()}원 ~ ${inc.fixed.max.toLocaleString()}원 사이로 입력해주세요`); return false; }
-      } else {
+      } else if (infoIncType === "rate") {
         const v = Number(infoIncRate);
         if (!(v >= inc.rate.min && v <= inc.rate.max)) { showToast(`정률 소개비는 ${inc.rate.min}% ~ ${inc.rate.max}% 사이로 입력해주세요`); return false; }
       }
@@ -1399,7 +1401,7 @@ export const OrderCreateContent = () => {
           infoReward: null,
           contractBonus: null,
           infoIncentive: isInfoType
-            ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : { type: "fixed", amount: Number(infoIncFixed) })
+            ? (infoIncType === "rate" ? { type: "rate", rate: Number(infoIncRate) } : infoIncType === "fixed" ? { type: "fixed", amount: Number(infoIncFixed) } : { type: infoIncType })
             : null,
           wagePay: isWorkerCall ? { amount: Number(wageAmount) || null, method: wageMethod, timing: wageTiming } : null,
           b2bPriceType: b2bPriceType || null,
@@ -1492,7 +1494,7 @@ export const OrderCreateContent = () => {
       items.push({ k: "단가유형", v: `${ptLabel}${amt}` });
     }
     if (isInfoType) {
-      items.push({ k: "소개비(인센티브)", v: infoIncType === "rate" ? `정률 ${infoIncRate}%` : `정액 ${Number(infoIncFixed || 0).toLocaleString()}원` });
+      items.push({ k: "소개비", v: infoIncentiveText(infoIncType === "rate" ? { type: "rate", rate: infoIncRate } : infoIncType === "fixed" ? { type: "fixed", amount: infoIncFixed } : { type: infoIncType }) });
     }
     if (payMode) items.push({ k: "결제방식", v: labelOf(COMMON_B2B_FIELDS.payMode.options, payMode) });
     if (referralFeeType && referralFeeType !== "none") {
@@ -2130,7 +2132,7 @@ export const OrderCreateContent = () => {
               const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
               const unit = opt?.unit || "원";
               return (
-                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={unit === "원" ? "금액 입력 (원, 최대 300만원)" : `금액 입력 (${unit})`} value={withComma(b2bPriceAmount)}
+                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={opt?.inputLabel || (unit === "원" ? "금액 입력 (원, 최대 300만원)" : `금액 입력 (${unit})`)} value={withComma(b2bPriceAmount)}
                   onChange={(e) => {
                     const v = onlyDigits(e.target.value);
                     // 원 단위 금액은 입력부터 300만원까지만 (PG 심사 요청 2026-10-15)
@@ -2139,28 +2141,42 @@ export const OrderCreateContent = () => {
                   }} />
               );
             })()}
-            {/* 정보공유 유형 — 소개비(인센티브) 설정 정액/정률 (대표 9/15 리뷰) */}
+            {/* 정보공유 유형 — 소개비 설정: 미설정 / 고정금액 / 계약금액비율 / 홈프로 제안받기 (대표 10/26) */}
             {isInfoType && (() => {
               const inc = COMMON_B2B_FIELDS.infoIncentive;
-              const rowStyle = { display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" };
+              const rowStyle = { display: "flex", alignItems: "center", gap: 8, marginTop: 10 };
               return (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: THEME.text }}>{inc.label}</div>
-                  <div style={rowStyle}>
-                    <Chip $selected={infoIncType === "fixed"} onClick={() => setInfoIncType("fixed")}>{inc.fixed.label}</Chip>
-                    <Input style={{ flex: 1, minWidth: 120 }} inputMode="numeric" disabled={infoIncType !== "fixed"}
-                      value={withComma(infoIncFixed)} onChange={(e) => setInfoIncFixed(onlyDigits(e.target.value))} />
-                    <span style={{ fontSize: 15, color: THEME.text }}>{inc.fixed.unit}</span>
+                  <ChipGrid style={{ marginTop: 10 }}>
+                    {inc.types.map((t) => (
+                      <Chip key={t.value} $selected={infoIncType === t.value} onClick={() => setInfoIncType(t.value)}>{t.label}</Chip>
+                    ))}
+                  </ChipGrid>
+                  {inc.types.find((t) => t.value === infoIncType)?.desc && (
+                    <div style={{ fontSize: 14, color: THEME.text, marginTop: 8 }}>{inc.types.find((t) => t.value === infoIncType).desc}</div>
+                  )}
+                  {infoIncType === "fixed" && (<>
+                    <div style={rowStyle}>
+                      <Input style={{ flex: 1 }} inputMode="numeric" value={withComma(infoIncFixed)} onChange={(e) => setInfoIncFixed(onlyDigits(e.target.value))} />
+                      <span style={{ fontSize: 15, color: THEME.text }}>{inc.fixed.unit}</span>
+                    </div>
+                    <div style={{ fontSize: 14, color: THEME.text, marginTop: 4 }}>등록 가능 범위: {inc.fixed.min.toLocaleString()}원 ~ {inc.fixed.max.toLocaleString()}원</div>
+                  </>)}
+                  {infoIncType === "rate" && (<>
+                    <div style={rowStyle}>
+                      <Input style={{ flex: 1 }} inputMode="numeric" value={infoIncRate} onChange={(e) => setInfoIncRate(onlyDigits(e.target.value).slice(0, 2))} />
+                      <span style={{ fontSize: 15, color: THEME.text }}>{inc.rate.unit}</span>
+                    </div>
+                    <div style={{ fontSize: 14, color: THEME.text, marginTop: 4 }}>등록 가능 범위: {inc.rate.min}% ~ {inc.rate.max}%</div>
+                  </>)}
+                  {infoIncType !== "none" && (
+                    <div style={{ fontSize: 14, color: THEME.text, marginTop: 10, lineHeight: 1.5 }}>{inc.payNote}<br />{inc.notice}</div>
+                  )}
+                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 10, lineHeight: 1.5 }}>
+                    매칭 후 현장 상황으로 인해 계약이 불발되거나 취소될 경우, 소개비 지급 의무는 소멸됩니다.<br />
+                    허위 정보 등록 시 등록된 오더의 즉시 삭제는 물론, 누적 횟수에 따라 플랫폼 이용이 영구 제한될 수 있으니 신중하게 등록해 주세요.
                   </div>
-                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 4 }}>등록 가능 범위: {inc.fixed.min.toLocaleString()}원 ~ {inc.fixed.max.toLocaleString()}원</div>
-                  <div style={rowStyle}>
-                    <Chip $selected={infoIncType === "rate"} onClick={() => setInfoIncType("rate")}>{inc.rate.label}</Chip>
-                    <Input style={{ flex: 1, minWidth: 120 }} inputMode="numeric" disabled={infoIncType !== "rate"}
-                      value={infoIncRate} onChange={(e) => setInfoIncRate(onlyDigits(e.target.value).slice(0, 2))} />
-                    <span style={{ fontSize: 15, color: THEME.text }}>{inc.rate.unit}</span>
-                  </div>
-                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 4 }}>등록 가능 범위: {inc.rate.min}% ~ {inc.rate.max}%</div>
-                  <div style={{ fontSize: 14, color: THEME.text, marginTop: 10, lineHeight: 1.5 }}>안내: {inc.notice}</div>
                 </div>
               );
             })()}
@@ -2209,15 +2225,11 @@ export const OrderCreateContent = () => {
               <Label style={{ marginBottom: 0 }}>{COMMON_B2B_FIELDS.referralFee.label}</Label>
               <HelpBtn type="button" onClick={() => setHelpPopup({ title: "소개수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
             </LabelRow>
-            {b2bPriceType === "hpoint" ? (
-              <div style={{ fontSize: 15, color: THEME.text, margin: "10px 0 12px", lineHeight: 1.5 }}>접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 소개수수료가 자동 지급됩니다.</div>
-            ) : (
             <ChipGrid style={{ marginTop: 12, marginBottom: 12 }}>
-              {COMMON_B2B_FIELDS.referralFee.types.filter(forThisCategory).map((t) => (
+              {COMMON_B2B_FIELDS.referralFee.types.filter(forThisCategory).filter((t) => !t.onlyPriceType || t.onlyPriceType === b2bPriceType).map((t) => (
                 <Chip key={t.value} $selected={referralFeeType === t.value} onClick={() => setReferralFeeType(t.value)}>{t.label}</Chip>
               ))}
             </ChipGrid>
-            )}
             {referralFeeType === "fixed" && (
               <>
                 <ChipGrid>

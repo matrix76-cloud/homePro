@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { THEME, CATEGORIES, ORDER_STATUS } from "../../config/homeproConfig";
-import ORDER_FORM_CONFIG from "../../config/orderFormConfig";
+import ORDER_FORM_CONFIG, { infoIncentiveText } from "../../config/orderFormConfig";
 import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus, addOrderLog, getOrderLogs } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
@@ -47,7 +47,7 @@ import {
   IoPersonCircleOutline,
   IoCopyOutline,
 } from "react-icons/io5";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../api/config";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
@@ -106,6 +106,10 @@ const OrderDetailPage = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [applicants, setApplicants] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  // 정보공유 미계약 신고 (대표 10/26)
+  const [showNoContract, setShowNoContract] = useState(false);
+  const [ncReason, setNcReason] = useState("");
+  const [ncDetail, setNcDetail] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [matchedProInfo, setMatchedProInfo] = useState(null); // 배정된 홈프로 프로필(접수자 시점)
   const isOwner = order?.createdBy === myUid;
@@ -461,6 +465,78 @@ const OrderDetailPage = () => {
     }
   };
 
+  // ── 정보공유 계약 취소 및 미계약 신고 (대표 10/26) ──
+  // 한쪽이 사유와 함께 신고 → 상대에게 알림 · 채팅 → 상대가 동의하거나 48시간 안에 이의가 없으면 '미계약'으로 확정.
+  // 확정은 오더 취소(cancelReason "미계약")로 처리해 보관된 H-포인트가 있으면 전액 돌려준다 (updateOrderStatus → refundHpointEscrow)
+  const NC_WAIT_MS = 48 * 3600 * 1000;
+  const ncOtherUid = order ? (isOwner ? order.matchedProUid : order.createdBy) : "";
+  const ncNotify = async (targetUid, title, body, chatText) => {
+    try {
+      if (targetUid) await addDoc(collection(db, "notifications"), { targetUids: [targetUid], title, body, type: "order", data: { orderId: order.id }, read: false, sent: false, createdAt: serverTimestamp() });
+    } catch (_) {}
+    try {
+      const { query: q, where: w, getDocs: gd } = await import("firebase/firestore");
+      const { sendSystemMessage } = await import("../../service/ChatService");
+      const rooms = await gd(q(collection(db, "chatRooms"), w("participants", "array-contains", myUid)));
+      for (const r of rooms.docs) {
+        if (r.data().orderId === order.id && (r.data().participants || []).includes(targetUid)) {
+          try { await sendSystemMessage(r.id, { text: chatText, type: "system" }); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  };
+  const reloadOrder = async () => { const u = await getOrder(order.id); if (u) setFetchedOrder(u); getOrderLogs(order.id).then(setOrderLogs).catch(() => {}); };
+  const handleReportNoContract = async () => {
+    const reason = ncReason === "기타" ? ncDetail.trim() : ncReason;
+    if (!reason) { showToast("사유를 선택하거나 입력해주세요"); return; }
+    const role = isOwner ? "접수자" : "홈프로";
+    try {
+      await updateDoc(doc(db, "homepro_orders", order.id), { noContract: { status: "pending", byUid: myUid, byName: myName, byRole: role, reason, atMs: Date.now() }, updatedAt: serverTimestamp() });
+      await addOrderLog(order.id, { type: "cancel", message: `계약 취소 및 미계약 신고 (사유: ${reason})`, byUid: myUid, byName: myName, byRole: role });
+      await ncNotify(ncOtherUid, "미계약 신고", `${myName}님이 미계약을 신고했습니다. 사유: ${reason}`,
+        `${role}가 계약 취소 및 미계약을 신고했습니다.\n사유: ${reason}\n동의하거나 48시간 안에 이의가 없으면 미계약으로 확정됩니다.`);
+      setShowNoContract(false); setNcReason(""); setNcDetail("");
+      showToast("미계약 신고를 보냈습니다");
+      reloadOrder();
+    } catch (e) { showToast(e.message || "신고에 실패했습니다"); }
+  };
+  const confirmNoContract = async (auto = false) => {
+    const nc = order.noContract || {};
+    try {
+      await updateOrderStatus(order.id, ORDER_STATUS.CANCELLED, { cancelReason: "미계약", noContract: { ...nc, status: "confirmed", confirmedBy: auto ? "auto" : myUid, confirmedAtMs: Date.now() } });
+      await addOrderLog(order.id, { type: "status", message: auto ? "미계약 확정 (48시간 이의 없음) · 소개비 지급 의무 소멸" : "미계약 확정 (양측 합의) · 소개비 지급 의무 소멸", byUid: myUid, byName: myName, byRole: isOwner ? "접수자" : "홈프로" });
+      if (!auto) await ncNotify(nc.byUid, "미계약 확정", "상대방이 동의해 미계약으로 확정되었습니다.", "미계약으로 확정되었습니다. 소개비 지급 의무는 소멸되었습니다.");
+      showToast("미계약으로 확정되었습니다");
+      reloadOrder();
+    } catch (e) { showToast(e.message || "처리에 실패했습니다"); }
+  };
+  // 48시간 이의 없음 → 둘 중 누가 화면을 열든 그때 확정한다 (서버 일정 작업 없이)
+  useEffect(() => {
+    const nc = order?.noContract;
+    if (!nc || nc.status !== "pending" || !(isOwner || isMatchedPro)) return;
+    if (Date.now() - (nc.atMs || 0) >= NC_WAIT_MS) confirmNoContract(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.noContract?.status, order?.noContract?.atMs]);
+  const objectNoContract = async () => {
+    const nc = order.noContract || {};
+    try {
+      await updateDoc(doc(db, "homepro_orders", order.id), { noContract: { ...nc, status: "disputed", disputedBy: myUid, disputedAtMs: Date.now() }, updatedAt: serverTimestamp() });
+      await addOrderLog(order.id, { type: "status", message: "미계약 신고에 이의 제기", byUid: myUid, byName: myName, byRole: isOwner ? "접수자" : "홈프로" });
+      await ncNotify(nc.byUid, "미계약 이의", "상대방이 미계약 신고에 이의를 제기했습니다.", "상대방이 미계약 신고에 이의를 제기했습니다. 채팅으로 조율해 주세요.");
+      showToast("이의를 보냈습니다");
+      reloadOrder();
+    } catch (e) { showToast(e.message || "처리에 실패했습니다"); }
+  };
+
+  // 오더이력 — 접수자 · 배정 홈프로는 전체, 그 밖의 지원 홈프로는 내 기록만 (대표 10/26 "다른 홈프로의 이력·견적 금액은 표시하지 않음").
+  // 다른 홈프로가 선정됐으면 '미선정 마감' 한 줄로 끝맺는다
+  const visibleLogs = (() => {
+    if (!order || isOwner || isMatchedPro) return orderLogs;
+    const mine = orderLogs.filter((l) => l.byUid === myUid);
+    if (!order.matchedProUid) return mine;
+    return [{ id: "_unselected", type: "cancel", message: "미선정 · 다른 홈프로가 선정되어 마감되었습니다", byName: "선정 마감", byRole: "", createdAt: order.assignedAt || null }, ...mine];
+  })();
+
   const handleSelectPro = async (proUid) => {
     if (order.matchedProUid) { showToast("이미 1팀이 선정된 오더입니다"); return; } // 중복선정 방지
     if (!window.confirm("이 홈프로를 선정 하시겠습니까?\n선정 후 자동으로 배정됩니다.")) return; // 팝업 확인
@@ -496,6 +572,20 @@ const OrderDetailPage = () => {
           });
         }
       } catch (e) {}
+      // 대화방에도 남긴다 — 앱 푸시를 못 받는 사람(웹)도 채팅에서 바로 알게 (대표 10/26)
+      try {
+        const { query: q, where: w, getDocs: gd } = await import("firebase/firestore");
+        const { sendSystemMessage } = await import("../../service/ChatService");
+        const rooms = await gd(q(collection(db, "chatRooms"), w("participants", "array-contains", myUid)));
+        for (const r of rooms.docs) {
+          if (r.data().orderId !== order.id) continue;
+          const parts = r.data().participants || [];
+          const text = parts.includes(proUid)
+            ? "홈프로로 선정되어 배정되었습니다.\n오더 내용을 확인하고 작업 일정을 잡아 주세요."
+            : "다른 홈프로가 선정되어 이 오더는 마감되었습니다.\n견적을 보내 주셔서 감사합니다.";
+          try { await sendSystemMessage(r.id, { text, type: "system" }); } catch (_) {}
+        }
+      } catch (_) {}
       await addOrderLog(order.id, { type: "select", message: "선정완료", byUid: myUid, byName: myName, byRole: "접수자" });
       showToast("홈프로가 선정되었습니다");
       const updated = await getOrder(order.id);
@@ -897,8 +987,8 @@ const OrderDetailPage = () => {
             )}
             {isInfoOrder && order.infoIncentive && (
               <ConditionRow>
-                <ConditionLabel>소개비(인센티브)</ConditionLabel>
-                <ConditionValue>{(order.infoIncentive.type === "rate" ? `정률 ${order.infoIncentive.rate}%` : `정액 ${Number(order.infoIncentive.amount || 0).toLocaleString()}원`)}</ConditionValue>
+                <ConditionLabel>소개비</ConditionLabel>
+                <ConditionValue>{infoIncentiveText(order.infoIncentive)}</ConditionValue>
               </ConditionRow>
             )}
             {isInfoOrder && !order.infoIncentive && (
@@ -1131,11 +1221,46 @@ const OrderDetailPage = () => {
           <DetailText>{order.description || "-"}</DetailText>
         </DetailSection>
 
+        {/* ── 정보공유 계약 취소 및 미계약 신고 (대표 10/26) ── */}
+        {isInfoOrder && order.matchedProUid && (isOwner || isMatchedPro) && (order.orderStatus === "배정" || order.noContract) && (() => {
+          const nc = order.noContract;
+          const mineReport = nc && nc.byUid === myUid;
+          return (
+            <DetailSection>
+              <SectionTitle>계약 진행</SectionTitle>
+              {!nc && (
+                <>
+                  <DetailText>매칭 후 현장 상황으로 계약이 불발되거나 취소되면 아래 버튼으로 신고해 주세요. 미계약으로 확정되면 소개비 지급 의무는 소멸되고, 보관된 포인트가 있으면 전액 돌려드립니다.</DetailText>
+                  <ActionRow style={{ marginTop: 12 }}><OutlinedBtn $danger onClick={() => setShowNoContract(true)}>계약 취소 및 미계약 신고</OutlinedBtn></ActionRow>
+                </>
+              )}
+              {nc && nc.status === "pending" && (
+                <>
+                  <DetailText>{mineReport ? "미계약을 신고했습니다. 상대방이 동의하거나 48시간 안에 이의가 없으면 미계약으로 확정됩니다." : `${nc.byName || "상대방"}님이 미계약을 신고했습니다. 동의하면 바로 확정되고, 48시간 안에 이의가 없어도 확정됩니다.`}</DetailText>
+                  <DetailText style={{ marginTop: 6 }}>사유: {nc.reason}</DetailText>
+                  {!mineReport && (
+                    <ActionRow style={{ marginTop: 12 }}>
+                      <OutlinedBtn onClick={objectNoContract}>이의 제기</OutlinedBtn>
+                      <OutlinedBtn $danger onClick={() => { if (window.confirm("미계약에 동의하시겠습니까?\n동의하면 오더가 미계약으로 마감됩니다.")) confirmNoContract(false); }}>미계약 동의</OutlinedBtn>
+                    </ActionRow>
+                  )}
+                </>
+              )}
+              {nc && nc.status === "disputed" && (
+                <DetailText>미계약 신고에 이의가 제기되었습니다(사유: {nc.reason}). 채팅으로 조율해 주세요.{!mineReport ? "" : " 다시 신고하려면 고객센터로 문의해 주세요."}</DetailText>
+              )}
+              {nc && nc.status === "confirmed" && (
+                <DetailText>계약 불발 · 미계약 완료 (사유: {nc.reason}). 소개비 지급 의무는 소멸되었습니다.</DetailText>
+              )}
+            </DetailSection>
+          );
+        })()}
+
         {/* ── 활동 이력 ── 취소/상태변경/견적통보/수락/지원/선정 타임라인 */}
-        {(isOwner || isMatchedPro || (order.applicantUids || []).includes(myUid)) && orderLogs.length > 0 && (
+        {(isOwner || isMatchedPro || (order.applicantUids || []).includes(myUid)) && visibleLogs.length > 0 && (
           <LogSection>
             <SectionTitle>오더이력</SectionTitle>
-            {orderLogs.map((log) => (
+            {visibleLogs.map((log) => (
               <LogRow key={log.id}>
                 <LogDot $type={log.type} />
                 <LogBody>
@@ -1210,7 +1335,7 @@ const OrderDetailPage = () => {
             <DetailText style={{ color: THEME.muted }}>
               {/* 현장견적은 방문이 필수, 견적요청은 선택 (대표 확정 8/7) */}
               {isInfoOrder
-                ? "정보공유 오더는 견적서·현장 체크인 없이 진행합니다. 제보된 정보를 확인하면 정보제공 리워드를, 그 업체와 계약이 성사되면 계약성사 인센티브를 접수자(제보자)에게 지급합니다."
+                ? "정보공유 오더는 견적서·현장 체크인 없이 진행합니다. 계약이 성사되면 수락한 홈프로가 약속한 소개비(정액 또는 정률)를 접수자에게 지급합니다. 매칭 후 현장 상황으로 계약이 불발되거나 취소되면 소개비 지급 의무는 소멸됩니다."
                 : !isUnpriced
                 ? `${PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType} 단가는 견적 작성이 필요하지 않습니다`
                 : order.b2bPriceType === "onsite"
@@ -1225,7 +1350,8 @@ const OrderDetailPage = () => {
           <DetailSection>
             <SectionTitle>지원 홈프로 ({applicants.length}) · 견적가 비교 후 선정</SectionTitle>
             {applicants.map((app) => (
-              <ApplicantCard key={app.proUid}>
+              /* 선정 뒤 — 배정된 홈프로는 초록 테두리, 미선정은 흐리게 (대표 10/26) */
+              <ApplicantCard key={app.proUid} $pick={order.matchedProUid ? (order.matchedProUid === app.proUid ? "on" : "off") : ""}>
                 <ApplicantTop>
                   <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate(`/profile/${app.proUid}`, { state: { fallbackName: app.proName, fallbackPhoto: app.proProfile } })}>
                   {app.proProfile ? (
@@ -1383,7 +1509,8 @@ const OrderDetailPage = () => {
         ) : matchType === "compare" ? (
           /* 다중비교호출 — 전화 제거, 지원하기만 */
           <ActionRow>
-            <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
+            {/* 정보공유 오더는 '수락하기' (대표 10/26) */}
+            <PrimaryCTA onClick={handleApplyOrder}>{isInfoOrder ? "수락하기" : "지원하기"}</PrimaryCTA>
           </ActionRow>
         ) : matchType === "direct" ? (
           /* 지정배정 — 지정된 번호의 홈프로만 수락/거절 가능 (전수검사 7/29:
@@ -1445,6 +1572,35 @@ const OrderDetailPage = () => {
               ))}
             </CancelOptions>
             <CancelConfirmBtn onClick={handleOwnerCancel} disabled={!cancelReason}>확인</CancelConfirmBtn>
+          </CancelSheet>
+        </SheetOverlay>
+      )}
+
+      {/* 미계약 신고 시트 (대표 10/26) */}
+      {showNoContract && (
+        <SheetOverlay onClick={() => setShowNoContract(false)}>
+          <CancelSheet onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>계약 취소 및 미계약 신고</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowNoContract(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </SheetCloseBtn>
+            </SheetHeader>
+            <CancelOptions>
+              {["고객 변심", "현장 조건 불일치", "일정 조율 실패", "기타"].map((reason) => (
+                <CancelOption key={reason} $selected={ncReason === reason} onClick={() => setNcReason(reason)}>
+                  <CancelRadio $selected={ncReason === reason} />
+                  <CancelLabel>{reason}</CancelLabel>
+                </CancelOption>
+              ))}
+            </CancelOptions>
+            {ncReason === "기타" && (
+              <textarea value={ncDetail} onChange={(e) => setNcDetail(e.target.value.slice(0, 200))} rows={3} placeholder="사유를 입력해주세요"
+                style={{ width: "100%", boxSizing: "border-box", marginTop: 10, padding: 12, fontSize: 15, fontFamily: "inherit", border: `1px solid ${THEME.border}`, borderRadius: 8 }} />
+            )}
+            <div style={{ fontSize: 14, color: THEME.text, lineHeight: 1.5, margin: "12px 0" }}>상대방에게 알림이 가고, 상대방이 동의하거나 48시간 안에 이의가 없으면 미계약으로 확정됩니다. 매칭 후 현장 상황으로 계약이 불발되거나 취소될 경우, 소개비 지급 의무는 소멸됩니다.</div>
+            <CancelConfirmBtn onClick={handleReportNoContract} disabled={!ncReason}>신고하기</CancelConfirmBtn>
           </CancelSheet>
         </SheetOverlay>
       )}
@@ -2329,6 +2485,12 @@ const ApplicantCard = styled.div`
   padding: 14px 0;
   border-bottom: 1px solid ${THEME.border};
   &:last-child { border-bottom: none; }
+  ${({ $pick }) => $pick === "on" ? `
+    padding: 14px 12px; margin: 8px 0;
+    border: 1.5px solid ${THEME.primary}; border-radius: 8px;
+    &:last-child { border-bottom: 1.5px solid ${THEME.primary}; }
+  ` : ""}
+  ${({ $pick }) => $pick === "off" ? "opacity: 0.45;" : ""}
 `;
 
 const ApplicantTop = styled.div`

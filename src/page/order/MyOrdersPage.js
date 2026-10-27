@@ -6,6 +6,7 @@ import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
 import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice, addOrderLog } from "../../service/OrderService";
 import { insuranceLine } from "../../service/OrderInsuranceService";
+import { infoIncentiveText } from "../../config/orderFormConfig";
 import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -106,7 +107,7 @@ const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", di
 const formatPriceLine = (order) => {
   // 정보공유: 리워드 금액을 같이 표기
   if (order.b2bPriceType === "info") {
-    if (order.infoIncentive) return `정보공유 · 소개비 ${(order.infoIncentive.type === "rate" ? `정률 ${order.infoIncentive.rate}%` : `정액 ${Number(order.infoIncentive.amount || 0).toLocaleString()}원`)}`;
+    if (order.infoIncentive) return `정보공유 · 소개비 ${infoIncentiveText(order.infoIncentive)}`;
     const r = Number(order.infoReward) || 0;
     return r > 0 ? `정보공유 · 리워드 ${r.toLocaleString()}원` : "정보공유";
   }
@@ -668,6 +669,13 @@ export const MyOrdersContent = () => {
                   <OrderDate>{formatOrderTime(order.createdAt)}</OrderDate>
                 </CardTop>
                 <CardTitle>{order.title}</CardTitle>
+                {/* 미선정 — 내 견적 전송과 미선정 마감만 남기고, 오더 정보 · 대화 미리보기는 보이지 않는다 (대표 10/26) */}
+                {isUnselected(order) ? (
+                  <UnselectedLine>
+                    {Number(order.applicantQuotes?.[uid]) > 0 ? `내 견적서 ${Number(order.applicantQuotes[uid]).toLocaleString()}원 전송` : "견적 지원"}
+                    {" · 다른 홈프로가 선정되어 마감되었습니다"}
+                  </UnselectedLine>
+                ) : (<>
                 <CardBottom>
                   <BottomLeft>
                     {/* location 이 구버전(객체 {sido,gu}) 문서면 그대로 렌더 시
@@ -721,6 +729,7 @@ export const MyOrdersContent = () => {
                 )}
 
                 {renderActions(order, displayStatus, chats, cat)}
+                </>)}
               </OrderCard>
             );
           })
@@ -1615,4 +1624,12 @@ const CalDotMore = styled.div`
   font-size: 13px;
   color: ${THEME.muted};
   text-align: center;
+`;
+
+/* 미선정 카드 한 줄 (대표 10/26) */
+const UnselectedLine = styled.div`
+  margin-top: 8px;
+  font-size: 14px;
+  color: #2b2f36;
+  line-height: 1.5;
 `;
