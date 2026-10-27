@@ -4,7 +4,8 @@
  *   자동결제 해지는 서버 tossBillingCancel — 해지해도 endAt 까지 보장은 유지되고 자동 연장만 끊긴다.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { IoShieldCheckmarkOutline, IoDocumentTextOutline, IoRibbonOutline, IoSettingsOutline, IoAlertCircleOutline, IoChatbubbleEllipsesOutline } from "react-icons/io5";
 import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -12,14 +13,17 @@ import { useAuth } from "../../context/AuthContext";
 import { PAY_PURPOSE_LABEL, TOSS_METHOD_LABEL } from "../../utility/tossConfig";
 import { cancelBilling } from "../../service/payService";
 import {
-  getInsuranceSettings, getMyPolicies, getMyInsurancePayments, getMyClaims, tsToDate,
+  getInsuranceSettings, getMyPolicies, getMyInsurancePayments, getMyClaims, tsToDate, pickActivePolicy,
   formatPeriod, formatDate, formatDateTime, won, POLICY_STATUS_LABEL, CLAIM_STATUS_LABEL, DAMAGE_LEVEL_LABEL,
 } from "../../service/InsuranceService";
 import {
-  Wrap, Card, CardTitle, CardNote, KV, KVRow, K, V, PrimaryBtn, SmallBtn, FixedBar, Toast,
+  Wrap, Card, CardTitle, CardNote, KV, KVRow, K, V, SmallBtn, Toast,
   StatusText, ListRow, ListMain, ListSub, ListRight, Empty, PcCols, PcStack, PcSide,
 } from "./insuranceStyles";
 import usePcWide from "../../hooks/usePcWide";
+import { C, Box, H, Row, Txt, Btn } from "./InsuranceBlocks";
+import { EmblemSheet, CertSheet } from "./InsuranceCertificate";
+import { ACCIDENT_STEPS } from "./insuranceGroups";
 import { PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const PAY_STATUS_LABEL = { ready: "결제 전", done: "결제 완료", fail: "실패", refund: "환불" };
@@ -86,6 +90,74 @@ const InsuranceMyPage = () => {
   };
 
   const sortedPolicies = useMemo(() => policies, [policies]);
+
+  /* ───────── 맨 위 — 보장 상태 · 사고 대처 (시안 insurance-manage 1번 기획안 그대로, 10/27) ───────── */
+  const [params, setParams] = useSearchParams();
+  const sheet = params.get("show") || "";   // emblem · cert — 가입 완료 화면에서 바로 열기
+  const closeSheet = () => { params.delete("show"); setParams(params, { replace: true }); };
+  const openSheet = (v) => { params.set("show", v); setParams(params, { replace: true }); };
+  const myName = userData?.name || userData?.nickname || "";
+  const cur = useMemo(() => pickActivePolicy(policies), [policies]);
+  const [kakaoUrl, setKakaoUrl] = useState("");
+  useEffect(() => {
+    (async () => {
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("../../api/config");
+        const snap = await getDoc(doc(db, "settings", "companyInfo"));
+        const d = snap.exists() ? snap.data() : {};
+        setKakaoUrl(String(d.kakaoChannelUrl || d.kakaoUrl || "").trim());
+      } catch (_) {}
+    })();
+  }, []);
+  const card = cur?.billing && (cur.billing.cardCompany || cur.billing.cardNumberMasked) ? `${cur.billing.cardCompany || ""} ${cur.billing.cardNumberMasked || ""}`.trim() : "";
+  const nextCharge = cur && cur.type === "monthly" && cur.autoRenew !== false && cur.billing?.nextChargeAt;
+  const manageSub = () => {
+    if (!cur) { navigate("/insurance"); return; }
+    if (canCancel(cur)) doCancel(cur);
+    else showToast(cur.autoRenew === false ? `자동결제가 해지되어 ${formatDate(cur.endAt)}까지 보장됩니다` : "해지할 자동결제가 없습니다");
+  };
+  const tileBtn = { fontSize: 14, flexDirection: "column", height: 64, gap: 2 };
+  const topEl = (
+    <>
+      <Box>
+        {loading ? <Txt>확인 중...</Txt> : cur ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, fontWeight: 700, color: C.P }}>
+              <IoShieldCheckmarkOutline size={24} />{cur.autoRenew === false ? "보장 중 (해지 예정)" : "보장 중 (정상 유효)"}
+            </div>
+            <Txt style={{ marginTop: 6 }}>{myName ? `${myName} 파트너님은` : "파트너님은"} 현재 1억 배상책임보험 보장 중입니다.</Txt>
+            <div style={{ marginTop: 6 }}>
+              <Row k="가입 그룹" v={cur.group ? `${cur.group}그룹 (월 ${won(cur.price)} 결제 중)` : `${planLabel(cur.type)}${cur.price ? ` (${won(cur.price)})` : ""}`} />
+              {card && <Row k="등록 카드" v={card} />}
+              <Row k={nextCharge ? "다음 결제일" : "보장 만료일"} v={nextCharge ? `${formatDate(cur.billing.nextChargeAt)} (${won(cur.price)})` : formatDate(cur.endAt)} last />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 10 }}>
+              <Btn ghost small style={tileBtn} onClick={() => openSheet("cert")}><IoDocumentTextOutline size={20} />가입 증명서</Btn>
+              <Btn ghost small style={tileBtn} onClick={() => openSheet("emblem")}><IoRibbonOutline size={20} />홍보 엠블럼</Btn>
+              <Btn ghost small style={tileBtn} onClick={manageSub} disabled={!!busyId}><IoSettingsOutline size={20} />{busyId ? "해지 중..." : "구독 해지"}</Btn>
+            </div>
+          </>
+        ) : (
+          <>
+            <H>가입한 배상책임보험이 없습니다</H>
+            <Txt>월 5,900원부터 카드 한 번 등록으로 매월 자동 보장됩니다.</Txt>
+            <Btn style={{ marginTop: 12 }} onClick={() => navigate("/insurance")}>보험 알아보기</Btn>
+          </>
+        )}
+      </Box>
+      <Box>
+        <H icon={IoAlertCircleOutline}>현장 사고가 발생했나요?</H>
+        {ACCIDENT_STEPS.map((t, i) => <Row key={t} k={`${i + 1}단계`} v={t} last={i === ACCIDENT_STEPS.length - 1} />)}
+        <Btn danger style={{ marginTop: 12 }} onClick={() => navigate("/insurance/claim")}><IoAlertCircleOutline size={20} />사고 즉시 접수하기 (24시간)</Btn>
+        <Btn ghost style={{ marginTop: 8 }} onClick={() => (kakaoUrl ? window.open(kakaoUrl, "_blank") : navigate("/insurance/inquiry"))}>
+          <IoChatbubbleEllipsesOutline size={20} />{kakaoUrl ? "카카오톡 1:1 전담 보상상담원 연결" : "1:1 보상 상담 문의"}
+        </Btn>
+      </Box>
+      {sheet === "emblem" && <EmblemSheet name={myName} onClose={closeSheet} />}
+      {sheet === "cert" && cur && <CertSheet name={myName} policy={cur} onClose={closeSheet} />}
+    </>
+  );
 
   const policyCardEl = (
         <Card>
@@ -175,13 +247,7 @@ const InsuranceMyPage = () => {
                 </PcTable>
               </div>
             </PcStack>
-            <PcSide>
-              <Card>
-                <CardTitle>사고가 났나요</CardTitle>
-                <CardNote>접수 후 보험대리점 담당자가 연락드립니다. 처리 상태는 이 화면의 사고 접수 표에서 확인할 수 있습니다.</CardNote>
-                <PrimaryBtn style={{ marginTop: 16 }} onClick={() => navigate("/insurance/claim")}>사고 접수하기</PrimaryBtn>
-              </Card>
-            </PcSide>
+            <PcSide>{topEl}</PcSide>
           </PcCols>
         </Wrap>
         {toast && <Toast>{toast}</Toast>}
@@ -190,8 +256,9 @@ const InsuranceMyPage = () => {
   }
 
   return (
-    <SimpleBackLayout NAME="내 보험 관리" hideFooter onBack={() => navigate("/insurance")}>
-      <Wrap $bottom={110}>
+    <SimpleBackLayout NAME="내 배상책임보험 관리" hideFooter onBack={() => navigate("/insurance")}>
+      <Wrap $bottom={40}>
+        {topEl}
         {policyCardEl}
 
         <Card>
@@ -238,9 +305,6 @@ const InsuranceMyPage = () => {
         </Card>
       </Wrap>
 
-      <FixedBar>
-        <PrimaryBtn onClick={() => navigate("/insurance/claim")}>사고 접수하기</PrimaryBtn>
-      </FixedBar>
       {toast && <Toast>{toast}</Toast>}
     </SimpleBackLayout>
   );

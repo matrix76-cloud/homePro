@@ -28,7 +28,7 @@ const ins = require("./insurance");
 const {
     REGION, POLICIES, PAYMENTS, USERS, DEFAULT_PLANS,
     db, tsNow, toDate, addMonths, addYears,
-    loadInsuranceSettings, perOrderPremium, resolveCaller, userDisplayName, userPhone,
+    loadInsuranceSettings, groupPrice, perOrderPremium, resolveCaller, userDisplayName, userPhone,
     tossRequest, chargeBillingKey, maskCardNumber, makeTossOrderId, refreshUserInsurance, subscriptionPlan,
     getMonthlySubscriptionPrice,
 } = ins;
@@ -115,7 +115,7 @@ function customerKeyMatches(ck, ...uids) {
 }
 
 /** 새 policy 문서의 공통 뼈대(사양 2절) */
-function basePolicy({ uid, user, type, price, startAt, endAt, paymentId, orderId = null, billing = null }) {
+function basePolicy({ uid, user, type, price, startAt, endAt, paymentId, orderId = null, billing = null, group = null }) {
     const phone = userPhone(user);
     return {
         uid,
@@ -130,6 +130,7 @@ function basePolicy({ uid, user, type, price, startAt, endAt, paymentId, orderId
         orderId,
         billing,
         autoRenew: type === "monthly" ? true : null,
+        group: group || null, // 업종 그룹 A~D (10/27 월 정기결제 개편) — 예전 가입은 null
         identity: { verified: !!phone, method: phone ? "phone" : "none", verifiedAt: phone ? tsNow() : null }, // CP사 본인인증 연동 전엔 이름·전화 확인으로 대체
         createdAt: tsNow(),
         updatedAt: tsNow(),
@@ -525,8 +526,10 @@ exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
     const settings = await loadInsuranceSettings();
     const plan = settings.plans.monthly;
     if (plan.active === false) throw new HttpsError("failed-precondition", "월 구독형 보험은 지금 가입할 수 없습니다.");
-    const amount = Number(plan.price) || DEFAULT_PLANS.monthly.price;
-    const orderName = plan.label || DEFAULT_PLANS.monthly.label;
+    // 업종 그룹(A~D) 월 정기결제 (대표 기획안 10/26) — planId 로 그룹이 온다. 없으면 예전 월 구독형 금액
+    const group = groupPrice(settings, String(planId || "")) ? String(planId) : null;
+    const amount = group ? groupPrice(settings, group) : (Number(plan.price) || DEFAULT_PLANS.monthly.price);
+    const orderName = group ? `도급배상책임보험 (${group}그룹)` : (plan.label || DEFAULT_PLANS.monthly.label);
 
     const cur = await findActiveGeneralPolicy(uid);
     if (cur && cur.type === "monthly" && cur.autoRenew !== false) throw new HttpsError("failed-precondition", "이미 월 구독형 보험에 가입되어 있습니다.");
@@ -599,13 +602,13 @@ exports.tossBillingIssue = onCall({ region: REGION }, async (request) => {
     const endAt = addMonths(startAt, 1);
     const pRef = db().collection(POLICIES).doc();
     await pRef.set(basePolicy({
-        uid, user, type: "monthly", price: amount, startAt, endAt, paymentId: tossOrderId,
+        uid, user, type: "monthly", price: amount, startAt, endAt, paymentId: tossOrderId, group,
         billing: { billingKey, customerKey: ck, cardCompany, cardNumberMasked, nextChargeAt: fromDate(endAt), failCount: 0, issuedAt: tsNow() },
     }));
     await payRef.set({ meta: { policyId: pRef.id, orderId: null, planType: "monthly" }, updatedAt: tsNow() }, { merge: true });
     await refreshUserInsurance(uid);
 
-    return { ok: true, resumed: false, policyId: pRef.id, paymentId: tossOrderId, amount, endAt: endAt.toISOString(), nextChargeAt: endAt.toISOString(), cardCompany, cardNumberMasked };
+    return { ok: true, resumed: false, policyId: pRef.id, paymentId: tossOrderId, amount, group, startAt: startAt.toISOString(), endAt: endAt.toISOString(), nextChargeAt: endAt.toISOString(), cardCompany, cardNumberMasked };
 });
 
 // ─────────────────────────── ④ 자동결제 해지 ───────────────────────────

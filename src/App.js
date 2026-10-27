@@ -84,6 +84,7 @@ import SubscriptionPage from "./page/mypage/SubscriptionPage";
 import EducationMarketPage from "./page/main/EducationMarketPage";
 import InsurancePage from "./page/insurance/InsurancePage";
 import InsuranceMyPage from "./page/insurance/InsuranceMyPage";
+import InsuranceJoinPage from "./page/insurance/InsuranceJoinPage";
 import InsuranceClaimPage from "./page/insurance/InsuranceClaimPage";
 import InsuranceInquiryPage from "./page/insurance/InsuranceInquiryPage";
 import PayPage from "./page/pay/PayPage";
@@ -497,6 +498,8 @@ const AnimatedRoutes = () => {
             <Route path="/insurance" element={noPg(noIos(wrap(<InsurancePage />)))} />
             {/* 보험 가입·사고 접수·토스 결제 (9/13) */}
             <Route path="/insurance/my" element={noPg(noIos(wrap(<InsuranceMyPage />)))} />
+            {/* 배상책임보험 가입 3단계 (대표 기획안 10/26 · 형 시안 선택 10/27) */}
+            <Route path="/insurance/join" element={noPg(noIos(wrap(<InsuranceJoinPage />)))} />
             <Route path="/insurance/claim" element={noPg(noIos(wrap(<InsuranceClaimPage />)))} />
             {/* 보험 1:1 문의 — 결제가 없어 아이폰 앱에서도 연다 */}
             <Route path="/insurance/inquiry" element={<NoPgReview>{wrap(<InsuranceInquiryPage />)}</NoPgReview>} />

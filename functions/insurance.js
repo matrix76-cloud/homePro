@@ -65,6 +65,15 @@ const DEFAULT_PLANS = {
     perOrder: { label: "건당 단기보험", rate: 1, minPrice: 3000, active: true },
 };
 
+/** 업종 그룹 월 정기결제 (대표 기획안 10/26) — settings/insurance.groupPlans 로 덮어쓴다. 웹 insuranceGroups.js 와 같은 값 */
+const DEFAULT_GROUP_PLANS = { A: 5900, B: 7900, C: 18000, D: 37000 };
+/** 그룹 월 금액 — 모르는 그룹이면 0 */
+function groupPrice(settings, group) {
+    if (!group || !DEFAULT_GROUP_PLANS[group]) return 0;
+    const o = settings && settings.groupPlans && settings.groupPlans[group];
+    return Number(o && o.price) > 0 ? Number(o.price) : DEFAULT_GROUP_PLANS[group];
+}
+
 /** 건당 보험료 위험도 4그룹 (대표 9/12 회신 — 임시값. 카테고리→그룹 배정표는 대표가 줄 때까지 모두 g1) */
 const DEFAULT_PER_ORDER = {
     minPrice: 3000,
@@ -240,7 +249,8 @@ async function renewMonthlyPolicy(policyDoc, settings) {
     const billing = policy.billing || {};
     const uid = policy.uid;
     const plan = settings.plans.monthly;
-    const amount = Number(plan.price) || DEFAULT_PLANS.monthly.price;
+    // 업종 그룹으로 가입한 보험은 그 그룹 금액으로 갱신 (10/27). 예전 가입(그룹 없음)은 기존 월 금액 그대로
+    const amount = groupPrice(settings, policy.group) || Number(plan.price) || DEFAULT_PLANS.monthly.price;
 
     if (!billing.billingKey || !billing.customerKey) {
         console.warn("[insurance] 빌링 정보 없음 — 건너뜀", policyId);
@@ -249,7 +259,7 @@ async function renewMonthlyPolicy(policyDoc, settings) {
 
     const tossOrderId = makeTossOrderId("insurance_monthly", uid.slice(0, 8));
     const payRef = db().collection(PAYMENTS).doc(tossOrderId);
-    const orderName = `${plan.label || "월 구독형 보험"} 갱신`;
+    const orderName = policy.group ? `도급배상책임보험 (${policy.group}그룹) 갱신` : `${plan.label || "월 구독형 보험"} 갱신`;
     await payRef.set({
         purpose: "insurance_monthly",
         uid,
@@ -709,6 +719,8 @@ module.exports = {
     PAYMENTS,
     USERS,
     DEFAULT_PLANS,
+    DEFAULT_GROUP_PLANS,
+    groupPrice,
     DEFAULT_PER_ORDER,
     DEFAULT_COVERAGE,
     MAX_BILLING_FAILS,

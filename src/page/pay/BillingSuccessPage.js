@@ -15,6 +15,7 @@ import { THEME } from "../../config/homeproConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { issueBilling, readPaySession } from "../../service/payService";
 import { won, formatDate } from "../../service/InsuranceService";
+import { InsuranceDone } from "../insurance/InsuranceCertificate";
 import {
   Wrap, Card, CardTitle, CardNote, KV, KVRow, K, V, PrimaryBtn, GhostBtn, FixedBar, Centered, PageTitle, PageSub, BtnRow,
 } from "../insurance/insuranceStyles";
@@ -29,7 +30,8 @@ const BillingSuccessPage = () => {
 
   const purpose = params.get("purpose") || readPaySession()?.purpose || "insurance_monthly";
   const isSub = purpose === "subscription";
-  const planId = isSub ? (params.get("plan") || readPaySession()?.refId || null) : null;
+  // 구독은 상품 id, 보험은 업종 그룹(A~D, 10/27) — 둘 다 주소의 plan 또는 결제 세션 refId 로 온다
+  const planId = params.get("plan") || readPaySession()?.refId || null;
 
   useEffect(() => {
     if (once.current) return;
@@ -74,7 +76,9 @@ const BillingSuccessPage = () => {
           </Centered>
         )}
 
-        {state === "done" && (
+        {/* 보험 가입 완료 — 완료 문구 + 내 가입 보장 증서 (시안 insurance-step3 2번, 10/27) */}
+        {state === "done" && !isSub && !info?.resumed && <InsuranceDone info={info} />}
+        {state === "done" && (isSub || info?.resumed) && (
           <>
             <Card>
               <PageTitle>{isSub ? "구독이 시작됐습니다" : "월 구독형 보험에 가입됐습니다"}</PageTitle>
@@ -109,7 +113,7 @@ const BillingSuccessPage = () => {
         {state === "done" && (
           <BtnRow>
             <GhostBtn onClick={goMy}>{isSub ? "마이페이지" : "내 보험 관리"}</GhostBtn>
-            <PrimaryBtn onClick={goBack} style={{ flex: 2 }}>{isSub ? "구독 관리로 가기" : "보험으로 가기"}</PrimaryBtn>
+            <PrimaryBtn onClick={goBack} style={{ flex: 2 }}>{isSub ? "구독 관리로 가기" : "보험 홈으로 이동"}</PrimaryBtn>
           </BtnRow>
         )}
         {state === "failed" && (
