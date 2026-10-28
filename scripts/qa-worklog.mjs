@@ -16,7 +16,7 @@ const OUT = process.argv[2] || "/tmp/qa-worklog";
 const PORT = process.argv[3] || "3005";
 const PHOTO = process.argv[4];
 const BASE = `http://localhost:${PORT}`;
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = "/Users/a1111/.cache/puppeteer/chrome-headless-shell/mac_arm-155.0.8059.79/chrome-headless-shell-mac-arm64/chrome-headless-shell";
 const ORDER_ID = "qa_worklog_tmp";
 const PRO_UID = "seed_B1";      // 용감한강아지 (수행 홈프로)
 const OWNER_UID = "seed_A1";    // 성실한청소부 (접수자)
@@ -61,7 +61,7 @@ await setDoc(doc(db, "homepro_orders", ORDER_ID), {
 console.log("임시 오더 생성:", ORDER_ID);
 
 const browser = await puppeteer.launch({
-  executablePath: CHROME, headless: "new",
+  executablePath: CHROME, headless: "shell",
   args: ["--no-sandbox", "--disable-dev-shm-usage", "--window-size=430,900"],
 });
 const page = await browser.newPage();

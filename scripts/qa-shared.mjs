@@ -18,7 +18,7 @@ const require = createRequire("/Users/a1111/.npm/_npx/55158e48eb5c59f7/");
 const puppeteer = require("puppeteer");
 
 export const BASE = "http://localhost:3002";
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = "/Users/a1111/.cache/puppeteer/chrome-headless-shell/mac_arm-155.0.8059.79/chrome-headless-shell-mac-arm64/chrome-headless-shell";
 export const COL = {
   orders: "homepro_orders", users: "users", pros: "homepro_pros",
   cash: "homepro_cash", reviews: "homepro_reviews", blacklist: "homepro_blacklist",
@@ -48,7 +48,7 @@ export function createRunner({ group, dir }) {
 
   async function boot() {
     browser = await puppeteer.launch({
-      executablePath: CHROME, headless: "new",
+      executablePath: CHROME, headless: "shell",
       args: ["--no-sandbox", "--disable-dev-shm-usage", "--window-size=430,900"],
     });
     page = await browser.newPage();

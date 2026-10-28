@@ -17,7 +17,7 @@ const puppeteer = require("puppeteer");
 
 const BASE = "http://localhost:3002";
 const OUT = "public/qa/20260730-boundary";
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = "/Users/a1111/.cache/puppeteer/chrome-headless-shell/mac_arm-155.0.8059.79/chrome-headless-shell-mac-arm64/chrome-headless-shell";
 const ORDERS = "homepro_orders";
 const USERS = "users";
 const CASH = "homepro_cash";
@@ -81,7 +81,7 @@ async function cleanupOrders() {
 let browser, page;
 async function boot() {
   browser = await puppeteer.launch({
-    executablePath: CHROME, headless: "new",
+    executablePath: CHROME, headless: "shell",
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--window-size=430,900"],
   });
   page = await browser.newPage();

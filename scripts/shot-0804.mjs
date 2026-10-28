@@ -8,13 +8,13 @@ const puppeteer = require("puppeteer");
 const OUT = process.argv[2] || "/tmp/shot-0804";
 const PORT = process.argv[3] || "3005";
 const BASE = `http://localhost:${PORT}`;
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = "/Users/a1111/.cache/puppeteer/chrome-headless-shell/mac_arm-155.0.8059.79/chrome-headless-shell-mac-arm64/chrome-headless-shell";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 fs.mkdirSync(OUT, { recursive: true });
 
 const browser = await puppeteer.launch({
-  executablePath: CHROME, headless: "new",
+  executablePath: CHROME, headless: "shell",
   args: ["--no-sandbox", "--disable-dev-shm-usage", "--window-size=430,900"],
 });
 const page = await browser.newPage();
