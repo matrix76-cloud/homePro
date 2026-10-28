@@ -4,6 +4,7 @@
  *  대표 확정 9/12: 월 16,500원(부가세 포함). 대표 지시 9/16: 토스 빌링(자동결제)로.
  *  형 확정 10/13: 구독료는 실제 금액(카드)으로만 — H-포인트 사용·'이번 달만 결제' 화면 삭제.
  *  형 확정 10/13: 장비야처럼 1·3·6·12개월 상품, 길게 끊을수록 할인(subscriptionPlans.js). 고른 기간마다 같은 금액으로 자동 갱신.
+ *  대표 지시 10/28: PG 심사 보증보험료 때문에 3·6·12개월 폐지 → 1개월(매달 자동결제) 하나만. 상품 목록은 subscriptionPlans.js 가 진실이라 이 화면은 그대로 따라간다.
  *   requestBillingAuth(purpose:subscription) → /pay/billing-success → tossBillingIssue, 매달 갱신은 서버 subscriptionAutoCharge(03:20 KST)
  */
 /**
@@ -98,7 +99,7 @@ const SubscriptionPage = () => {
         <LeftCol>
         <Hero>
           <HeroTitle>홈프로 구독 · 0차수</HeroTitle>
-          {!ios && <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함 · 길게 구독하면 할인)</Small></HeroPrice>}
+          {!ios && <HeroPrice>월 {monthlyFee.toLocaleString()}원 <Small>(부가세 포함 · 1개월 단위 자동결제)</Small></HeroPrice>}
           <HeroDesc>오더가 접수되는 즉시 0초에 수락할 수 있습니다. 미구독은 2만P 이상 보유(1차수) 3분 뒤, 무료회원(2차수) 7분 뒤부터 수락됩니다.</HeroDesc>
         </Hero>
 
@@ -151,16 +152,19 @@ const SubscriptionPage = () => {
           <>
             <Section>
               <Label>구독 상품</Label>
+              {/* 상품이 하나뿐이면 고를 게 없으니 라디오 없이 줄만 보인다 (10/28 1개월만) */}
               {plans.map((p) => (
-                <PlanOption key={p.id} $on={p.id === plan.id} onClick={() => setPlanId(p.id)}>
-                  <RadioDot $on={p.id === plan.id} />
+                <PlanOption key={p.id} $on={p.id === plan.id} $single={plans.length === 1} onClick={() => setPlanId(p.id)}>
+                  {plans.length > 1 && <RadioDot $on={p.id === plan.id} />}
                   <PlanBody>
                     <PlanTop>
                       <PlanName $on={p.id === plan.id}>{p.name}</PlanName>
                       <PlanPrice>{p.price.toLocaleString()}원</PlanPrice>
                     </PlanTop>
-                    {p.months > 1 && (
+                    {p.months > 1 ? (
                       <PlanDesc>한 달에 {p.perMonth.toLocaleString()}원 꼴 · <Save>{p.percent}% 할인</Save></PlanDesc>
+                    ) : (
+                      <PlanDesc>매달 같은 금액으로 자동 결제 · 언제든 해지</PlanDesc>
                     )}
                   </PlanBody>
                 </PlanOption>
@@ -219,7 +223,7 @@ const PayName = styled.div` font-size: 16px; font-weight: ${({ $on }) => ($on ? 
 const PayDesc = styled.div` font-size: 14px; line-height: 1.5; color: ${THEME.text}; word-break: keep-all; `;
 const PointBox = styled.div` margin-top: 14px; padding-top: 14px; border-top: 1px solid ${THEME.border}; `;
 const PlanOption = styled.div`
-  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 12px 16px; margin-bottom: 10px; cursor: pointer; background: #fff; box-sizing: border-box;
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 12px 16px; margin-bottom: 10px; cursor: ${({ $single }) => ($single ? "default" : "pointer")}; background: #fff; box-sizing: border-box;
   border: 1px solid ${({ $on }) => ($on ? THEME.primary : THEME.border)}; border-radius: 10px;
   &:last-child { margin-bottom: 0; }
   ${pcOnly`border-radius: 0;`}
