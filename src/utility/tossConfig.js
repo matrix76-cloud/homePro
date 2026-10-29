@@ -16,8 +16,9 @@ export const TOSS_CLIENT_KEY = process.env.REACT_APP_TOSS_CLIENT_KEY || DOCS_TES
 
 /* 자동결제(빌링) 전용 클라이언트 키 — 'API 개별 연동 키'(test_ck_… / live_ck_…).
    카드 등록창(requestBillingAuth)은 결제위젯 키(gck)로는 열리지 않는다. 서버 TOSS_BILLING_SECRET_KEY 와 한 쌍.
-   기본값은 토스 공식 예제의 공개 테스트 키 — 돈은 빠지지 않는다. */
-const DOCS_TEST_BILLING_CLIENT_KEY = "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+   ★토스 문서 공개 키(test_ck_D5Ge…)는 2026-10-29 폐기 확인(401 UNAUTHORIZED_KEY) → 형 토스 개발자센터 계정의 테스트 키로 교체.
+   돈은 빠지지 않는다. 짝 시크릿은 functions/.env TOSS_BILLING_SECRET_KEY. */
+const DOCS_TEST_BILLING_CLIENT_KEY = "test_ck_nRQoOaPz8LEPeMZyd0OW3y47BMw6";
 export const TOSS_BILLING_CLIENT_KEY = process.env.REACT_APP_TOSS_BILLING_CLIENT_KEY || DOCS_TEST_BILLING_CLIENT_KEY;
 
 /** 테스트 키로 돌고 있는지 — 화면에 "실제로 돈이 빠지지 않습니다" 안내를 띄울 때 본다 */
