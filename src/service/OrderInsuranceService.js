@@ -18,7 +18,8 @@ import { db } from "../api/config";
 import { COLLECTIONS } from "../config/homeproConfig";
 import { getMoneyPriceAmount } from "./PayFlowService";
 
-export const INSURANCE_TYPE_LABEL = { yearly: "1년 단체보험", monthly: "월 구독형 보험", perOrder: "건당 단기보험" };
+// 가입은 업종 그룹별 월 정기결제만 (대표 10/26 확정 · 리뷰 10/30) — 1년 · 건당은 예전 기록 표시용으로만 남긴다
+export const INSURANCE_TYPE_LABEL = { monthly: "월 보험", yearly: "1년 단체보험", perOrder: "건당 단기보험" };
 
 const DEFAULT_PER_ORDER = { rate: 1, minPrice: 3000 };
 
@@ -98,7 +99,8 @@ export async function autoApplyPolicy(order, uid) {
   const policy = await findActivePolicy(uid);
   if (!policy) return false;
   await updateDoc(doc(db, COLLECTIONS.ORDERS, order.id), {
-    insurance: { applied: true, type: policy.type, policyId: policy.id, paymentId: policy.paymentId || null, appliedAt: serverTimestamp() },
+    // 업종 그룹(A~D)도 같이 남긴다 — 상세에 "보험 적용 · 월 보험 · B그룹" (대표 리뷰 10/30)
+    insurance: { applied: true, type: policy.type, policyId: policy.id, group: policy.group || null, paymentId: policy.paymentId || null, appliedAt: serverTimestamp() },
     updatedAt: serverTimestamp(),
   });
   return true;
@@ -123,7 +125,7 @@ export async function resetOrderInsurance(orderId) {
 /** 카드·상세 표시용 한 줄 */
 export function insuranceLine(order) {
   const st = getOrderInsuranceState(order);
-  if (st === "applied") return `보험 적용 · ${INSURANCE_TYPE_LABEL[order.insurance?.type] || "가입"}`;
+  if (st === "applied") return `보험 적용 · ${INSURANCE_TYPE_LABEL[order.insurance?.type] || "가입"}${order.insurance?.group ? ` · ${order.insurance.group}그룹` : ""}`;
   if (st === "skipped") return "보험 적용 제외";
   return "";
 }

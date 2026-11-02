@@ -2,15 +2,16 @@
  * 배상책임보험 화면 조각 — 소개 · 가입 · 완료 · 내 보험이 같이 쓴다 (시안 랩 insurance-* 형 선택 10/27)
  */
 import React, { useState } from "react";
-import { IoChevronDown, IoCheckmark, IoConstructOutline, IoHomeOutline, IoWaterOutline } from "react-icons/io5";
-import { LIMITS, DEDUCT, DEDUCT_NOTE, SCOPE, SCOPE_SPECIAL, groupPriceText } from "./insuranceGroups";
+import { IoChevronDown, IoCheckmark, IoConstructOutline, IoHomeOutline, IoWaterOutline, IoDocumentTextOutline } from "react-icons/io5";
+import { LIMITS, DEDUCT, DEDUCT_NOTE, SCOPE, SCOPE_SPECIAL, PRODUCT_INFO, groupPriceText } from "./insuranceGroups";
 
 export const C = {
   P: "#00963F", TINT: "#E6F7EE", TXT: "#14181F", SUB: "#2b2f36", LINE: "#D9DDE3", SOFT: "#F7F8FA", RED: "#C62828",
 };
 
-export const Box = ({ children, style }) => (
-  <div style={{ background: "#fff", border: `1px solid ${C.LINE}`, borderRadius: 8, padding: 16, ...style }}>{children}</div>
+// onClick 등 나머지 속성도 넘긴다 — 전엔 받지 않아 셀프보장등록 · 보장 상태 줄을 눌러도 아무 일이 없었다 (대표 리뷰 11/02 점검 중 발견)
+export const Box = ({ children, style, ...rest }) => (
+  <div {...rest} style={{ background: "#fff", border: `1px solid ${C.LINE}`, borderRadius: 8, padding: 16, ...style }}>{children}</div>
 );
 export const H = ({ icon: I, children, sub }) => (
   <div style={{ marginBottom: 10 }}>
@@ -61,24 +62,54 @@ export const Hero = ({ minPrice = 5900 }) => (
   </div>
 );
 
-/* 업종별 월 요금 2×2 */
-export const GroupPriceGrid = ({ groups, recId }) => (
-  <Box>
-    <H sub="카드 1회 등록 시 매월 자동 정기결제 · 보장 연속 유지. 복수 업종 수행 시 가장 위험도가 높은 상위 그룹으로 가입합니다.">업종별 월 요금</H>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {groups.map((g) => {
-        const rec = recId ? g.id === recId : g.rec;
-        return (
-          <div key={g.id} style={{ border: `1px solid ${rec ? C.P : C.LINE}`, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: C.TXT }}>{g.id}그룹{rec && <span style={{ color: C.P, fontSize: 13, marginLeft: 6 }}>{recId ? "내 업종" : "대표 업종"}</span>}</div>
-            <div style={{ fontSize: 19, fontWeight: 700, color: rec ? C.P : C.TXT, marginTop: 4 }}>월 {groupPriceText(g.price)}</div>
-            <div style={{ fontSize: 13, color: C.SUB, marginTop: 6, lineHeight: 1.45, wordBreak: "keep-all" }}>{g.cats}</div>
-          </div>
-        );
-      })}
+/* 상품 정보 한 줄 — 보험 탭 메인 비주얼 바로 아래 (대표 리뷰 11/02) */
+export const ProductInfo = () => (
+  <Box style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px" }}>
+    <IoDocumentTextOutline size={24} color={C.P} style={{ flexShrink: 0, marginTop: 1 }} />
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: C.TXT, lineHeight: 1.5, wordBreak: "keep-all" }}>{PRODUCT_INFO.name} — {PRODUCT_INFO.kind}</div>
+      <div style={{ fontSize: 14, color: C.SUB, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>{PRODUCT_INFO.cover}</div>
     </div>
   </Box>
 );
+
+/* [업종 전체 보기] 작은 글씨 버튼 — 그룹 칸 · 가입 1단계 라디오가 같이 쓴다 (대표 리뷰 11/02 "이외 문구는 추가보기나 클릭시")
+ *  부모가 눌리는 칸이라 이벤트가 위로 번지지 않게 막는다 */
+export const CatsToggle = ({ open, onToggle }) => (
+  <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onToggle(); }}
+    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onToggle(); } }}
+    style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 14, color: C.P, fontWeight: 500, cursor: "pointer", padding: "6px 0", userSelect: "none" }}>
+    {open ? "접기" : "업종 전체 보기"}<IoChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none" }} />
+  </span>
+);
+
+/* 대표 업종 글 — 한 덩이(inline-block)로 두어 폰 2칸에서 '하수구·배관 / ·설비'처럼 쪼개지지 않고 통째로 다음 줄로 (대표 리뷰 11/02) */
+export const RepText = ({ rep = "" }) => <span style={{ display: "inline-block" }}>{rep}</span>;
+
+/* 업종별 월 요금 2×2 — 칸에는 대표 업종 한 줄, 전체 업종은 눌러서 펼친다 (대표 리뷰 11/02) */
+export const GroupPriceGrid = ({ groups, recId }) => {
+  const [openId, setOpenId] = useState("");
+  return (
+    <Box>
+      <H sub="카드 1회 등록 시 매월 자동 정기결제 · 보장 연속 유지. 복수 업종 수행 시 가장 위험도가 높은 상위 그룹으로 가입합니다.">업종별 월 요금</H>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "start" }}>
+        {groups.map((g) => {
+          const rec = recId ? g.id === recId : g.rec;
+          const open = openId === g.id;
+          return (
+            <div key={g.id} style={{ border: `1px solid ${rec ? C.P : C.LINE}`, borderRadius: 8, padding: "12px 12px 6px" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.TXT }}>{g.id}그룹{rec && <span style={{ color: C.P, fontSize: 13, marginLeft: 6 }}>{recId ? "내 업종" : "추천"}</span>}</div>
+              <div style={{ fontSize: 19, fontWeight: 700, color: rec ? C.P : C.TXT, marginTop: 4 }}>월 {groupPriceText(g.price)}</div>
+              <div style={{ fontSize: 15, color: C.TXT, marginTop: 6, lineHeight: 1.45, wordBreak: "keep-all" }}>대표 업종 <RepText rep={g.rep} /></div>
+              <CatsToggle open={open} onToggle={() => setOpenId(open ? "" : g.id)} />
+              {open && <div style={{ fontSize: 14, color: C.SUB, lineHeight: 1.55, wordBreak: "keep-all", padding: "2px 0 8px", borderTop: "1px solid #EEF0F3", paddingTop: 8 }}>{g.cats}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </Box>
+  );
+};
 
 /* 눌러서 펼치는 줄 */
 export const Fold = ({ title, defaultOpen = false, open: openProp, onToggle, children }) => {
@@ -136,4 +167,21 @@ export const CheckLine = ({ on, onChange, children }) => (
   <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 15, color: C.TXT, lineHeight: 1.5, cursor: "pointer" }} onClick={(e) => { e.preventDefault(); onChange(!on); }}>
     <span style={{ marginTop: 1 }}><CheckMark on={on} /></span><span>{children}</span>
   </label>
+);
+
+/* 동그라미 라디오 표시 */
+export const RadioDot = ({ on }) => (
+  <span style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${on ? C.P : "#9CA3AF"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxSizing: "border-box" }}>
+    {on && <span style={{ width: 11, height: 11, borderRadius: "50%", background: C.P }} />}
+  </span>
+);
+/* 라디오 한 줄 — 높이 44 이상 · 글씨 15, 아래 작은 안내(※) 한 줄 (가입 2단계 고지 · 대표 리뷰 11/02) */
+export const RadioLine = ({ on, onClick, children, note }) => (
+  <button type="button" onClick={onClick} style={{ width: "100%", minHeight: 48, textAlign: "left", fontFamily: "inherit", cursor: "pointer", background: "#fff", border: `${on ? 1.5 : 1}px solid ${on ? C.P : C.LINE}`, borderRadius: 8, padding: "11px 14px", display: "flex", gap: 12, alignItems: "flex-start", boxSizing: "border-box" }}>
+    <span style={{ marginTop: 1 }}><RadioDot on={on} /></span>
+    <span style={{ flex: 1 }}>
+      <span style={{ display: "block", fontSize: 15, fontWeight: on ? 600 : 400, color: C.TXT, lineHeight: 1.5, wordBreak: "keep-all" }}>{children}</span>
+      {note && <span style={{ display: "block", fontSize: 13, color: C.SUB, marginTop: 2, lineHeight: 1.45, wordBreak: "keep-all" }}>※ {note}</span>}
+    </span>
+  </button>
 );

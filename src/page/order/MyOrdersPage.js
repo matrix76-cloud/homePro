@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import EmptyOrders from "../../components/EmptyOrders";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
@@ -7,13 +7,16 @@ import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
 import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice, addOrderLog } from "../../service/OrderService";
 import { insuranceLine } from "../../service/OrderInsuranceService";
 import { infoIncentiveText } from "../../config/orderFormConfig";
-import { subscribeChatRooms, sendSystemMessage } from "../../service/ChatService";
+import { subscribeChatRooms, createChatRoom } from "../../service/ChatService";
+import { notifyOrderEvent, getUserBrief } from "../../service/OrderNotifyService";
+import { getReferralFeeAmount } from "../../service/PayFlowService";
+import { getCurrentGeo } from "../../service/WorkLogService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { MOBILEMAINMENU } from "../../utility/constants";
-import { IoChatbubbleEllipsesOutline, IoCalendarOutline, IoListOutline, IoCloseOutline } from "react-icons/io5";
+import { IoChatbubbleEllipsesOutline, IoCalendarOutline, IoListOutline, IoCloseOutline, IoCashOutline, IoTimeOutline } from "react-icons/io5";
 import usePcWide from "../../hooks/usePcWide";
 import { PC, pcOnly, PcFilterRow, PcField, PcTable, PcTHead, PcEmpty, PcGhostBtn } from "../../pc/pcKit";
 
@@ -58,10 +61,15 @@ const PRO_ROLE_TAG_BY_MATCH = { priority: "수락오더", compare: "지원오더
 /* ─── 홈프로 취소요청 사유 (사양: 8개) ─── */
 const CANCEL_REQ_REASONS = ["시간조율불가", "안전상 작업불가", "사전정보와 상이", "작업환경 불가", "견적조건 미합의", "요청내용 변경", "연락불가", "상세사유 입력"];
 
-/* ─── 상태 필터 탭 (사양: 전체/접수/대기/선정대기/배정/완료/취소) ─── */
-const STATUS_TABS = ["전체", "접수", "대기", "선정대기", "배정", "완료", "취소"];
+/* ─── 상태 필터 탭 (사양: 전체/접수/대기/선정대기/배정/완료/취소)
+       + 맨 앞 '오늘의 작업' — 진입 시 첫 화면 (대표 리뷰 11/02) ─── */
+const TODAY_TAB = "오늘의 작업";
+const STATUS_TABS = [TODAY_TAB, "전체", "접수", "대기", "선정대기", "배정", "완료", "취소"];
+/* 하나만 고르는 탭 — 다른 상태와 같이 고르지 않는다 */
+const SOLO_TABS = [TODAY_TAB, "전체"];
 
 const STATUS_DESC = {
+  [TODAY_TAB]: "오늘 작업할 오더와 진행 중인 작업을 시작 시간 순으로,\n그다음 앞으로 예정된 작업을 날짜 순으로 보여 드려요.",
   "전체": "내가 등록한 일감과 받은 일감을\n한눈에 볼 수 있어요.",
   "접수": "등록된 일감 중 아직 홈프로가 수락하지 않은\n대기 상태의 오더입니다.",
   "대기": "수정을 위해 일시 보류된 오더입니다.\n재접수하면 다시 노출돼요.",
@@ -133,6 +141,56 @@ const workDateText = (order) => {
   return wd || (/\d{4}-\d{2}-\d{2}/.test(order.schedule || "") ? order.schedule : "") || "";
 };
 
+/* ─── 작업일 계산 (대표 리뷰 11/02 '오늘의 작업') ───
+   workDate 의 "오늘" · "긴급" 은 접수한 날, "내일" 은 접수 다음 날이다(글자 그대로 오늘이 아니다).
+   예약날짜 · 희망날짜지정은 workDatePicker, schedule 에 날짜가 있으면 그것. 날짜를 알 수 없으면 null */
+const toJsDate = (ts) => (ts?.toDate ? ts.toDate() : ts?.seconds ? new Date(ts.seconds * 1000) : ts ? new Date(ts) : null);
+const kstYmd = (d) => new Date(d.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+const addDaysYmd = (ymd, n) => { const d = new Date(`${ymd}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const workDayOf = (order) => {
+  const wd = order.workDate;
+  const pick = String(order.workDatePicker || "");
+  if (/^\d{4}-\d{2}-\d{2}/.test(pick) && (!wd || wd === "예약날짜" || wd === "희망날짜지정")) return pick.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}/.test(order.schedule || "")) return order.schedule.slice(0, 10);
+  const created = toJsDate(order.resubmittedAt) || toJsDate(order.createdAt);
+  if (!created || isNaN(created.getTime())) return null;
+  const base = kstYmd(created);
+  if (wd === "오늘" || wd === "긴급") return base;
+  if (wd === "내일") return addDaysYmd(base, 1);
+  return null;
+};
+/* 시작 시각 — workTime "08:00 시작" · "하루 08:00~17:00" 의 첫 시각 */
+const startTimeOf = (order) => {
+  const m = String(order.workTime || "").match(/(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return { text: `${m[1].padStart(2, "0")}:${m[2]}`, min: Number(m[1]) * 60 + Number(m[2]) };
+};
+/* 주소 앞부분 — "서울 종로구 종로 19 비동" → "서울 종로구 종로" */
+const addrFront = (order) => (locationText(order) || "").split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
+const dDayLabel = (day, today) => {
+  if (!day) return "";
+  if (day === today) return "오늘 작업";
+  const diff = Math.round((new Date(`${day}T00:00:00Z`) - new Date(`${today}T00:00:00Z`)) / 86400000);
+  return diff > 0 ? `D-${diff}` : `${-diff}일 지남`;
+};
+/* 체크인 중(체크아웃 전)인 오더 */
+const isWorkInProgress = (o) => !!o.checkInAt && !o.checkOutAt && !["취소", "완료"].includes(normalizeStatus(o.orderStatus));
+/* 현장 좌표 — 오더 문서에 좌표가 저장된 경우에만 (현재 접수 화면은 주소 글자만 저장한다) */
+const siteCoordsOf = (o) => {
+  const cands = [o.siteGeo, o.geo, o.coords, o.addressGeo, o.location && typeof o.location === "object" ? o.location : null, { lat: o.lat ?? o.latitude, lng: o.lng ?? o.longitude }];
+  for (const c of cands) {
+    const lat = Number(c?.lat ?? c?.latitude); const lng = Number(c?.lng ?? c?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng)) return { lat, lng };
+  }
+  return null;
+};
+const distanceKm = (a, b) => {
+  const R = 6371, rad = (x) => (x * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
 const formatChatTime = (ts) => {
   if (!ts) return "";
   const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -169,16 +227,18 @@ export const MyOrdersContent = () => {
     }
     return raw;
   };
-  const [activeTabs, setActiveTabs] = useState(["전체"]); // 상태 다중 선택
+  // 상태 다중 선택. 진입 시 '오늘의 작업' 이 첫 화면 — 오늘 작업이 0건이면 불러온 뒤 '전체' 로 (대표 리뷰 11/02)
+  const [activeTabs, setActiveTabs] = useState([TODAY_TAB]);
   const toggleTab = (tab) => {
-    if (tab === "전체") { setActiveTabs(["전체"]); return; }
+    if (SOLO_TABS.includes(tab)) { setActiveTabs([tab]); return; }
     setActiveTabs((prev) => {
-      const woAll = prev.filter((t) => t !== "전체");
+      const woAll = prev.filter((t) => !SOLO_TABS.includes(t));
       const next = woAll.includes(tab) ? woAll.filter((t) => t !== tab) : [...woAll, tab];
       return next.length ? next : ["전체"];
     });
   };
   const showAllTabs = activeTabs.includes("전체");
+  const isTodayTab = activeTabs.includes(TODAY_TAB);
   const singleTab = activeTabs.length === 1 ? activeTabs[0] : null;
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -269,25 +329,115 @@ export const MyOrdersContent = () => {
   }, [uid]);
 
   const periodFiltered = allOrders.filter((o) => matchPeriod(o.createdAt, activePeriod, dateRange));
-  const filtered = showAllTabs ? periodFiltered : periodFiltered.filter((o) => activeTabs.includes(viewStatus(o)));
+
+  /* ── 오늘의 작업 (대표 리뷰 11/02) ──
+     1순위 오늘 작업 중 체크인 대기 · 진행 중(시작 시각 빠른 순) / 2순위 오늘 작업 중 완료 · 정산 대기 / 3순위 앞으로 예정된 작업(날짜 오름차순)
+     대상은 내가 요청한 오더와 내가 받은 오더(배정)만 — 지원만 한 오더 · 미선정은 빠진다. 기간 조회와 무관하게 전부 본다 */
+  const todayYmd = kstYmd(new Date());
+  const todayTier = (o) => {
+    if (o.createdBy !== uid && o.matchedProUid !== uid) return 0;
+    const st = viewStatus(o);
+    if (st === "취소" || st === "대기") return 0;
+    if (isWorkInProgress(o)) return 1;
+    const day = workDayOf(o);
+    if (day === todayYmd) {
+      if (st === "완료" || o.checkOutAt) return 2;
+      return st === "배정" ? 1 : 1.5; // 오늘 작업인데 아직 홈프로가 정해지지 않은 내 요청은 배정 건 다음
+    }
+    if (day && day > todayYmd && st !== "완료") return 3;
+    return 0;
+  };
+  const todayList = allOrders
+    .map((o) => ({ o, tier: todayTier(o), day: workDayOf(o), t: startTimeOf(o) }))
+    .filter((x) => x.tier > 0)
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      if (a.tier === 3 && a.day !== b.day) return a.day < b.day ? -1 : 1;
+      const ta = a.t ? a.t.min : 9999, tb = b.t ? b.t.min : 9999; // 시각 없으면 뒤
+      return ta - tb;
+    })
+    .map((x) => x.o);
+  const tabCount = (tab, list) => (tab === TODAY_TAB ? todayList.length : tab === "전체" ? list.length : list.filter((o) => viewStatus(o) === tab).length);
+
+  // 처음 불러온 뒤 한 번 — 오늘 작업이 없으면 '전체' 로 떨어뜨린다
+  const autoTabDone = useRef(false);
+  useEffect(() => {
+    if (loading || autoTabDone.current) return;
+    autoTabDone.current = true;
+    if (todayList.length === 0) setActiveTabs((prev) => (prev.length === 1 && prev[0] === TODAY_TAB ? ["전체"] : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  const filtered = isTodayTab ? todayList : showAllTabs ? periodFiltered : periodFiltered.filter((o) => activeTabs.includes(viewStatus(o)));
+
+  /* 체크인 버튼 상태 — 이미 다른 오더에 체크인해 작업 중이면 막고, 작업 당일에만 연다 (대표 리뷰 11/02).
+     작업일을 알 수 없는 오더("가능한 빨리" 등)는 날짜로 막지 않는다 */
+  const checkinState = (order) => {
+    const busy = allOrders.find((o) => o.id !== order.id && o.matchedProUid === uid && isWorkInProgress(o));
+    if (busy) return { kind: "busy", busy };
+    const day = workDayOf(order);
+    if (day && day !== todayYmd) return { kind: "notToday", day };
+    return { kind: "ok" };
+  };
+  const handleCheckin = async (e, order) => {
+    e.stopPropagation();
+    // 위치 기반 안심 안내(선택) — 현장 좌표가 저장된 오더만. 1km 밖이면 한 번 묻는다
+    const site = siteCoordsOf(order);
+    if (site) {
+      try {
+        const { geo } = await getCurrentGeo({ timeout: 6000 });
+        if (geo && distanceKm(site, geo) > 1) {
+          const name = addrFront(order) || "작업";
+          if (!window.confirm(`${name} 현장 위치가 맞는지 확인해 주세요. 계속할까요?`)) return;
+        }
+      } catch (_) {}
+    }
+    navigate(`/order/worklog/${order.id}?open=checkin`);
+  };
+
+  /* 소개비 정산 상태 (대표 리뷰 10/29 · 11/02) — 소개비가 있는 오더의 배정 · 완료 카드 맨 아래 한 줄 */
+  const referralState = (order, displayStatus) => {
+    if (displayStatus !== "배정" && displayStatus !== "완료") return null;
+    if (order.createdBy !== uid && order.matchedProUid !== uid) return null;
+    const fee = order.referralFee;
+    if (!fee || fee.type === "none") return null;
+    const { amount } = getReferralFeeAmount(order);
+    if (!(amount > 0)) return null;
+    const st = order.referralPay?.status;
+    if (st === "confirmed") return { text: "소개비 정산완료", amount, done: true };
+    if (st === "sent") return { text: "소개비 송금됨 · 입금 확인 대기", amount };
+    return { text: "소개비 정산대기", amount };
+  };
+
+  /* 리뷰 작성 — 대화방이 없으면 배정 홈프로와의 방을 만들어 연다 (대표 리뷰 11/02: 리뷰 작성이 안 열림) */
+  const openReview = async (e, order, chats) => {
+    e.stopPropagation();
+    let roomId = chats[0]?.roomId;
+    if (!roomId) {
+      if (!order.matchedProUid) { window.alert("리뷰를 남길 홈프로 정보가 없습니다."); return; }
+      try {
+        const other = await getUserBrief(order.matchedProUid);
+        roomId = await createChatRoom(
+          uid, myName, userData?.profileImage || userData?.photoURL || "",
+          order.matchedProUid, other.name || "홈프로", other.photo || "",
+          { orderId: order.id },
+        );
+      } catch (err) {
+        window.alert("리뷰 화면을 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+    }
+    navigate(`/chat/${roomId}`, { state: { openReview: true } });
+  };
 
   const submitCancelRequest = async () => {
     if (!cancelReqReason) { alert("사유를 선택해주세요"); return; }
     try {
       const reasonText = cancelReqReason === "상세사유 입력" ? (cancelReqDetail.trim() || "상세사유") : cancelReqReason;
-      const order = allOrders.find((o) => o.id === cancelReqOpen.orderId);
       // 자유취소(의뢰인 확정 A-2): 접수자 승인 게이트 없이 홈프로가 즉시 취소 처리
       await updateOrderStatus(cancelReqOpen.orderId, "취소", { cancelReason: reasonText, cancelledBy: uid, cancelledByRole: "홈프로" });
       await addOrderLog(cancelReqOpen.orderId, { type: "cancel", message: `홈프로가 취소 (사유: ${reasonText})`, byUid: uid, byName: myName, byRole: "홈프로" });
-      if (order) {
-        await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
-          title: "오더 취소",
-          body: `홈프로가 오더를 취소했습니다. 사유: ${reasonText}`,
-          type: "order_cancelled",
-          chatText: `홈프로가 오더를 취소했습니다.\n사유: ${reasonText}`,
-          chatType: "cancelled",
-        });
-      }
+      // 접수자에게 채팅 안내 + 푸시는 updateOrderStatus(cancelledBy) 가 보낸다 (OrderNotifyService, 대표 리뷰 11/02)
       setAllOrders((prev) => prev.map((o) => o.id === cancelReqOpen.orderId ? { ...o, orderStatus: "취소", cancelReason: reasonText } : o));
       setCancelReqOpen(null);
       setCancelReqReason("");
@@ -298,23 +448,8 @@ export const MyOrdersContent = () => {
     }
   };
 
-  // 수락자 취소요청에 대한 접수자 알림 + 채팅 시스템메시지 (A안 승인형)
-  const notifyAndChat = async (order, { title, body, type, chatText, chatType }) => {
-    try {
-      const { collection: col, addDoc: add, serverTimestamp: ts } = await import("firebase/firestore");
-      const { db } = await import("../../api/config");
-      if (order.matchedProUid) {
-        await add(col(db, "notifications"), {
-          targetUids: [order.matchedProUid], title, body, type,
-          data: { orderId: order.id }, read: false, sent: false, createdAt: ts(),
-        });
-      }
-      const rooms = chatMap[order.id] || [];
-      for (const r of rooms) {
-        try { await sendSystemMessage(r.roomId, { text: chatText, type: chatType || "system" }); } catch (_) {}
-      }
-    } catch (_) {}
-  };
+  // 접수자에게 알림 + 채팅 시스템메시지 — 오더 알림은 OrderNotifyService 한 군데로 (대표 리뷰 11/02)
+  const notifyOwner = (order, opts) => notifyOrderEvent(order, { toUids: [order.createdBy], actorUid: uid, ...opts }).catch(() => {});
 
   // (자유취소 전환: 접수자 승인/반려 게이트 제거 — handleApproveCancel/handleRejectCancel 삭제)
 
@@ -330,7 +465,7 @@ export const MyOrdersContent = () => {
     try {
       if (isApplicant) {
         await notifyApplicantPrice(order.id, uid, priceNum, notifyMsg.trim());
-        await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
+        await notifyOwner(order, {
           title: "견적가 도착",
           body: `지원 홈프로가 견적가 ${priceNum.toLocaleString()}원을 전송했습니다.`,
           type: "applicant_quote",
@@ -340,7 +475,7 @@ export const MyOrdersContent = () => {
         setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, applicantQuotes: { ...(o.applicantQuotes || {}), [uid]: priceNum } } : o));
       } else {
         await notifyOnsitePrice(order.id, priceNum, notifyMsg.trim());
-        await notifyAndChat({ ...order, matchedProUid: order.createdBy }, {
+        await notifyOwner(order, {
           title: "견적가 도착",
           body: `견적가 ${priceNum.toLocaleString()}원이 전송되었습니다.`,
           type: "onsite_quote",
@@ -364,7 +499,9 @@ export const MyOrdersContent = () => {
     const label = newStatus === "취소" ? "취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다." : `상태를 "${newStatus}"(으)로 변경하시겠습니까?`;
     if (!window.confirm(label)) return;
     try {
-      await updateOrderStatus(orderId, newStatus);
+      // 누가 바꿨는지 넘겨 상대에게만 알림이 가게 (대표 리뷰 11/02)
+      const extra = newStatus === "취소" ? { cancelledBy: uid } : newStatus === "완료" ? { actorUid: uid } : {};
+      await updateOrderStatus(orderId, newStatus, extra);
       const o = allOrders.find((x) => x.id === orderId);
       const role = o && o.createdBy === uid ? "접수자" : "홈프로";
       await addOrderLog(orderId, { type: "status", message: `상태 변경 → ${newStatus}`, byUid: uid, byName: myName, byRole: role });
@@ -397,12 +534,23 @@ export const MyOrdersContent = () => {
               {order.b2bPriceType === "info" ? (
                 <ActionBtn $variant="success" onClick={(e) => handleStatusChange(e, order.id, "완료")}>계약 성사(완료)</ActionBtn>
               ) : /* 현장 인증(대표 지시 8/4) — 체크인 전에는 체크인부터, 체크아웃은 After 사진과 함께 현장기록 화면에서 처리 */
-              !order.checkInAt ? (
-                <ActionBtn
-                  $variant="primary"
-                  onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkin`); }}
-                >작업시작(체크인)</ActionBtn>
-              ) : (
+              !order.checkInAt ? (() => {
+                /* 체크인 오작동 방지 (대표 리뷰 11/02) — 작업 당일만 · 한 번에 한 오더만 */
+                const ck = checkinState(order);
+                if (ck.kind === "busy") return (
+                  <>
+                    <ActionBtn $variant="off" disabled onClick={(e) => e.stopPropagation()}>작업 진행 중</ActionBtn>
+                    <CheckinHint>{`진행 중인 작업(${ck.busy.title || "다른 오더"})을 체크아웃한 뒤 체크인할 수 있습니다`}</CheckinHint>
+                  </>
+                );
+                if (ck.kind === "notToday") return (
+                  <>
+                    <ActionBtn $variant="off" disabled onClick={(e) => e.stopPropagation()}>체크인 불가</ActionBtn>
+                    <CheckinHint>작업 당일에만 체크인이 가능합니다</CheckinHint>
+                  </>
+                );
+                return <ActionBtn $variant="primary" onClick={(e) => handleCheckin(e, order)}>현장 체크인 하기</ActionBtn>;
+              })() : (
                 /* '배정 후 2시간' 게이트 해제 (대표 지시 8/7) — 체크인/체크아웃 증빙이
                    생기면서 시간 제한으로 조기완료를 막을 이유가 없어짐 */
                 <ActionBtn
@@ -410,7 +558,7 @@ export const MyOrdersContent = () => {
                   onClick={(e) => { e.stopPropagation(); navigate(`/order/worklog/${order.id}?open=checkout`); }}
                 >작업완료(체크아웃)</ActionBtn>
               )}
-              <ActionBtn $variant="cancel" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>
+              {!order.selfOrder && <ActionBtn $variant="cancel" onClick={(e) => { e.stopPropagation(); setCancelReqOpen({ orderId: order.id }); }}>취소요청</ActionBtn>}
             </>
           )}
         </ActionRow>
@@ -426,12 +574,7 @@ export const MyOrdersContent = () => {
           {order.createdBy === uid && !order.reviewed && (
             <ActionBtn
               $variant="success"
-              onClick={(e) => {
-                e.stopPropagation();
-                const roomId = chats[0]?.roomId;
-                if (!roomId) { window.alert("리뷰를 작성할 채팅방을 찾지 못했습니다."); return; }
-                navigate(`/chat/${roomId}`, { state: { openReview: true } });
-              }}
+              onClick={(e) => openReview(e, order, chats)}
             >리뷰 작성</ActionBtn>
           )}
         </ActionRow>
@@ -504,7 +647,7 @@ export const MyOrdersContent = () => {
           {/* 상태별 개수 — 한 박스로 묶인 탭 (여러 개 선택 가능, 폰과 같은 규칙) */}
           <PcStatusTabs>
             {STATUS_TABS.map((tab) => {
-              const count = tab === "전체" ? periodFiltered.length : periodFiltered.filter((o) => viewStatus(o) === tab).length;
+              const count = tabCount(tab, periodFiltered);
               return (
                 <PcStatusTab key={tab} type="button" $active={activeTabs.includes(tab)} onClick={() => toggleTab(tab)}>
                   <span>{tab}</span><em>{count}</em>
@@ -524,8 +667,8 @@ export const MyOrdersContent = () => {
                 <PcEmpty><b>불러오는 중입니다</b><span>잠시만 기다려 주세요.</span></PcEmpty>
               ) : filtered.length === 0 ? (
                 <PcEmpty>
-                  <b>해당 상태의 오더가 없습니다</b>
-                  <span>다른 상태를 눌러 보시거나, 새 오더를 접수해 보세요.</span>
+                  <b>{isTodayTab ? "오늘 예정된 작업이 없습니다" : "해당 상태의 오더가 없습니다"}</b>
+                  <span>{isTodayTab ? "앞으로 예정된 작업이 생기면 여기에 날짜 순으로 보입니다." : "다른 상태를 눌러 보시거나, 새 오더를 접수해 보세요."}</span>
                   <div style={{ marginTop: 10 }}><PcGhostBtn onClick={() => navigate("/order/create")}>오더 접수</PcGhostBtn></div>
                 </PcEmpty>
               ) : (
@@ -541,9 +684,18 @@ export const MyOrdersContent = () => {
                     ? (order.matchedProUid ? (chats[0]?.otherName || "배정된 프로") : (chats.length > 0 ? `견적 ${chats.length}명` : "-"))
                     : (order.writer || "-");
                   const quoteSent = UNPRICED_TYPES.includes(order.b2bPriceType) && quotedAmount(order) > 0 && displayStatus === "배정";
+                  const refSt = isUnselected(order) ? null : referralState(order, displayStatus); // 소개비 정산 상태 (대표 리뷰 11/02)
+                  const wDay = workDayOf(order);
+                  const isTodayWork = wDay === todayYmd && displayStatus !== "취소" && displayStatus !== "대기" && !isUnselected(order);
+                  const st0 = startTimeOf(order);
                   return (
                     <PcRow key={order.id} onClick={() => navigate(`/order/detail/${order.id}`, { state: { order, category: cat } })}>
-                      <span style={order.workDate === "긴급" ? { color: PC.danger, fontWeight: 800 } : null}>{workDateText(order) || "-"}</span>
+                      <PcCellStack>
+                        <span style={order.workDate === "긴급" ? { color: PC.danger, fontWeight: 800 } : null}>{workDateText(order) || "-"}</span>
+                        {isTodayWork && <b style={{ color: THEME.primary, fontSize: 15 }}>오늘 작업</b>}
+                        {isTodayTab && !isTodayWork && wDay && wDay > todayYmd && <b style={{ fontSize: 15 }}>{dDayLabel(wDay, todayYmd)}</b>}
+                        {isTodayTab && st0 && <small>{st0.text} 시작</small>}
+                      </PcCellStack>
                       <span style={{ color: PC_STATUS_COLOR[displayStatus] || PC.ink, fontWeight: 700 }}>{statusText}</span>
                       <span>{isOwner ? "내가 요청" : (PRO_ROLE_TAG_BY_MATCH[order.matchType] || "견적 지원")}</span>
                       <PcCellStack>
@@ -557,8 +709,15 @@ export const MyOrdersContent = () => {
                       <PcActionCell onClick={(e) => e.stopPropagation()}>
                         {renderActions(order, displayStatus, chats, cat)}
                       </PcActionCell>
-                      {(quoteSent || chats.length > 0) && (
+                      {(quoteSent || chats.length > 0 || refSt) && (
                         <PcSubLine onClick={(e) => e.stopPropagation()}>
+                          {refSt && (
+                            <ReferralLine $done={!!refSt.done} $pc>
+                              <IoCashOutline size={17} />
+                              <span>{refSt.text}</span>
+                              <i>{refSt.amount.toLocaleString()}원</i>
+                            </ReferralLine>
+                          )}
                           {quoteSent && (
                             <PcSubText>
                               전송된 견적가 <b>{quotedAmount(order).toLocaleString()}원</b>
@@ -614,7 +773,7 @@ export const MyOrdersContent = () => {
         {/* 상태 필터 탭 */}
         <TabRow>
           {STATUS_TABS.map((tab) => {
-            const count = tab === "전체" ? periodFiltered.length : periodFiltered.filter((o) => viewStatus(o) === tab).length;
+            const count = tabCount(tab, periodFiltered);
             return (
               <TabItem key={tab} $active={activeTabs.includes(tab)} onClick={() => toggleTab(tab)}>
                 <TabCount $active={activeTabs.includes(tab)}>{count}</TabCount>
@@ -637,8 +796,8 @@ export const MyOrdersContent = () => {
           </EmptyWrap>
         ) : filtered.length === 0 ? (
           <EmptyOrders
-            title="해당 상태의 오더가 없어요"
-            desc={"다른 상태를 눌러 보시거나,\n새 오더를 접수해 보세요."}
+            title={isTodayTab ? "오늘 예정된 작업이 없습니다" : "해당 상태의 오더가 없어요"}
+            desc={isTodayTab ? "앞으로 예정된 작업이 생기면\n여기에 날짜 순으로 보입니다." : "다른 상태를 눌러 보시거나,\n새 오더를 접수해 보세요."}
             showCreate
           />
         ) : (
@@ -653,6 +812,12 @@ export const MyOrdersContent = () => {
             const chats = isOwnerCard && order.matchedProUid
               ? allChats.filter((c) => c.otherUid === order.matchedProUid)
               : allChats;
+            // 오늘 작업 표시 · 시간 & 장소 줄 · 소개비 정산 줄 (대표 리뷰 11/02)
+            const wDay = workDayOf(order);
+            const isTodayWork = wDay === todayYmd && displayStatus !== "취소" && displayStatus !== "대기" && !isUnselected(order);
+            const st0 = startTimeOf(order);
+            const inProg = isWorkInProgress(order) && (order.matchedProUid === uid || order.createdBy === uid);
+            const refSt = isUnselected(order) ? null : referralState(order, displayStatus);
             return (
               <OrderCard
                 key={order.id}
@@ -665,10 +830,20 @@ export const MyOrdersContent = () => {
                       ? <RoleTag $type="request">내가 요청</RoleTag>
                       : <RoleTag $type="support">{PRO_ROLE_TAG_BY_MATCH[order.matchType] || "견적 지원"}</RoleTag>
                     }
+                    {/* 오늘 날짜 작업만 강조 — 뱃지 없이 포인트색 굵은 글씨 (대표 리뷰 11/02) */}
+                    {isTodayWork && <TodayTag>오늘 작업</TodayTag>}
                   </CardTopLeft>
                   <OrderDate>{formatOrderTime(order.createdAt)}</OrderDate>
                 </CardTop>
                 <CardTitle>{order.title}</CardTitle>
+                {/* 오늘의 작업 탭 — "08:00 시작 · 서울 종로구 종로 현장" 한 줄 (대표 리뷰 11/02) */}
+                {isTodayTab && !isUnselected(order) && (
+                  <WorkLine>
+                    <IoTimeOutline size={17} />
+                    {inProg ? <b>작업 진행 중</b> : wDay && wDay !== todayYmd ? <em>{dDayLabel(wDay, todayYmd)}</em> : null}
+                    <span>{st0 ? `${st0.text} 시작` : "시작 시간 미정"}{addrFront(order) ? ` · ${addrFront(order)} 현장` : ""}</span>
+                  </WorkLine>
+                )}
                 {/* 미선정 — 내 견적 전송과 미선정 마감만 남기고, 오더 정보 · 대화 미리보기는 보이지 않는다 (대표 10/26) */}
                 {isUnselected(order) ? (
                   <UnselectedLine>
@@ -729,6 +904,14 @@ export const MyOrdersContent = () => {
                 )}
 
                 {renderActions(order, displayStatus, chats, cat)}
+                {/* 소개비 정산 상태 — 카드 맨 아래 (대표 리뷰 10/29 · 11/02) */}
+                {refSt && (
+                  <ReferralLine $done={!!refSt.done}>
+                    <IoCashOutline size={17} />
+                    <span>{refSt.text}</span>
+                    <i>{refSt.amount.toLocaleString()}원</i>
+                  </ReferralLine>
+                )}
                 </>)}
               </OrderCard>
             );
@@ -1263,9 +1446,10 @@ const ActionRow = styled.div`
   padding-top: 10px;
   border-top: 1px solid ${THEME.border};
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  ${pcOnly`margin-top: 0; padding-top: 0; border-top: none; flex-direction: column; justify-content: flex-start; gap: 6px;`}
+  ${pcOnly`margin-top: 0; padding-top: 0; border-top: none; flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; gap: 6px;`}
 `;
 
 const CancelReqBanner = styled.div`
@@ -1302,6 +1486,7 @@ const VARIANT_COLORS = {
   success: "#10B981",
   warning: "#F59E0B",
   primary: "#00963F",
+  off: "#8A929C",      // 비활성(체크인 불가 · 작업 진행 중) (대표 리뷰 11/02)
 };
 
 const ActionBtn = styled.button`
@@ -1314,11 +1499,13 @@ const ActionBtn = styled.button`
   border-radius: 8px;
   cursor: pointer;
   &:active { opacity: 0.7; }
+  &:disabled { cursor: not-allowed; background: #F3F4F6; border-color: #D5D9DF; color: #545E6B; opacity: 1; }
   ${pcOnly`
     width: 100%; padding: 9px 8px; background: #fff; font-weight: 700; font-family: inherit; line-height: 1.3;
     border-color: ${({ $variant }) => ($variant === "danger" || $variant === "cancel" ? PC.line : PC.primary)};
     color: ${({ $variant }) => ($variant === "danger" ? PC.danger : $variant === "cancel" ? "#653A80" : PC.primaryDeep)};
     &:hover { border-color: ${({ $variant }) => ($variant === "danger" ? PC.danger : $variant === "cancel" ? "#653A80" : PC.primaryDeep)}; }
+    &:disabled, &:disabled:hover { cursor: not-allowed; background: #F3F4F6; border-color: #D5D9DF; color: #545E6B; }
   `}
 `;
 
@@ -1627,6 +1814,53 @@ const CalDotMore = styled.div`
 `;
 
 /* 미선정 카드 한 줄 (대표 10/26) */
+/* ─── 오늘의 작업 · 체크인 · 소개비 (대표 리뷰 11/02) ─── */
+const TodayTag = styled.span`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${THEME.primary};
+`;
+
+const WorkLine = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: ${THEME.text};
+  svg { flex: 0 0 auto; color: ${THEME.primary}; }
+  b { font-weight: 700; color: ${THEME.primary}; }
+  em { font-style: normal; font-weight: 700; color: ${THEME.text}; }
+`;
+
+const CheckinHint = styled.div`
+  flex-basis: 100%;
+  order: 99;
+  text-align: right;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #2b2f36;
+  word-break: keep-all;
+  ${pcOnly`text-align: left;`}
+`;
+
+const ReferralLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: ${({ $pc }) => ($pc ? "0" : "10px")};
+  padding-top: ${({ $pc }) => ($pc ? "0" : "10px")};
+  border-top: ${({ $pc }) => ($pc ? "none" : `1px solid ${THEME.border}`)};
+  font-size: 14px;
+  line-height: 1.4;
+  color: ${({ $done }) => ($done ? THEME.primary : "#2b2f36")};
+  font-weight: ${({ $done }) => ($done ? 700 : 600)};
+  svg { flex: 0 0 auto; }
+  i { font-style: normal; font-weight: 500; margin-left: auto; color: #2b2f36; }
+`;
+
 const UnselectedLine = styled.div`
   margin-top: 8px;
   font-size: 14px;

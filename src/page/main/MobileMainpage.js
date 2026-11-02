@@ -12,7 +12,7 @@ import { getProCategoryIds } from "../../service/ProService";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVersionChanged";
-import { IoAddCircle, IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline, IoSearchOutline } from "react-icons/io5";
+import { IoAddCircle, IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline, IoSearchOutline, IoTicketOutline, IoLockClosedOutline, IoListOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
 import { getAccessTier, TIER_LABEL, TIER_NAME, tierFullLabel } from "../../utility/tierUtils";
 import { MyOrdersContent } from "../order/MyOrdersPage";
@@ -23,6 +23,7 @@ import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 import { isIosApp } from "../../bridge/webviewBridge";
 import { formatPriceType as formatPriceTypeShared } from "../../service/PayFlowService";
+import { inviteMessageLines, buildInviteMessage, getInviteSignupPoints, INVITE_POINT_FALLBACK } from "../../service/ReferralService";
 
 /* ─── 포인트 내역 날짜 표기 ─── */
 const fmtCashDate = (ts) => {
@@ -81,6 +82,64 @@ const DISTANCE_RADIUS_HINT = {
 };
 const PERIOD_OPTIONS = ["전체", "당일", "어제", "지난1주일", "지난2주일", "지난1개월"];
 export const SORT_OPTIONS = ["등록순", "가까운거리순", "서비스순", "지역순", "요청방식순", "단가유형순"];
+
+/* ─── 오더목록 필터 기억 (대표 리뷰 10/30 "설정하면 유지, 변경하기 전까지는 설정 거리 유지") ───
+   폰 오더목록과 PC 오더목록이 같은 칸을 쓴다. 탭 이동 · 새로고침 뒤에도 고른 값으로 다시 그린다.
+   { dist, sort, status, hideClosed, cats: [] } */
+export const ORDER_FILTER_KEY = "homepro.orderFilters";
+export const loadOrderFilters = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(ORDER_FILTER_KEY) || "null");
+    if (!v || typeof v !== "object") return {};
+    const out = {};
+    if (DISTANCE_OPTIONS.includes(v.dist)) out.dist = v.dist;
+    if (SORT_OPTIONS.includes(v.sort)) out.sort = v.sort;
+    if (typeof v.status === "string" && v.status) out.status = v.status;
+    if (typeof v.hideClosed === "boolean") out.hideClosed = v.hideClosed;
+    if (Array.isArray(v.cats)) out.cats = v.cats.filter((c) => typeof c === "string");
+    return out;
+  } catch (e) { return {}; }
+};
+export const saveOrderFilters = (patch) => {
+  try { localStorage.setItem(ORDER_FILTER_KEY, JSON.stringify({ ...loadOrderFilters(), ...patch })); } catch (e) { /* 저장 못 해도 화면은 그대로 */ }
+};
+
+/* ─── 30초 독점 확인(배정중) 표시 (대표 리뷰 11/02) ───
+   오더 상세가 viewLock { uid, name, at }(빠른배정 · 지정) / viewLocks { uid: { name, at } }(비교선정)를 남긴다.
+   at 에서 30초가 지나면 끝난 것으로 본다. 표시는 뱃지 없이 글씨로만 */
+export const VIEW_LOCK_MS = 30000;
+const lockMillis = (at) => {
+  if (!at) return 0;
+  if (typeof at.toMillis === "function") return at.toMillis();
+  if (typeof at.seconds === "number") return at.seconds * 1000;
+  if (typeof at === "number") return at;
+  const t = new Date(at).getTime();
+  return Number.isFinite(t) ? t : 0;
+};
+export const viewLockLabel = (order, myUid, now = Date.now()) => {
+  const vl = order?.viewLock;
+  if (vl && vl.uid && now - lockMillis(vl.at) < VIEW_LOCK_MS) return vl.uid === myUid ? "내가 확인 중" : "배정중";
+  const m = order?.viewLocks;
+  if (m && typeof m === "object") {
+    const n = Object.values(m).filter((v) => v && now - lockMillis(v.at) < VIEW_LOCK_MS).length;
+    if (n > 0) return `확인 중 ${n}명`;
+  }
+  return "";
+};
+/* 살아 있는 잠금이 있는 동안만 1초마다 다시 그려 30초가 지나면 글씨가 사라지게 한다 */
+export const useViewLockTick = (orders, myUid) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const live = () => (orders || []).some((o) => viewLockLabel(o, myUid, Date.now()));
+    if (!live()) return undefined;
+    const t = setInterval(() => {
+      setNow(Date.now());
+      if (!live()) clearInterval(t);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [orders, myUid]);
+  return now;
+};
 
 /* ─── 지역 헬퍼: order.location 문자열에서 시/구 추출 + 사용자 region과 비교 ─── */
 const SIDO_NORMALIZE_RE = /(특별자치시|특별자치도|광역시|특별시|도|시)$/;
@@ -408,8 +467,23 @@ const WorkerRequestList = ({ navigate }) => {
 /* 초대 공유 (커뮤니티·SNS 공유 명세 — 대표 지시 7/29)
    딥링크: /?code=초대코드 → 가입 시 추천코드 자동 입력 (App.js에서 캡처) */
 const SHARE_BASE_URL = PUBLIC_BASE_URL;
-const buildInviteText = (code) =>
-  `집(Home) 관련 특화된 모든 분야 사장님들이 뭉쳐,\n오더를 공유하고 다양한 수익을 창출하는 대한민국 1등 B2B 플랫폼에 사장님을 초대합니다.\n지금 초대코드 ${code}를 입력하고, 홈프로만의 특별한 생태계에 합류하세요!`;
+
+/* 실제로 복사 · 공유되는 초대문구를 그대로 보여 주는 상자 (대표 리뷰 11/02)
+   평문의 이모지(선물 · 티켓) 자리는 화면에서만 벡터 아이콘으로 바꿔 그린다 */
+export const InviteMessagePreview = ({ code, url, points }) => (
+  <InviteMsgBox>
+    {inviteMessageLines(code, url, points).map((l, i) => {
+      const Icon = l.icon === "gift" ? IoGiftOutline : l.icon === "ticket" ? IoTicketOutline : null;
+      return (
+        <InviteMsgLine key={i} $strong={i === 0} $link={i === 7}>
+          {Icon && !l.iconAfter && <Icon size={17} color={THEME.primary} style={{ verticalAlign: "-3px", marginRight: 4 }} />}
+          {l.text}
+          {Icon && l.iconAfter && <Icon size={17} color={THEME.primary} style={{ verticalAlign: "-3px", marginLeft: 4 }} />}
+        </InviteMsgLine>
+      );
+    })}
+  </InviteMsgBox>
+);
 
 const InviteTabContent = ({ pointHistory = [] }) => {
   const navigate = useNavigate();
@@ -427,6 +501,13 @@ const InviteTabContent = ({ pointHistory = [] }) => {
   const [alreadyReferred, setAlreadyReferred] = useState(false);
   // 어떤 코드로 가입했는지까지 보여 준다 (대표 9/17 시안 3번)
   const [referredInfo, setReferredInfo] = useState(null); // { code, nickname }
+  // 초대받은 사람이 받는 포인트 — 규칙(settings/point_rules referral_signup) 값으로 문구를 채운다
+  const [invitePoints, setInvitePoints] = useState(INVITE_POINT_FALLBACK);
+  useEffect(() => {
+    let alive = true;
+    getInviteSignupPoints().then((v) => { if (alive) setInvitePoints(v); });
+    return () => { alive = false; };
+  }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2000); };
 
@@ -470,9 +551,11 @@ const InviteTabContent = ({ pointHistory = [] }) => {
 
   const inviteUrl = `${SHARE_BASE_URL}/?code=${myCode}`;
 
+  const inviteMessage = buildInviteMessage(myCode, inviteUrl, invitePoints);
+
   const handleCopyInvite = () => {
     if (!myCode) return;
-    navigator.clipboard?.writeText(`${buildInviteText(myCode)}\n${inviteUrl}`);
+    navigator.clipboard?.writeText(inviteMessage);
     showToast("초대 문구와 링크가 복사되었습니다");
   };
 
@@ -481,7 +564,8 @@ const InviteTabContent = ({ pointHistory = [] }) => {
     if (!myCode) return;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "홈프로 초대", text: buildInviteText(myCode), url: inviteUrl });
+        // 문구 끝에 링크가 이미 들어 있어 url 을 따로 넘기지 않는다 (링크가 두 번 붙지 않게)
+        await navigator.share({ title: "홈프로 초대", text: inviteMessage });
       } catch (e) { /* 사용자가 취소한 경우 무시 */ }
     } else {
       handleCopyInvite();
@@ -537,6 +621,8 @@ const InviteTabContent = ({ pointHistory = [] }) => {
       <InviteCard>
         <InviteCardTitle>초대 공유</InviteCardTitle>
         <InviteCardDesc>링크로 가입하면 코드가 자동 입력됩니다</InviteCardDesc>
+        {/* 복사 · 공유되는 문구를 버튼 위에 전부 보여 준다 (대표 리뷰 11/02) */}
+        {myCode && <InviteMessagePreview code={myCode} url={inviteUrl} points={invitePoints} />}
         <ShareBtnRow>
           <ShareBtn onClick={handleCopyInvite}>초대문구 복사</ShareBtn>
           <ShareBtn $primary onClick={handleWebShare}>공유하기</ShareBtn>
@@ -602,6 +688,72 @@ const InviteTabContent = ({ pointHistory = [] }) => {
 };
 
 /* ================================================================
+   비회원 둘러보기 — 회원 전용 탭도 화면 틀은 보여 주고, 누르면 로그인으로 (대표 리뷰 10/29)
+   MyOrdersContent · 초대 탭 본체는 uid 가 있어야 돌아서, 비회원에게는 이 틀만 그린다
+   ================================================================ */
+const GUEST_STATUS_TABS = ["전체", "접수", "대기", "선정대기", "배정", "완료", "취소"];
+
+const GuestMyOrders = ({ onLogin }) => (
+  <GuestFrame>
+    <GuestStatusGrid>
+      {GUEST_STATUS_TABS.map((t, i) => (
+        <GuestStatusCell key={t} type="button" $on={i === 0} onClick={onLogin}>{t}</GuestStatusCell>
+      ))}
+    </GuestStatusGrid>
+    <GuestEmpty>
+      <GuestEmptyIcon><IoListOutline size={30} color={THEME.primary} /></GuestEmptyIcon>
+      <GuestEmptyText>로그인하면 내가 등록하거나 맡은 오더가 여기 보입니다</GuestEmptyText>
+      <GuestPrimary type="button" onClick={onLogin}>로그인 하기</GuestPrimary>
+    </GuestEmpty>
+  </GuestFrame>
+);
+
+const GuestAssets = ({ onLogin }) => {
+  const [sub, setSub] = useState("invite");
+  return (
+    <AssetWrap>
+      <AssetSubTabs>
+        <AssetSubTab $active={sub === "invite"} onClick={() => setSub("invite")}>친구 초대</AssetSubTab>
+        <AssetSubTab $active={sub === "point"} onClick={() => setSub("point")}>포인트</AssetSubTab>
+      </AssetSubTabs>
+      {sub === "invite" ? (
+        <InviteWrap>
+          <InviteCard>
+            <InviteCardTitle>내 추천코드</InviteCardTitle>
+            <InviteCardDesc>친구에게 코드를 공유하고 포인트를 받으세요</InviteCardDesc>
+            <InviteCodeBox onClick={onLogin} style={{ cursor: "pointer" }}>
+              <InviteCode style={{ color: THEME.text, letterSpacing: 0, fontSize: 16 }}>로그인 후 발급</InviteCode>
+              <InviteCopyBtn type="button" onClick={(e) => { e.stopPropagation(); onLogin(); }}>로그인</InviteCopyBtn>
+            </InviteCodeBox>
+          </InviteCard>
+          <InviteCard>
+            <InviteCardTitle>초대 공유</InviteCardTitle>
+            <InviteCardDesc>링크로 가입하면 코드가 자동 입력됩니다</InviteCardDesc>
+            <InviteMessagePreview code="(로그인 후 발급)" url="(로그인하면 내 초대 링크가 붙습니다)" points={INVITE_POINT_FALLBACK} />
+            <ShareBtnRow>
+              <ShareBtn type="button" onClick={onLogin}>초대문구 복사</ShareBtn>
+              <ShareBtn type="button" $primary onClick={onLogin}>공유하기</ShareBtn>
+            </ShareBtnRow>
+          </InviteCard>
+        </InviteWrap>
+      ) : (
+        <>
+          <PointBalanceCard onClick={onLogin} style={{ cursor: "pointer" }}>
+            <PointBalanceLabel>총 보유 포인트</PointBalanceLabel>
+            <PointBalanceValue style={{ fontSize: 16 }}>로그인 후 확인</PointBalanceValue>
+          </PointBalanceCard>
+          <GuestEmpty style={{ minHeight: 240 }}>
+            <GuestEmptyIcon><IoGiftOutline size={30} color={THEME.primary} /></GuestEmptyIcon>
+            <GuestEmptyText>가입하면 1,000P, 초대코드로 가입하면 추가 포인트가 쌓입니다</GuestEmptyText>
+            <GuestPrimary type="button" onClick={onLogin}>로그인 하기</GuestPrimary>
+          </GuestEmpty>
+        </>
+      )}
+    </AssetWrap>
+  );
+};
+
+/* ================================================================
    전문가 모드 메인 — 기획안 구조
    ================================================================ */
 const ACTIVE_TAB_STORAGE_KEY = "homepro.main.activeTab";
@@ -619,13 +771,18 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     } catch (e) { /* ignore */ }
     return "all_orders";
   });
-  const [activeStatusFilter, setActiveStatusFilter] = useState("전체");
-  // 마감·취소 숨기기 (기본 켜짐) — 지원할 수 있는 오더만 보이게 (형 지시 7/28)
-  const [hideClosed, setHideClosed] = useState(true);
-  const [activeCatFilters, setActiveCatFilters] = useState([]);
-  const [activeDist, setActiveDist] = useState(DEFAULT_DIST);
+  // 필터는 고른 값을 기억해 두고 처음 그릴 때 되살린다 (대표 리뷰 10/30)
+  const [savedFilters] = useState(loadOrderFilters);
+  const [activeStatusFilter, setActiveStatusFilter] = useState(savedFilters.status || "전체");
+  // 마감·취소 포함이 기본 — 오픈 초기에 오더목록이 많이 보이도록 (대표 리뷰 10/30 · 11/02, 7/28 '숨김 기본'을 뒤집음)
+  const [hideClosed, setHideClosed] = useState(savedFilters.hideClosed ?? false);
+  const [activeCatFilters, setActiveCatFilters] = useState(savedFilters.cats || []);
+  const [activeDist, setActiveDist] = useState(savedFilters.dist || DEFAULT_DIST);
   const [activePeriod, setActivePeriod] = useState("전체");
-  const [activeSort, setActiveSort] = useState("등록순");
+  const [activeSort, setActiveSort] = useState(savedFilters.sort || "등록순");
+  useEffect(() => {
+    saveOrderFilters({ dist: activeDist, sort: activeSort, status: activeStatusFilter, hideClosed, cats: activeCatFilters });
+  }, [activeDist, activeSort, activeStatusFilter, hideClosed, activeCatFilters]);
   const [showCatSheet, setShowCatSheet] = useState(false);
   // 필터 줄 접기 (섹션 3-1) — 평소엔 필터 버튼과 고른 조건만 보인다
   const [showFilters, setShowFilters] = useState(false);
@@ -638,8 +795,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [userPoints, setUserPoints] = useState(0);
   const [pointHistory, setPointHistory] = useState([]);
   const [pointPeriod, setPointPeriod] = useState("전체");
-  // 보유자산 안쪽 탭 — 포인트 / 친구 초대 (대표 9/17 시안 3번)
-  const [assetSub, setAssetSub] = useState("point");
+  // 보유자산 안쪽 탭 — 친구 초대가 먼저 · 기본 (대표 리뷰 11/02, 9/17 시안 3번의 순서를 바꿈)
+  const [assetSub, setAssetSub] = useState("invite");
   const [companyInfo, setCompanyInfo] = useState(null);
   const [showCompany, setShowCompany] = useState(false); // 사업자 정보 접기 (대표 9/17 섹션 7-1)
 
@@ -733,6 +890,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
     const unsub = subscribeToAllOrders((orders) => setRawOrders(orders));
     return () => unsub();
   }, []);
+  // 배정중(30초 확인) 글씨 만료용 시계
+  const lockNow = useViewLockTick(rawOrders, uid);
 
   // proCategories 필터 적용 + hiddenBy 제외 + 카테고리 메타 부착
   const allOrders = useMemo(() => {
@@ -859,6 +1018,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   // 바텀시트에는 항상 전체 카테고리 표시
   const filterCats = CATEGORIES;
 
+  // 비회원이 회원 전용 탭 안을 누르면 로그인으로 — 돌아올 곳은 지금 탭
+  const guestLogin = () => navigate("/MobileLogin", { state: { from: `/MobileMain?tab=${activeTab}` } });
+
   const HOME_TABS = [
     { key: "all_orders", label: "오더목록" },
     { key: "my_orders", label: "나의오더현황", wide: true },
@@ -906,20 +1068,14 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         ))}
       </HomeTabRow>
 
-      {/* 비회원 — 회원 전용 탭에는 로그인 안내를 보여 준다 (대표 9/17) */}
-      {!uid && (activeTab === "assets" || activeTab === "my_orders" || activeTab === "ai_estimate") && (
-        <GuestNotice>
-          <GuestTitle>로그인이 필요한 화면이에요</GuestTitle>
-          <GuestDesc>
-            {activeTab === "assets" && "포인트와 초대코드는 회원만 볼 수 있습니다."}
-            {activeTab === "my_orders" && "내가 등록하거나 맡은 오더는 회원만 볼 수 있습니다."}
-            {activeTab === "ai_estimate" && "AI 견적은 회원만 이용할 수 있습니다."}
-          </GuestDesc>
-          <GuestBtnRow>
-            {/* 가입 버튼을 따로 두지 않는다 — 처음이면 로그인 뒤에 사업자·개인을 고른다 (형 10/1) */}
-            <GuestPrimary onClick={() => navigate("/MobileLogin")}>로그인 하기</GuestPrimary>
-          </GuestBtnRow>
-        </GuestNotice>
+      {/* 비회원 — 회원 전용 탭도 화면 틀은 보여 주고, 누르면 로그인으로 (대표 리뷰 10/29, 9/17 안내 화면을 대신함)
+          로그인 뒤에는 보던 탭으로 돌아온다(state.from) */}
+      {!uid && activeTab === "my_orders" && <GuestMyOrders onLogin={guestLogin} />}
+      {!uid && activeTab === "assets" && <GuestAssets onLogin={guestLogin} />}
+      {!uid && activeTab === "ai_estimate" && (
+        <div onClickCapture={(e) => { e.preventDefault(); e.stopPropagation(); guestLogin(); }}>
+          <AIEstimateContent />
+        </div>
       )}
 
       {/* ══════ 보유자산 (포인트 잔액 + 내역) ══════ */}
@@ -927,8 +1083,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
         <AssetWrap>
           {/* 포인트와 친구 초대를 안쪽 탭으로 가른다 (대표 9/17 시안 3번) */}
           <AssetSubTabs>
-            <AssetSubTab $active={assetSub === "point"} onClick={() => setAssetSub("point")}>포인트</AssetSubTab>
             <AssetSubTab $active={assetSub === "invite"} onClick={() => setAssetSub("invite")}>친구 초대</AssetSubTab>
+            <AssetSubTab $active={assetSub === "point"} onClick={() => setAssetSub("point")}>포인트</AssetSubTab>
           </AssetSubTabs>
 
           {assetSub === "invite" && <InviteTabContent pointHistory={pointHistory} />}
@@ -1068,7 +1224,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               {activeCatFilters.length > 0 ? `카테고리 ${activeCatFilters.length}` : "카테고리"}
               <FilterChevron><IoChevronDown size={14} /></FilterChevron>
             </FilterToggleBtn>
-            <FilterToggleBtn $on={showFilters || activePeriod !== "전체" || !hideClosed} onClick={() => setShowFilters((v) => !v)}>
+            <FilterToggleBtn $on={showFilters || activePeriod !== "전체" || hideClosed} onClick={() => setShowFilters((v) => !v)}>
               필터
               <FilterChevron $open={showFilters}><IoChevronDown size={16} /></FilterChevron>
             </FilterToggleBtn>
@@ -1089,8 +1245,9 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             <FilterGroup>
               <FilterGroupLabel>마감·취소</FilterGroupLabel>
               <FilterBtnRow>
-                <FilterBtn $active={hideClosed} onClick={() => setHideClosed(true)}>마감·취소 제외</FilterBtn>
+                {/* 포함이 앞 · 기본 (대표 리뷰 11/02) */}
                 <FilterBtn $active={!hideClosed} onClick={() => setHideClosed(false)}>마감·취소 포함</FilterBtn>
+                <FilterBtn $active={hideClosed} onClick={() => setHideClosed(true)}>마감·취소 제외</FilterBtn>
               </FilterBtnRow>
             </FilterGroup>
             <FilterFoldBtn type="button" onClick={() => setShowFilters(false)}>
@@ -1139,12 +1296,17 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                     <TdCell $stickw={78} style={{alignItems:"center"}}>
                       <TdDate $urgent={isUrgent}>{dateLabel}</TdDate>
                     </TdCell>
-                    <TdCell $flex={0.7} style={{alignItems:"center"}}>
+                    <TdCell $flex={0.7} style={{alignItems:"center", flexDirection:"column"}}>
                       {/* 행 띠 배경 없이 "접수" 등 상태 글자에만 색 (형 리뷰 7/29) */}
                       <TdStatus style={{color: statusColor}}>
                         <StatusDot style={{background: statusColor}} />
                         {status}
                       </TdStatus>
+                      {/* 30초 확인 중 (대표 리뷰 11/02) — 상태 글씨 아래 포인트색 글씨 */}
+                      {(() => {
+                        const lockText = viewLockLabel(order, uid, lockNow);
+                        return lockText ? <TdLock>{lockText}</TdLock> : null;
+                      })()}
                     </TdCell>
                     <TdCell $flex={0.7} style={{alignItems:"center"}}>
                       <TdLocation>{matchLabel}</TdLocation>
@@ -2237,6 +2399,28 @@ const InviteCopyBtn = styled.button`
   &:active { opacity: 0.8; }
 `;
 
+/* 초대문구 상자 — 흰 면 + 1px 테두리, 말줄임 없이 줄바꿈 그대로 (대표 리뷰 11/02) */
+const InviteMsgBox = styled.div`
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #D9DDE3;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const InviteMsgLine = styled.div`
+  font-size: 15px;
+  line-height: 1.6;
+  color: ${({ $link }) => ($link ? THEME.primary : THEME.text)};
+  font-weight: ${({ $strong }) => ($strong ? 700 : 400)};
+  white-space: pre-wrap;
+  word-break: ${({ $link }) => ($link ? "break-all" : "keep-all")};
+  overflow-wrap: anywhere;
+`;
+
 const ShareBtnRow = styled.div`
   display: flex;
   gap: 8px;
@@ -2426,42 +2610,64 @@ const HomeTabSub = styled.span`
 
 /* 보유자산 (포인트 잔액 + 내역) */
 /* 비회원 안내 (대표 9/17) */
-const GuestNotice = styled.div`
-  min-height: calc(100vh - 320px);
+const GuestFrame = styled.div`
+  padding: 0 0 16px;
+`;
+
+/* 나의오더현황 상태 칸 — 실제 화면(MyOrdersContent)과 같은 4칸 격자 */
+const GuestStatusGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 12px 12px 8px;
+`;
+
+const GuestStatusCell = styled.button`
+  height: 48px;
+  background: #fff;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : "#D9DDE3")};
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: ${({ $on }) => ($on ? 700 : 500)};
+  color: ${({ $on }) => ($on ? THEME.primary : THEME.text)};
+  font-family: inherit;
+  cursor: pointer;
+  word-break: keep-all;
+`;
+
+const GuestEmpty = styled.div`
+  min-height: calc(100vh - 420px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin: 0 14px;
-  padding: 24px 18px;
+  gap: 14px;
+  padding: 24px 24px;
   text-align: center;
 `;
 
-const GuestTitle = styled.div`
-  font-size: 18px;
-  font-weight: 700;
-  color: ${THEME.text};
+const GuestEmptyIcon = styled.div`
+  width: 60px;
+  height: 60px;
+  border: 1px solid #D9DDE3;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
 `;
 
-const GuestDesc = styled.div`
-  margin-top: 10px;
+const GuestEmptyText = styled.div`
   font-size: 15px;
   line-height: 1.6;
-  color: #2b2f36;
+  color: ${THEME.text};
   word-break: keep-all;
-`;
-
-const GuestBtnRow = styled.div`
-  margin-top: 20px;
-  width: 100%;
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  max-width: 300px;
 `;
 
 const GuestPrimary = styled.button`
+  width: 100%;
+  max-width: 320px;
   height: 50px;
   border: none;
   border-radius: 10px;
@@ -3251,6 +3457,15 @@ const TdStatus = styled.span`
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
+`;
+
+const TdLock = styled.span`
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  word-break: keep-all;
+  text-align: center;
 `;
 
 const StatusDot = styled.span`

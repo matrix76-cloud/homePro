@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { IoChevronForward, IoAddOutline } from "react-icons/io5";
+import { BROKER_STATUS_TEXT, brokerStatusStyle, normalizeBrokerStatus } from "../../service/BrokerService";
 
 /* 상태별 표기 — 즉시승인 도입 후 공동중개(부동산)만 승인대기가 남음 (대표 지시 7/29) */
 const STATUS_LABEL = { approved: "승인완료", pending: "승인대기", rejected: "반려" };
@@ -54,9 +55,21 @@ const ProCategoryListPage = () => {
                                     <CatIcon>{(() => { const Icon = CATEGORY_ICONS[cat.id]; return Icon ? <Icon /> : cat.shortName.charAt(0); })()}</CatIcon>
                                     <CatInfo>
                                         <CatName>{cat.name}</CatName>
-                                        <CatStatus $bg={STATUS_BG[statusMap[cat.id]] || THEME.success}>
-                                            {STATUS_LABEL[statusMap[cat.id]] || "승인완료"}
-                                        </CatStatus>
+                                        {cat.id === "brokerage" && statusMap[cat.id] ? (() => {
+                                            // 공동중개는 선활동 · 후관리 상태를 글씨 + 아이콘으로 (대표 리뷰 11/02)
+                                            const st = normalizeBrokerStatus(statusMap[cat.id]);
+                                            const { color, Icon } = brokerStatusStyle(st);
+                                            return (
+                                                <BrokerStatusLine style={{ color }}>
+                                                    <Icon size={16} style={{ flexShrink: 0 }} />
+                                                    {BROKER_STATUS_TEXT[st]}
+                                                </BrokerStatusLine>
+                                            );
+                                        })() : (
+                                            <CatStatus $bg={STATUS_BG[statusMap[cat.id]] || THEME.success}>
+                                                {STATUS_LABEL[statusMap[cat.id]] || "승인완료"}
+                                            </CatStatus>
+                                        )}
                                     </CatInfo>
                                 </CatLeft>
                                 <IoChevronForward size={18} color={THEME.muted} />
@@ -154,6 +167,16 @@ const CatName = styled.div`
     font-size: 17px;
     font-weight: 400;
     color: ${THEME.text};
+`;
+
+const BrokerStatusLine = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    word-break: keep-all;
 `;
 
 const CatStatus = styled.div`

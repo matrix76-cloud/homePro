@@ -9,10 +9,10 @@ import {
   IoPersonCircleOutline, IoStar, IoChatbubbleOutline,
   IoChevronDown, IoCloseOutline, IoCheckmarkCircle,
   IoLogoInstagram, IoLogoYoutube, IoLinkOutline, IoGlobeOutline,
-  IoArrowBack, IoOpenOutline, IoTrashOutline, IoDocumentTextOutline,
+  IoArrowBack, IoOpenOutline, IoTrashOutline, IoDocumentTextOutline, IoAddCircleOutline,
 } from "react-icons/io5";
 import { SiNaver } from "react-icons/si";
-import { CATEGORIES, CATEGORY_GROUPS, THEME } from "../../config/homeproConfig";
+import { CATEGORIES, CATEGORY_GROUPS, THEME, getMemberTypes, memberTypesLabel } from "../../config/homeproConfig";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import HomeLayout from "../../screen/Layout/Layout/HomeLayout";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -21,7 +21,7 @@ import { useAuth } from "../../context/AuthContext";
 import { db } from "../../api/config";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { COLLECTIONS } from "../../config/homeproConfig";
-import { getProsByCategory } from "../../service/ProService";
+import { getProsByCategory, ACTIVE_APPROVAL_STATUSES } from "../../service/ProService";
 import { upsertUserProfile } from "../../service/UserProfileService";
 import { createChatRoom } from "../../service/ChatService";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
@@ -356,8 +356,11 @@ const BizProfilePage = () => {
     const nameVal = cn.trim();
     if (!nameVal) { window.alert("업체명을 입력해주세요."); return; }
     try {
-      await upsertUserProfile(myUid, { userType: "business", companyName: nameVal, nickname: nameVal, name: nameVal });
-      setMyProfile((p) => ({ ...(p || {}), userType: "business", companyName: nameVal, nickname: nameVal, name: nameVal }));
+      // 회원 유형 배열에도 사업자를 더한다 (대표 리뷰 11/02 — 복수 선택과 어긋나지 않게)
+      const base = getMemberTypes(myProfile || userData).filter((k) => k !== "general");
+      const userTypes = ["business", ...base.filter((k) => k !== "business")];
+      await upsertUserProfile(myUid, { userType: "business", userTypes, companyName: nameVal, nickname: nameVal, name: nameVal });
+      setMyProfile((p) => ({ ...(p || {}), userType: "business", userTypes, companyName: nameVal, nickname: nameVal, name: nameVal }));
       try { await refreshUser?.(); } catch (e) { }
       window.alert("사업자회원으로 전환되었습니다.");
     } catch (e) {
@@ -433,7 +436,7 @@ const BizProfilePage = () => {
       try {
         let proList;
         if (selectedCats.length === 0) {
-          const q = query(collection(db, COLLECTIONS.PROS), where("status", "==", "approved"));
+          const q = query(collection(db, COLLECTIONS.PROS), where("status", "in", ACTIVE_APPROVAL_STATUSES)); // 공동중개 우선활동 포함 (대표 리뷰 11/02)
           const snap = await getDocs(q);
           proList = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.uid !== myUid);
         } else {
@@ -483,7 +486,7 @@ const BizProfilePage = () => {
   };
 
   // 다른 프로 프로필 보기 — 승인된 전문분야만
-  const viewPros = isViewingOther ? myPros.filter((p) => p.status === "approved") : myPros;
+  const viewPros = isViewingOther ? myPros.filter((p) => ACTIVE_APPROVAL_STATUSES.includes(p.status)) : myPros;
 
   /* ── 신뢰요소 파생값 (타인 열람 모드 상단 노출) ── */
   const regionText = (() => {
@@ -494,7 +497,7 @@ const BizProfilePage = () => {
   })();
 
   const mainCategoryText = [...new Set(
-    (isViewingOther ? viewPros : myPros.filter((p) => p.status === "approved"))
+    (isViewingOther ? viewPros : myPros.filter((p) => ACTIVE_APPROVAL_STATUSES.includes(p.status)))
       .map((p) => getCatName(p.categoryId))
       .filter(Boolean)
   )].join(" · ");
@@ -533,6 +536,12 @@ const BizProfilePage = () => {
                     const g = myProfile?.grade || userData?.grade || "rookie";
                     return <GradeText $color={GRADE_TEXT_COLOR[g] || THEME.text}>{getGradeRule(g).label} 등급</GradeText>;
                   })()}
+                  {/* 회원 유형 — "사업자회원 · 프리랜서회원" 글씨 (대표 리뷰 11/02) */}
+                  {memberTypesLabel(myProfile || (isViewingOther ? null : userData)) && (
+                    <div style={{ fontSize: 14, color: THEME.text, fontWeight: 600, margin: "2px 0 4px", wordBreak: "keep-all" }}>
+                      {memberTypesLabel(myProfile || (isViewingOther ? null : userData))}
+                    </div>
+                  )}
                   {/* 인증 공인중개사 — 공동중개 승인(homepro_pros brokerage approved) 시 상호명 아래 한 줄 (형 지시 9/14) */}
                   {brokerCertified && (
                     <div style={{ fontSize: 14, color: "#15803d", fontWeight: 700, margin: "2px 0 4px" }}>인증 공인중개사</div>
@@ -579,16 +588,21 @@ const BizProfilePage = () => {
                 </TrustSection>
               )}
 
-              {/* 본인 — 전문분야 등록 진입 (박스 통합) */}
-              {!isViewingOther && (
-                <ProfileActionRow onClick={() => navigate("/pro/register-category")}>
-                  <ProfileActionLabel>
-                    <IoAddOutline size={18} color={THEME.primary} />
-                    전문분야 등록하기
-                  </ProfileActionLabel>
-                  <IoChevronForward size={18} color={THEME.muted} />
-                </ProfileActionRow>
-              )}
+              {/* 본인 — 전문분야 등록 진입. 작은 글씨 링크라 눈에 안 띈다는 지적으로 전폭 버튼 줄로 (대표 리뷰 11/02)
+                  등록한 분야가 하나도 없으면 주 버튼(포인트색 면 + 흰 글씨) */}
+              {!isViewingOther && (() => {
+                const firstTime = !loadingMyPros && myPros.length === 0;
+                const fg = firstTime ? "#fff" : THEME.primary;
+                return (
+                  <ProfileActionRow type="button" $primary={firstTime} onClick={() => navigate("/pro/register-category")}>
+                    <ProfileActionLabel style={{ color: fg }}>
+                      <IoAddCircleOutline size={22} color={fg} />
+                      전문분야 등록하기
+                    </ProfileActionLabel>
+                    <IoChevronForward size={20} color={fg} />
+                  </ProfileActionRow>
+                );
+              })()}
             </ProfileCard>
 
             {/* 등급 + 활동 통계 (4열) */}
@@ -1248,24 +1262,32 @@ const ProfileTopRow = styled.div`
   padding-bottom: 16px;
 `;
 
-/* 전문분야 등록 진입 — 프로필과 같은 박스 안 (구분선으로만 분리) */
-const ProfileActionRow = styled.div`
+/* 전문분야 등록 진입 — 프로필 박스 안 전폭 버튼 줄 (대표 리뷰 11/02)
+   평소: 흰 면 + 1px 테두리 + 포인트색 굵은 글씨 / 등록 분야 0개: 포인트색 면 + 흰 글씨 */
+const ProfileActionRow = styled.button`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 0;
-  border-top: 1px solid ${THEME.border};
+  width: 100%;
+  height: 52px;
+  margin-top: 4px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  background: ${({ $primary }) => ($primary ? THEME.primary : "#fff")};
+  border: 1px solid ${({ $primary }) => ($primary ? THEME.primary : "#D9DDE3")};
+  border-radius: 4px;
+  font-family: inherit;
   cursor: pointer;
-  &:active { opacity: 0.6; }
+  &:active { opacity: 0.8; }
 `;
 
 const ProfileActionLabel = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 16px;
-  font-weight: 600;
-  color: ${THEME.text};
+  font-weight: 700;
+  color: ${THEME.primary};
 `;
 
 /* ── 타인 열람 신뢰요소 ── */

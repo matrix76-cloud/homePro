@@ -28,6 +28,7 @@ import { COLLECTIONS } from "../config/homeproConfig";
 import { deductPoints } from "./PointService";
 import { compressEvidencePhoto } from "./WorkLogService";
 import { isInRnWebView, postToRN } from "../bridge/webviewBridge";
+import { notifyOrderEvent } from "./OrderNotifyService";
 
 const CASH_COL = "homepro_cash";
 const USERS_COL = "users";
@@ -189,9 +190,17 @@ export async function markReferralSent(order, { byUid, byName, receiptFile }) {
     referralPay: { status: "sent", amount, sentAt: serverTimestamp(), sentBy: byUid, receiptUrl },
     updatedAt: serverTimestamp(),
   });
-  await notify(order.createdBy, "소개수수료 입금 확인 요청",
-    `${byName || "홈프로"}님이 소개수수료 ${amount.toLocaleString()}원을 송금했습니다. 입금을 확인해 주세요.`,
-    "referral_sent", { orderId: order.id });
+  // 접수자에게 채팅 안내 + 푸시 (대표 리뷰 11/02)
+  try {
+    const text = `소개수수료 ${amount.toLocaleString()}원 송금 완료 표시 · 입금을 확인해 주세요`;
+    await notifyOrderEvent(order, {
+      toUids: [order.createdBy], actorUid: byUid,
+      title: "소개수수료 입금 확인 요청",
+      body: `${byName || "홈프로"}님이 ${text}`,
+      type: "referral_sent",
+      chatText: `${byName ? `${byName}님이 ` : ""}${text}`,
+    });
+  } catch (e) { console.warn("[소개수수료 알림]", e?.message); }
 }
 
 /** 접수자 [입금 확인] — 상태 confirmed + 홈프로 푸시 */
@@ -202,9 +211,16 @@ export async function confirmReferralReceived(order, { byUid }) {
     "referralPay.confirmedBy": byUid,
     updatedAt: serverTimestamp(),
   });
-  await notify(order.matchedProUid, "소개수수료 입금 확인 완료",
-    "접수자가 소개수수료 입금을 확인했습니다.",
-    "referral_confirmed", { orderId: order.id });
+  // 홈프로에게 채팅 안내 + 푸시 (대표 리뷰 11/02)
+  try {
+    await notifyOrderEvent(order, {
+      toUids: [order.matchedProUid], actorUid: byUid,
+      title: "소개수수료 입금 확인 완료",
+      body: "소개수수료 입금이 확인되었습니다",
+      type: "referral_confirmed",
+      chatText: "소개수수료 입금이 확인되었습니다.",
+    });
+  } catch (e) { console.warn("[소개수수료 알림]", e?.message); }
 }
 
 /* ───────────────────────── ② 후불 작업 대금 ───────────────────────── */

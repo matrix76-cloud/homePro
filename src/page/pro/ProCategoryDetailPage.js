@@ -13,6 +13,7 @@ import { hasBusinessLicense, isFreelancerNoBiz } from "../../service/Certificate
 import { getUserProfileByUid } from "../../service/UserProfileService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCheckmarkCircleOutline, IoCreateOutline, IoAlertCircleOutline } from "react-icons/io5";
+import { BROKER_STATUS_TEXT, brokerStatusStyle, normalizeBrokerStatus, withBrokerFields } from "../../service/BrokerService";
 
 const ProCategoryDetailPage = () => {
     const navigate = useNavigate();
@@ -79,7 +80,10 @@ const ProCategoryDetailPage = () => {
     const detail = docData?.detail || {};
     const rawCerts = detail.certifications || detail.certs || [];
     const certs = Array.isArray(rawCerts) ? rawCerts : [];
-    const catFields = PRO_DETAIL_FIELDS[categoryId] || [];
+    // 공동중개는 대표자 성명 · 연락처 칸까지 (대표 리뷰 11/02)
+    const catFields = withBrokerFields(categoryId, PRO_DETAIL_FIELDS[categoryId] || []);
+    const isBrokerCat = categoryId === "brokerage";
+    const brokerSt = isBrokerCat && docData ? normalizeBrokerStatus(docData.status) : null;
     const regionText = proRegionText(docData);
 
     const getStatusBadge = (status) => {
@@ -126,8 +130,28 @@ const ProCategoryDetailPage = () => {
                 {/* 카테고리 + 상태 */}
                 <HeaderRow>
                     <CatName>{cat.name}</CatName>
-                    <StatusBadge $bg={badge.bg} $color={badge.color}>{badge.label}</StatusBadge>
+                    {!isBrokerCat && <StatusBadge $bg={badge.bg} $color={badge.color}>{badge.label}</StatusBadge>}
                 </HeaderRow>
+                {/* 공동중개 선활동 · 후관리 상태 — 뱃지 없이 글씨 + 아이콘 (대표 리뷰 11/02) */}
+                {brokerSt && (() => {
+                    const { color, Icon } = brokerStatusStyle(brokerSt);
+                    return (
+                        <BrokerStatusBox>
+                            <BrokerStatusLine style={{ color }}>
+                                <Icon size={18} style={{ flexShrink: 0 }} />
+                                {BROKER_STATUS_TEXT[brokerSt]}
+                            </BrokerStatusLine>
+                            {brokerSt === "provisional" && <BrokerStatusNote>글 등록 · 오더 지원 등 모든 활동을 지금 바로 할 수 있습니다. 관리자가 서류를 확인하면 공식 인증으로 바뀝니다.</BrokerStatusNote>}
+                            {brokerSt === "rejected" && (
+                                <>
+                                    <BrokerStatusNote>서류 보완 요청{docData.rejectReason ? `: ${docData.rejectReason}` : ""}. 다시 등록하실 때까지 공동중개 활동이 제한됩니다.</BrokerStatusNote>
+                                    {!isViewingOther && <ReRegisterBtn type="button" onClick={() => navigate("/pro/register-category?category=brokerage")}>서류 다시 등록</ReRegisterBtn>}
+                                </>
+                            )}
+                            {brokerSt === "banned" && <BrokerStatusNote>허위 자격 등록으로 이용이 정지되었습니다.</BrokerStatusNote>}
+                        </BrokerStatusBox>
+                    );
+                })()}
                 <CatDesc>{cat.description}</CatDesc>
 
                 {/* 한줄 소개 */}
@@ -331,6 +355,45 @@ const CatDesc = styled.div`
     line-height: 1.5;
     word-break: keep-all;
     font-weight: 400;
+`;
+
+const BrokerStatusBox = styled.div`
+    margin: 4px 0 12px;
+    padding: 12px 14px;
+    border: 1px solid #D5D9E0;
+    border-radius: 4px;
+    background: ${THEME.surface};
+`;
+
+const BrokerStatusLine = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    word-break: keep-all;
+`;
+
+const BrokerStatusNote = styled.div`
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: ${THEME.text};
+    word-break: keep-all;
+`;
+
+const ReRegisterBtn = styled.button`
+    margin-top: 10px;
+    height: 40px;
+    padding: 0 14px;
+    border: 1px solid #D5D9E0;
+    border-radius: 4px;
+    background: ${THEME.surface};
+    color: ${THEME.text};
+    font-size: 15px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
 `;
 
 const StatusBadge = styled.div`

@@ -17,7 +17,7 @@ import {
 import { SiNaver } from "react-icons/si";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../api/config";
-import { THEME, CATEGORIES } from "../config/homeproConfig";
+import { THEME, CATEGORIES, memberTypesLabel } from "../config/homeproConfig";
 import { getUserProfileByUid } from "../service/UserProfileService";
 import { hasBusinessLicense, bizStatusLabel, getCompletedOrderCount, formatUploadedAt } from "../service/CertificateService";
 import { getMyProDocs } from "../service/ProService";
@@ -211,6 +211,8 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = fals
                 <SectionTitle>기본 정보</SectionTitle>
                 <Row><K>평점</K><V>{rating > 0 ? `${rating.toFixed(1)}점 · 리뷰 ${reviewCount}건` : `평점 없음 · 리뷰 ${reviewCount}건`}</V></Row>
                 <Row><K>완료 실적</K><V><Strong>홈프로 누적 오더 완료 {completedCount ?? 0}건</Strong></V></Row>
+                {/* 회원 유형 — 사업자 · 프리랜서 · 부동산중개사 · 일반 복수 (대표 리뷰 11/02) */}
+                <Row><K>회원 유형</K><V $muted={!memberTypesLabel(p)}>{memberTypesLabel(p) || "미등록"}</V></Row>
                 <Row><K>활동 지역</K><V $muted={!region}>{region || "미등록"}</V></Row>
                 <Row><K>주요 분야</K><V $muted={!categoryText}>{categoryText || "미등록"}</V></Row>
                 {subcatText && <Row><K>세부 분야</K><V>{subcatText}</V></Row>}

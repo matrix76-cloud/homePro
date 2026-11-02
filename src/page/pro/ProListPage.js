@@ -6,6 +6,7 @@ import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc } fro
 import { db } from "../../api/config";
 import { CATEGORIES, CATEGORY_GROUPS, THEME, COLLECTIONS } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
+import { ACTIVE_APPROVAL_STATUSES } from "../../service/ProService";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { GradeBadge } from "../../utility/gradeUtils";
 import { getAccessTier } from "../../utility/tierUtils";
@@ -62,9 +63,10 @@ const ProListPage = () => {
     (async () => {
       setLoading(true);
       try {
+        // 공동중개 우선활동(provisional)도 활동 중으로 본다 (대표 리뷰 11/02 선활동 · 후관리)
         const q = query(
           collection(db, COLLECTIONS.PROS),
-          where("status", "==", "approved")
+          where("status", "in", ACTIVE_APPROVAL_STATUSES)
         );
         const snap = await getDocs(q);
         const proList = snap.docs

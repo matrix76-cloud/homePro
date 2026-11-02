@@ -11,6 +11,7 @@ import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { proRegionList, proRegionText } from "../../utility/regionUtils";
+import { withBrokerFields, BROKER_REQUIRED_KEYS } from "../../service/BrokerService";
 
 const ProCategoryEditPage = () => {
     const navigate = useNavigate();
@@ -41,7 +42,8 @@ const ProCategoryEditPage = () => {
     const cat = CATEGORIES.find((c) => c.id === categoryId);
 
     const catDetailFields = useMemo(
-        () => PRO_DETAIL_FIELDS[categoryId] || [],
+        // 공동중개는 대표자 성명 · 연락처 칸을 덧붙인다 (대표 리뷰 11/02)
+        () => withBrokerFields(categoryId, PRO_DETAIL_FIELDS[categoryId] || []),
         [categoryId]
     );
     const hasSubcategories = cat?.subcategories?.length > 0;
@@ -138,7 +140,7 @@ const ProCategoryEditPage = () => {
         if (submitting) return;
         if (!uid) { alert("로그인이 필요합니다."); return; }
         const licenseUrl = existingLicenseUrl;
-        if (!licenseUrl && !imageFile && !licenseOptional) { alert("사업자등록증을 첨부해주세요."); return; }
+        if (!licenseUrl && !imageFile && !licenseOptional && !isApprovalRequiredCategory(categoryId)) { alert("사업자등록증을 첨부해주세요."); return; }
         setSubmitting(true);
         try {
             const finalLicenseUrl = imageFile
@@ -162,7 +164,9 @@ const ProCategoryEditPage = () => {
             navigate(-1);
         } catch (err) {
             console.error("edit error:", err);
-            alert("수정 중 오류가 발생했습니다.");
+            if (err?.message === "BROKER_BANNED") alert("이용이 정지된 계정입니다. 수정할 수 없습니다.");
+            else if (err?.message === "CERT_PHOTO_REQUIRED") alert("자격증 사본 또는 개설등록증 사진을 첨부해 주세요.");
+            else alert("수정 중 오류가 발생했습니다.");
         } finally {
             setSubmitting(false);
         }
@@ -171,7 +175,14 @@ const ProCategoryEditPage = () => {
     const totalPhotos = existingPhotoUrls.length + activityPhotos.length;
     // 개인 프리랜서(사업자등록 없음)는 사업자등록증이 선택 항목 — 승인 필요 분야(공동중개)는 그대로 필수 (B14)
     const licenseOptional = isFreelancerNoBiz(userData) && !isApprovalRequiredCategory(categoryId);
-    const canSubmit = String(experience ?? "").trim() !== "" && intro.trim() !== "" && (!!imageFile || !!existingLicenseUrl || licenseOptional) && !submitting;
+    //  공동중개는 자격증 사본 · 개설등록증 사진이 근거라 사업자등록증은 선택, 대신 인증서 사진 1장 + 필수 칸 (대표 리뷰 11/02)
+    const isBroker = isApprovalRequiredCategory(categoryId);
+    const brokerMissingField = isBroker && BROKER_REQUIRED_KEYS.some((k) => !String(extraFields[k] || "").trim());
+    const brokerMissingPhoto = isBroker && !certs.some((c) => !!c.file || !!c.url);
+    const canSubmit = String(experience ?? "").trim() !== "" && intro.trim() !== "" && (!!imageFile || !!existingLicenseUrl || licenseOptional || isBroker) && !brokerMissingField && !brokerMissingPhoto && !submitting;
+    // 세부 전문분야 전체 선택 · 해제 (대표 리뷰 11/02) — 전문청소의 '기타'는 등록분야가 아니다 (대표 9/10)
+    const allSubs = (cat?.subcategories || []).filter((sub) => !(cat?.id === "professional_cleaning" && sub === "기타"));
+    const isAllSubs = allSubs.length > 0 && allSubs.every((sub) => selectedSubs.includes(sub));
 
     if (!cat) return null;
     if (loading) return <SimpleBackLayout NAME="수정" hideFooter><LoadingWrap>불러오는 중...</LoadingWrap></SimpleBackLayout>;
@@ -181,14 +192,14 @@ const ProCategoryEditPage = () => {
             <PageWrap>
                 {hasSubcategories && (
                     <Section>
-                        <SectionTitle>전문분야 선택 (복수 선택 가능)</SectionTitle>
+                        {/* 원클릭 전체 선택 · 해제 (대표 리뷰 11/02) — 전문청소의 옛 '전체' 칩도 이 버튼으로 합쳤다 */}
+                        <SubTitleRow>
+                            <SectionTitle style={{ marginBottom: 0 }}>전문분야 선택 (복수 선택 가능)</SectionTitle>
+                            <SelectAllBtn type="button" onClick={() => setSelectedSubs(isAllSubs ? [] : allSubs)}>
+                                {isAllSubs ? "전체 해제" : "전체 선택"}
+                            </SelectAllBtn>
+                        </SubTitleRow>
                         <ChipWrap>
-                            {/* 전문청소는 '전체' 한 번에 고르기 — 영역은 각자 골라 중복 선택 (대표 10/8) */}
-                            {cat.id === "professional_cleaning" && (() => {
-                                const all = cat.subcategories.filter((sub) => sub !== "기타");
-                                const isAll = all.every((sub) => selectedSubs.includes(sub));
-                                return <Chip $active={isAll} onClick={() => setSelectedSubs(isAll ? [] : all)}>전체</Chip>;
-                            })()}
                             {cat.subcategories.map((sub) => (
                                 <Chip key={sub} $active={selectedSubs.includes(sub)} onClick={() => toggleSub(sub)}>{sub}</Chip>
                             ))}
@@ -199,7 +210,8 @@ const ProCategoryEditPage = () => {
                 {catDetailFields.map((field) => {
                     return (
                     <Section key={field.key}>
-                        <SectionTitle>{field.label}</SectionTitle>
+                        <SectionTitle>{field.label}{isBroker && BROKER_REQUIRED_KEYS.includes(field.key) && <ReqMark> (필수)</ReqMark>}</SectionTitle>
+                        {field.type === "tel" && <StyledInput type="tel" inputMode="tel" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} />}
                         {field.type === "text" && <StyledInput type="text" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} />}
                         {field.type === "number" && <StyledInput type="number" placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} min="0" inputMode="numeric" />}
                         {field.type === "textarea" && <StyledTextarea placeholder={field.placeholder} value={extraFields[field.key] || ""} onChange={(e) => updateExtra(field.key, e.target.value)} rows={3} />}
@@ -214,9 +226,9 @@ const ProCategoryEditPage = () => {
                     );
                 })}
 
-                {/* 자격증·면허 — 카테고리 필드와 무관하게 항상 편집 가능 */}
+                {/* 자격증·면허 — 카테고리 필드와 무관하게 항상 편집 가능. 공동중개는 인증서 사진 1장 필수 (대표 리뷰 11/02) */}
                 <Section>
-                    <SectionTitle>자격증·면허</SectionTitle>
+                    <SectionTitle>{isBroker ? "자격증 사본 또는 개설등록증 사진 (필수)" : "자격증·면허"}</SectionTitle>
                     <CertSection>
                         {certs.map((cert) => (
                             <CertCard key={cert.id}>
@@ -264,7 +276,7 @@ const ProCategoryEditPage = () => {
 
                 {/* 사업자등록증 */}
                 <Section>
-                    <SectionTitle>사업자등록증{licenseOptional ? " (선택)" : ""}</SectionTitle>
+                    <SectionTitle>사업자등록증{licenseOptional || isBroker ? " (선택)" : ""}</SectionTitle>
                     {licenseOptional && (
                         <SmallText style={{ marginBottom: 10 }}>개인 프리랜서는 사업자등록증 없이 저장할 수 있습니다.</SmallText>
                     )}
@@ -301,6 +313,13 @@ const ProCategoryEditPage = () => {
                     <HiddenInput ref={activityFileRef} type="file" accept="image/*" multiple onChange={handleActivityPhotos} />
                 </Section>
 
+                {(brokerMissingField || brokerMissingPhoto) && (
+                    <SubmitHint>
+                        {brokerMissingPhoto
+                            ? "자격증 사본 또는 개설등록증 사진을 첨부해야 저장할 수 있습니다."
+                            : "사무소 명칭 · 등록번호 · 대표자 성명 · 연락처를 모두 입력해 주세요."}
+                    </SubmitHint>
+                )}
                 <ActionBtn disabled={!canSubmit} $active={canSubmit} onClick={handleSubmit}>
                     {submitting ? "저장 중..." : "저장하기"}
                 </ActionBtn>
@@ -317,7 +336,13 @@ const LoadingWrap = styled.div`padding: 60px 0; text-align: center; color: ${THE
 const Section = styled.div`background: ${THEME.surface}; border-radius: 16px; padding: 20px; box-shadow: ${THEME.cardShadow};`;
 const SectionTitle = styled.div`font-size: 19px; font-weight: 700; color: ${THEME.text}; letter-spacing: -0.03em; margin-bottom: 14px;`;
 const ChipWrap = styled.div`display: flex; flex-wrap: wrap; gap: 8px;`;
-const Chip = styled.div`padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 400; cursor: pointer; background: ${({ $active }) => ($active ? THEME.button : THEME.surface)}; color: ${({ $active }) => ($active ? "#fff" : THEME.text)}; border: ${({ $active }) => ($active ? "none" : `1.5px solid ${THEME.border}`)}; &:active { opacity: 0.8; }`;
+const SubTitleRow = styled.div`display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px;`;
+// 전체 선택 · 해제 — 흰 면 · 1px 테두리 · 높이 32 · 각진 모서리 (대표 리뷰 11/02)
+const SelectAllBtn = styled.button`flex-shrink: 0; height: 32px; padding: 0 12px; border: 1px solid #D5D9E0; border-radius: 4px; background: ${THEME.surface}; color: ${THEME.text}; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; &:active { background: ${THEME.background}; }`;
+const ReqMark = styled.span`color: ${THEME.danger}; font-weight: 500; font-size: 16px;`;
+const SubmitHint = styled.div`font-size: 13px; color: ${THEME.danger}; text-align: center; word-break: keep-all;`;
+/* 선택 칩 높이 44 이상 (형 규칙) */
+const Chip = styled.div`display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 8px 14px; border-radius: 20px; font-size: 15px; font-weight: 400; cursor: pointer; background: ${({ $active }) => ($active ? THEME.button : THEME.surface)}; color: ${({ $active }) => ($active ? "#fff" : THEME.text)}; border: ${({ $active }) => ($active ? "none" : `1.5px solid ${THEME.border}`)}; &:active { opacity: 0.8; }`;
 const StyledInput = styled.input`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; box-sizing: border-box; &:focus { border-color: ${THEME.button}; } &::placeholder { color: ${THEME.muted}; }`;
 const StyledTextarea = styled.textarea`width: 100%; padding: 14px 16px; border: 1.5px solid ${THEME.border}; border-radius: 10px; font-size: 17px; font-family: inherit; color: ${THEME.text}; background: ${THEME.surface}; outline: none; resize: none; box-sizing: border-box; &:focus { border-color: ${THEME.button}; } &::placeholder { color: ${THEME.muted}; }`;
 const CharCount = styled.div`text-align: right; font-size: 14px; color: ${THEME.muted}; margin-top: 6px;`;

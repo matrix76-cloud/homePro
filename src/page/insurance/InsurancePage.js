@@ -14,7 +14,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getInsuranceSettings, getMyPolicies, pickActivePolicy, formatDate } from "../../service/InsuranceService";
 import { getMyProDocs } from "../../service/ProService";
 import { groupsWithSettings, recommendGroup, START_TEXT } from "./insuranceGroups";
-import { C, Box, Txt, Btn, Hero, GroupPriceGrid, Fold, LimitRows, DeductRows, ScopeRows, Shield } from "./InsuranceBlocks";
+import { C, Box, Txt, Btn, Hero, ProductInfo, GroupPriceGrid, Fold, LimitRows, DeductRows, ScopeRows, Shield } from "./InsuranceBlocks";
 import { FixedBar } from "./insuranceStyles";
 import usePcWide from "../../hooks/usePcWide";
 
@@ -76,6 +76,9 @@ const InsurancePage = () => {
         </Box>
       ) : <Hero minPrice={minPrice} />}
 
+      {/* 상품 정보 한 줄 (대표 리뷰 11/02) */}
+      <ProductInfo />
+
       <GroupPriceGrid groups={groups} recId={recId} />
 
       <Box style={{ paddingTop: 2, paddingBottom: 2 }}>
@@ -88,8 +91,8 @@ const InsurancePage = () => {
         </Fold>
       </Box>
 
-      {/* 앱 밖에서 받은 일도 등재하면 보장 — 셀프보장등록 (형 리뷰 9/16) */}
-      <Box style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => navigate("/order/create?self=1")}>
+      {/* 앱 밖에서 받은 일도 등재하면 보장 — 셀프보장등록 (형 리뷰 9/16). 간단 등재 폼 /order/self-cover 로 (대표 리뷰 11/02) */}
+      <Box style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => navigate("/order/self-cover")}>
         <IoDocumentTextOutline size={24} color={C.P} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: C.TXT }}>셀프보장등록</div>

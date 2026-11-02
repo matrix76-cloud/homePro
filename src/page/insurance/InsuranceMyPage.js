@@ -21,9 +21,9 @@ import {
   StatusText, ListRow, ListMain, ListSub, ListRight, Empty, PcCols, PcStack, PcSide,
 } from "./insuranceStyles";
 import usePcWide from "../../hooks/usePcWide";
-import { C, Box, H, Row, Txt, Btn } from "./InsuranceBlocks";
+import { C, Box, H, Row, Txt, Btn, Fold } from "./InsuranceBlocks";
 import { EmblemSheet, CertSheet } from "./InsuranceCertificate";
-import { ACCIDENT_STEPS } from "./insuranceGroups";
+import { ACCIDENT_STEPS, DISCLOSURE, CONSENTS, answerLabel } from "./insuranceGroups";
 import { PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const PAY_STATUS_LABEL = { ready: "결제 전", done: "결제 완료", fail: "실패", refund: "환불" };
@@ -110,6 +110,30 @@ const InsuranceMyPage = () => {
       } catch (_) {}
     })();
   }, []);
+  // 가입 2단계 고지 · 동의 기록 insurance_consents/{uid} (대표 리뷰 11/02)
+  const [consent, setConsent] = useState(null);
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("../../api/config");
+        const snap = await getDoc(doc(db, "insurance_consents", uid));
+        if (snap.exists()) setConsent(snap.data());
+      } catch (_) {}
+    })();
+  }, [uid]);
+  const consentEl = consent && (
+    <Box style={{ paddingTop: 2, paddingBottom: 2 }}>
+      <Fold title={`고지 · 동의 내역 (${formatDate(consent.agreedAt).replace(/\./g, "-") || "-"})`}>
+        {consent.groupId && <Row k="가입 그룹" v={`${consent.groupId}그룹`} />}
+        {DISCLOSURE.map((d, i) => <Row key={d.id} k={`Q${i + 1}. ${d.q}`} v="" sub={answerLabel(d.id, consent.answers?.[d.id])} />)}
+        <Row k="필수 동의" v="" last
+          sub={CONSENTS.map((c) => <div key={c.id}>{consent.consents?.[c.id]?.agreed ? "동의" : "미동의"} · {c.title}</div>)} />
+      </Fold>
+    </Box>
+  );
+
   const card = cur?.billing && (cur.billing.cardCompany || cur.billing.cardNumberMasked) ? `${cur.billing.cardCompany || ""} ${cur.billing.cardNumberMasked || ""}`.trim() : "";
   const nextCharge = cur && cur.type === "monthly" && cur.autoRenew !== false && cur.billing?.nextChargeAt;
   const manageSub = () => {
@@ -154,6 +178,7 @@ const InsuranceMyPage = () => {
           <IoChatbubbleEllipsesOutline size={20} />{kakaoUrl ? "카카오톡 1:1 전담 보상상담원 연결" : "1:1 보상 상담 문의"}
         </Btn>
       </Box>
+      {consentEl}
       {sheet === "emblem" && <EmblemSheet name={myName} onClose={closeSheet} />}
       {sheet === "cert" && cur && <CertSheet name={myName} policy={cur} onClose={closeSheet} />}
     </>

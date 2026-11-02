@@ -14,6 +14,7 @@ import { CATEGORIES } from "../config/homeproConfig";
 import { subscribeToAllOrders, formatOrderTime } from "../service/OrderService";
 import {
   STATUS_COLOR, SORT_OPTIONS, getDistanceCategory, withinDistance, distanceRank, DISTANCE_OPTIONS, DEFAULT_DIST, formatRegionLabel, formatMatchType, formatOrderScheduleShort, isUrgentNow,
+  loadOrderFilters, saveOrderFilters, viewLockLabel, useViewLockTick,
 } from "../page/main/MobileMainpage";
 import { formatPriceType } from "../service/PayFlowService";
 
@@ -38,12 +39,22 @@ const PcOrdersPage = () => {
   const myRegion = userData?.region;
 
   const [rawOrders, setRawOrders] = useState(null);
-  const [sort, setSort] = useState("등록순");
-  const [status, setStatus] = useState("전체");
-  const [dist, setDist] = useState(DEFAULT_DIST);
+  // 필터는 폰 오더목록과 같은 칸(homepro.orderFilters)에 기억한다 (대표 리뷰 10/30)
+  const [saved] = useState(loadOrderFilters);
+  const [sort, setSort] = useState(saved.sort || "등록순");
+  const [status, setStatus] = useState(STATUS_OPTIONS.includes(saved.status) ? saved.status : "전체");
+  const [dist, setDist] = useState(saved.dist || DEFAULT_DIST);
   const [period, setPeriod] = useState("전체");
-  const [catId, setCatId] = useState("전체");
-  const [hideClosed, setHideClosed] = useState(true);
+  // 카테고리는 PC 가 한 개만 고르므로, 폰에서 한 개만 골랐을 때만 이어받는다
+  const [catId, setCatId] = useState(saved.cats && saved.cats.length === 1 ? saved.cats[0] : "전체");
+  // 마감·취소 포함이 기본 (대표 리뷰 10/30 · 11/02)
+  const [hideClosed, setHideClosed] = useState(saved.hideClosed ?? false);
+  const firstSave = React.useRef(true);
+  useEffect(() => {
+    // 처음 그릴 때는 폰에서 여러 개 고른 카테고리를 덮어쓰지 않게 건너뛴다
+    if (firstSave.current) { firstSave.current = false; return; }
+    saveOrderFilters({ sort, status, dist, hideClosed, cats: catId === "전체" ? [] : [catId] });
+  }, [sort, status, dist, hideClosed, catId]);
   const [blockedUids, setBlockedUids] = useState(new Set());
   const [toast, setToast] = useState("");
 
@@ -51,6 +62,8 @@ const PcOrdersPage = () => {
     const unsub = subscribeToAllOrders((orders) => setRawOrders(orders));
     return () => unsub();
   }, []);
+  // 배정중(30초 확인) 글씨 만료용 시계 (대표 리뷰 11/02)
+  const lockNow = useViewLockTick(rawOrders, uid);
 
   // 내가 거부 등록한 상대의 오더는 열지 못한다
   useEffect(() => {
@@ -141,7 +154,13 @@ const PcOrdersPage = () => {
             {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
           </select>
         </Field>
-        <Check><input type="checkbox" checked={hideClosed} onChange={(e) => setHideClosed(e.target.checked)} />마감·취소 숨기기</Check>
+        {/* [마감·취소 포함][마감·취소 제외] — 포함이 앞 · 기본 (대표 리뷰 11/02) */}
+        <Field><label>마감·취소</label>
+          <select value={hideClosed ? "exclude" : "include"} onChange={(e) => setHideClosed(e.target.value === "exclude")}>
+            <option value="include">마감·취소 포함</option>
+            <option value="exclude">마감·취소 제외</option>
+          </select>
+        </Field>
         {filtersOn && <Reset onClick={resetFilters}>필터 초기화</Reset>}
       </FilterRow>
 
@@ -160,7 +179,13 @@ const PcOrdersPage = () => {
           return (
             <Row key={o.id} onClick={() => openOrder(o)}>
               <span style={isUrgentNow(o) ? { color: "#E5484D", fontWeight: 800 } : null}>{formatOrderScheduleShort(o)}</span>
-              <span style={{ color, fontWeight: 700 }}>{o._status}</span>
+              <span style={{ color, fontWeight: 700 }}>
+                {o._status}
+                {(() => {
+                  const lockText = viewLockLabel(o, uid, lockNow);
+                  return lockText ? <LockText>{lockText}</LockText> : null;
+                })()}
+              </span>
               <span>{formatMatchType(o)}</span>
               <b>{o.subcategory || o.subcategories?.[0] || o.categoryName}</b>
               <span>{formatRegionLabel(o.location)}</span>
@@ -204,10 +229,6 @@ const Field = styled.div`
     &:focus { border-color: #00963F; }
   }
 `;
-const Check = styled.label`
-  display: flex; align-items: center; gap: 8px; height: 42px; font-size: 15px; color: #14181F; cursor: pointer;
-  input { width: 18px; height: 18px; accent-color: #00963F; }
-`;
 const Reset = styled.button`
   height: 42px; margin-left: auto; border: 1px solid #dfe3e8; background: #fff; border-radius: 8px; padding: 0 16px; cursor: pointer;
   font-size: 15px; font-weight: 600; font-family: inherit; color: #14181F; &:hover { border-color: #14181F; }
@@ -222,6 +243,9 @@ const Row = styled.div`
   font-size: 16px; color: #14181F; cursor: pointer; align-items: center;
   b { font-weight: 700; }
   &:hover { background: #f4f6f8; }
+`;
+const LockText = styled.span`
+  display: block; margin-top: 2px; font-size: 13px; font-weight: 700; color: #00963F; word-break: keep-all;
 `;
 const Empty = styled.div`
   padding: 90px 20px; text-align: center; display: grid; gap: 8px; border-top: 1px solid #dfe3e8;

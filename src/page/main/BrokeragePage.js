@@ -1,6 +1,6 @@
 /* eslint-disable */
 // 공동중개 = 공인중개 라운지 — 손님찾기/매물등록 카드 피드 + 채팅 매칭
-import { getBrokerStatus } from "../../service/BrokerService";
+import { getBrokerInfo, isActiveBrokerStatus, BROKER_STATUS_TEXT, brokerStatusStyle } from "../../service/BrokerService";
 import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
@@ -87,24 +87,29 @@ const BrokeragePage = () => {
   };
 
   // 인증 공인중개사 판정 — 글쓰기·손님공유 연결 권한 (대표 9/10)
-  const [brokerStatus, setBrokerStatus] = useState("none"); // none | pending | approved
+  const [brokerInfo, setBrokerInfo] = useState({ status: "none", rejectReason: "" }); // none | provisional | approved | rejected | banned
   useEffect(() => {
     let alive = true;
-    getBrokerStatus(uid).then((s) => { if (alive) setBrokerStatus(s); });
+    getBrokerInfo(uid).then((s) => { if (alive) setBrokerInfo(s); });
     return () => { alive = false; };
   }, [uid]);
-  const isBroker = brokerStatus === "approved";
+  const brokerStatus = brokerInfo.status;
+  const isBroker = isActiveBrokerStatus(brokerStatus);
+  // 선활동 · 후관리 (대표 리뷰 11/02): 공식 인증 + 우선활동(심사 대기)은 활동 가능, 반려는 보완 전까지 제한, 제재는 정지
   const askRegister = () => {
-    const msg = brokerStatus === "pending"
-      ? "공인중개사 인증을 관리자가 확인하는 중입니다. 승인되면 이용할 수 있어요."
-      : "인증 공인중개사만 이용할 수 있어요.\n중개사무소 개설등록번호로 인증을 신청해 주세요.";
-    if (brokerStatus === "pending") { window.alert(msg); return; }
+    if (brokerStatus === "banned") { window.alert("이용이 정지된 계정입니다."); return; }
+    if (brokerStatus === "rejected") {
+      const why = brokerInfo.rejectReason ? ` (사유: ${brokerInfo.rejectReason})` : "";
+      if (window.confirm(`서류 보완 뒤 다시 활동할 수 있습니다${why}\n\n지금 다시 등록할까요?`)) navigate("/pro/register-category?category=brokerage");
+      return;
+    }
+    const msg = "인증 공인중개사만 이용할 수 있어요.\n자격증 사본 또는 개설등록증 사진을 올리면 바로 활동할 수 있습니다.";
     if (window.confirm(msg + "\n\n지금 인증하러 갈까요?")) navigate("/pro/register-category?category=brokerage");
   };
 
   const chatLockRef = useRef(false);
   const startChat = async (post) => {
-    if (!uid) { window.alert("로그인이 필요합니다."); return; }
+    if (!uid) { navigate("/MobileLogin", { state: { from: window.location.pathname } }); return; } // 비회원 → 로그인 (대표 리뷰 10/29)
     if (post.authorUid === uid) { window.alert("본인 게시글입니다."); return; }
     // 손님공유(demand) 상세·연결은 공인중개사만, 매물공유(listing)는 회원이면 가능 (대표 9/10)
     if (post.type === "demand" && !isBroker) { askRegister(); return; }
@@ -130,6 +135,17 @@ const BrokeragePage = () => {
     <MainListLayout NAME="공동중개" footerType="brokerage" hideBack hideActions>
       <Wrap>
         <NoticeBar>개업 공인중개사 전용 공동중개 라운지 · 글쓰기/읽기 무료</NoticeBar>
+        {/* 내 공인중개사 인증 상태 (대표 리뷰 11/02) — 등록한 사람에게만 */}
+        {brokerStatus !== "none" && (() => {
+          const { color, Icon } = brokerStatusStyle(brokerStatus);
+          return (
+            <MyStatus>
+              <span>내 인증 상태</span>
+              <AuthorStatus style={{ color }}><Icon size={16} style={{ flexShrink: 0 }} />{BROKER_STATUS_TEXT[brokerStatus]}</AuthorStatus>
+              {brokerStatus === "rejected" && <ReBtn type="button" onClick={() => navigate("/pro/register-category?category=brokerage")}>다시 등록</ReBtn>}
+            </MyStatus>
+          );
+        })()}
 
         <TabRow>
           {TABS.map((t) => (
@@ -181,7 +197,7 @@ const BrokeragePage = () => {
                 <span>{p.region}</span>
                 <span>{[p.dealType, p.contractType].filter(Boolean).join(" · ") || "-"}</span>
                 <b>{p.price || "-"}</b>
-                <span>{p.authorCompany}</span>
+                <span>{p.authorCompany}{p.brokerStatus && <AuthorStatusLine status={p.brokerStatus} />}</span>
                 <span>
                   {p.authorUid === uid ? (
                     <OutlineBtn onClick={(e) => { e.stopPropagation(); toggleClose(p); }}>{p.status === "closed" ? "다시 열기" : "거래 종료"}</OutlineBtn>
@@ -219,7 +235,11 @@ const BrokeragePage = () => {
                 {p.price && <PriceText>{p.price}</PriceText>}
               </MetaRow>
               <CardFoot>
-                <Company>{p.authorCompany}</Company>
+                <div>
+                  <Company>{p.authorCompany}</Company>
+                  {/* 작성자 인증 상태 — 글 쓸 때 저장한 값. 옛 글은 값이 없어 생략 (대표 리뷰 11/02) */}
+                  {p.brokerStatus && <AuthorStatusLine status={p.brokerStatus} />}
+                </div>
                 {p.authorUid === uid && (
                   <OutlineBtn onClick={(e) => { e.stopPropagation(); toggleClose(p); }}>{p.status === "closed" ? "다시 열기" : "거래 종료"}</OutlineBtn>
                 )}
@@ -251,6 +271,25 @@ const BrokeragePage = () => {
 };
 
 export default BrokeragePage;
+
+// 글 작성자 인증 상태 — 공식 인증 / 심사 대기중만 보인다 (대표 리뷰 11/02)
+const AUTHOR_STATUS_TEXT = { approved: "공식 인증", provisional: "심사 대기중" };
+const AuthorStatusLine = ({ status }) => {
+  if (!AUTHOR_STATUS_TEXT[status]) return null;
+  const { color, Icon } = brokerStatusStyle(status);
+  return <AuthorStatus style={{ color }}><Icon size={15} style={{ flexShrink: 0 }} />{AUTHOR_STATUS_TEXT[status]}</AuthorStatus>;
+};
+const AuthorStatus = styled.span` display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 13px; font-weight: 500; word-break: keep-all; `;
+const MyStatus = styled.div`
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; padding: 10px 14px;
+  background: ${THEME.surface}; border: 1px solid ${THEME.border}; border-radius: 10px; font-size: 14px; color: ${THEME.text};
+  ${AuthorStatus} { margin-top: 0; font-size: 14px; }
+  ${pcOnly`border-radius: 0; border-color: ${PC.line}; padding: 12px 20px; margin-bottom: 16px; font-size: 15px;`}
+`;
+const ReBtn = styled.button`
+  margin-left: auto; height: 32px; padding: 0 12px; border: 1px solid #D5D9E0; border-radius: 4px; background: #fff;
+  color: ${THEME.text}; font-size: 14px; font-family: inherit; cursor: pointer;
+`;
 
 const Wrap = styled.div` padding: 10px 12px 90px; background: ${THEME.background}; min-height: 100%;
   ${pcOnly`padding: 24px 32px 80px; box-sizing: border-box; word-break: keep-all;`}

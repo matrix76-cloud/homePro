@@ -12,7 +12,7 @@ import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
 import { getBrokeragePost } from "../../service/BrokerageService";
-import { getBrokerStatus } from "../../service/BrokerService";
+import { getBrokerInfo, isActiveBrokerStatus } from "../../service/BrokerService";
 import { createChatRoom } from "../../service/ChatService";
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
 import { pcOnly, PC } from "../../pc/pcKit";
@@ -36,7 +36,7 @@ const BrokerageDetailPage = () => {
 
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [brokerStatus, setBrokerStatus] = useState("none");
+  const [brokerInfo, setBrokerInfo] = useState({ status: "none", rejectReason: "" });
 
   useEffect(() => {
     let alive = true;
@@ -49,17 +49,22 @@ const BrokerageDetailPage = () => {
 
   useEffect(() => {
     let alive = true;
-    getBrokerStatus(uid).then((s) => { if (alive) setBrokerStatus(s); });
+    getBrokerInfo(uid).then((s) => { if (alive) setBrokerInfo(s); });
     return () => { alive = false; };
   }, [uid]);
 
-  const isBroker = brokerStatus === "approved";
+  const brokerStatus = brokerInfo.status;
+  const isBroker = isActiveBrokerStatus(brokerStatus);
 
+  // 선활동 · 후관리 (대표 리뷰 11/02): 공식 인증 + 우선활동(심사 대기)은 활동 가능, 반려는 보완 전까지 제한, 제재는 정지
   const askRegister = () => {
-    const msg = brokerStatus === "pending"
-      ? "공인중개사 인증을 관리자가 확인하는 중입니다. 승인되면 이용할 수 있어요."
-      : "인증 공인중개사만 이용할 수 있어요.\n중개사무소 개설등록번호로 인증을 신청해 주세요.";
-    if (brokerStatus === "pending") { window.alert(msg); return; }
+    if (brokerStatus === "banned") { window.alert("이용이 정지된 계정입니다."); return; }
+    if (brokerStatus === "rejected") {
+      const why = brokerInfo.rejectReason ? ` (사유: ${brokerInfo.rejectReason})` : "";
+      if (window.confirm(`서류 보완 뒤 다시 활동할 수 있습니다${why}\n\n지금 다시 등록할까요?`)) navigate("/pro/register-category?category=brokerage");
+      return;
+    }
+    const msg = "인증 공인중개사만 이용할 수 있어요.\n자격증 사본 또는 개설등록증 사진을 올리면 바로 활동할 수 있습니다.";
     if (window.confirm(msg + "\n\n지금 인증하러 갈까요?")) navigate("/pro/register-category?category=brokerage");
   };
 
@@ -71,7 +76,7 @@ const BrokerageDetailPage = () => {
 
   const chatLockRef = useRef(false);
   const startChat = async () => {
-    if (!uid) { window.alert("로그인이 필요합니다."); return; }
+    if (!uid) { navigate("/MobileLogin", { state: { from: window.location.pathname } }); return; } // 비회원 → 로그인 (대표 리뷰 10/29)
     if (post.authorUid === uid) { window.alert("본인 게시글입니다."); return; }
     if (post.type === "demand" && !isBroker) { askRegister(); return; }
     // 진행 중 잠금 — 방 찾기·만들기가 끝나기 전 두 번째 누름으로 방이 두 개 생기지 않게
@@ -123,6 +128,10 @@ const BrokerageDetailPage = () => {
           <Row><RowKey>거래 형태</RowKey><RowVal>{post.contractType || "-"}</RowVal></Row>
           <Row $pcHide><RowKey>금액</RowKey><RowVal>{post.price || "-"}</RowVal></Row>
           <Row $pcHide><RowKey>등록</RowKey><RowVal>{post.authorCompany} · {timeAgo(post.createdAt)}</RowVal></Row>
+          {/* 작성자 인증 상태 — 글 쓸 때 저장한 값, 옛 글은 생략 (대표 리뷰 11/02) */}
+          {(post.brokerStatus === "approved" || post.brokerStatus === "provisional") && (
+            <Row><RowKey>작성자 인증</RowKey><RowVal>{post.brokerStatus === "approved" ? "공인중개사 공식 인증" : "인증 심사 대기중"}</RowVal></Row>
+          )}
 
           {post.detail && <Detail>{post.detail}</Detail>}
         </Body>

@@ -15,10 +15,11 @@ import {
     isApprovalRequiredCategory,
 } from "../../service/ProService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline } from "react-icons/io5";
+import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, IoImageOutline, IoLocationOutline, IoShieldCheckmarkOutline } from "react-icons/io5";
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { proRegionText } from "../../utility/regionUtils";
 import { isFreelancerNoBiz } from "../../service/CertificateService";
+import { withBrokerFields, BROKER_REQUIRED_KEYS } from "../../service/BrokerService";
 import {
     TbSparkles, TbSpray, TbShieldCheck, TbWashMachine, TbBed, TbBuildingStore,
     TbRipple, TbDropletSearch, TbDroplet, TbTools, TbFlame, TbAirConditioning,
@@ -36,6 +37,12 @@ const MAX_CATS = 5;
 // PRO_DETAIL_FIELDS 안에서 "자격증/면허" 성격의 텍스트 필드 키
 // (사진 첨부는 공통 자격증 섹션에서 한 번만 받는다)
 const CERT_TEXT_KEYS = ["certifications", "licenseNumber", "permits"];
+
+// 공동중개 우선 등록 폼 필드 (대표 리뷰 11/02) — BrokerService.withBrokerFields 가 대표자 칸을 덧붙인다
+const getDetailFields = (catId) => withBrokerFields(catId, PRO_DETAIL_FIELDS[catId] || []);
+
+// 세부 전문분야 '전체 선택' 대상 — 전문청소의 '기타'는 등록분야가 아니다 (대표 9/10)
+const selectableSubs = (cat) => (cat.subcategories || []).filter((sub) => !(cat.id === "professional_cleaning" && sub === "기타"));
 
 // 카테고리 ID → 디테일 라인 아이콘 (모노톤, currentColor 상속)
 const DETAIL_ICONS = {
@@ -123,6 +130,14 @@ const ProCategoryRegisterPage = () => {
     const uid = userData?.uid || user?.USERS_ID; // 통합 뒤 USERS_ID 가 사라질 소셜 uid 일 수 있어 문서 id 우선 (B7)
 
     useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+    // 공동중개는 인증서 사진 1장이 필수 — 첨부 칸을 처음부터 하나 열어 둔다 (대표 리뷰 11/02)
+    const isBrokerSelected = selectedCats.includes("brokerage");
+    useEffect(() => {
+        if (step === 2 && isBrokerSelected) {
+            setCerts((prev) => (prev.length ? prev : [{ id: Date.now(), certName: "공인중개사 자격증", file: null, preview: null }]));
+        }
+    }, [step, isBrokerSelected]);
 
     const showToast = (msg) => {
         setToast(msg);
@@ -283,7 +298,8 @@ const ProCategoryRegisterPage = () => {
                 registered.push(catId);
             }
 
-            setProCategories([...proCategories, ...registered]);
+            // 반려 뒤 다시 등록(?category=brokerage)이면 이미 목록에 있다 — 겹치지 않게
+            setProCategories(Array.from(new Set([...proCategories, ...registered])));
 
             // 비즈프로필 작성 완료 2,000P (1회, 조건 판정은 함수 내부 — 대표 지시 7/29)
             try {
@@ -291,17 +307,18 @@ const ProCategoryRegisterPage = () => {
                 await grantProfileCompleteBonus(uid, userData?.nickname || userData?.name || "");
             } catch (e) { /* 보너스 실패가 등록을 막지 않게 */ }
 
-            const pendingCats = registered
-                .filter((id) => isApprovalRequiredCategory(id))
-                .map((id) => CATEGORIES.find((c) => c.id === id)?.shortName || id);
+            // 공동중개는 선활동 · 후관리 — 등록 즉시 활동, 관리자 확인 뒤 공식 인증 (대표 리뷰 11/02)
+            const provisionalCats = registered.filter((id) => isApprovalRequiredCategory(id));
             const msg = `${registered.length}개 전문분야가 등록되었습니다.`
-                + (pendingCats.length > 0 ? `\n${pendingCats.join(", ")}는 관리자 승인 후 노출됩니다.` : "");
+                + (provisionalCats.length > 0 ? "\n인증 심사 대기중 — 지금 바로 활동할 수 있습니다. 관리자 확인 뒤 공식 인증으로 바뀝니다." : "");
             alert(msg);
             navigate(-1);
         } catch (err) {
             console.error("register error:", err);
             if (registered.length > 0) setProCategories([...proCategories, ...registered]);
-            alert("등록 중 오류가 발생했습니다. 다시 시도해주세요.");
+            if (err?.message === "BROKER_BANNED") alert("이용이 정지된 계정입니다. 공동중개 인증을 다시 등록할 수 없습니다.");
+            else if (err?.message === "CERT_PHOTO_REQUIRED") alert("자격증 사본 또는 개설등록증 사진을 첨부해 주세요.");
+            else alert("등록 중 오류가 발생했습니다. 다시 시도해주세요.");
         } finally {
             setSubmitting(false);
         }
@@ -327,14 +344,22 @@ const ProCategoryRegisterPage = () => {
         (c) => c.subcategories?.length > 0 && !(subsByCat[c.id]?.length > 0)
     );
     // 개인 프리랜서(사업자등록 없음)는 사업자등록증이 선택 항목 (B14)
-    //  단 관리자 승인이 필요한 분야(공동중개)는 서류 확인이 승인 근거라 그대로 필수
-    const licenseOptional = isFreelancerNoBiz(userData) && !selectedCats.some((id) => isApprovalRequiredCategory(id));
+    //  공동중개만 등록할 땐 자격증 사본 · 개설등록증 사진이 근거라 사업자등록증은 선택 (대표 리뷰 11/02 우선 등록 폼)
+    const brokerOnly = selectedCats.length > 0 && selectedCats.every((id) => isApprovalRequiredCategory(id));
+    const licenseOptional = brokerOnly || (isFreelancerNoBiz(userData) && !selectedCats.some((id) => isApprovalRequiredCategory(id)));
+    // 공동중개 필수: 사무소 명칭 · 등록번호 · 대표자 성명 · 연락처 + 인증서 사진 1장
+    const brokerExtras = extrasByCat.brokerage || {};
+    const brokerMissingField = isBrokerSelected && BROKER_REQUIRED_KEYS.some((k) => !String(brokerExtras[k] || "").trim());
+    const brokerHasPhoto = certs.some((c) => !!c.file || !!c.url);
+    const brokerMissingPhoto = isBrokerSelected && !brokerHasPhoto;
     const canSubmit =
         selectedCats.length > 0 &&
         !missingSubCat &&
         experience.trim() !== "" &&
         intro.trim() !== "" &&
         (!!imageFile || licenseOptional) &&
+        !brokerMissingField &&
+        !brokerMissingPhoto &&
         !submitting;
 
     const handleBack = () => goPrev();
@@ -423,8 +448,11 @@ const ProCategoryRegisterPage = () => {
                         {selectedCatObjs.map((cat, idx) => {
                             const catSubs = subsByCat[cat.id] || [];
                             const catExtras = extrasByCat[cat.id] || {};
-                            const fields = PRO_DETAIL_FIELDS[cat.id] || [];
+                            const fields = getDetailFields(cat.id);
                             const hasSubs = cat.subcategories?.length > 0;
+                            const isBroker = cat.id === "brokerage";
+                            const allSubs = hasSubs ? selectableSubs(cat) : [];
+                            const isAllSubs = allSubs.length > 0 && allSubs.every((sub) => catSubs.includes(sub));
                             return (
                                 <Section key={cat.id}>
                                     <CatSectionHeader>
@@ -432,22 +460,29 @@ const ProCategoryRegisterPage = () => {
                                         <CatSectionName>{cat.name}</CatSectionName>
                                     </CatSectionHeader>
 
+                                    {/* 공동중개 우선 등록 안내 (대표 리뷰 11/02) */}
+                                    {isBroker && (
+                                        <BrokerNotice>
+                                            <IoShieldCheckmarkOutline size={22} color={THEME.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                                            <span>공인중개사 자격증 또는 명함 사본을 우선 등록하시면, 관리자 승인 대기 없이 즉시 오더 등록 및 파트너 활동이 가능합니다!</span>
+                                        </BrokerNotice>
+                                    )}
+
                                     {hasSubs && (
                                         <FieldBlock>
-                                            <FieldLabel>세부 전문분야 (복수 선택 가능)</FieldLabel>
+                                            {/* 세부 전문분야 원클릭 전체 선택 · 해제 (대표 리뷰 11/02) — 전문청소의 옛 '전체' 칩도 이 버튼으로 합쳤다 */}
+                                            <SubLabelRow>
+                                                <FieldLabel style={{ marginBottom: 0 }}>세부 전문분야 (복수 선택 가능)</FieldLabel>
+                                                <SelectAllBtn
+                                                    type="button"
+                                                    onClick={() => setSubsByCat((prev) => ({ ...prev, [cat.id]: isAllSubs ? [] : allSubs }))}
+                                                >
+                                                    {isAllSubs ? "전체 해제" : "전체 선택"}
+                                                </SelectAllBtn>
+                                            </SubLabelRow>
                                             <ChipWrap>
                                                 {/* 전문청소는 하위 7개 분야 중에서 고른다 — '기타'는 등록분야가 아니다 (대표 지시 9/10) */}
-                                                {/* 전문청소는 '전체' 한 번에 고르기 — 영역은 각자 골라 중복 선택 (대표 10/8) */}
-                                                {cat.id === "professional_cleaning" && (() => {
-                                                    const all = cat.subcategories.filter((sub) => sub !== "기타");
-                                                    const isAll = all.every((sub) => catSubs.includes(sub));
-                                                    return (
-                                                        <Chip $active={isAll} onClick={() => setSubsByCat((prev) => ({ ...prev, [cat.id]: isAll ? [] : all }))}>
-                                                            전체
-                                                        </Chip>
-                                                    );
-                                                })()}
-                                                {cat.subcategories.filter((sub) => !(cat.id === "professional_cleaning" && sub === "기타")).map((sub) => (
+                                                {allSubs.map((sub) => (
                                                     <Chip
                                                         key={sub}
                                                         $active={catSubs.includes(sub)}
@@ -465,7 +500,19 @@ const ProCategoryRegisterPage = () => {
 
                                     {fields.map((field) => (
                                         <FieldBlock key={field.key}>
-                                            <FieldLabel>{field.label}</FieldLabel>
+                                            <FieldLabel>
+                                                {field.label}
+                                                {isBroker && BROKER_REQUIRED_KEYS.includes(field.key) && <ReqMark> (필수)</ReqMark>}
+                                            </FieldLabel>
+                                            {field.type === "tel" && (
+                                                <StyledInput
+                                                    type="tel"
+                                                    inputMode="tel"
+                                                    placeholder={field.placeholder}
+                                                    value={catExtras[field.key] || ""}
+                                                    onChange={(e) => updateExtra(cat.id, field.key, e.target.value)}
+                                                />
+                                            )}
                                             {field.type === "text" && (
                                                 <StyledInput
                                                     type="text"
@@ -559,7 +606,9 @@ const ProCategoryRegisterPage = () => {
                         <Section>
                             <SectionTitle>사업자등록증{licenseOptional ? " (선택)" : ""}</SectionTitle>
                             {licenseOptional && (
-                                <HelpText style={{ marginTop: 0, marginBottom: 10 }}>개인 프리랜서는 사업자등록증 없이 등록할 수 있습니다.</HelpText>
+                                <HelpText style={{ marginTop: 0, marginBottom: 10 }}>
+                                    {brokerOnly ? "공동중개는 위 자격증 사본 · 개설등록증으로 확인합니다. 사업자등록증은 있으면 함께 올려 주세요." : "개인 프리랜서는 사업자등록증 없이 등록할 수 있습니다."}
+                                </HelpText>
                             )}
                             <UploadBox onClick={() => fileRef.current?.click()}>
                                 {imagePreview ? (
@@ -579,10 +628,15 @@ const ProCategoryRegisterPage = () => {
                             />
                         </Section>
 
-                        {/* 자격증·면허 (공통 — 선택한 분야 전체에 함께 저장) */}
+                        {/* 자격증·면허 (공통 — 선택한 분야 전체에 함께 저장)
+                            공동중개가 끼어 있으면 인증서 사진 1장이 필수 (대표 리뷰 11/02) */}
                         <Section>
-                            <SectionTitle>자격증·면허</SectionTitle>
-                            <HelpText>보유한 자격증·면허를 이름과 사진으로 등록하세요. (선택)</HelpText>
+                            <SectionTitle>{isBrokerSelected ? "자격증 사본 또는 개설등록증 사진 (필수)" : "자격증·면허"}</SectionTitle>
+                            <HelpText>
+                                {isBrokerSelected
+                                    ? "공인중개사 자격증 사본 또는 공인중개사무소 개설등록증 사진 1장을 첨부하세요. 다른 자격증도 함께 추가할 수 있습니다."
+                                    : "보유한 자격증·면허를 이름과 사진으로 등록하세요. (선택)"}
+                            </HelpText>
                             <CertSection>
                                 {certs.map((cert) => (
                                     <CertCard key={cert.id}>
@@ -651,6 +705,14 @@ const ProCategoryRegisterPage = () => {
                             <PhotoHint>시공 사례, 작업 현장 등 활동 사진을 등록하세요</PhotoHint>
                         </Section>
 
+                        {/* 공동중개 필수 항목이 빠졌을 때 버튼이 왜 안 눌리는지 바로 위에 알린다 */}
+                        {(brokerMissingField || brokerMissingPhoto) && (
+                            <SubmitHint>
+                                {brokerMissingPhoto
+                                    ? "자격증 사본 또는 개설등록증 사진을 첨부해야 등록할 수 있습니다."
+                                    : "사무소 명칭 · 등록번호 · 대표자 성명 · 연락처를 모두 입력해 주세요."}
+                            </SubmitHint>
+                        )}
                         <ActionBtn disabled={!canSubmit} $active={canSubmit} onClick={handleSubmit}>
                             {submitting
                                 ? "등록 중..."
@@ -758,6 +820,7 @@ const HelpText = styled.div`
     font-size: 14px;
     color: ${THEME.muted};
     margin-top: 6px;
+    word-break: keep-all;
 `;
 
 /* ─── Step 2: 카테고리별 섹션 ─── */
@@ -793,6 +856,58 @@ const FieldLabel = styled.div`
     font-weight: 700;
     color: ${THEME.textSecondary};
     margin-bottom: 10px;
+`;
+
+const SubLabelRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+`;
+
+// 세부 전문분야 전체 선택 · 해제 — 흰 면 · 1px 테두리 · 각진 모서리 (대표 리뷰 11/02)
+const SelectAllBtn = styled.button`
+    flex-shrink: 0;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid #D5D9E0;
+    border-radius: 4px;
+    background: ${THEME.surface};
+    color: ${THEME.text};
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    &:active {
+        background: ${THEME.background};
+    }
+`;
+
+const ReqMark = styled.span`
+    color: ${THEME.danger};
+    font-weight: 500;
+`;
+
+const BrokerNotice = styled.div`
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid #D5D9E0;
+    border-radius: 4px;
+    background: ${THEME.surface};
+    font-size: 15px;
+    line-height: 1.55;
+    color: ${THEME.text};
+    word-break: keep-all;
+`;
+
+const SubmitHint = styled.div`
+    font-size: 13px;
+    color: ${THEME.danger};
+    text-align: center;
+    word-break: keep-all;
 `;
 
 const FieldHint = styled.div`
@@ -908,6 +1023,11 @@ const ChipWrap = styled.div`
 `;
 
 const Chip = styled.div`
+    /* 선택 칩 높이 44 이상 (형 규칙) */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    box-sizing: border-box;
     padding: 8px 14px;
     border-radius: 20px;
     font-size: 15px;

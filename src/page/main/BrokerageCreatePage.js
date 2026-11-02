@@ -1,6 +1,6 @@
 /* eslint-disable */
 // 공동중개 등록 — 손님 찾습니다(demand) / 매물 있습니다(listing, 보안·블라인드)
-import { isCertifiedBroker } from "../../service/BrokerService";
+import { getBrokerInfo, isActiveBrokerStatus } from "../../service/BrokerService";
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
@@ -27,10 +27,24 @@ const BrokerageCreatePage = () => {
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
   // 글쓰기는 인증 공인중개사만 (대표 9/10). 아니면 돌려보낸다
+  //  선활동 · 후관리 (대표 리뷰 11/02): 공식 인증 + 우선활동(심사 대기)은 쓸 수 있다. 반려는 보완 전까지, 제재는 정지
+  const [brokerStatus, setBrokerStatus] = useState("none");
   useEffect(() => {
     if (!uid) return;
-    isCertifiedBroker(uid).then((ok) => {
-      if (!ok) { window.alert("인증 공인중개사만 등록할 수 있어요.\n중개사무소 개설등록번호로 인증을 신청해 주세요."); navigate("/brokerage", { replace: true }); }
+    getBrokerInfo(uid).then(({ status, rejectReason }) => {
+      setBrokerStatus(status);
+      if (isActiveBrokerStatus(status)) return;
+      if (status === "banned") {
+        window.alert("이용이 정지된 계정입니다.");
+        navigate("/brokerage", { replace: true });
+      } else if (status === "rejected") {
+        const why = rejectReason ? ` (사유: ${rejectReason})` : "";
+        if (window.confirm(`서류 보완 뒤 다시 활동할 수 있습니다${why}\n\n지금 다시 등록할까요?`)) navigate("/pro/register-category?category=brokerage", { replace: true });
+        else navigate("/brokerage", { replace: true });
+      } else {
+        window.alert("인증 공인중개사만 등록할 수 있어요.\n자격증 사본 또는 개설등록증 사진을 올리면 바로 활동할 수 있습니다.");
+        navigate("/brokerage", { replace: true });
+      }
     });
   }, [uid, navigate]);
 
@@ -52,6 +66,8 @@ const BrokerageCreatePage = () => {
         authorCompany: userData?.companyName || userData?.nickname || userData?.name || "중개사",
         authorRep: userData?.repName || userData?.name || "",
         authorPhone: userData?.phoneE164 || "",
+        // 글 카드에 작성자 인증 상태(공식 인증 / 심사 대기중)를 보이려고 쓸 때의 상태를 남긴다 (대표 리뷰 11/02)
+        brokerStatus: isActiveBrokerStatus(brokerStatus) ? brokerStatus : "",
       });
       window.alert("등록되었습니다.");
       navigate("/brokerage");

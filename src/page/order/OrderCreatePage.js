@@ -18,7 +18,7 @@ import {
 import { createOrder, updateOrder } from "../../service/OrderService";
 import ORDER_FORM_CONFIG, { COMMON_B2B_FIELDS, infoIncentiveText } from "../../config/orderFormConfig";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
-import { IoCloseCircle } from "react-icons/io5";
+import { IoCloseCircle, IoShieldCheckmarkOutline, IoChevronForward } from "react-icons/io5";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC } from "../../pc/pcKit";
@@ -629,7 +629,7 @@ const CatGridName = styled.div`
 `;
 
 /* 탭 내장용 콘텐츠 컴포넌트 */
-export const OrderCreateContent = () => {
+export const OrderCreateContent = ({ backRef } = {}) => {
   const navigate = useNavigate();
   const { categoryId } = useParams();
   const { state: navState } = useLocation();
@@ -751,12 +751,18 @@ export const OrderCreateContent = () => {
       : (editOrder.subcategory ? String(editOrder.subcategory).split(", ").filter(Boolean) : []);
     if (cfg?.subGroups && cfg.multiService && subs.length) {
       // 중복 서비스 카테고리 — 종목이 속한 서비스를 전부 복원
-      const grps = cfg.subGroups.filter((g) => subs.some((s) => s === g.label || s.startsWith(g.label + " ")));
-      setSelectedServices(grps.map((g) => g.label));
-      setSelectedSub(subs.map((s) => {
-        const g = grps.find((x) => s.startsWith(x.label + " "));
-        return g ? `${g.label}:${s.slice(g.label.length + 1)}` : s;
-      }));
+      //  저장 꼴은 "서비스 종목"(띄어쓰기) — 서비스 이름에도 띄어쓰기가 있어(창호 소수리) 가장 긴 이름부터 맞춘다 (대표 리뷰 11/02 중복선택 확대)
+      const byLen = [...cfg.subGroups].sort((a, b) => b.label.length - a.label.length);
+      const groupOf = (s) => byLen.find((g) => s === g.label || s.startsWith(g.label + " "));
+      const labels = [];
+      const keys = subs.map((s) => {
+        const g = groupOf(s);
+        if (!g) return s;
+        if (!labels.includes(g.label)) labels.push(g.label);
+        return s === g.label ? s : `${g.label}:${s.slice(g.label.length + 1)}`;
+      });
+      setSelectedServices(labels);
+      setSelectedSub(keys);
     } else if (cfg?.subGroups && subs.length) {
       const grp = cfg.subGroups.find((g) => subs.some((s) => s === g.label || s.startsWith(g.label + " ")));
       if (grp) {
@@ -929,9 +935,18 @@ export const OrderCreateContent = () => {
   const activeServices = multiService ? selectedServices : (selectedService ? [selectedService] : []);
   // subGroups(서비스 선택) 카테고리는 서비스 고른 뒤에 상세필드 노출
   const showDetail = !formConfig?.subGroups || activeServices.length > 0;
+  // 종목(item) 단위 조건 (대표 리뷰 11/02 — 정리수납)
+  //  items            : 그 종목 중 하나를 골랐을 때만
+  //  hideWhenOnlyItems: 고른 종목이 전부 이 목록 안이면 숨김 (정리수납만 골랐을 때 옵션선택 숨김)
+  const pickedItemNames = selectedSub.map((k) => (k.includes(":") ? k.split(":")[1] : k));
+  const passItemCond = (sec) => {
+    if (Array.isArray(sec.items) && !pickedItemNames.some((n) => sec.items.includes(n))) return false;
+    if (Array.isArray(sec.hideWhenOnlyItems) && pickedItemNames.length > 0 && pickedItemNames.every((n) => sec.hideWhenOnlyItems.includes(n))) return false;
+    return true;
+  };
   // attrSections 에 services 배열이 있으면 해당 서비스 선택 시에만 표시
   const visibleAttrSections = (detailConfig?.attrSections || []).filter(
-    (sec) => !sec.services || sec.services.some((sv) => activeServices.includes(sv))
+    (sec) => (!sec.services || sec.services.some((sv) => activeServices.includes(sv))) && passItemCond(sec)
   );
   // 속성 칩 섹션 — afterQty 가 붙은 섹션(제조사 등)은 선택 품목 수량 아래에 그린다 (대표 9/15 리뷰)
   const renderAttrSection = (sec) => {
@@ -976,6 +991,7 @@ export const OrderCreateContent = () => {
   //  whenItems: 특정 종목(부분청소 등)을 골랐을 때만  ·  whenAttr: 특정 속성값(옵션 '기타')을 골랐을 때만
   const visibleInputSections = (Array.isArray(detailConfig?.inputSections) ? detailConfig.inputSections : []).filter((sec) => {
     if (sec.services && !sec.services.some((sv) => activeServices.includes(sv))) return false;
+    if (!passItemCond(sec)) return false;
     if (sec.whenItems) {
       const picked = selectedSub.some((k) => sec.whenItems.includes(k.includes(":") ? k.split(":")[1] : k));
       if (!picked) return false;
@@ -987,7 +1003,21 @@ export const OrderCreateContent = () => {
     return true;
   });
   // 건물유형 섹션을 아예 쓰지 않는 카테고리 — 대체 노출되는 공간유형까지 함께 끈다 (대표 지시 8/6)
-  const hideBuildingType = !!detailConfig?.noBuildingType;
+  //  단 buildingTypeItems 종목(정리수납)을 골랐으면 건물유형 칩을 연다 (대표 리뷰 11/02)
+  const buildingByItem = Array.isArray(detailConfig?.buildingTypeItems) && pickedItemNames.some((n) => detailConfig.buildingTypeItems.includes(n));
+  const hideBuildingType = !!detailConfig?.noBuildingType && !buildingByItem;
+  // 지금 화면에 떠 있는 속성 칩 섹션 키 — 숨은 섹션에 남은 선택값이 저장 · 미리보기에 새지 않게 (대표 리뷰 11/02)
+  const visibleAttrKeys = new Set(showDetail ? visibleAttrSections.map((sec) => sec.key) : []);
+  // 수량 — 지금 고른 종목 것만 (종목을 뺐는데 전에 넣은 수량이 남아 저장되던 문제)
+  const pickedItemQty = selectedSub
+    .filter((k) => Number(itemQty[k]) > 0)
+    .map((k) => [k, itemQty[k]]);
+  // 수량 줄 이름 — 여러 서비스에서 같은 종목 이름(기타 · 줄눈 보수 등)이 겹치면 서비스 이름을 붙인다
+  const qtyNameOf = (key) => {
+    const name = key.includes(":") ? key.split(":")[1] : key;
+    const dup = selectedSub.filter((k) => (k.includes(":") ? k.split(":")[1] : k) === name).length > 1;
+    return dup && key.includes(":") ? `${key.split(":")[0]} ${name}` : name;
+  };
   // 지금 화면에 실제로 떠 있는 입력 필드 (숨은 필드의 잔여값이 저장·미리보기에 새지 않게)
   // inputSections 한 묶음 렌더 — afterItems 묶음(부분청소 개소)은 종목 선택 바로 아래, 나머지는 옵션·건물유형 뒤
   const renderInputSection = (sec) => {
@@ -1207,6 +1237,11 @@ export const OrderCreateContent = () => {
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
     if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return false; }
+    // 고른 종목마다 수량을 넣어야 접수 (침대·소파·카페트, 대표 리뷰 11/02)
+    if (formConfig?.qtyPerSelected?.required) {
+      const missing = selectedSub.find((k) => !(Number(itemQty[k]) > 0));
+      if (missing) { showToast(`${qtyNameOf(missing)} 수량을 입력해주세요`); return false; }
+    }
     if (!workDate) { showToast("작업날짜를 선택해주세요"); return false; }
     if (workDate === "예약날짜" && !workDatePicker) { showToast("예약날짜(달력)를 선택해주세요"); return false; }
     if (workDate === "예약날짜" && workDatePicker > reserveMaxDate()) { showToast("예약날짜는 오늘부터 1개월 안에서 골라주세요"); return false; }
@@ -1265,9 +1300,63 @@ export const OrderCreateContent = () => {
     return true;
   };
 
+  // ── 뒤로가기 = 화면 안 단계 되돌리기 (대표 리뷰 11/02 "뒤로 돌아가기 터치하면 메인화면으로 이동됩니다. 카테고리 선택 화면으로 이동 되어야 합니다.")
+  //  화면 안에서 카테고리를 고르거나 확인 단계로 넘어갈 때 history 에 한 칸씩 넣고(pushState),
+  //  머리 [<] · 브라우저/안드로이드 뒤로가기는 그 칸을 빼면서(popstate) 단계만 되돌린다.
+  //  메인 탭에 끼워 쓰는 경우(backRef 없음)는 history 를 건드리지 않는다.
+  const stepStackRef = useRef([]); // ["cat" | "preview", ...]
+  const pushStep = (kind) => {
+    if (!backRef) return;
+    try {
+      window.history.pushState({ ...(window.history.state || {}), ocStep: kind }, "");
+      stepStackRef.current.push(kind);
+    } catch (e) { /* history 를 못 쓰면 버튼 동작만 */ }
+  };
+  const undoStepState = (kind) => {
+    if (kind === "preview") { setStep("form"); return; }
+    setStep("form");
+    setSelectedCategory("");
+    resetForm();
+    window.scrollTo(0, 0);
+  };
+  // 버튼(수정 · 수정하기)으로 되돌릴 때 — 맨 위 칸이 그 단계면 history 도 같이 뺀다(popstate 가 상태를 되돌린다)
+  const undoStep = (kind) => {
+    const st = stepStackRef.current;
+    if (backRef && st[st.length - 1] === kind) { window.history.back(); return; }
+    undoStepState(kind);
+  };
+  const undoStepStateRef = useRef(undoStepState);
+  undoStepStateRef.current = undoStepState;
+  useEffect(() => {
+    if (!backRef) return undefined;
+    const onPop = () => {
+      const kind = stepStackRef.current.pop();
+      if (kind) undoStepStateRef.current(kind);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [backRef]);
+  // 머리 [<] — 되돌릴 단계가 있으면 history.back(), 없으면 원래대로(navigate(-1)). 처리했으면 true
+  useEffect(() => {
+    if (!backRef) return undefined;
+    backRef.current = () => {
+      if (stepStackRef.current.length > 0) { window.history.back(); return true; }
+      // history 칸 없이 바뀐 단계(확인 화면)도 화면 안에서 되돌린다
+      if (step === "preview") { setStep("form"); return true; }
+      return false;
+    };
+    return () => { backRef.current = null; };
+  });
+  const pickCategory = (id) => {
+    setSelectedCategory(id);
+    resetForm();
+    pushStep("cat");
+  };
+
   const handleGoPreview = () => {
     if (!validateForm()) return;
     setStep("preview");
+    pushStep("preview");
     window.scrollTo(0, 0);
   };
 
@@ -1339,14 +1428,14 @@ export const OrderCreateContent = () => {
           title: `${category?.shortName || ""} ${(() => { const first = selectedSub[0] || "요청"; return first.includes(":") ? first.split(":")[1] : first; })()}`,
           description: detail,
           spaceType,
-          buildingType,
+          buildingType: hideBuildingType ? "" : buildingType,
           options: selectedOptions,
           optionEtc: (optionEtc && selectedOptions.some((o) => o.includes("기타"))) ? optionEtc : null,
           areaValue: areaValue ? `${areaValue}${areaUnit}` : "",
           spaceFields: Object.keys(spaceFields).length > 0 ? spaceFields : null,
           // 카테고리별 추가 속성 (오염유형·발생시점·설치유형 등) — 빈 값은 제외하고 저장
           attrs: (() => {
-            const picked = Object.entries(attrValues).filter(([, v]) => Array.isArray(v) && v.length > 0);
+            const picked = Object.entries(attrValues).filter(([k, v]) => visibleAttrKeys.has(k) && Array.isArray(v) && v.length > 0);
             return picked.length ? Object.fromEntries(picked) : null;
           })(),
           // 직접 입력값 (주소·수량·치수·차량정보 등)
@@ -1363,10 +1452,7 @@ export const OrderCreateContent = () => {
             return Object.keys(out).length ? out : null;
           })(),
           // 종목별 수량
-          itemQty: (() => {
-            const filled = Object.entries(itemQty).filter(([, v]) => Number(v) > 0);
-            return filled.length ? Object.fromEntries(filled) : null;
-          })(),
+          itemQty: pickedItemQty.length ? Object.fromEntries(pickedItemQty) : null,
           customInput: customInput || null,
           schedule: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate, // 예약날짜는 날짜만 표기
           address,
@@ -1450,7 +1536,7 @@ export const OrderCreateContent = () => {
     const items = [];
     items.push({ k: "카테고리", v: category?.shortName || "" });
     if (selectedSub.length) items.push({ k: "서비스명", v: selectedSub.map((s) => s.includes(":") ? s.split(":")[1] : s).join(", ") });
-    if (buildingType) items.push({ k: "건물 유형", v: buildingType });
+    if (buildingType && !hideBuildingType) items.push({ k: "건물 유형", v: buildingType });
     if (spaceType) items.push({ k: "공간 유형", v: spaceType });
     if (areaValue) items.push({ k: "면적", v: `${areaValue}${areaUnit}` });
     if (selectedOptions.length) items.push({ k: "옵션", v: selectedOptions.join(", ") });
@@ -1462,7 +1548,7 @@ export const OrderCreateContent = () => {
     if (customInput) items.push({ k: "기타 입력", v: customInput });
     // 카테고리별 속성·입력값·수량 (검수 7/28: 미리보기 누락 → 입력한 값을 확인 못 하던 문제)
     Object.entries(attrValues).forEach(([key, vals]) => {
-      if (!Array.isArray(vals) || !vals.length) return;
+      if (!visibleAttrKeys.has(key) || !Array.isArray(vals) || !vals.length) return;
       const sec = (detailConfig?.attrSections || []).find((s) => s.key === key);
       items.push({ k: sec?.label || key, v: vals.join(", ") });
     });
@@ -1474,10 +1560,8 @@ export const OrderCreateContent = () => {
         items.push({ k: `${sec.label} ${f.label}`, v: `${fv}${f.unit || ""}` });
       });
     });
-    Object.entries(itemQty).forEach(([key, qty]) => {
-      if (!(Number(qty) > 0)) return;
-      const name = key.includes(":") ? key.split(":")[1] : key;
-      items.push({ k: `${name} 수량`, v: `${qty}${detailConfig?.qtyPerSelected?.unit || "개"}` });
+    pickedItemQty.forEach(([key, qty]) => {
+      items.push({ k: `${qtyNameOf(key)} 수량`, v: `${qty}${detailConfig?.qtyPerSelected?.unit || "개"}` });
     });
     items.push({ k: "주소", v: addressDetail ? `${address} ${addressDetail}` : address });
     items.push({ k: "요청 내용", v: detail });
@@ -1555,7 +1639,7 @@ export const OrderCreateContent = () => {
           {category && (
             <PcAsideRow>
               <span>카테고리</span><b>{category.name}</b>
-              {!categoryId && !locked ? <button type="button" onClick={() => { setSelectedCategory(""); resetForm(); }}>수정</button> : <i />}
+              {!categoryId && !locked ? <button type="button" onClick={() => undoStep("cat")}>수정</button> : <i />}
             </PcAsideRow>
           )}
           {category && activeServices.length > 0 && (
@@ -1624,7 +1708,7 @@ export const OrderCreateContent = () => {
             || `홈프로는 ${category?.shortName || "서비스"} 연결을 제공하는 중개 플랫폼이며, 실제 서비스 계약 및 책임은 서비스 제공자와 이용자 간에 이루어집니다.`}
         </PreviewNotice>
         <PreviewActions>
-          <PreviewSecondaryBtn disabled={submitting} onClick={() => setStep("form")}>{isEdit ? "뒤로" : "수정하기"}</PreviewSecondaryBtn>
+          <PreviewSecondaryBtn disabled={submitting} onClick={() => undoStep("preview")}>{isEdit ? "뒤로" : "수정하기"}</PreviewSecondaryBtn>
           {!isEdit && <PreviewSecondaryBtn disabled={submitting} onClick={() => handleSubmit(true)}>대기</PreviewSecondaryBtn>}
           <SubmitButton style={{ flex: 1, marginTop: 12 }} disabled={submitting} onClick={() => handleSubmit(false)}>
             {submitting ? (isEdit ? "저장 중..." : "등록 중...") : (isEdit ? "수정 저장" : "등록하기")}
@@ -1638,6 +1722,20 @@ export const OrderCreateContent = () => {
   return pcFrame(
     <>
       {/* 1. 카테고리 선택 — AI 견적과 같은 세 칸 그리드 (대표 9/17) */}
+      {/* 셀프보장등록 안내 줄 — 카테고리 그리드 위 (대표 리뷰 11/02 "최상단에 도급업자 배상책임보험 셀프보장등록을 추가")
+          ?self=1 로 들어온 셀프 오더 전체 폼 · 수정 모드 · PG 심사 계정(보험 숨김)에서는 안 보인다 */}
+      {!categoryId && !selectedCategory && !selfOrder && !isEdit && userData?.pgReview !== true && (
+        <Section>
+          <SelfCoverRow type="button" onClick={() => navigate("/order/self-cover")}>
+            <IoShieldCheckmarkOutline size={26} color={THEME.primary} style={{ flexShrink: 0 }} />
+            <SelfCoverText>
+              <SelfCoverTitle>도급업자 배상책임보험 셀프보장등록</SelfCoverTitle>
+              <SelfCoverDesc>앱 밖에서 수주한 일도 등재하면 보험 보장 · 현장기록을 쓸 수 있습니다</SelfCoverDesc>
+            </SelfCoverText>
+            <IoChevronForward size={20} color={THEME.text} style={{ flexShrink: 0 }} />
+          </SelfCoverRow>
+        </Section>
+      )}
       {!categoryId && !selectedCategory && (
         <Section>
           <Label>카테고리 선택</Label>
@@ -1646,7 +1744,7 @@ export const OrderCreateContent = () => {
               <CatCell
                 key={cat.id}
                 type="button"
-                onClick={() => { setSelectedCategory(cat.id); resetForm(); }}
+                onClick={() => pickCategory(cat.id)}
               >
                 {cat.name}
               </CatCell>
@@ -1657,7 +1755,7 @@ export const OrderCreateContent = () => {
 
       {/* 고른 카테고리는 한 줄로 접어 둔다 */}
       {!categoryId && selectedCategory && (
-        <PickedRow type="button" onClick={() => { setSelectedCategory(""); resetForm(); }}>
+        <PickedRow type="button" onClick={() => undoStep("cat")}>
           <PickedText>{category?.name}</PickedText>
           <PickedEdit>수정</PickedEdit>
         </PickedRow>
@@ -1802,7 +1900,7 @@ export const OrderCreateContent = () => {
               <Label>{detailConfig.qtyPerSelected.label || "수량"}</Label>
               <FieldsGrid>
               {selectedSub.map((key) => {
-                const name = key.includes(":") ? key.split(":")[1] : key;
+                const name = qtyNameOf(key);
                 return (
                   <FieldRow key={key}>
                     <InputFieldLabel>{name}</InputFieldLabel>
@@ -2350,6 +2448,43 @@ export const OrderCreateContent = () => {
   );
 };
 
+/* 셀프보장등록 안내 줄 — 흰 면 + 1px 테두리 한 줄 (대표 리뷰 11/02) */
+const SelfCoverRow = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 14px;
+  background: ${THEME.surface};
+  border: 1px solid ${THEME.border};
+  border-radius: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
+  &:focus { outline: none; }
+  ${pcOnly`padding: 18px 20px; &:hover { border-color: ${THEME.primary}; }`}
+`;
+const SelfCoverText = styled.span`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  word-break: keep-all;
+`;
+const SelfCoverTitle = styled.span`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${THEME.text};
+  line-height: 1.35;
+`;
+const SelfCoverDesc = styled.span`
+  font-size: 13px;
+  color: ${THEME.text};
+  line-height: 1.45;
+`;
+
 /* ── 동적 폼 추가 스타일 ── */
 const NoticeBox = styled.div`
   margin: 12px 12px 0;
@@ -2644,11 +2779,20 @@ const AddressEmbedWrap = styled.div`
   width: 100%;
 `;
 
-const OrderCreatePage = () => (
-  <SimpleBackLayout NAME="예약접수">
-    <OrderCreateContent />
-  </SimpleBackLayout>
-);
+// 머리 [<] 는 화면 안 단계부터 되돌린다 — 단계가 없을 때만 이전 화면으로 (대표 리뷰 11/02)
+const OrderCreatePage = () => {
+  const navigate = useNavigate();
+  const backRef = useRef(null);
+  const onBack = () => {
+    if (backRef.current && backRef.current()) return;
+    navigate(-1);
+  };
+  return (
+    <SimpleBackLayout NAME="예약접수" onBack={onBack}>
+      <OrderCreateContent backRef={backRef} />
+    </SimpleBackLayout>
+  );
+};
 
 export default OrderCreatePage;
 

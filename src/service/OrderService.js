@@ -21,6 +21,7 @@ import {
 import { db } from "../api/config";
 import { COLLECTIONS, ORDER_STATUS } from "../config/homeproConfig";
 import { holdHpointEscrow, releaseHpointEscrow, refundHpointEscrow } from "./PayFlowService";
+import { notifyOrderEvent, getUserBrief } from "./OrderNotifyService";
 
 const ordersRef = collection(db, COLLECTIONS.ORDERS);
 
@@ -282,8 +283,79 @@ export async function grantOrderCompletionPoints(orderId) {
   }
 }
 
+/* ─── 오더 사건 알림 (대표 리뷰 11/02 — 취소 · 완료 · 배정을 상대에게 채팅 안내 + 푸시) ─── */
+const isCancelStatus = (s) => s === ORDER_STATUS.CANCELLED || s === "취소";
+const isDoneStatus = (s) => s === ORDER_STATUS.COMPLETED || s === "리뷰" || s === "정산";
+const tsMillis = (t) => (t?.toMillis ? t.toMillis() : t?.seconds ? t.seconds * 1000 : 0);
+
+async function notifyStatusChange(before, newStatus, extra = {}) {
+  if (!before) return;
+  const o = { ...before, ...extra };
+  if (isCancelStatus(newStatus)) {
+    if (isCancelStatus(before.orderStatus)) return; // 이미 취소된 오더
+    // 정보공유 미계약 확정은 OrderDetailPage 가 따로 알린다 (중복 방지)
+    if (extra.noContract && extra.cancelReason === "미계약") return;
+    const by = extra.cancelledBy || extra.actorUid || "";
+    let to;
+    if (by && by === o.createdBy) to = o.matchedProUid ? [o.matchedProUid] : (o.applicantUids || []);
+    else if (by && by === o.matchedProUid) to = [o.createdBy];
+    else to = [o.createdBy, ...(o.matchedProUid ? [o.matchedProUid] : (o.applicantUids || []))];
+    const who = by && by === o.createdBy ? "접수자" : by && by === o.matchedProUid ? "홈프로" : "";
+    const reason = extra.cancelReason ? String(extra.cancelReason) : "";
+    await notifyOrderEvent(o, {
+      toUids: to, actorUid: by || undefined,
+      title: "오더 취소",
+      body: `오더가 취소되었습니다.${o.title ? ` (${o.title})` : ""}${reason ? ` 사유: ${reason}` : ""}`,
+      type: "order_cancelled",
+      chatText: `오더가 취소되었습니다.${who ? `\n취소한 사람: ${who}` : ""}${reason ? `\n사유: ${reason}` : ""}`,
+      chatType: "cancelled",
+    });
+    return;
+  }
+  if (isDoneStatus(newStatus)) {
+    if (isDoneStatus(before.orderStatus)) return;
+    // 체크아웃이 방금 있었으면 WorkLogService 가 "작업을 마쳤습니다" 를 이미 보냈다 — 같은 일로 두 번 울리지 않게
+    if (before.checkOutAt && Date.now() - tsMillis(before.checkOutAt) < 5 * 60 * 1000) return;
+    await notifyOrderEvent(o, {
+      toUids: [o.createdBy], actorUid: extra.actorUid || undefined,
+      title: "작업 완료",
+      body: `작업이 완료되었습니다.${o.title ? ` (${o.title})` : ""}`,
+      type: "work_complete",
+      chatText: "작업이 완료되었습니다.",
+    });
+  }
+}
+
+/** 배정 알림 — 빠른배정 수락(접수자에게) · 비교선정 선정(선정된 홈프로에게) (대표 리뷰 11/02) */
+async function notifyAssigned(order, proUid, mode) {
+  try {
+    const o = { ...order, matchedProUid: proUid };
+    if (mode === "accept") {
+      const { name } = await getUserBrief(proUid);
+      const text = name ? `홈프로 ${name}이(가) 배정되었습니다.` : "홈프로가 배정되었습니다.";
+      await notifyOrderEvent(o, {
+        toUids: [o.createdBy], actorUid: proUid,
+        title: "홈프로 배정", body: text, type: "order_assigned",
+        chatText: `${text}\n작업 일정을 이 대화방에서 조율해 주세요.`,
+      });
+    } else {
+      const { name } = await getUserBrief(proUid);
+      await notifyOrderEvent(o, {
+        toUids: [proUid], actorUid: o.createdBy,
+        title: "홈프로 선정", body: "홈프로로 선정되어 배정되었습니다. 배정된 오더를 확인하세요.", type: "order_assigned",
+        chatText: `${name ? `${name}님이 ` : ""}홈프로로 선정되어 배정되었습니다.\n오더 내용을 확인하고 작업 일정을 잡아 주세요.`,
+      });
+    }
+  } catch (e) { console.warn("[배정 알림]", e?.message); }
+}
+
 /** 오더 상태 변경 */
 export async function updateOrderStatus(orderId, newStatus, extra = {}) {
+  // 알림 문구(누가 · 누구에게)를 정하려고 바꾸기 전 문서를 읽어 둔다 (대표 리뷰 11/02)
+  let before = null;
+  if (isCancelStatus(newStatus) || isDoneStatus(newStatus)) {
+    try { before = await getOrderById(orderId); } catch (e) {}
+  }
   await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
     orderStatus: newStatus,
     updatedAt: serverTimestamp(),
@@ -299,6 +371,8 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   if (newStatus === ORDER_STATUS.CANCELLED || newStatus === "취소") {
     try { await refundHpointEscrow(orderId); } catch (e) { console.error("[escrow refund]", e); }
   }
+  // 상대에게 채팅 안내 + 푸시 — 실패해도 상태 변경은 이미 끝났다
+  try { await notifyStatusChange(before, newStatus, extra); } catch (e) { console.warn("[상태 알림]", e?.message); }
 }
 
 /** 오더 내용 수정 (접수자 편집) — 상태값은 건드리지 않고 내용 필드만 갱신 */
@@ -346,6 +420,8 @@ export const acceptOrder = async (orderId, proUid) => {
       throw new Error(e?.message ? `접수자 H-포인트 문제로 배정할 수 없습니다: ${e.message}` : "접수자 H-포인트가 부족해 배정할 수 없습니다");
     }
   }
+  // 3) 접수자에게 배정 알림 (채팅 + 푸시, 대표 리뷰 11/02)
+  await notifyAssigned({ id: orderId, ...data }, proUid, "accept");
 };
 
 /** 다중비교호출 — 홈프로가 지원하기 */
@@ -453,6 +529,8 @@ export const selectPro = async (orderId, selectedProUid) => {
     }
   });
   await batch.commit();
+  // 선정된 홈프로에게 배정 알림 (채팅 + 푸시, 대표 리뷰 11/02)
+  await notifyAssigned({ id: orderId, ...data }, selectedProUid, "select");
 };
 
 /** 대기 전환 */
@@ -512,6 +590,12 @@ export const directAssign = async (orderId, targetPhone) => {
     orderStatus: ORDER_STATUS.REGISTERED,
     directAssignTarget: { uid: targetUid, phone: targetPhone },
   });
+  // 지정된 홈프로에게 푸시 (대표 리뷰 11/02) — 아직 수락 전이라 대화방은 만들지 않는다
+  try {
+    await notifyOrderEvent({ id: orderId }, {
+      toUids: [targetUid], title: "지정배정 오더 도착", body: "나를 지정한 오더가 도착했습니다. 확인 후 수락해 주세요.", type: "order_assigned",
+    });
+  } catch (e) {}
 };
 
 /** 리뷰 작성 + 상태 변경

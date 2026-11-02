@@ -13,7 +13,8 @@ import {
   buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived, getMoneyPriceAmount,
 } from "../../service/PayFlowService";
 import { PG_MAX_AMOUNT, PG_MAX_MSG, createOrderPayLink, cancelOrderPayLink, sharePayLink, payLinkMessage, getPgRequest, PG_STATUS_LABEL } from "../../service/PgPaymentService";
-import { isInsuranceRequired, getOrderInsuranceState, needsInsuranceDecision, computeOrderPremium, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, findActivePolicy, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
+import { acquireLock, releaseLock, subscribeLock, isLockValid, lockRemainSec, validCompareLocks, COMPARE_MAX } from "../../service/OrderLockService";
+import { isInsuranceRequired, getOrderInsuranceState, needsInsuranceDecision, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
 // TODO: 에이전트A가 만들 함수들 — 아직 없으면 런타임에서 에러 catch
@@ -47,7 +48,7 @@ import {
   IoPersonCircleOutline,
   IoCopyOutline,
 } from "react-icons/io5";
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../api/config";
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import { SCHEDULE_OPTIONS } from "../../config/homeproConfig";
@@ -141,11 +142,13 @@ const OrderDetailPage = () => {
   }, [order?.createdBy, referralOpen]);
   const refreshOrder = async () => { const u = await getOrder(order.id); if (u) setFetchedOrder(u); };
 
-  /* ── 보험 적용 (대표 8/20 · 형 확정 9/13): 월·1년 가입자는 자동, 아니면 건당 결제 또는 보험 없이 진행. 정하기 전엔 체크인 잠금 ── */
+  /* ── 보험 적용 (대표 8/20 · 형 확정 9/13): 월 보험 가입자는 자동, 아니면 월 보험 가입 또는 보험 없이 진행.
+     건당 보험은 걷어냈다 — 가입은 업종 그룹별 월 정기결제만 (대표 10/26 확정 · 리뷰 10/30 "월보험 변경 합니다") ── */
   const insuranceState = order ? getOrderInsuranceState(order) : "pending";
   const insuranceNeeded = order ? needsInsuranceDecision(order) : false;
   const insuranceRequired = order ? isInsuranceRequired(order) : false;
-  const [premium, setPremium] = useState(null); // { amount, pending, plan }
+  const [insChecked, setInsChecked] = useState(false); // 월 보험 가입 여부 확인 끝남
+  const [insGroup, setInsGroup] = useState(""); // 적용된 월 보험의 업종 그룹 (A~D)
   const [insBusy, setInsBusy] = useState(false);
   useEffect(() => {
     if (!order?.id || !isMatchedPro || !insuranceNeeded) return;
@@ -154,14 +157,27 @@ const OrderDetailPage = () => {
       try {
         const applied = await autoApplyPolicy(order, myUid);
         if (applied) { if (alive) await refreshOrder(); return; }
-        const p = await computeOrderPremium(order);
-        if (alive) setPremium(p);
+        if (alive) setInsChecked(true);
       } catch (e) { console.warn("[insurance]", e); }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.id, isMatchedPro, insuranceNeeded, order?.onsiteQuotedPrice, order?.b2bPriceAmount]);
-  const handleInsurancePay = () => navigate(`/pay?purpose=insurance_order&refId=${order.id}`);
+  // 적용 기록에 그룹이 없던 예전 오더 — 증권에서 그룹을 읽어 온다
+  useEffect(() => {
+    const ins = order?.insurance;
+    if (!ins?.applied) { setInsGroup(""); return; }
+    if (ins.group) { setInsGroup(ins.group); return; }
+    if (!ins.policyId) return;
+    let alive = true;
+    getDoc(doc(db, "insurance_policies", ins.policyId)).then((d) => { if (alive && d.exists()) setInsGroup(d.data().group || ""); }).catch(() => {});
+    return () => { alive = false; };
+  }, [order?.insurance?.applied, order?.insurance?.group, order?.insurance?.policyId]);
+  const insuranceAppliedText = (() => {
+    const ins = order?.insurance || {};
+    const label = ins.type === "monthly" ? "월 보험" : (INSURANCE_TYPE_LABEL[ins.type] || "가입");
+    return `보험 적용 · ${label}${insGroup ? ` · ${insGroup}그룹` : ""}`;
+  })();
 
   // 보험은 선택 옵션 — 배정 뒤 홈프로가 원하면 가입 (대표 9/14 카톡). 수락 게이트 없음
   const handleInsuranceSkip = async () => {
@@ -278,6 +294,97 @@ const OrderDetailPage = () => {
     return () => clearInterval(timer);
   }, [myDelaySec, isOwner, order?.id, order?.createdAt]);
 
+  /* ── 30초 독점 수락권 (대표 리뷰 10/31) ──
+     상세에 먼저 들어온 홈프로가 30초 동안 혼자 수락할 수 있다. 시간이 다 되면 자동으로 닫히고 다음 사람 차례.
+     비교선정은 동시에 3명까지 상세를 연다. 접수자 · 끝난/배정된 오더 · 지정되지 않은 홈프로는 잡지 않는다.
+     차수 게이트(acceptLocked)가 걸려 있으면 게이트가 먼저, 풀린 뒤 잡는다. */
+  const digitsOf = (s) => String(s || "").replace(/[^0-9]/g, "").replace(/^82/, "0");
+  const isDesignatedPro = !!order?.directPhone && digitsOf(order.directPhone) === digitsOf(userData?.phoneE164 || userData?.phone);
+  const lockOpenOrder = !!order && !order.matchedProUid && ["접수", "요청"].includes(order.orderStatus || "접수");
+  const lockMode = (() => {
+    if (!order || !myUid || isOwner || !lockOpenOrder || isApplicant) return null;
+    if (matchType === "compare") return "compare";
+    if (matchType === "direct" && !isDesignatedPro) return null;
+    return "single";
+  })();
+  const lockActive = !!lockMode && !(lockMode === "single" && acceptLocked);
+  const [lockSnap, setLockSnap] = useState(null); // { viewLock, viewLocks, open }
+  const [lockNow, setLockNow] = useState(() => Date.now());
+  const [compareIn, setCompareIn] = useState(false); // 비교선정 — 한 번 자리를 잡으면 상세를 닫을 때까지 유지
+  const lockHeldRef = React.useRef(null);   // { orderId, uid, compare } — 내가 잡은 잠금 (정리용)
+  const lockTryRef = React.useRef({ busy: false, at: 0 });
+  const lockExpiredRef = React.useRef(false);
+  const acceptingRef = React.useRef(false);
+
+  const lockRelease = useCallback(() => {
+    const h = lockHeldRef.current;
+    if (!h) return Promise.resolve();
+    lockHeldRef.current = null;
+    return releaseLock(h.orderId, h.uid, { compare: h.compare });
+  }, []);
+
+  // 잠금 구독 + 1초 시계
+  useEffect(() => {
+    if (!lockActive || !order?.id) { setLockSnap(null); return; }
+    const unsub = subscribeLock(order.id, setLockSnap);
+    const t = setInterval(() => setLockNow(Date.now()), 1000);
+    return () => { unsub(); clearInterval(t); };
+  }, [lockActive, order?.id]);
+
+  // 화면을 떠나면(뒤로가기 · 다른 화면 · 창 닫기) 내 잠금을 푼다
+  useEffect(() => {
+    const onHide = () => { lockRelease(); };
+    window.addEventListener("pagehide", onHide);
+    return () => { window.removeEventListener("pagehide", onHide); lockRelease(); };
+  }, [order?.id, lockRelease]);
+  // 잠금 대상이 아니게 되면(배정됨 · 취소 등) 바로 푼다
+  useEffect(() => { if (!lockActive) lockRelease(); }, [lockActive, lockRelease]);
+
+  const singleLock = lockSnap?.viewLock || null;
+  const lockMine = lockMode === "single" && !!singleLock && singleLock.uid === myUid && isLockValid(singleLock, lockNow);
+  const lockOther = lockMode === "single" && !!singleLock && singleLock.uid !== myUid && isLockValid(singleLock, lockNow);
+  const lockRemain = singleLock ? lockRemainSec(singleLock, lockNow) : 0;
+  const compareValid = lockMode === "compare" ? validCompareLocks(lockSnap?.viewLocks, lockNow) : {};
+  const compareCount = Object.keys(compareValid).length;
+  const compareFull = lockMode === "compare" && !compareIn && !compareValid[myUid] && compareCount >= COMPARE_MAX;
+
+  const tryAcquire = useCallback(async () => {
+    const st = lockTryRef.current;
+    if (st.busy || Date.now() - st.at < 1500 || !order?.id || !myUid) return null;
+    st.busy = true; st.at = Date.now();
+    const compare = lockMode === "compare";
+    try {
+      const r = await acquireLock(order.id, myUid, userData?.companyName || myName, { compare });
+      if (r?.ok) {
+        lockHeldRef.current = { orderId: order.id, uid: myUid, compare };
+        if (compare) setCompareIn(true);
+      }
+      return r;
+    } catch (e) { console.warn("[viewLock]", e); return null; }
+    finally { st.busy = false; }
+  }, [order?.id, myUid, lockMode, userData?.companyName, myName]);
+
+  // 비어 있거나 만료됐으면 잡는다 — 남이 풀거나 30초가 지나는 순간 내 차례가 온다
+  useEffect(() => {
+    if (!lockActive || !lockSnap || !lockSnap.open) return;
+    if (lockMode === "single" && !lockMine && !lockOther) tryAcquire();
+    if (lockMode === "compare" && !compareIn && !compareValid[myUid] && compareCount < COMPARE_MAX) tryAcquire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // lockNow 도 넣는다 — 만료 직후 첫 시도가 간발로 지면(상대 해제 전) 다음 초에 다시 잡도록
+  }, [lockActive, lockSnap, lockMine, lockOther, compareIn, compareCount, lockMode, lockNow]);
+
+  // 내 30초가 끝나면 자동으로 닫는다
+  useEffect(() => {
+    if (lockMode !== "single" || !lockHeldRef.current || acceptingRef.current || lockExpiredRef.current) return;
+    if (singleLock && singleLock.uid === myUid && lockRemain <= 0) {
+      lockExpiredRef.current = true;
+      lockRelease();
+      showToast("확인 시간이 지나 목록으로 돌아갑니다");
+      setTimeout(() => { if (window.history.length > 1) navigate(-1); else navigate("/MobileMain"); }, 1200);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockMode, singleLock, lockRemain, myUid]);
+
   useEffect(() => {
     if (!myUid) return;
     getMyProDocs(myUid).then(setProDocs).catch(() => setProDocs([]));
@@ -384,28 +491,39 @@ const OrderDetailPage = () => {
       }
     }
     if (order.orderStatus === "대기") { showToast("접수자가 보류 중인 오더입니다. 다시 접수되면 수락할 수 있어요"); return; }
-    if (!window.confirm("해당 오더를 수락 하시겠습니까?")) return; // 팝업 확인
+    // 30초 독점 수락권 — 남이 확인 중이면 막고, 아직 못 잡았으면 지금 잡아 본다 (대표 리뷰 10/31)
+    if (lockMode === "single" && !lockMine) {
+      const r = await tryAcquire();
+      if (!r?.ok) { showToast(r?.closed ? "수락할 수 없는 오더입니다" : "다른 홈프로가 확인 중입니다. 잠시 뒤 차례가 넘어옵니다"); return; }
+    }
+    acceptingRef.current = true; // 확인 창을 띄운 사이 30초가 끝나도 자동으로 닫지 않는다 (수락 트랜잭션이 최종 판정)
+    if (!window.confirm("해당 오더를 수락 하시겠습니까?")) { acceptingRef.current = false; return; } // 팝업 확인
     try {
       if (!acceptOrder) throw new Error("acceptOrder 함수 없음");
       await acceptOrder(order.id, myUid);
+      await lockRelease().catch(() => {});
       await addOrderLog(order.id, { type: "accept", message: "홈프로가 수락 → 배정", byUid: myUid, byName: myName, byRole: "홈프로" });
       goMyOrders(); // 수락 → 자동으로 나의오더현황 이동
     } catch (e) {
+      await lockRelease().catch(() => {});
       if (e.message?.includes("배정")) showToast("배정된 오더입니다");
       else showToast(e.message || "수락에 실패했습니다");
-    }
+    } finally { acceptingRef.current = false; }
   };
 
   const handleApplyOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 지원 불가 (형 지시 7/31)
     if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
+    // 비교선정 — 3명이 상세를 보고 있으면 지원도 잠시 막는다 (대표 리뷰 10/31)
+    if (compareFull) { showToast("3명이 확인 중입니다 — 잠시 뒤 다시 열어 주세요"); return; }
     if (!window.confirm("해당 오더에 지원 하시겠습니까?")) return; // 팝업 확인
     try {
       if (!applyToOrder) throw new Error("applyToOrder 함수 없음");
       const proName = userData?.nickname || userData?.name || "전문가";
       const proProfile = userData?.profileImage || userData?.photoURL || "";
       await applyToOrder(order.id, myUid, { proName, proProfile });
+      await lockRelease().catch(() => {});
       await addOrderLog(order.id, { type: "apply", message: "홈프로 지원", byUid: myUid, byName: myName, byRole: "홈프로" });
       goMyOrders(); // 지원 → 자동으로 나의오더현황 이동
     } catch (e) {
@@ -455,7 +573,7 @@ const OrderDetailPage = () => {
     if (!cancelReason) { showToast("취소 사유를 선택해주세요"); return; }
     try {
       // 상태 + 취소사유를 한 번에 (기존엔 잘못된 'orders' 컬렉션에 써서 누락되던 버그 수정)
-      await updateOrderStatus(order.id, ORDER_STATUS.CANCELLED, { cancelReason });
+      await updateOrderStatus(order.id, ORDER_STATUS.CANCELLED, { cancelReason, cancelledBy: myUid }); // 취소자를 넘겨 상대에게만 알림 (대표 리뷰 10/30)
       await addOrderLog(order.id, { type: "cancel", message: `접수자가 취소 (사유: ${cancelReason})`, byUid: myUid, byName: myName, byRole: "접수자" });
       setShowCancelModal(false);
       showToast("오더가 취소되었습니다");
@@ -542,20 +660,7 @@ const OrderDetailPage = () => {
     if (!window.confirm("이 홈프로를 선정 하시겠습니까?\n선정 후 자동으로 배정됩니다.")) return; // 팝업 확인
     try {
       if (!selectPro) throw new Error("selectPro 함수 없음");
-      await selectPro(order.id, proUid); // 자동 배정(orderStatus="배정") + 나머지 지원자 rejected
-      // 선정된 홈프로에게 푸시
-      try {
-        await addDoc(collection(db, "notifications"), {
-          targetUids: [proUid],
-          title: "홈프로 선정",
-          body: "선정되었습니다! 배정된 오더를 확인하세요",
-          type: "pro_selected",
-          data: { orderId: order.id },
-          read: false,
-          sent: false,
-          createdAt: serverTimestamp(),
-        });
-      } catch (e) {}
+      await selectPro(order.id, proUid); // 자동 배정(orderStatus="배정") + 나머지 지원자 rejected. 선정된 홈프로 푸시 · 채팅은 selectPro(OrderNotifyService)가 보낸다 (11/02)
       // 선정되지 않은 나머지 홈프로에게 마감 알림 (B-2)
       try {
         const others = applicants.filter((a) => a.proUid !== proUid).map((a) => a.proUid);
@@ -580,9 +685,8 @@ const OrderDetailPage = () => {
         for (const r of rooms.docs) {
           if (r.data().orderId !== order.id) continue;
           const parts = r.data().participants || [];
-          const text = parts.includes(proUid)
-            ? "홈프로로 선정되어 배정되었습니다.\n오더 내용을 확인하고 작업 일정을 잡아 주세요."
-            : "다른 홈프로가 선정되어 이 오더는 마감되었습니다.\n견적을 보내 주셔서 감사합니다.";
+          if (parts.includes(proUid)) continue; // 선정된 홈프로 방은 selectPro 가 남긴다
+          const text = "다른 홈프로가 선정되어 이 오더는 마감되었습니다.\n견적을 보내 주셔서 감사합니다.";
           try { await sendSystemMessage(r.id, { text, type: "system" }); } catch (_) {}
         }
       } catch (_) {}
@@ -741,6 +845,8 @@ const OrderDetailPage = () => {
   // 예약날짜(구 희망날짜지정)는 문구 없이 날짜만 표기
   const isReserveDate = (v) => v === "예약날짜" || v === "희망날짜지정";
   const scheduleLabel = (() => {
+    // 셀프보장등록 간단 등재는 공사 기간(시작~종료)으로 (대표 리뷰 11/02)
+    if (order.workPeriod?.start) return `${order.workPeriod.start}${order.workPeriod.end ? ` ~ ${order.workPeriod.end}` : ""}`;
     if (isReserveDate(order.schedule)) return order.workDatePicker || "예약날짜";
     return SCHEDULE_OPTIONS.find((o) => o.key === order.schedule)?.label || order.schedule || "-";
   })();
@@ -760,6 +866,14 @@ const OrderDetailPage = () => {
     return t ? `${d} · ${t}` : d;
   })();
   const pcStatusColor = ["취소", "거부"].includes(order.orderStatus) ? PC.danger : CLOSED_STATUSES.has(order.orderStatus) ? PC.ink : PC.primary;
+
+  // 수락하기 버튼 — 30초 독점 수락권 상태를 글씨로 보여 준다 (대표 리뷰 10/31)
+  const renderAcceptBtn = () => {
+    if (order.orderStatus === "대기") return <PrimaryCTA onClick={handleAcceptOrder}>보류 중 (수락 불가)</PrimaryCTA>;
+    if (lockOther) return <PrimaryCTA disabled $locked>다른 홈프로가 확인 중입니다 ({lockRemain}초)</PrimaryCTA>;
+    if (lockMine) return <PrimaryCTA onClick={handleAcceptOrder}>수락하기 ({lockRemain}초)</PrimaryCTA>;
+    return <PrimaryCTA onClick={handleAcceptOrder}>수락하기</PrimaryCTA>;
+  };
 
   return (
     <SimpleBackLayout NAME={headerName} hideFooter>
@@ -899,10 +1013,23 @@ const OrderDetailPage = () => {
         })()}
 
         {/* ── 작업 일정 ── */}
-        {(order.workDate || order.workTime) && (
+        {(order.workDate || order.workTime || order.workPeriod) && (
           <DetailSection>
             <SectionTitle>작업 일정</SectionTitle>
-            {order.workDate && (
+            {/* 셀프보장등록 간단 등재 — 공사 기간(시작~종료) · 발주처 (대표 리뷰 11/02) */}
+            {order.workPeriod?.start && (
+              <ConditionRow>
+                <ConditionLabel>공사 기간</ConditionLabel>
+                <ConditionValue>{order.workPeriod.start}{order.workPeriod.end ? ` ~ ${order.workPeriod.end}` : ""}</ConditionValue>
+              </ConditionRow>
+            )}
+            {order.selfOrder && order.clientName && (
+              <ConditionRow>
+                <ConditionLabel>발주처 · 현장명</ConditionLabel>
+                <ConditionValue>{order.clientName}</ConditionValue>
+              </ConditionRow>
+            )}
+            {order.workDate && !order.workPeriod?.start && (
               <ConditionRow>
                 <ConditionLabel>작업날짜</ConditionLabel>
                 <ConditionValue>{isReserveDate(order.workDate) ? (order.workDatePicker || "예약날짜") : order.workDate}</ConditionValue>
@@ -917,8 +1044,18 @@ const OrderDetailPage = () => {
           </DetailSection>
         )}
 
+        {/* 셀프보장등록 오더 — 배정 홈프로가 본인이라 전화 · 채팅 칸 대신 한 줄 (대표 리뷰 11/02) */}
+        {isOwner && order.selfOrder && (
+          <DetailSection>
+            <SectionTitle>배정 홈프로</SectionTitle>
+            <ConditionRow>
+              <ConditionLabel>셀프보장등록</ConditionLabel>
+              <ConditionValue>본인 시공 (내가 직접 수주한 일)</ConditionValue>
+            </ConditionRow>
+          </DetailSection>
+        )}
         {/* ── 배정 홈프로 (접수자 시점) — 누가 배정됐는지 + 프로필 ── */}
-        {isOwner && order.matchedProUid && (
+        {isOwner && order.matchedProUid && !order.selfOrder && (
           <DetailSection>
             <SectionTitle>배정 홈프로</SectionTitle>
             <ApplicantCard
@@ -954,10 +1091,11 @@ const OrderDetailPage = () => {
             전수검사 7/29: 접수폼은 contactPhone/customerPhone 으로 저장하는데 여기선
             ordererPhone/clientPhone 만 읽어 섹션이 영원히 안 뜨던 필드 불일치 수정
             (구 필드는 폴백으로 유지) */}
-        {(isOwner || isMatchedPro) && (order.contactPhone || order.customerPhone || order.ordererPhone || order.clientPhone) && (
+        {/* 접수자 번호는 홈프로 화면에 적지 않는다 — [전화] 버튼으로만 건다 (대표 리뷰 11/02 "접수자 연락처 기재 불필요") */}
+        {(isOwner || isMatchedPro) && ((isOwner && (order.contactPhone || order.ordererPhone)) || order.customerPhone || order.clientPhone) && (
           <DetailSection>
             <SectionTitle>연락처</SectionTitle>
-            {(order.contactPhone || order.ordererPhone) && (
+            {isOwner && (order.contactPhone || order.ordererPhone) && (
               <ConditionRow>
                 <ConditionLabel>접수자</ConditionLabel>
                 <ConditionValue>{order.contactPhone || order.ordererPhone}</ConditionValue>
@@ -1015,7 +1153,8 @@ const OrderDetailPage = () => {
         {/* ── 소개수수료 ── */}
         {order.referralFee && (
           <DetailSection>
-            <SectionTitle>소개수수료</SectionTitle>
+            {/* 역할별 제목 — 접수자는 받을 돈, 수락자는 보낼 돈 (대표 리뷰 11/02) */}
+            <SectionTitle>{isOwner ? "입금받을 소개수수료" : isMatchedPro ? "송금보낼 소개수수료" : "소개수수료"}</SectionTitle>
             <ConditionRow>
               <ConditionLabel>수수료</ConditionLabel>
               <ConditionValue>
@@ -1040,7 +1179,7 @@ const OrderDetailPage = () => {
         {/* ── 소개수수료 송금 / 후불 대금 / H-포인트 보관 — 앱은 상태 버튼만 둔다 (대표 확정 9/13) ── */}
         {(isOwner || isMatchedPro) && referralOpen && (
           <DetailSection>
-            <SectionTitle>소개수수료 송금</SectionTitle>
+            <SectionTitle>{isOwner ? "입금받을 소개수수료 · 입금 확인" : "송금보낼 소개수수료 · 송금"}</SectionTitle>
             {referralFeeInfo.pending ? (
               <PayNote>금액이 확정되면 소개수수료가 계산되고 송금 버튼이 생깁니다.</PayNote>
             ) : order.referralPay?.status === "confirmed" ? (
@@ -1096,10 +1235,10 @@ const OrderDetailPage = () => {
           <DetailSection>
             <SectionTitle>보험 적용{insuranceRequired ? " · 보험가입 필수" : ""}</SectionTitle>
             {insuranceRequired && insuranceState !== "applied" && (
-              <PayNote $warn>{isIosApp() ? "접수자가 보험가입 필수로 등록한 오더입니다. 보험이 적용된 뒤에 현장 체크인을 할 수 있습니다." : "접수자가 보험가입 필수로 등록한 오더입니다. 건당·월·년 중 하나로 가입해야 현장 체크인을 할 수 있습니다."}</PayNote>
+              <PayNote $warn>{isIosApp() ? "접수자가 보험가입 필수로 등록한 오더입니다. 보험이 적용된 뒤에 현장 체크인을 할 수 있습니다." : "접수자가 보험가입 필수로 등록한 오더입니다. 월 보험에 가입해야 현장 체크인을 할 수 있습니다."}</PayNote>
             )}
             {insuranceState === "applied" ? (
-              <PayNote $done>보험 적용 · {INSURANCE_TYPE_LABEL[order.insurance?.type] || "가입"}{order.insurance?.type === "perOrder" ? " (이 오더 결제 완료)" : ""}</PayNote>
+              <PayNote $done>{insuranceAppliedText}{order.insurance?.type === "perOrder" ? " (이 오더 결제 완료)" : ""}</PayNote>
             ) : insuranceState === "skipped" ? (
               <>
                 <PayNote $warn>보험 적용 제외 — 보험 없이 진행합니다.</PayNote>
@@ -1116,24 +1255,18 @@ const OrderDetailPage = () => {
               </>
             ) : isMatchedPro ? (
               <>
-                {premium === null ? (
+                {!insChecked ? (
                   <PayNote>보험 가입 여부를 확인하는 중입니다.</PayNote>
-                ) : premium.pending ? (
-                  <PayNote>금액이 확정되면 건당 보험료(금액의 {premium.plan.rate}%)가 계산됩니다. 월·1년 보험에 가입돼 있으면 자동으로 적용됩니다.</PayNote>
                 ) : (
-                  <>
-                    <ConditionRow $wide><ConditionLabel>건당 보험료</ConditionLabel><ConditionValue>{premium.amount.toLocaleString()}원 <span style={{ fontWeight: 400, color: THEME.muted }}>({premium.plan.groupLabel} · 금액의 {premium.plan.rate}%, 최소 {premium.plan.minPrice.toLocaleString()}원)</span></ConditionValue></ConditionRow>
-                    <PayNote>이 오더의 체크인부터 체크아웃까지 보장됩니다. 보험은 선택이며, 월·1년 보험에 가입하면 건마다 결제하지 않아도 됩니다.</PayNote>
-                  </>
+                  <PayNote>월 보험(업종 그룹별 정기결제)에 가입하면 이 오더부터 자동 적용됩니다. 이 오더의 체크인부터 체크아웃까지 보장됩니다.</PayNote>
                 )}
                 <ActionRow style={{ marginTop: 10 }}>
-                  <PrimaryCTA onClick={handleInsurancePay} disabled={!premium || premium.pending || insBusy}>건당 보험료 결제</PrimaryCTA>
-                  <OutlinedBtn onClick={() => navigate("/insurance")}>월·년 가입</OutlinedBtn>
+                  <OutlinedBtn onClick={() => navigate("/insurance/join")} disabled={insBusy}>월 보험 가입하기</OutlinedBtn>
                 </ActionRow>
                 {!insuranceRequired && <PayNote style={{ marginTop: 6 }}><button type="button" onClick={handleInsuranceSkip} style={{ background: "none", border: "none", padding: 0, color: THEME.muted, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>보험 없이 진행</button></PayNote>}
               </>
             ) : (
-              <PayNote>{insuranceRequired ? (isIosApp() ? "보험가입 필수 오더 — 보험이 적용된 뒤 체크인합니다." : "보험가입 필수 오더 — 배정된 홈프로가 건당·월·년 중 하나로 가입한 뒤 체크인합니다.") : "홈프로가 원하면 이 오더에 보험을 적용합니다(선택)."}</PayNote>
+              <PayNote>{insuranceRequired ? (isIosApp() ? "보험가입 필수 오더 — 보험이 적용된 뒤 체크인합니다." : "보험가입 필수 오더 — 배정된 홈프로가 월 보험에 가입한 뒤 체크인합니다.") : "홈프로가 원하면 이 오더에 보험을 적용합니다(선택)."}</PayNote>
             )}
           </DetailSection>
         )}
@@ -1462,7 +1595,7 @@ const OrderDetailPage = () => {
               return (
                 <ActionRow>
                   <OutlinedBtn
-                    onClick={() => { if (blocked) { showToast(isIosApp() ? "보험가입 필수 오더입니다. 보험이 적용된 뒤 체크인할 수 있습니다" : "보험가입 필수 오더입니다. 건당·월·년 중 하나로 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
+                    onClick={() => { if (blocked) { showToast(isIosApp() ? "보험가입 필수 오더입니다. 보험이 적용된 뒤 체크인할 수 있습니다" : "보험가입 필수 오더입니다. 월 보험에 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
                     style={blocked ? { opacity: 0.45 } : undefined}
                   >
                     {order.checkInAt ? "현장기록" : "현장 체크인"}
@@ -1497,39 +1630,38 @@ const OrderDetailPage = () => {
         ) : matchType === "priority" ? (
           /* 우선배정호출 — 전화 제거, 수락하기만 (2차수는 등록 5분 후 해제) */
           <>
-            {acceptLocked && <TierGateNote>{tierGateText}</TierGateNote>}
+            {acceptLocked ? <TierGateNote>{tierGateText}</TierGateNote> : lockOther ? <TierGateNote>배정중 — 30초 안에 결정하지 않으면 차례가 넘어옵니다</TierGateNote> : null}
             <ActionRow>
               {acceptLocked ? (
                 <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
-              ) : (
-                <PrimaryCTA onClick={handleAcceptOrder}>{order.orderStatus === "대기" ? "보류 중 (수락 불가)" : "수락하기"}</PrimaryCTA>
-              )}
+              ) : renderAcceptBtn()}
             </ActionRow>
           </>
         ) : matchType === "compare" ? (
           /* 다중비교호출 — 전화 제거, 지원하기만 */
-          <ActionRow>
-            {/* 비교선정만 '지원하기', 나머지 방식은 모두 '수락하기' (대표 10/27) */}
-            <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>
-          </ActionRow>
+          <>
+            {/* 비교선정 — 동시에 3명까지 상세를 연다. 가득 차면 잠시 막고, 자리가 나면 자동으로 다시 연다 (대표 리뷰 10/31) */}
+            {compareFull && <TierGateNote>3명이 확인 중입니다 — 잠시 뒤 다시 열어 주세요</TierGateNote>}
+            <ActionRow>
+              {/* 비교선정만 '지원하기', 나머지 방식은 모두 '수락하기' (대표 10/27) */}
+              {compareFull
+                ? <PrimaryCTA disabled $locked>지원하기</PrimaryCTA>
+                : <PrimaryCTA onClick={handleApplyOrder}>지원하기</PrimaryCTA>}
+            </ActionRow>
+          </>
         ) : matchType === "direct" ? (
           /* 지정배정 — 지정된 번호의 홈프로만 수락/거절 가능 (전수검사 7/29:
              가드가 없어 아무 프로나 수락하거나, 거절하기로 남의 오더를 통째로
              '대기' 상태로 내려버릴 수 있었음) */
           (() => {
-            const digits = (s) => String(s || "").replace(/[^0-9]/g, "").replace(/^82/, "0");
-            const isDesignated = !!order.directPhone
-              && digits(order.directPhone) === digits(userData?.phoneE164 || userData?.phone);
-            return isDesignated ? (
+            return isDesignatedPro ? (
               <>
-                {acceptLocked && <TierGateNote>{tierGateText}</TierGateNote>}
+                {acceptLocked ? <TierGateNote>{tierGateText}</TierGateNote> : lockOther ? <TierGateNote>배정중 — 30초 안에 결정하지 않으면 차례가 넘어옵니다</TierGateNote> : null}
                 <ActionRow>
                   <OutlinedBtn $danger onClick={handleRejectDirect}>거절하기</OutlinedBtn>
                   {acceptLocked ? (
                     <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
-                  ) : (
-                    <PrimaryCTA onClick={handleAcceptOrder}>{order.orderStatus === "대기" ? "보류 중 (수락 불가)" : "수락하기"}</PrimaryCTA>
-                  )}
+                  ) : renderAcceptBtn()}
                 </ActionRow>
               </>
             ) : (
@@ -1539,13 +1671,11 @@ const OrderDetailPage = () => {
         ) : (
           /* fallback — 매칭방식 미지정 시에도 수락 흐름 (전화 제거) */
           <>
-            {acceptLocked && <TierGateNote>{tierGateText}</TierGateNote>}
+            {acceptLocked ? <TierGateNote>{tierGateText}</TierGateNote> : lockOther ? <TierGateNote>배정중 — 30초 안에 결정하지 않으면 차례가 넘어옵니다</TierGateNote> : null}
             <ActionRow>
               {acceptLocked ? (
                 <PrimaryCTA disabled $locked>수락 가능까지 {formatAcceptRemain(acceptRemainSec)}</PrimaryCTA>
-              ) : (
-                <PrimaryCTA onClick={handleAcceptOrder}>{order.orderStatus === "대기" ? "보류 중 (수락 불가)" : "수락하기"}</PrimaryCTA>
-              )}
+              ) : renderAcceptBtn()}
             </ActionRow>
           </>
         )}

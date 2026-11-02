@@ -5,6 +5,9 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { COLLECTIONS, PRO_APPROVAL_REQUIRED_CATEGORIES } from "../config/homeproConfig";
 import { proCoversRegion } from "../utility/regionUtils";
 
+/** 활동 중으로 보는 상태 — 공식 인증 + 공동중개 우선활동(옛 pending 포함) (대표 리뷰 11/02) */
+export const ACTIVE_APPROVAL_STATUSES = ["approved", "provisional", "pending"];
+
 /**
  * 관리자 승인이 필요한 카테고리인지 (현재는 공동중개(부동산)만)
  */
@@ -65,18 +68,46 @@ export async function uploadCertLicenses(uid, certList = []) {
 }
 
 /**
+ * 인증서 사진이 하나라도 있는지 (공동중개 우선 등록 필수 — 대표 리뷰 11/02)
+ *  - 자격증 사본 또는 공인중개사무소 개설등록증 사진: certs[].url 또는 licenseUrl
+ */
+export function hasCertPhoto(licenseUrl, detailInfo = {}) {
+    if (licenseUrl) return true;
+    const certs = Array.isArray(detailInfo.certs) ? detailInfo.certs : [];
+    return certs.some((c) => !!c?.url);
+}
+
+/**
  * 전문가 카테고리 등록 문서를 Firestore에 저장
  * - 기본은 등록 즉시 승인완료(status: "approved" + approvedAt)
- * - 공동중개(부동산)만 관리자 승인 대기(status: "pending") — 대표 지시 7/30
+ * - 공동중개(부동산)는 선활동 · 후관리 (대표 리뷰 11/02):
+ *     인증서 사진을 올리면 status "provisional"(우선활동) + provisionalAt — 승인 대기 없이 바로 활동,
+ *     관리자가 사후에 approved / rejected / banned 로 바꾼다. 인증서 사진이 없으면 저장하지 않는다.
  * @param {object} detailInfo - { subcategories, experience, intro, certs, ... }
  * @param {object} opts - { existingStatus } 수정 시 기존 상태 유지용
  */
 export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls = [], detailInfo = {}, region = null, opts = {}) {
     const docId = `${uid}_${categoryId}`;
     const needsApproval = isApprovalRequiredCategory(categoryId);
-    // 승인 필요 카테고리를 이미 승인받은 뒤 수정하는 경우엔 승인 상태를 유지
-    const keepApproved = needsApproval && opts.existingStatus === "approved";
-    const status = !needsApproval || keepApproved ? "approved" : "pending";
+    let existingStatus = opts.existingStatus;
+    if (needsApproval) {
+        if (!hasCertPhoto(licenseUrl, detailInfo)) {
+            throw new Error("CERT_PHOTO_REQUIRED");
+        }
+        // 등록 화면은 기존 상태를 안 넘긴다 — 제재(banned) 계정이 다시 등록해 풀려나지 않게 직접 읽는다
+        if (existingStatus === undefined) {
+            try {
+                const prev = await getDoc(doc(db, COLLECTIONS.PROS, docId));
+                existingStatus = prev.exists() ? prev.data().status || null : null;
+            } catch { existingStatus = null; }
+        }
+        if (existingStatus === "banned") {
+            throw new Error("BROKER_BANNED");
+        }
+    }
+    // 이미 공식 인증을 받은 뒤 수정하는 경우엔 승인 상태를 유지. 반려 뒤 다시 등록하면 우선활동으로 돌아간다
+    const keepApproved = needsApproval && existingStatus === "approved";
+    const status = !needsApproval || keepApproved ? "approved" : "provisional";
     const data = {
         uid,
         categoryId,
@@ -88,6 +119,8 @@ export async function registerProCategory(uid, categoryId, licenseUrl, photoUrls
     };
     if (status === "approved") {
         data.approvedAt = serverTimestamp();
+    } else if (status === "provisional") {
+        data.provisionalAt = serverTimestamp();
     }
     // region: 시·도 이름 배열(새 화면, 여러 곳 · 전국) 또는 { sido, gu }(옛 방식)
     if (Array.isArray(region) && region.length) {
@@ -146,10 +179,13 @@ export async function getMyProDocs(uid) {
  */
 export async function getProsByCategory(categoryId, region) {
     // 활동 지역이 여러 곳 · 전국일 수 있어 지역은 받아 온 뒤 거른다 (대표 10/14)
+    //  공동중개는 우선활동(provisional · 옛 pending)도 활동 중이라 함께 보인다 (대표 리뷰 11/02)
     const q = query(
         collection(db, COLLECTIONS.PROS),
         where("categoryId", "==", categoryId),
-        where("status", "==", "approved")
+        isApprovalRequiredCategory(categoryId)
+            ? where("status", "in", ACTIVE_APPROVAL_STATUSES)
+            : where("status", "==", "approved")
     );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => proCoversRegion(p, region));
@@ -161,9 +197,11 @@ export async function getProsByCategory(categoryId, region) {
  * @returns {object[]} 프로 목록
  */
 export async function getProsByRegion(region) {
+    // 공동중개 우선활동(provisional · 옛 pending)도 활동 중으로 본다 (대표 리뷰 11/02)
+    //  다른 분야는 등록 즉시 approved 라 provisional/pending 문서가 없다
     const q = query(
         collection(db, COLLECTIONS.PROS),
-        where("status", "==", "approved")
+        where("status", "in", ACTIVE_APPROVAL_STATUSES)
     );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => proCoversRegion(p, region));

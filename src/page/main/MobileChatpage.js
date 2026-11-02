@@ -24,7 +24,9 @@ const MobileChatpage = () => {
   const navigate = useNavigate();
   const pcWide = usePcWide();
   const { pathname } = useLocation(); // PC 2단에서 열린 방을 목록에 표시하려고 주소 변화를 따라간다
-  const { userData } = useAuth();
+  const { userData, currentUser, loading: authLoading } = useAuth();
+  // 비회원 둘러보기 — 로그인 전에도 채팅 탭 모양은 보이고, 누르면 로그인으로 (대표 리뷰 10/29)
+  const isGuest = !authLoading && !currentUser;
   const [rooms, setRooms] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -36,12 +38,12 @@ const MobileChatpage = () => {
   const myUid = userData?.uid;
 
   useEffect(() => {
-    if (!myUid) return;
+    if (!myUid) { if (isGuest) setLoading(false); return; }
     return subscribeChatRooms(myUid, (list) => {
       setRooms(list);
       setLoading(false);
     });
-  }, [myUid]);
+  }, [myUid, isGuest]);
 
   // 오더 연동 채팅방의 종목명 표시를 위해 오더 배치 조회
   useEffect(() => {
@@ -153,6 +155,14 @@ const MobileChatpage = () => {
                 <EmptyText>다른 갈래에는 대화가 {normalRooms.length}개 있습니다.</EmptyText>
                 <EmptyBtnRow>
                   <EmptyGhost type="button" onClick={() => setNormalCat("전체")}>전체 보기</EmptyGhost>
+                </EmptyBtnRow>
+              </>
+            ) : isGuest ? (
+              <>
+                <EmptyTitle>로그인하면 대화가 여기 보여요</EmptyTitle>
+                <EmptyText>오더를 접수하거나 맡으면 상대와 이야기할 방이 생깁니다.</EmptyText>
+                <EmptyBtnRow>
+                  <EmptyPrimary type="button" onClick={() => navigate("/MobileLogin", { state: { from: "/MobileChat" } })}>로그인 하기</EmptyPrimary>
                 </EmptyBtnRow>
               </>
             ) : (

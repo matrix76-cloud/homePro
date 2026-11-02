@@ -113,3 +113,41 @@ export async function getReferralStats(uid) {
     referralPoints: data.referralPoints || 0,
   };
 }
+
+/* ─── 초대문구 (대표 확정본, 대표 리뷰 11/02) ───
+   복사 · 공유로 바깥 앱(카카오톡 · 문자)에 나가는 평문이라 대표가 준 이모지를 그대로 둔다.
+   화면에 그릴 때는 InviteMessageLines 로 줄을 나눠 이모지 자리를 아이콘으로 바꾼다.
+   포인트는 settings/point_rules 의 referral_signup(추천코드로 가입한 사람이 받는 몫, 11/03 기준 3,000P) */
+export const INVITE_POINT_FALLBACK = 3000;
+
+export function inviteMessageLines(code, url, points = INVITE_POINT_FALLBACK) {
+  const p = Number(points || INVITE_POINT_FALLBACK).toLocaleString("ko-KR");
+  return [
+    { text: "[홈프로 파트너 초대장]" },
+    { text: "홈클리닝, 설비, 에어컨, 인테리어까지!" },
+    { text: "집(Home) 관련 30여 개 모든 분야 사장님들이 드디어 한곳에 뭉쳤습니다." },
+    { text: "혼자 고민하던 현장 오더는 공유하고," },
+    { text: "내 일감 확장과 함께 쏠쏠한 추가 수익까지 창출하는 대한민국 1등 B2B 플랫폼!" },
+    { text: `지금 바로 합류하고 현장에서 유용하게 쓰는 ${p}포인트를 챙겨 가세요.`, emoji: "\u{1F381}", icon: "gift", iconAfter: true },
+    { text: `초대코드: ${code || ""}`, emoji: "\u{1F3AB}", icon: "ticket" },
+    { text: url || "" },
+  ];
+}
+
+/** 복사 · 공유되는 평문 */
+export function buildInviteMessage(code, url, points = INVITE_POINT_FALLBACK) {
+  return inviteMessageLines(code, url, points)
+    .map((l) => (l.emoji ? (l.iconAfter ? `${l.text} ${l.emoji}` : `${l.emoji} ${l.text}`) : l.text))
+    .join("\n");
+}
+
+/** 초대받은 사람이 받는 포인트 — 규칙이 꺼져 있거나 못 읽으면 기본값 */
+export async function getInviteSignupPoints() {
+  try {
+    const { getAllPointRules } = await import("./PointService");
+    const rules = await getAllPointRules();
+    const r = rules?.referral_signup;
+    if (r && r.active !== false && Number(r.amount) > 0) return Number(r.amount);
+  } catch (e) { /* 기본값 */ }
+  return INVITE_POINT_FALLBACK;
+}

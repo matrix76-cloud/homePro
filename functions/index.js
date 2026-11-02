@@ -159,7 +159,9 @@ exports.onNotificationSend = onDocumentCreated(
                 const settings = notiSettingsSnap.data();
                 const type = data.type || "general";
                 // type → 카테고리 매핑
-                const ORDER_TYPES = ["order", "quote", "quote_accepted", "quote_rejected", "payment", "work_complete", "review", "order_cancelled"];
+                const ORDER_TYPES = ["order", "quote", "quote_accepted", "quote_rejected", "payment", "work_complete", "review", "order_cancelled",
+                    // 오더 사건 알림 (OrderNotifyService, 대표 리뷰 11/02)
+                    "order_assigned", "work_checkin", "work_checkout", "referral_sent", "referral_confirmed", "onsite_quote", "applicant_quote"];
                 const CHAT_TYPES = ["chat"];
                 const NOTICE_TYPES = ["point", "grade_up", "pro_approval", "pro_rejection", "notice"];
 
@@ -402,6 +404,11 @@ exports.onOrderUpdated = onDocumentUpdated(
 
         // 상태가 변경된 경우만
         if (before.orderStatus === after.orderStatus) return;
+
+        // 취소 · 완료 · 배정은 앱(OrderNotifyService)이 "오더가 취소되었습니다 · 사유" 처럼 구체 문구로 이미 보낸다 (대표 리뷰 11/02).
+        // 여기서도 보내면 같은 일로 두 번 울리므로 나머지 상태 변화(접수 · 대기 · 선정대기 등)만 범용 문구로 알린다.
+        const CLIENT_NOTIFIED = ["취소", "완료", "리뷰", "정산", "배정"];
+        if (CLIENT_NOTIFIED.includes(after.orderStatus)) return;
 
         const targetUids = [];
         // (점검 C9) 바꾼 사람(updatedBy · actorUid)은 이번 쓰기에서 새로 적힌 값일 때만 믿는다.

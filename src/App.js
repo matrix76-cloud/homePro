@@ -70,6 +70,7 @@ import MobileChatpage from "./page/main/MobileChatpage";
 import MobileContractpage from "./page/main/MobileContractpage";
 import MobileFindAccountpage from "./page/main/MobileFindAccountpage";
 import OrderCreatePage from "./page/order/OrderCreatePage";
+import SelfCoverRegisterPage from "./page/order/SelfCoverRegisterPage";
 import OrderListPage from "./page/order/OrderListPage";
 import OrderDetailPage from "./page/order/OrderDetailPage";
 import WorkLogPage from "./page/order/WorkLogPage";
@@ -451,6 +452,13 @@ const AnimatedRoutes = () => {
           {/* 홈 — 비회원도 둘러볼 수 있다. 로그인한 사람만 전화번호 단계를 거친다 (대표 9/17) */}
           <Route element={<RequirePhone onlyIfLoggedIn />}>
             <Route path="/MobileMain" element={pcWidePage ? <PcOrdersPage /> : wrap(<MobileMainpage />)} />
+            {/* 비회원 둘러보기 — 마이 · 공동중개 · 안심케어는 목록(모양)까지 보이고, 안의 메뉴 · 버튼을 누를 때 로그인으로 (대표 리뷰 10/29)
+                화면 안에서 비로그인 판정을 한다. 글쓰기(/brokerage/create)와 그 밖의 화면은 아래 RequireAuth 그대로 */}
+            <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
+            <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
+            <Route path="/brokerage/:id" element={wrap(<BrokerageDetailPage />)} />
+            <Route path="/insurance" element={noPg(noIos(wrap(<InsurancePage />)))} />
+            <Route path="/MobileChat" element={pcChat ? <PcChatEmpty>왼쪽에서 대화를 고르면 이곳에 열립니다.</PcChatEmpty> : wrap(<MobileChatpage />)} />
           </Route>
           <Route path="/MobileLogin" element={wrap(<MobileLoginpage />)} />
           <Route path="/MobileSignup" element={pcWide ? <PcAuthSplit>{wrap(<MobileSignuppage />)}</PcAuthSplit> : wrap(<MobileSignuppage />)} />
@@ -484,8 +492,6 @@ const AnimatedRoutes = () => {
             {/* 전화번호 미등록이면 /MobileLinkPhone 으로 (형 지시 7/28 — 전화번호 단계 복원).
                 번호가 계정 통합의 기준키라, 이 단계를 건너뛰면 같은 사람이 여러 계정으로 갈라진다. */}
             <Route element={<RequirePhone />}>
-            <Route path="/MobileConfig" element={wrap(<MobileConfigpage />)} />
-            <Route path="/MobileChat" element={pcChat ? <PcChatEmpty>왼쪽에서 대화를 고르면 이곳에 열립니다.</PcChatEmpty> : wrap(<MobileChatpage />)} />
             <Route path="/chat/:roomId" element={wrap(<ChatDetailPage />)} />
             <Route path="/chat/:roomId/memo" element={wrap(<ChatMemoPage />)} />
             <Route path="/MobileContract" element={wrap(<MobileContractpage />)} />
@@ -495,7 +501,7 @@ const AnimatedRoutes = () => {
             <Route path="/pro/list" element={wrap(<ProListPage />)} />
             <Route path="/education-market" element={wrap(<EducationMarketPage />)} />
             {/* 일일 미니보험 안심케어 — 하단탭 (교육.장터 자리 대체, 대표 지시 8/4) */}
-            <Route path="/insurance" element={noPg(noIos(wrap(<InsurancePage />)))} />
+            {/* /insurance 는 위 비회원 둘러보기 쪽으로 옮겼다 (대표 리뷰 10/29) */}
             {/* 보험 가입·사고 접수·토스 결제 (9/13) */}
             <Route path="/insurance/my" element={noPg(noIos(wrap(<InsuranceMyPage />)))} />
             {/* 배상책임보험 가입 3단계 (대표 기획안 10/26 · 형 시안 선택 10/27) */}
@@ -510,9 +516,8 @@ const AnimatedRoutes = () => {
             <Route path="/pay/billing-success" element={noIos(wrap(<BillingSuccessPage />))} />
             {/* 공동중개 라운지 — 조회는 누구나, 글쓰기·손님공유 연결은 인증 공인중개사만 (대표 9/10 권한 구조, 9/13 반영). 판정은 페이지 안에서 */}
             <Route>
-              <Route path="/brokerage" element={wrap(<BrokeragePage />)} />
+              {/* /brokerage · /brokerage/:id 는 위 비회원 둘러보기 쪽으로 옮겼다 (대표 리뷰 10/29) */}
               <Route path="/brokerage/create" element={wrap(<BrokerageCreatePage />)} />
-              <Route path="/brokerage/:id" element={wrap(<BrokerageDetailPage />)} />
             <Route path="/profile/:uid" element={wrap(<ProfileViewPage />)} />
             </Route>
             <Route path="/training" element={wrap(<TrainingPage />)} />
@@ -542,6 +547,8 @@ const AnimatedRoutes = () => {
             <Route path="/order/my-orders" element={wrap(<MyOrdersPage />)} />
             <Route path="/order/create" element={wrap(<OrderCreatePage />)} />
             <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
+            {/* 도급업자 배상책임보험 셀프보장등록 — 간단 등재 폼 (대표 리뷰 11/02) */}
+            <Route path="/order/self-cover" element={wrap(<SelfCoverRegisterPage />)} />
             <Route path="/order/list" element={wrap(<OrderListPage />)} />
             <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
             {/* 현장 작업기록 — 체크인(Before)/작업중/체크아웃(After) */}

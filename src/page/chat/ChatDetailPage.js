@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { ACTIVE_APPROVAL_STATUSES } from "../../service/ProService";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -451,7 +452,7 @@ const ChatDetailPage = () => {
       try {
         const snap = await getDoc(doc(db, "users", proUid));
         if (snap.exists()) setProProfile({ uid: proUid, ...snap.data() });
-        const prosSnap = await getDocs(query(collection(db, "homepro_pros"), where("uid", "==", proUid), where("status", "==", "approved")));
+        const prosSnap = await getDocs(query(collection(db, "homepro_pros"), where("uid", "==", proUid), where("status", "in", ACTIVE_APPROVAL_STATUSES)));
         setProCategories(prosSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) {}
     })();
@@ -492,11 +493,14 @@ const ChatDetailPage = () => {
           await updateOrderStatus(room.orderId, "대기");
         }
       } else {
-        const extra = cancelReason ? { cancelReason } : {};
+        // 누가 바꿨는지 넘긴다 — 취소 · 완료는 updateOrderStatus 가 상대에게 채팅 안내 + 푸시를 보낸다 (OrderNotifyService, 대표 리뷰 11/02)
+        const extra = newStatus === "취소" ? { cancelledBy: myUid, ...(cancelReason ? { cancelReason } : {}) }
+          : newStatus === "완료" ? { actorUid: myUid } : (cancelReason ? { cancelReason } : {});
         await updateOrderStatus(room.orderId, newStatus, extra);
       }
       setOrderData((prev) => prev ? { ...prev, orderStatus: newStatus } : prev);
       const statusLabel = normalizeOrderStatus(newStatus);
+      if (statusLabel === "취소" || statusLabel === "완료") { showToast(`${statusLabel} 처리되었습니다`); return; }
       await sendSystemMessage(roomId, { text: `상태가 "${statusLabel}"(으)로 변경되었습니다.`, type: "system" });
       // 상대방에게 푸시 알림
       try {

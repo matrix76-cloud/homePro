@@ -137,6 +137,40 @@ export const USER_TYPES = {
     PRO: "pro",                  // 홈프로 (구독회원)
 };
 
+// ─── 회원 구분 (복수 선택 — 대표 리뷰 11/02) ───
+// users.userTypes: ["business","freelancer","broker","general"] 배열에 저장한다.
+// 호환용 users.userType 은 앱 전체가 쓰는 기존 값 그대로 둔다:
+//   사업자 포함 → "business", 프리랜서·부동산중개사 → "freelancer", 일반만 → "customer"(일반고객)
+export const MEMBER_TYPES = [
+    { key: "business", label: "사업자회원" },
+    { key: "freelancer", label: "프리랜서회원" },
+    { key: "broker", label: "부동산중개사회원" },
+    { key: "general", label: "일반회원" },
+];
+const MEMBER_TYPE_KEYS = MEMBER_TYPES.map((t) => t.key);
+
+/** 프로필 문서에서 회원 구분 배열을 꺼낸다 (userTypes 없으면 예전 userType 으로 짐작) */
+export const getMemberTypes = (profile) => {
+    const arr = Array.isArray(profile?.userTypes) ? profile.userTypes.filter((k) => MEMBER_TYPE_KEYS.includes(k)) : [];
+    if (arr.length > 0) return MEMBER_TYPE_KEYS.filter((k) => arr.includes(k));
+    const t = profile?.userType;
+    if (t === "business") return ["business"];
+    if (t === "freelancer") return ["freelancer"];
+    if (t === "customer" || t === "general") return ["general"];
+    return [];
+};
+
+/** "사업자회원 · 프리랜서회원" 식 글씨 (없으면 빈 문자열) */
+export const memberTypesLabel = (profile) =>
+    getMemberTypes(profile).map((k) => MEMBER_TYPES.find((t) => t.key === k)?.label).filter(Boolean).join(" · ");
+
+/** 고른 구분 배열 → 호환용 userType */
+export const legacyUserType = (types = []) => {
+    if (types.includes("business")) return "business";
+    if (types.includes("freelancer") || types.includes("broker")) return "freelancer";
+    return "customer";
+};
+
 // ─── 일정 선택 옵션 ───
 export const SCHEDULE_OPTIONS = [
     { key: "flexible", label: "협의가능해요!" },

@@ -121,11 +121,13 @@ const MENUS = [
         ],
     },
     {
-        icon: IoShieldCheckmarkOutline, label: "프로 승인관리", groupKey: "pro-approval",
+        // 공인중개사 선활동 · 후관리 (대표 리뷰 11/02) — 우선활동 중인 등록을 사후 심사한다
+        icon: IoShieldCheckmarkOutline, label: "공인중개사 인증관리", groupKey: "pro-approval",
         sub: [
-            { to: "/admin/pro-approval", label: "대기중", end: true },
+            { to: "/admin/pro-approval", label: "우선활동 (사후심사)", end: true },
             { to: "/admin/pro-approval/approved", label: "승인완료" },
             { to: "/admin/pro-approval/rejected", label: "반려" },
+            { to: "/admin/pro-approval/banned", label: "제재" },
         ],
     },
     {

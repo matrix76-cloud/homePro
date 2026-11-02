@@ -9,14 +9,14 @@ import { UserContext } from "../../context/User";
 import { withdrawUser } from "../../service/AuthService";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
-import { THEME, CATEGORIES, APP_VERSION } from "../../config/homeproConfig";
+import { THEME, CATEGORIES, APP_VERSION, MEMBER_TYPES, getMemberTypes, memberTypesLabel, legacyUserType } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import MyPageLayout from "../../screen/Layout/Layout/MyPageLayout";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../api/config";
 import { compressProfileImage } from "../../utility/imageUtils";
 import { GradeBadge, GradeProgressBar, GRADE_ORDER, calcGrade, GRADE_SYSTEM_ENABLED } from "../../utility/gradeUtils";
-import { IoHelpCircleOutline, IoCloseOutline, IoChevronBack } from "react-icons/io5";
+import { IoHelpCircleOutline, IoCloseOutline, IoChevronBack, IoCheckmarkCircle, IoEllipseOutline } from "react-icons/io5";
 import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC } from "../../pc/pcKit";
 import { isIosApp } from "../../bridge/webviewBridge";
@@ -317,6 +317,31 @@ const EditLabel = styled.div`
 const EditCount = styled.div`
   font-size: 13px;
   color: #2b2f36;
+`;
+
+/* 회원 유형 칩 — 높이 44 · 글씨 15 · 각진 모서리, 고른 것은 포인트색 테두리 + 굵은 글씨 */
+const TypeChipGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+`;
+const TypeChip = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid ${({ $on }) => ($on ? THEME.primary : "#D9DDE3")};
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: ${({ $on }) => ($on ? 700 : 500)};
+  color: ${THEME.text};
+  font-family: inherit;
+  text-align: left;
+  word-break: keep-all;
+  cursor: pointer;
 `;
 
 const EditInput = styled.input`
@@ -1017,7 +1042,17 @@ const ToggleSwitch = styled.div`
 const MobileConfigpage = () => {
   const navigate = useNavigate();
   const { user, dispatch } = useContext(UserContext);
-  const { userData, refreshUser, logout } = useAuth();
+  const { userData, refreshUser, logout, isLoggedIn, currentUser } = useAuth();
+  // 비회원도 마이 화면(목록 모양)은 본다 — 메뉴 · 버튼을 누르면 로그인으로 (대표 리뷰 10/29)
+  // 로그인 직후 프로필을 읽는 찰나(currentUser 만 있음)는 비회원으로 보지 않는다
+  const isGuest = !isLoggedIn && !currentUser;
+  const guardGuest = (e) => {
+    if (!isGuest) return;
+    if (e.target?.closest?.("[data-guest-ok]")) return; // 약관 등 로그인 없이 여는 줄
+    e.preventDefault();
+    e.stopPropagation();
+    navigate("/MobileLogin", { state: { from: "/MobileConfig" } });
+  };
   const [proCategories] = useAtom(proCategoriesAtom);
   const [showEditModal, setShowEditModal] = useState(false);
   const uid = userData?.uid || user?.USERS_ID;
@@ -1029,6 +1064,9 @@ const MobileConfigpage = () => {
   const [editNickname, setEditNickname] = useState("");
   const [editIntro, setEditIntro] = useState("");
   const [editImg, setEditImg] = useState("");
+  // 회원 유형 복수 선택 (대표 리뷰 11/02) — 사업자를 고르면 상호 입력칸이 같이 열린다
+  const [editTypes, setEditTypes] = useState([]);
+  const [editCompany, setEditCompany] = useState("");
   const [uploadingImg, setUploadingImg] = useState(false);
   const profileFileRef = React.useRef(null);
   const [referralCode, setReferralCode] = useState("");
@@ -1097,6 +1135,8 @@ const MobileConfigpage = () => {
     setEditNickname(nickname);
     setEditIntro(intro);
     setEditImg(userimg);
+    setEditTypes(getMemberTypes(userData));
+    setEditCompany(userData?.companyName || "");
     setShowEditModal(true);
   };
 
@@ -1131,11 +1171,25 @@ const MobileConfigpage = () => {
       toast("로그인 정보를 확인할 수 없어 저장하지 못했습니다. 다시 로그인해 주세요.");
       return;
     }
+    // 회원 유형 — 처음부터 고른 게 없던 계정은 그대로 두고, 고른 적이 있으면 하나 이상 남아야 한다
+    const prevTypes = getMemberTypes(userData);
+    if (editTypes.length === 0 && prevTypes.length > 0) {
+      toast("회원 유형을 하나 이상 골라 주세요.");
+      return;
+    }
+    const companyTrimmed = editCompany.trim();
+    if (editTypes.includes("business") && !companyTrimmed) {
+      toast("사업자회원은 상호(업체명)를 입력해 주세요.");
+      return;
+    }
+    const typePatch = editTypes.length > 0
+      ? { userTypes: editTypes, userType: legacyUserType(editTypes), ...(editTypes.includes("business") ? { companyName: companyTrimmed } : {}) }
+      : {};
     const prevInfo = { nickname, intro, userimg };
     dispatch({ USERINFO: { nickname: trimmed, intro: introTrimmed, userimg: editImg } });
     try {
       const { upsertUserProfile } = await import("../../service/UserProfileService");
-      await upsertUserProfile(saveUid, { nickname: trimmed, name: trimmed, intro: introTrimmed, profileImage: editImg, photoURL: editImg });
+      await upsertUserProfile(saveUid, { nickname: trimmed, name: trimmed, intro: introTrimmed, profileImage: editImg, photoURL: editImg, ...typePatch });
       await refreshUser();
     } catch (e) {
       console.error("프로필 저장 실패:", e);
@@ -1218,7 +1272,44 @@ const MobileConfigpage = () => {
               <EditPhotoText type="button" onClick={() => profileFileRef.current?.click()}>사진 바꾸기</EditPhotoText>
             </EditPhotoWrap>
 
+            {/* 회원 유형 — 여러 개 고를 수 있고, 프로필에 "사업자회원 · 프리랜서회원" 식으로 보인다 (대표 리뷰 11/02) */}
             <EditLabelRow>
+              <EditLabel>회원 유형</EditLabel>
+              <EditCount>여러 개 고를 수 있어요</EditCount>
+            </EditLabelRow>
+            <TypeChipGrid>
+              {MEMBER_TYPES.map((t) => {
+                const on = editTypes.includes(t.key);
+                return (
+                  <TypeChip
+                    key={t.key}
+                    type="button"
+                    $on={on}
+                    aria-pressed={on}
+                    onClick={() => setEditTypes((prev) => (on ? prev.filter((k) => k !== t.key) : MEMBER_TYPES.map((m) => m.key).filter((k) => k === t.key || prev.includes(k))))}
+                  >
+                    {on ? <IoCheckmarkCircle size={18} color={THEME.primary} /> : <IoEllipseOutline size={18} color="#9AA1AB" />}
+                    {t.label}
+                  </TypeChip>
+                );
+              })}
+            </TypeChipGrid>
+            {editTypes.includes("business") && (
+              <>
+                <EditLabelRow style={{ marginTop: 16 }}>
+                  <EditLabel>상호(업체명)</EditLabel>
+                  <EditCount>{editCompany.length}/30</EditCount>
+                </EditLabelRow>
+                <EditInput
+                  value={editCompany}
+                  onChange={(e) => setEditCompany(e.target.value.slice(0, 30))}
+                  placeholder="사업자등록증의 상호를 입력하세요"
+                  maxLength={30}
+                />
+              </>
+            )}
+
+            <EditLabelRow style={{ marginTop: 22 }}>
               <EditLabel>대화명</EditLabel>
               <EditCount>{editNickname.length}/12</EditCount>
             </EditLabelRow>
@@ -1403,6 +1494,7 @@ const MobileConfigpage = () => {
     ];
     return (
       <MyPageLayout name="마이페이지">
+        <div onClickCapture={guardGuest}>
         <PcWrap>
           <PcSide>
             <PcSideCard>
@@ -1410,7 +1502,7 @@ const MobileConfigpage = () => {
                 {userimg ? <ProfileImg src={userimg} alt="profile" style={{ width: 72, height: 72 }} /> : <IoPersonCircleOutline size={72} color={THEME.border} />}
                 <div style={{ minWidth: 0 }}>
                   <ProfileNameRow>
-                    <PcName>{nickname}</PcName>
+                    <PcName style={isGuest ? { color: THEME.primary } : undefined}>{isGuest ? "로그인하고 시작하기" : nickname}</PcName>
                     <GradeBadge grade={userData?.grade} size="sm" />
                     {GRADE_SYSTEM_ENABLED && (
                     <GradeHelpBtn onClick={(e) => { e.stopPropagation(); setShowGradeSheet(true); }} aria-label="등급 안내">
@@ -1418,7 +1510,7 @@ const MobileConfigpage = () => {
                     </GradeHelpBtn>
                     )}
                   </ProfileNameRow>
-                  <PcLine>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}{userData?.userType === "business" ? " · 사업자회원" : userData?.userType === "freelancer" ? " · 프리랜서회원" : userData?.userType === "customer" ? " · 일반고객" : ""}</PcLine>
+                  <PcLine>{isGuest ? "오더 · 채팅 · 포인트는 로그인 뒤 이용할 수 있어요" : <>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}{memberTypesLabel(userData) ? " · " + memberTypesLabel(userData) : ""}</>}</PcLine>
                 </div>
               </PcProfileTop>
               {intro && <PcIntro>{intro}</PcIntro>}
@@ -1455,13 +1547,16 @@ const MobileConfigpage = () => {
               </PcSection>
             ))}
 
+            {!isGuest && (
             <PcEndRow>
               <PcTextBtn type="button" style={{ color: THEME.danger }} onClick={handleLogout}>로그아웃</PcTextBtn>
               <PcTextBtn type="button" onClick={() => { setShowWithdraw(true); setWithdrawText(""); }}>탈퇴하기</PcTextBtn>
             </PcEndRow>
+            )}
             <PcFooterBox>{companyFooter}</PcFooterBox>
           </PcMain>
         </PcWrap>
+        </div>
         {profileOverlays}
         {withdrawSheet}
       </MyPageLayout>
@@ -1471,7 +1566,22 @@ const MobileConfigpage = () => {
   return (
     <MyPageLayout name="마이페이지">
       {/* 마이페이지 윗부분 — 시안 3번 '묶음 둘로 나누기' (대표 10/7 확정, /lab?tab=mypage) */}
+      <div onClickCapture={guardGuest}>
       {/* 프로필 한 줄: 사진 · 이름 · 회원 구분, 오른쪽 '내 프로필 보기' */}
+      {isGuest ? (
+      <MyBox>
+        {/* 비회원 — 이름 자리에 로그인 진입 (대표 리뷰 10/29) */}
+        <MyProfileLine as="button" type="button" style={{ width: "100%", border: "none", background: "none", textAlign: "left", fontFamily: "inherit", cursor: "pointer" }}>
+          <IoPersonCircleOutline size={56} color={THEME.border} style={{ flexShrink: 0 }} />
+          <MyProfileText>
+            <MyProfileName style={{ color: THEME.primary }}>
+              로그인하고 시작하기 <IoChevronForward size={19} color={THEME.primary} />
+            </MyProfileName>
+            <MyProfileSub>오더 · 채팅 · 포인트는 로그인 뒤 이용할 수 있어요</MyProfileSub>
+          </MyProfileText>
+        </MyProfileLine>
+      </MyBox>
+      ) : (
       <MyBox>
         <MyProfileLine>
           {userimg ? (
@@ -1484,7 +1594,11 @@ const MobileConfigpage = () => {
               {nickname}
               <GradeBadge grade={userData?.grade} size="sm" />
             </MyProfileName>
-            <MyProfileSub>{proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}</MyProfileSub>
+            <MyProfileSub>
+              {proCategories?.length > 0 ? "홈프로 전문가" : "홈프로 일반회원"}
+              {/* 고른 회원 유형 (대표 리뷰 11/02) */}
+              {memberTypesLabel(userData) ? " · " + memberTypesLabel(userData) : ""}
+            </MyProfileSub>
           </MyProfileText>
           {userData?.uid && (
             <MyProfileLink type="button" onClick={() => navigate(`/profile/${userData.uid}`)}>
@@ -1493,6 +1607,7 @@ const MobileConfigpage = () => {
           )}
         </MyProfileLine>
       </MyBox>
+      )}
 
       <MyGroupTitle>내 정보</MyGroupTitle>
       <MyBox $flush>
@@ -1676,15 +1791,15 @@ const MobileConfigpage = () => {
             <SupportLabel>고객센터</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
-          <SupportItem onClick={() => navigate("/legal/terms")}>
+          <SupportItem data-guest-ok onClick={() => navigate("/legal/terms")}>
             <SupportLabel>이용약관</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
-          <SupportItem onClick={() => navigate("/legal/privacy")}>
+          <SupportItem data-guest-ok onClick={() => navigate("/legal/privacy")}>
             <SupportLabel>개인정보처리방침</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
-          <SupportItem onClick={() => navigate("/legal/location")}>
+          <SupportItem data-guest-ok onClick={() => navigate("/legal/location")}>
             <SupportLabel>위치기반서비스 이용약관</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
@@ -1696,13 +1811,15 @@ const MobileConfigpage = () => {
         </SupportList>
       </ContentCard>
 
-      <LogoutButton onClick={handleLogout}>로그아웃</LogoutButton>
+      {/* 로그아웃 · 탈퇴는 로그인한 사람만 */}
+      {!isGuest && <LogoutButton onClick={handleLogout}>로그아웃</LogoutButton>}
 
-      <WithdrawLink type="button" onClick={() => { setShowWithdraw(true); setWithdrawText(""); }}>탈퇴하기</WithdrawLink>
+      {!isGuest && <WithdrawLink type="button" onClick={() => { setShowWithdraw(true); setWithdrawText(""); }}>탈퇴하기</WithdrawLink>}
 
       {withdrawSheet}
 
       {companyFooter}
+      </div>
 
       <BottomSpacer />
     </MyPageLayout>

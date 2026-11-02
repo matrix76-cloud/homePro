@@ -24,11 +24,12 @@
  */
 
 import {
-  collection, addDoc, doc, getDocs, updateDoc, query, orderBy, serverTimestamp, increment,
+  collection, addDoc, doc, getDoc, getDocs, updateDoc, query, orderBy, serverTimestamp, increment,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../api/config";
 import { COLLECTIONS, STORAGE_PATH_PREFIX } from "../config/homeproConfig";
+import { notifyOrderEvent } from "./OrderNotifyService";
 
 export const WORKLOG_TYPES = {
   CHECKIN: "checkin",     // 현장 도착 (Before)
@@ -184,6 +185,26 @@ export async function addWorkLog(orderId, {
     await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), summary);
   } catch (e) {
     console.warn("현장기록 요약 갱신 실패:", e.message);
+  }
+
+  // 접수자에게 작업 시작 · 마침 알림 (채팅 + 푸시, 대표 리뷰 11/02)
+  if (type === WORKLOG_TYPES.CHECKIN || type === WORKLOG_TYPES.CHECKOUT) {
+    try {
+      const oSnap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
+      if (oSnap.exists()) {
+        const o = { id: oSnap.id, ...oSnap.data() };
+        const who = byName ? `${byName}님이 ` : "";
+        const isIn = type === WORKLOG_TYPES.CHECKIN;
+        const text = isIn ? "작업을 시작했습니다 (현장 체크인)" : "작업을 마쳤습니다 (체크아웃)";
+        await notifyOrderEvent(o, {
+          toUids: [o.createdBy], actorUid: byUid,
+          title: isIn ? "작업 시작" : "작업 완료",
+          body: `${who}${text}${o.title ? ` · ${o.title}` : ""}`,
+          type: isIn ? "work_checkin" : "work_checkout",
+          chatText: `${who}${text}`,
+        });
+      }
+    } catch (e) { console.warn("[현장기록 알림]", e?.message); }
   }
 
   return { id: docRef.id };
