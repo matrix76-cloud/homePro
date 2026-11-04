@@ -15,16 +15,17 @@ export const GROUP_RANK = { A: 1, B: 2, C: 3, D: 4 };
 
 // 홈프로 카테고리 → 그룹 (대표 10/27 카톡 그룹표). 가전렌탈 · 팀원 구인 · 공동중개는 표에 없어 배정하지 않는다
 export const CATEGORY_GROUP = {
-  professional_cleaning: "A", regular_cleaning: "A", mattress_care: "A", appliance_install: "A", home_repair: "A",
+  move_cleaning: "A", special_cleaning: "B", business_cleaning: "A", regular_cleaning: "A", mattress_care: "A", appliance_install: "A", home_repair: "A",
   pest_control: "A", computer: "A", auto: "A",
   drain_pipe: "B", appliance_cleaning: "B", aircon_install: "B", leak_detection: "B", mold: "B", paint_waterproof: "B",
   moving: "B", partial_interior: "B",
   boiler: "C", electrical_work: "C", full_remodel: "C", waste: "C",
   demolition: "D", heavy_equipment: "D",
 };
-// 세부 항목이 카테고리 기본과 다른 그룹인 것 — 전문청소 · 누수탐지공사는 세부 항목마다 갈린다
+// 세부 항목이 카테고리 기본과 다른 그룹인 것 — 사업장청소(외벽·고소) · 누수탐지공사는 세부 항목마다 갈린다
+// 옛 전문청소를 넷으로 나누며(대표 11/03) 특수 · 화재청소는 특수청소 카테고리 기본 B 로 옮겼다
 export const SUB_GROUP = {
-  professional_cleaning: { "특수청소": "B", "화재청소": "B", "외벽.고소청소": "D" },
+  business_cleaning: { "외벽.고소청소": "D" },
   leak_detection: { "누수공사": "C" },
 };
 

@@ -885,7 +885,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         leftover.push(sv);
       });
       if (cfg.multiService) {
-        setSelectedServices(pickedGroups.filter((l) => l !== "기타"));
+        setSelectedServices(pickedGroups);
         setSelectedSub(pickedItems);
       } else if (pickedGroups.length) {
         // 한 번에 서비스 하나만 고를 수 있다 — 첫 서비스만 잡고 나머지는 상세 요청내용에 남긴다
@@ -1774,7 +1774,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
             <Section>
               <Label>서비스 선택 <span style={{ fontWeight: 400, color: THEME.muted, fontSize: 14 }}>· 여러 개 함께 선택 가능</span></Label>
               <ChipGrid>
-                {formConfig.subGroups.filter((g) => g.label !== "기타").map((group) => (
+                {/* '기타'도 서비스로 고를 수 있다 — 고르면 바로 내용 입력칸 (대표 리뷰 11/03: 서비스 선택 · 종목마다 기타 입력형) */}
+                {formConfig.subGroups.map((group) => (
                   <Chip
                     key={group.label}
                     $selected={selectedServices.includes(group.label)}
@@ -1782,6 +1783,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
                       const on = selectedServices.includes(group.label);
                       setSelectedServices(on ? selectedServices.filter((l) => l !== group.label) : [...selectedServices, group.label]);
                       if (on) setSelectedSub(selectedSub.filter((k) => !k.startsWith(`${group.label}:`)));
+                      else if (group.label === "기타") setSelectedSub([...selectedSub.filter((k) => k !== "기타:기타"), "기타:기타"]);
                     }}
                   >
                     {group.label}
@@ -1791,6 +1793,14 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               {selectedServices.map((label) => {
                 const group = formConfig.subGroups.find((g) => g.label === label);
                 if (!group) return null;
+                if (label === "기타") {
+                  return (
+                    <div key={label} style={{ marginTop: 14 }}>
+                      <GroupLabel>기타 내용</GroupLabel>
+                      <Input placeholder="기타 내용을 입력하세요" value={customInput} onChange={(e) => setCustomInput(e.target.value)} />
+                    </div>
+                  );
+                }
                 const etcKey = `${label}:기타`;
                 const etcOn = selectedSub.includes(etcKey);
                 return (

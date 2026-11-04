@@ -181,7 +181,7 @@ export const SCHEDULE_OPTIONS = [
 
 // ─── 카테고리 대분류 그룹 ───
 export const CATEGORY_GROUPS = [
-    { id: "cleaning", label: "청소", categoryIds: ["professional_cleaning", "regular_cleaning", "appliance_cleaning", "mattress_care", "pest_control", "mold"] },
+    { id: "cleaning", label: "청소", categoryIds: ["move_cleaning", "special_cleaning", "regular_cleaning", "business_cleaning","appliance_cleaning", "mattress_care", "pest_control", "mold"] },
     { id: "repair", label: "설비/수리", categoryIds: ["drain_pipe", "leak_detection", "home_repair", "boiler", "electrical_work"] },
     { id: "install", label: "설치", categoryIds: ["aircon_install", "appliance_install"] },
     { id: "construction", label: "시공/철거", categoryIds: ["demolition", "waste", "paint_waterproof", "partial_interior", "full_remodel", "heavy_equipment"] },
@@ -199,18 +199,32 @@ export const PRO_ONLY_CATEGORY_GROUPS = [
 // (그 외 카테고리는 등록 즉시 승인완료 — 대표 지시 7/30)
 export const PRO_APPROVAL_REQUIRED_CATEGORIES = ["brokerage"];
 
+// ─── 전문분야 등록 때 '기타'를 세부 분야로 고르지 않는 카테고리 ───
+// 옛 전문청소의 규칙(대표 9/10)을 나눈 청소 카테고리에도 그대로 (대표 11/03)
+export const NO_ETC_SUB_CATS = ["move_cleaning", "special_cleaning", "business_cleaning"];
+
 // ─── 카테고리 ───
 export const CATEGORIES = [
     // 대표 확정 최종본 7/28 — 25개. 이 배열 순서가 곧 화면 표기 순서.
     // 예약접수 / AI견적 / 비즈프로필이 모두 이 목록을 그대로 쓴다.
     // 카테고리별 상세 접수 단계(orderFormConfig)는 대표님 자료 수령분부터 순차 반영.
+    // 옛 '전문청소(professional_cleaning)'를 넷으로 나눔 — 입주 · 특수 · 정기 · 사업장 (대표 리뷰 11/03).
+    // 기존 오더 · 전문분야는 scripts/migrate-split-cleaning.mjs 로 옮겼다.
     {
-        id: "professional_cleaning",
-        name: "전문청소",
-        shortName: "전문청소",
+        id: "move_cleaning",
+        name: "입주청소",
+        shortName: "입주청소",
         group: "cleaning",
-        description: "홈클리닝, 준공청소, 특수청소, 화재청소 등 전문 청소",
-        subcategories: ["홈클리닝", "준공청소", "특수청소", "화재청소", "상업.매장청소", "바닥청소", "외벽.고소청소", "기타"],
+        description: "이사·입주·거주청소, 부분청소, 정리수납 등 홈클리닝",
+        subcategories: ["홈클리닝", "기타"],
+    },
+    {
+        id: "special_cleaning",
+        name: "특수청소",
+        shortName: "특수청소",
+        group: "cleaning",
+        description: "유품정리·고독사·쓰레기집 등 특수청소와 화재청소",
+        subcategories: ["특수청소", "화재청소", "기타"],
     },
     {
         id: "regular_cleaning",
@@ -219,6 +233,14 @@ export const CATEGORIES = [
         group: "cleaning",
         description: "건물 공용부·상업시설·주거공간 월 단위 정기 청소",
         subcategories: ["빌딩공용부", "계단/복도", "엘리베이터", "화장실", "사무실", "병원", "학원", "카페", "음식점", "상가", "매장", "아파트", "빌라/다가구", "단독주택", "오피스텔", "유리 외벽", "바닥왁스", "카펫세척", "공장/물류창고", "기타"],
+    },
+    {
+        id: "business_cleaning",
+        name: "사업장청소",
+        shortName: "사업장청소",
+        group: "cleaning",
+        description: "상업·매장청소, 바닥 전문청소, 준공청소, 외벽·고소청소",
+        subcategories: ["상업.매장청소", "바닥 전문청소", "준공청소", "외벽.고소청소", "기타"],
     },
     {
         id: "drain_pipe",

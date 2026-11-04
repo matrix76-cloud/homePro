@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { CATEGORIES, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
+import { CATEGORIES, THEME, PRO_DETAIL_FIELDS, NO_ETC_SUB_CATS } from "../../config/homeproConfig";
 import { getProCategoryDoc, uploadBusinessLicense, uploadActivityPhotos, uploadCertLicenses, registerProCategory, isApprovalRequiredCategory } from "../../service/ProService";
 import { isFreelancerNoBiz } from "../../service/CertificateService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -181,7 +181,7 @@ const ProCategoryEditPage = () => {
     const brokerMissingPhoto = isBroker && !certs.some((c) => !!c.file || !!c.url);
     const canSubmit = String(experience ?? "").trim() !== "" && intro.trim() !== "" && (!!imageFile || !!existingLicenseUrl || licenseOptional || isBroker) && !brokerMissingField && !brokerMissingPhoto && !submitting;
     // 세부 전문분야 전체 선택 · 해제 (대표 리뷰 11/02) — 전문청소의 '기타'는 등록분야가 아니다 (대표 9/10)
-    const allSubs = (cat?.subcategories || []).filter((sub) => !(cat?.id === "professional_cleaning" && sub === "기타"));
+    const allSubs = (cat?.subcategories || []).filter((sub) => !(NO_ETC_SUB_CATS.includes(cat?.id) && sub === "기타"));
     const isAllSubs = allSubs.length > 0 && allSubs.every((sub) => selectedSubs.includes(sub));
 
     if (!cat) return null;

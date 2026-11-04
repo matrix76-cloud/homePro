@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { useAtom } from "jotai";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { CATEGORIES, CATEGORY_GROUPS, PRO_ONLY_CATEGORY_GROUPS, THEME, PRO_DETAIL_FIELDS } from "../../config/homeproConfig";
+import { CATEGORIES, CATEGORY_GROUPS, PRO_ONLY_CATEGORY_GROUPS, THEME, PRO_DETAIL_FIELDS, NO_ETC_SUB_CATS } from "../../config/homeproConfig";
 import { proCategoriesAtom } from "../../store/store";
 import {
     uploadBusinessLicense,
@@ -42,7 +42,7 @@ const CERT_TEXT_KEYS = ["certifications", "licenseNumber", "permits"];
 const getDetailFields = (catId) => withBrokerFields(catId, PRO_DETAIL_FIELDS[catId] || []);
 
 // 세부 전문분야 '전체 선택' 대상 — 전문청소의 '기타'는 등록분야가 아니다 (대표 9/10)
-const selectableSubs = (cat) => (cat.subcategories || []).filter((sub) => !(cat.id === "professional_cleaning" && sub === "기타"));
+const selectableSubs = (cat) => (cat.subcategories || []).filter((sub) => !(NO_ETC_SUB_CATS.includes(cat.id) && sub === "기타"));
 
 // 카테고리 ID → 디테일 라인 아이콘 (모노톤, currentColor 상속)
 const DETAIL_ICONS = {
