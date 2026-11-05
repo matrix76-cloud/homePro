@@ -763,6 +763,13 @@ export const OrderCreateContent = ({ backRef } = {}) => {
       });
       setSelectedServices(labels);
       setSelectedSub(keys);
+    } else if (cfg?.subGroups && cfg.flatItems && subs.length) {
+      // 한 층 카테고리(입주청소) — 종목 이름 그대로. 옛 "홈클리닝 이사청소" 꼴은 서비스 이름을 떼고 읽는다 (대표 리뷰 11/04)
+      const byLen = [...cfg.subGroups].sort((a, b) => b.label.length - a.label.length);
+      setSelectedSub(subs.map((s) => {
+        const g = byLen.find((x) => s.startsWith(x.label + " "));
+        return g ? s.slice(g.label.length + 1) : s;
+      }).map((s) => (s === "입력" ? "기타" : s)));
     } else if (cfg?.subGroups && subs.length) {
       const grp = cfg.subGroups.find((g) => subs.some((s) => s === g.label || s.startsWith(g.label + " ")));
       if (grp) {
@@ -884,7 +891,11 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         }
         leftover.push(sv);
       });
-      if (cfg.multiService) {
+      if (cfg.flatItems) {
+        // 한 층 카테고리 — 종목 이름만 담는다. 묶음 이름(홈클리닝)만 맞은 값은 자리가 없으니 상세 요청내용에 남긴다
+        setSelectedSub(pickedItems.map((k) => k.split(":")[1]));
+        if (!pickedItems.length) pickedGroups.forEach((l) => leftover.push(l));
+      } else if (cfg.multiService) {
         setSelectedServices(pickedGroups);
         setSelectedSub(pickedItems);
       } else if (pickedGroups.length) {
@@ -932,7 +943,13 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   const detailConfig = formConfig;
   // 중복 서비스 카테고리(가전분해청소)는 여러 서비스를 동시에 고른다 — activeServices 가 지금 고른 서비스 전부
   const multiService = !!formConfig?.multiService;
-  const activeServices = multiService ? selectedServices : (selectedService ? [selectedService] : []);
+  // 한 층 카테고리(입주청소) — 서비스 층 없이 종목이 곧 '서비스 선택'(중복선택). 키는 서비스 이름 없이 종목 이름 그대로 (대표 리뷰 11/04)
+  //  activeServices 는 묶음 라벨 하나로 채워 showDetail · services 조건이 그대로 돌게 한다
+  const flatItems = !!formConfig?.flatItems && !!formConfig?.subGroups?.length;
+  const flatGroup = flatItems ? formConfig.subGroups[0] : null;
+  const activeServices = multiService ? selectedServices
+    : flatItems ? (selectedSub.length ? [flatGroup.label] : [])
+    : (selectedService ? [selectedService] : []);
   // subGroups(서비스 선택) 카테고리는 서비스 고른 뒤에 상세필드 노출
   const showDetail = !formConfig?.subGroups || activeServices.length > 0;
   // 종목(item) 단위 조건 (대표 리뷰 11/02 — 정리수납)
@@ -1236,7 +1253,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
 
   const validateForm = () => {
     if (!selectedCategory) { showToast("카테고리를 선택해주세요"); return false; }
-    if (selectedSub.length === 0 && formConfig?.subGroups) { showToast("세부 항목을 선택해주세요"); return false; }
+    if (selectedSub.length === 0 && formConfig?.subGroups) { showToast(flatItems ? "서비스를 선택해주세요" : "세부 항목을 선택해주세요"); return false; }
     // 고른 종목마다 수량을 넣어야 접수 (침대·소파·카페트, 대표 리뷰 11/02)
     if (formConfig?.qtyPerSelected?.required) {
       const missing = selectedSub.find((k) => !(Number(itemQty[k]) > 0));
@@ -1610,7 +1627,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   const pcStepName = step === "preview" ? "입력 내용 확인"
     : !category ? "카테고리 선택"
     : (formConfig?.subGroups && activeServices.length === 0) ? "서비스 선택"
-    : (formConfig?.subGroups && selectedSub.length === 0) ? "종목 선택"
+    : (formConfig?.subGroups && !flatItems && selectedSub.length === 0) ? "종목 선택"
     : "상세 입력";
   const pcPickedItems = selectedSub.map((k) => (k.includes(":") ? k.split(":")[1] : k)).join(", ");
   const pcPriceText = (() => {
@@ -1642,7 +1659,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               {!categoryId && !locked ? <button type="button" onClick={() => undoStep("cat")}>수정</button> : <i />}
             </PcAsideRow>
           )}
-          {category && activeServices.length > 0 && (
+          {category && activeServices.length > 0 && !flatItems && (
             <PcAsideRow>
               <span>서비스</span><b>{activeServices.join(", ")}</b>
               {!multiService && !locked ? <button type="button" onClick={() => { setSelectedService(""); setSelectedSub([]); setCustomInput(""); }}>수정</button> : <i />}
@@ -1650,8 +1667,10 @@ export const OrderCreateContent = ({ backRef } = {}) => {
           )}
           {category && pcPickedItems && (
             <PcAsideRow>
-              <span>종목</span><b>{pcPickedItems}</b>
-              {!multiService && selectedService && !locked
+              <span>{flatItems ? "서비스" : "종목"}</span><b>{pcPickedItems}</b>
+              {flatItems && !locked
+                ? <button type="button" onClick={() => { setSelectedSub([]); setCustomInput(""); }}>수정</button>
+                : !multiService && selectedService && !locked
                 ? <button type="button" onClick={() => { setSelectedSub(selectedSub.filter((k) => !k.startsWith(`${selectedService}:`))); setCustomInput(""); }}>수정</button> : <i />}
             </PcAsideRow>
           )}
@@ -1769,8 +1788,26 @@ export const OrderCreateContent = ({ backRef } = {}) => {
             <NoticeBox>{formConfig.notice}</NoticeBox>
           )}
 
+          {/* 한 층 카테고리(입주청소) — 서비스 층(홈클리닝 · 기타) 없이 종목이 곧 서비스, 여러 개 고른다. 맨 뒤 '기타'는 직접 입력 (대표 리뷰 11/04) */}
+          {flatItems && (
+            <Section>
+              <Label>서비스 선택 <span style={{ fontWeight: 400, color: THEME.muted, fontSize: 14 }}>· 여러 개 함께 선택 가능</span></Label>
+              <ChipGrid>
+                {flatGroup.items.filter((it) => !/^(기타|입력|직접입력|기타\[ ?입력 ?\])$/.test(it)).map((item) => (
+                  <Chip key={item} $selected={selectedSub.includes(item)} onClick={() => handleSubToggle(item)}>
+                    {item}
+                  </Chip>
+                ))}
+                <Chip $selected={selectedSub.includes("기타")} onClick={() => { if (selectedSub.includes("기타")) setCustomInput(""); handleSubToggle("기타"); }}>기타</Chip>
+              </ChipGrid>
+              {selectedSub.includes("기타") && (
+                <Input style={{ marginTop: 8 }} placeholder="기타 내용을 입력하세요" value={customInput} onChange={(e) => setCustomInput(e.target.value)} />
+              )}
+            </Section>
+          )}
+
           {/* 중복 서비스 카테고리(가전분해청소) — 서비스를 여러 개 고르고 각 서비스의 종목을 함께 고른다 (대표 지시 9/10) */}
-          {formConfig?.subGroups && multiService && (
+          {formConfig?.subGroups && multiService && !flatItems && (
             <Section>
               <Label>서비스 선택 <span style={{ fontWeight: 400, color: THEME.muted, fontSize: 14 }}>· 여러 개 함께 선택 가능</span></Label>
               <ChipGrid>
@@ -1827,7 +1864,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
           )}
 
           {/* 세부 항목 — 서비스 선택 → 종목 선택 드릴다운 */}
-          {formConfig?.subGroups && !multiService && (
+          {formConfig?.subGroups && !multiService && !flatItems && (
             <Section>
               <Label>서비스 선택</Label>
               <ChipGrid>
