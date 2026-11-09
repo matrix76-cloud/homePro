@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { getAccessTier, tierFullLabel } from "../../utility/tierUtils";
 import React, { useContext, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { useAtom } from "jotai";
@@ -1371,7 +1372,8 @@ const MobileConfigpage = () => {
 
   const withdrawSheet = (
     <>
-      {showWithdraw && (
+      {/* body 에 그린다 — 페이지 상자 안에 있으면 하단 탭바(z 15)에 버튼이 가려졌다 (아이폰 심사 녹화 2026-11-09) */}
+      {showWithdraw && createPortal(
         <WithdrawOverlay onClick={() => !withdrawing && setShowWithdraw(false)}>
           <WithdrawSheet onClick={(e) => e.stopPropagation()}>
             <WithdrawTitle>정말 탈퇴하시겠어요</WithdrawTitle>
@@ -1401,7 +1403,8 @@ const MobileConfigpage = () => {
               </WithdrawGo>
             </WithdrawBtnRow>
           </WithdrawSheet>
-        </WithdrawOverlay>
+        </WithdrawOverlay>,
+        document.body
       )}
     </>
   );
