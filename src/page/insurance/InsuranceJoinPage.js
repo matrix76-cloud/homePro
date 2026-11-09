@@ -4,7 +4,7 @@
  *                            그룹 줄엔 대표 업종 한 줄, 전체 업종은 [업종 전체 보기]로 펼침 (대표 리뷰 11/02)
  *   2단계 고지 및 면책 동의 : 한 화면 연속 스크롤 (대표 리뷰 10/29 · 11/02 두 번 올라온 원문을 합친 것)
  *     A. 사전 알릴 의무 Q1~Q5 (라디오) — Q1 아니오 → 1단계로 되돌리는 창, Q2 3건 이상 · Q5 아니오 → 진행 불가
- *     B. 필수 면책 및 보장 조건 5줄 · C. 약관 동의 2줄 (체크, 보기로 펼침) — 필수 7개 전부 체크해야 3단계로
+ *     B. 약관 동의 2줄 (체크, 보기로 펼침) — 면책 · 보장 조건 5줄은 약관 전체 동의 아래에 글로 묶임(대표 리뷰 11/06). 둘 다 체크해야 3단계로
  *     비활성 버튼을 눌러도 onClick 이 돌아 첫 미완료 항목으로 스크롤 + 붉은 테두리
  *   3단계 카드 결제       : 맨 위 안내 카드 2장(1인당 보험료 · 사고 이력 할증) + 결제 내용 + 토스 카드 등록 창
  *     pay() 안에서 카드 등록창 열기 직전 insurance_consents/{uid} 에 고지 답변 · 동의 · 시각 저장
@@ -99,6 +99,9 @@ const NoticeCard = ({ icon: I, title, children, note }) => (
 );
 
 /** 고지 답변 · 동의 저장 — 카드 등록창 열기 직전 (대표 리뷰 11/02). 단독 호출 가능하게 밖으로 뺀다 */
+/* 직접 체크하는 줄 — under 가 붙은 면책 · 보장 조건 줄은 c1 에 묶여 따라간다 (대표 리뷰 11/06) */
+const CHECKS = CONSENTS.filter((c) => !c.under);
+
 export const saveInsuranceConsent = (uid, { answers, consents, groupId }) => setDoc(doc(db, "insurance_consents", uid), {
   uid, answers, consents, groupId,
   agreedAt: serverTimestamp(),
@@ -147,8 +150,8 @@ const InsuranceJoinPage = () => {
 
   // 진행을 막는 고지 답변 — 순서대로 첫 번째로 스크롤한다
   const blockers = [answers.q1 === "no" && "q1", answers.q2 === "many" && "q2", answers.q5 === "no" && "q5"].filter(Boolean);
-  const doneCount = CONSENTS.filter((c) => agreed[c.id]).length;
-  const allAgreed = doneCount === CONSENTS.length;
+  const doneCount = CHECKS.filter((c) => agreed[c.id]).length;
+  const allAgreed = doneCount === CHECKS.length;
   const step2Ok = allAgreed && blockers.length === 0;
 
   // 단계를 옮기면 맨 위로 — 화면 틀이 안쪽 칸에서 스크롤하는 경우까지 (window 만 올리면 3단계 안내 카드가 위로 밀려 안 보였다)
@@ -171,7 +174,7 @@ const InsuranceJoinPage = () => {
   // 비활성 상태에서 눌러도 돈다 — 첫 미완료 항목으로 부드럽게 스크롤 + 붉은 테두리
   const next2 = () => {
     if (step2Ok) { go(3); return; }
-    const target = blockers[0] || CONSENTS.find((c) => !agreed[c.id])?.id;
+    const target = blockers[0] || CHECKS.find((c) => !agreed[c.id])?.id;
     if (!target) return;
     document.getElementById(`ins-item-${target}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     setFlash(target);
@@ -187,7 +190,7 @@ const InsuranceJoinPage = () => {
       // 고지 답변 · 동의 기록을 먼저 남긴다 — 카드 등록창으로 페이지가 넘어가기 전에 (대표 리뷰 11/02)
       await saveInsuranceConsent(uid, {
         answers,
-        consents: Object.fromEntries(CONSENTS.map((c) => [c.id, { agreed: !!agreed[c.id], title: c.title }])),
+        consents: Object.fromEntries(CONSENTS.map((c) => [c.id, { agreed: !!agreed[c.under || c.id], title: c.title }])),
         groupId: sel.id,
       });
       await requestBillingAuth({ customerKey: uid, customerName: userName, customerEmail: currentUser?.email || undefined, purpose: "insurance_monthly", planId: sel.id });
@@ -237,6 +240,12 @@ const InsuranceJoinPage = () => {
                 <span style={{ color: c.tag === "필수" ? C.P : C.TXT }}>[{c.tag}]</span> {c.title}
               </span>
               {c.body && <span style={{ display: "block", fontSize: 14, color: C.SUB, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.body}</span>}
+              {CONSENTS.filter((u) => u.under === c.id).map((u, i) => (
+                <span key={u.id} style={{ display: "block", marginTop: i ? 10 : 12, paddingTop: 10, borderTop: "1px solid #EEF0F3" }}>
+                  <span style={{ display: "block", fontSize: 15, fontWeight: 500, color: C.TXT, lineHeight: 1.5, wordBreak: "keep-all" }}>{["①", "②", "③", "④", "⑤"][i]} {u.title}</span>
+                  <span style={{ display: "block", fontSize: 14, color: C.SUB, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{u.body}</span>
+                </span>
+              ))}
             </span>
           </div>
           {c.view && (
@@ -307,11 +316,9 @@ const InsuranceJoinPage = () => {
         </Item>
       ))}
 
-      <SecHead>B. 필수 면책 및 보장 조건 확인 (모두 동의 필요)</SecHead>
-      {CONSENTS.filter((c) => c.sec === "B").map(consentRow)}
-
-      <SecHead>C. 약관 동의</SecHead>
-      {CONSENTS.filter((c) => c.sec === "C").map(consentRow)}
+      <SecHead>B. 약관 동의 (모두 동의 필요)</SecHead>
+      <Txt style={{ fontSize: 14 }}>약관 전체 동의에는 면책 및 보장 조건 다섯 가지 확인이 함께 들어 있습니다.</Txt>
+      {CHECKS.map(consentRow)}
       <Txt style={{ fontSize: 14 }}>세부적인 보험약관 및 안내 문구는 변경될 수 있습니다.</Txt>
     </>
   );
@@ -355,7 +362,7 @@ const InsuranceJoinPage = () => {
   // 2단계 버튼은 disabled 를 주지 않고 흐리게만 — 눌러도 next2 가 돌아 미완료 항목으로 데려간다
   const step2Label = step2Ok ? "약관 동의하고 카드 결제하기"
     : blockers.length ? "가입을 진행할 수 없는 답변이 있습니다"
-      : `모든 필수 항목에 동의해 주세요 (${doneCount}/${CONSENTS.length} 완료)`;
+      : `모든 필수 항목에 동의해 주세요 (${doneCount}/${CHECKS.length} 완료)`;
   const button = step === 1
     ? <Btn disabled={!sel} onClick={() => go(2)}>다음 단계로 (고지 · 동의)</Btn>
     : step === 2

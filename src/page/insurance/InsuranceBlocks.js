@@ -86,22 +86,23 @@ export const CatsToggle = ({ open, onToggle }) => (
 /* 대표 업종 글 — 한 덩이(inline-block)로 두어 폰 2칸에서 '하수구·배관 / ·설비'처럼 쪼개지지 않고 통째로 다음 줄로 (대표 리뷰 11/02) */
 export const RepText = ({ rep = "" }) => <span style={{ display: "inline-block" }}>{rep}</span>;
 
-/* 업종별 월 요금 2×2 — 칸에는 대표 업종 한 줄, 전체 업종은 눌러서 펼친다 (대표 리뷰 11/02) */
+/* 업종별 월 요금 2×2 — 칸에는 대표 업종 한 줄, 전체 업종은 눌러서 펼친다 (대표 리뷰 11/02).
+ *  네 칸 높이를 같게(stretch) — 대표 업종이 두 줄로 접히는 칸에 맞추고 '업종 전체 보기'는 칸 바닥에 (대표 리뷰 11/06) */
 export const GroupPriceGrid = ({ groups, recId }) => {
   const [openId, setOpenId] = useState("");
   return (
     <Box>
       <H sub="카드 1회 등록 시 매월 자동 정기결제 · 보장 연속 유지. 복수 업종 수행 시 가장 위험도가 높은 상위 그룹으로 가입합니다.">업종별 월 요금</H>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "stretch" }}>
         {groups.map((g) => {
           const rec = recId ? g.id === recId : g.rec;
           const open = openId === g.id;
           return (
-            <div key={g.id} style={{ border: `1px solid ${rec ? C.P : C.LINE}`, borderRadius: 8, padding: "12px 12px 6px" }}>
+            <div key={g.id} style={{ border: `1px solid ${rec ? C.P : C.LINE}`, borderRadius: 8, padding: "12px 12px 6px", display: "flex", flexDirection: "column", minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.TXT }}>{g.id}그룹{rec && <span style={{ color: C.P, fontSize: 13, marginLeft: 6 }}>{recId ? "내 업종" : "추천"}</span>}</div>
               <div style={{ fontSize: 19, fontWeight: 700, color: rec ? C.P : C.TXT, marginTop: 4 }}>월 {groupPriceText(g.price)}</div>
-              <div style={{ fontSize: 15, color: C.TXT, marginTop: 6, lineHeight: 1.45, wordBreak: "keep-all" }}>대표 업종 <RepText rep={g.rep} /></div>
-              <CatsToggle open={open} onToggle={() => setOpenId(open ? "" : g.id)} />
+              <div style={{ fontSize: 15, color: C.TXT, marginTop: 6, lineHeight: 1.45, wordBreak: "keep-all", flex: 1 }}>대표 업종 <RepText rep={g.rep} /></div>
+              <div><CatsToggle open={open} onToggle={() => setOpenId(open ? "" : g.id)} /></div>
               {open && <div style={{ fontSize: 14, color: C.SUB, lineHeight: 1.55, wordBreak: "keep-all", padding: "2px 0 8px", borderTop: "1px solid #EEF0F3", paddingTop: 8 }}>{g.cats}</div>}
             </div>
           );
