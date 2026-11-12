@@ -486,12 +486,9 @@ const ChatDetailPage = () => {
     try {
       // 대기 전환 시 특별 처리
       if (newStatus === "대기") {
-        try {
-          const { setOrderWaiting } = await import("../../service/OrderService");
-          await setOrderWaiting(orderData.id);
-        } catch {
-          await updateOrderStatus(room.orderId, "대기");
-        }
+        // 실패하면(체크인한 오더 등) 그대로 알린다 — 예전엔 실패 시 상태만 바꿔 알림 없이 홈프로가 떨어졌다 (대표 리뷰 11/12 3번)
+        const { setOrderWaiting } = await import("../../service/OrderService");
+        await setOrderWaiting(orderData.id, { actorUid: myUid });
       } else {
         // 누가 바꿨는지 넘긴다 — 취소 · 완료는 updateOrderStatus 가 상대에게 채팅 안내 + 푸시를 보낸다 (OrderNotifyService, 대표 리뷰 11/02)
         const extra = newStatus === "취소" ? { cancelledBy: myUid, ...(cancelReason ? { cancelReason } : {}) }
@@ -501,6 +498,7 @@ const ChatDetailPage = () => {
       setOrderData((prev) => prev ? { ...prev, orderStatus: newStatus } : prev);
       const statusLabel = normalizeOrderStatus(newStatus);
       if (statusLabel === "취소" || statusLabel === "완료") { showToast(`${statusLabel} 처리되었습니다`); return; }
+      if (newStatus === "대기") { showToast("대기 처리되었습니다"); return; } // 알림은 setOrderWaiting 이 보냈다
       await sendSystemMessage(roomId, { text: `상태가 "${statusLabel}"(으)로 변경되었습니다.`, type: "system" });
       // 상대방에게 푸시 알림
       try {
@@ -515,7 +513,7 @@ const ChatDetailPage = () => {
       } catch {}
       showToast(`${statusLabel} 처리되었습니다`);
     } catch (e) {
-      showToast("상태 변경에 실패했습니다");
+      showToast(e?.message || "상태 변경에 실패했습니다");
     }
   };
 

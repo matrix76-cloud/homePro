@@ -1079,8 +1079,9 @@ export const COMMON_B2B_FIELDS = {
       // H-포인트 — 배정 때 접수자 H-포인트를 보관하고 완료 때 자동 정산 (PayFlowService ③, 대표 9/15 리뷰 문구)
       { value: "hpoint", label: "H-포인트", hasInput: true, unit: "P", inputLabel: "시공(작업)비용 입력 (H-포인트, P)", desc: "시공(작업)비용을 H-포인트로 지급하는 유형입니다(대표 10/26). 접수자와 사업자(홈프로) 간 오더 배정·완료를 플랫폼 안에서 H-포인트로 안전하게 자동 정산합니다. 배정 시 접수자의 H-포인트가 보관되고, 완료 시 홈프로에게 대금이, 접수자에게 소개수수료가 자동 지급됩니다." },
       // 정기청소 전용 (대표 10/4) — 다른 카테고리에는 안 보인다. 금액 입력란은 두지 않는다 (대표 10/7)
-      { value: "contract", label: "도급", hasInput: false, onlyCategories: ["regular_cleaning"], desc: "정기청소 현장을 도급으로 맡기는 유형입니다." },
-      { value: "sale", label: "매매", hasInput: false, onlyCategories: ["regular_cleaning"], desc: "정기청소 현장(거래처)을 매매하는 유형입니다." },
+      // [?] 문구 = 대표 11/12 리뷰 원문
+      { value: "contract", label: "도급", hasInput: false, onlyCategories: ["regular_cleaning"], desc: "다른 홈프로(사업자)에게 믿고 맡기는(위탁하는) 구조입니다." },
+      { value: "sale", label: "매매", hasInput: false, onlyCategories: ["regular_cleaning"], desc: "운영 중인 정기청소 거래처를 다른 사업자와 양도·인수 계약하는 유형입니다." },
     ],
     // 금액이 정해진 유형 — 선결제를 고를 수 있는 유형 (H-포인트 유형은 돈이 아니라 결제방식 자체가 없음, 형 확정 9/12)
     pricedTypes: ["fixed", "balance"],

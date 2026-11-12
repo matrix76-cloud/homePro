@@ -4,7 +4,7 @@ import EmptyOrders from "../../components/EmptyOrders";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { CATEGORIES, THEME, COLLECTIONS } from "../../config/homeproConfig";
-import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice, addOrderLog } from "../../service/OrderService";
+import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrderTime, updateOrderStatus, getOrderById, notifyOnsitePrice, notifyApplicantPrice, addOrderLog, changeWorkDay } from "../../service/OrderService";
 import { insuranceLine } from "../../service/OrderInsuranceService";
 import { infoIncentiveText } from "../../config/orderFormConfig";
 import { subscribeChatRooms, createChatRoom } from "../../service/ChatService";
@@ -250,6 +250,9 @@ export const MyOrdersContent = () => {
   const [cancelReqReason, setCancelReqReason] = useState("");
   const [cancelReqDetail, setCancelReqDetail] = useState("");
   const [priceNotifyOpen, setPriceNotifyOpen] = useState(null); // { order } | null — 견적서 전송
+  const [dayChangeOpen, setDayChangeOpen] = useState(null); // { order } | null — 작업일 변경 (대표 리뷰 11/12 4번)
+  const [newWorkDay, setNewWorkDay] = useState("");
+  const [dayChanging, setDayChanging] = useState(false);
   const [notifyPrice, setNotifyPrice] = useState("");
   const [notifyMsg, setNotifyMsg] = useState("");
 
@@ -378,6 +381,26 @@ export const MyOrdersContent = () => {
     const day = workDayOf(order);
     if (day && day !== todayYmd) return { kind: "notToday", day };
     return { kind: "ok" };
+  };
+  const openDayChange = (e, order) => {
+    e.stopPropagation();
+    setNewWorkDay(todayYmd);
+    setDayChangeOpen({ order });
+  };
+  const submitDayChange = async () => {
+    const order = dayChangeOpen?.order;
+    if (!order || !newWorkDay || dayChanging) return;
+    if (newWorkDay < todayYmd) { alert("오늘 이후 날짜를 골라 주세요."); return; }
+    setDayChanging(true);
+    try {
+      const prevDay = workDayOf(order);
+      await changeWorkDay(order.id, newWorkDay, { actorUid: uid, prevDay });
+      await addOrderLog(order.id, { type: "status", message: `작업일 변경 ${prevDay || "미정"} → ${newWorkDay} (접수자에게 알림)`, byUid: uid, byName: myName, byRole: "홈프로" });
+      setAllOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, workDate: "예약날짜", workDatePicker: newWorkDay } : o));
+      setDayChangeOpen(null);
+    } catch (err) {
+      alert(err?.message || "작업일을 바꾸지 못했습니다.");
+    } finally { setDayChanging(false); }
   };
   const handleCheckin = async (e, order) => {
     e.stopPropagation();
@@ -546,10 +569,16 @@ export const MyOrdersContent = () => {
                 if (ck.kind === "notToday") return (
                   <>
                     <ActionBtn $variant="off" disabled onClick={(e) => e.stopPropagation()}>체크인 불가</ActionBtn>
-                    <CheckinHint>작업 당일에만 체크인이 가능합니다</CheckinHint>
+                    <ActionBtn onClick={(e) => openDayChange(e, order)}>작업일 변경</ActionBtn>
+                    <CheckinHint>작업 당일에만 체크인이 가능합니다. 작업일이 바뀌었으면 [작업일 변경]으로 고쳐 주세요 (접수자에게 알림이 갑니다)</CheckinHint>
                   </>
                 );
-                return <ActionBtn $variant="primary" onClick={(e) => handleCheckin(e, order)}>현장 체크인 하기</ActionBtn>;
+                return (
+                  <>
+                    <ActionBtn $variant="primary" onClick={(e) => handleCheckin(e, order)}>현장 체크인 하기</ActionBtn>
+                    <ActionBtn onClick={(e) => openDayChange(e, order)}>작업일 변경</ActionBtn>
+                  </>
+                );
               })() : (
                 /* '배정 후 2시간' 게이트 해제 (대표 지시 8/7) — 체크인/체크아웃 증빙이
                    생기면서 시간 제한으로 조기완료를 막을 이유가 없어짐 */
@@ -955,6 +984,23 @@ export const MyOrdersContent = () => {
         )}
 
         {/* 견적서 전송 모달 (배정된 수락자 전용) */}
+        {dayChangeOpen && (
+          <ModalOverlay onClick={() => !dayChanging && setDayChangeOpen(null)}>
+            <ModalSheet onClick={(e) => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>작업일 변경</ModalTitle>
+                <ModalClose onClick={() => !dayChanging && setDayChangeOpen(null)}>
+                  <IoCloseOutline size={22} />
+                </ModalClose>
+              </ModalHeader>
+              <NotifyHint>접수자 또는 현장담당자와 협의해 바뀐 작업일을 골라 주세요.{"\n"}바꾸면 접수자에게 알림이 가고, 그날 체크인할 수 있습니다.{"\n"}지금 작업일: {workDayOf(dayChangeOpen.order) || "정해지지 않음"}</NotifyHint>
+              <PriceInputRow>
+                <PriceInput type="date" min={todayYmd} value={newWorkDay} onChange={(e) => setNewWorkDay(e.target.value)} />
+              </PriceInputRow>
+              <ConfirmBtn onClick={submitDayChange} disabled={!newWorkDay || dayChanging}>{dayChanging ? "바꾸는 중…" : "이 날짜로 바꾸기"}</ConfirmBtn>
+            </ModalSheet>
+          </ModalOverlay>
+        )}
         {priceNotifyOpen && (
           <ModalOverlay onClick={() => setPriceNotifyOpen(null)}>
             <ModalSheet onClick={(e) => e.stopPropagation()}>

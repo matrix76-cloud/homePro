@@ -1183,8 +1183,13 @@ const MobileConfigpage = () => {
       toast("사업자회원은 상호(업체명)를 입력해 주세요.");
       return;
     }
+    const freeOnly = editTypes.includes("freelancer") && !editTypes.includes("business");
+    if (freeOnly && trimmed.replace(/\s/g, "").length < 2) {
+      toast("프리랜서회원은 성명을 정확히 입력해 주세요.");
+      return;
+    }
     const typePatch = editTypes.length > 0
-      ? { userTypes: editTypes, userType: legacyUserType(editTypes), ...(editTypes.includes("business") ? { companyName: companyTrimmed } : {}) }
+      ? { userTypes: editTypes, userType: legacyUserType(editTypes), ...(editTypes.includes("business") ? { companyName: companyTrimmed } : {}), ...(freeOnly ? { realName: trimmed } : {}) }
       : {};
     const prevInfo = { nickname, intro, userimg };
     dispatch({ USERINFO: { nickname: trimmed, intro: introTrimmed, userimg: editImg } });
@@ -1310,14 +1315,15 @@ const MobileConfigpage = () => {
               </>
             )}
 
+            {/* 프리랜서(사업자 아님)는 대화명 대신 성명 (대표 리뷰 11/12 9번) */}
             <EditLabelRow style={{ marginTop: 22 }}>
-              <EditLabel>대화명</EditLabel>
+              <EditLabel>{editTypes.includes("freelancer") && !editTypes.includes("business") ? "성명" : "대화명"}</EditLabel>
               <EditCount>{editNickname.length}/12</EditCount>
             </EditLabelRow>
             <EditInput
               value={editNickname}
               onChange={(e) => setEditNickname(e.target.value.slice(0, 12))}
-              placeholder="대화명을 입력하세요"
+              placeholder={editTypes.includes("freelancer") && !editTypes.includes("business") ? "실명을 입력하세요 (예: 홍길동)" : "대화명을 입력하세요"}
               maxLength={12}
             />
 
@@ -1467,11 +1473,6 @@ const MobileConfigpage = () => {
           { t: "H-포인트", d: "획득 및 사용 안내", to: "/guide/8" },
           { t: "나의 오더 현황", d: "진행 상황 관리 안내", to: "/guide/9" },
           userData?.pgReview !== true && { t: "도급배상책임보험", d: "가입 및 보장 안내", to: "/guide/10" },
-          { t: "첫 견적 보내기", d: "이렇게 하면 쉬워요", to: "/guide/1" },
-          { t: "고객 리뷰 늘리기", d: "가장 효과적인 방법", to: "/guide/2" },
-          { t: "홈프로캐시 보상", d: "언제 이루어지나요?", to: "/guide/3" },
-          { t: "프로필 사진", d: "이렇게 찍으세요", to: "/guide/4" },
-          GRADE_SYSTEM_ENABLED && { t: "등급 시스템", d: "포인트로 올리세요", to: "/guide/5" },
         ].filter(Boolean),
       },
       {
@@ -1715,28 +1716,6 @@ const MobileConfigpage = () => {
                     <ConfigGuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/10")}>
             <ConfigGuideIconWrap><IoCashOutline size={32} color={THEME.primaryDark} /></ConfigGuideIconWrap>
             <ConfigGuideText>도급배상책임보험{"\n"}가입 및 보장 안내</ConfigGuideText>
-          </ConfigGuideCard>
-          )}
-          <ConfigGuideCard $bg="#FEF3C7" onClick={() => navigate("/guide/1")}>
-            <ConfigGuideIconWrap><IoDocumentTextOutline size={32} color="#B45309" /><ConfigGuideSubIcon><IoSendOutline size={18} color="#B45309" /></ConfigGuideSubIcon></ConfigGuideIconWrap>
-            <ConfigGuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</ConfigGuideText>
-          </ConfigGuideCard>
-          <ConfigGuideCard $bg="#F1EAF6" onClick={() => navigate("/guide/2")}>
-            <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><ConfigGuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></ConfigGuideSubIcon></ConfigGuideIconWrap>
-            <ConfigGuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</ConfigGuideText>
-          </ConfigGuideCard>
-          <ConfigGuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/3")}>
-            <ConfigGuideIconWrap><IoWalletOutline size={32} color={THEME.primaryDark} /><ConfigGuideSubIcon><IoCashOutline size={18} color={THEME.primaryDark} /></ConfigGuideSubIcon></ConfigGuideIconWrap>
-            <ConfigGuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</ConfigGuideText>
-          </ConfigGuideCard>
-          <ConfigGuideCard $bg="#D1FAE5" onClick={() => navigate("/guide/4")}>
-            <ConfigGuideIconWrap><IoCameraOutline size={32} color="#059669" /></ConfigGuideIconWrap>
-            <ConfigGuideText>프로필 사진,{"\n"}이렇게 찍으세요</ConfigGuideText>
-          </ConfigGuideCard>
-          {GRADE_SYSTEM_ENABLED && (
-          <ConfigGuideCard $bg="#F1EAF6" onClick={() => navigate("/guide/5")}>
-            <ConfigGuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></ConfigGuideIconWrap>
-            <ConfigGuideText>등급 시스템{"\n"}포인트로 올리세요</ConfigGuideText>
           </ConfigGuideCard>
           )}
         </ConfigScrollRow>

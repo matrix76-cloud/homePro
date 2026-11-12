@@ -19,6 +19,7 @@ import { IoCheckmarkCircle, IoCameraOutline, IoCloseCircle, IoDocumentOutline, I
 import RegionSelectModal from "../../modal/RegionSelectModal";
 import { proRegionText } from "../../utility/regionUtils";
 import { isFreelancerNoBiz } from "../../service/CertificateService";
+import { isFreelancerOnly, freelancerCanRegister, WORKER_CALL_CAT } from "../../utility/acceptRules";
 import { withBrokerFields, BROKER_REQUIRED_KEYS } from "../../service/BrokerService";
 import {
     TbSparkles, TbSpray, TbShieldCheck, TbWashMachine, TbBed, TbBuildingStore,
@@ -127,6 +128,7 @@ const ProCategoryRegisterPage = () => {
     const activityFileRef = useRef(null);
 
     const { userData } = useAuth();
+    const freeOnly = isFreelancerOnly(userData);
     const uid = userData?.uid || user?.USERS_ID; // 통합 뒤 USERS_ID 가 사라질 소셜 uid 일 수 있어 문서 id 우선 (B7)
 
     useEffect(() => () => clearTimeout(toastTimer.current), []);
@@ -144,6 +146,9 @@ const ProCategoryRegisterPage = () => {
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(""), 2000);
     };
+
+    // 5개 제한에 세는 분야 — 팀원.기술자 구인은 빼고 센다 (대표 리뷰 11/12 9번)
+    const countedCats = selectedCats.filter((id) => id !== WORKER_CALL_CAT).length;
 
     // 선택 순서를 유지한 카테고리 객체 목록
     const selectedCatObjs = useMemo(
@@ -169,8 +174,14 @@ const ProCategoryRegisterPage = () => {
             });
             return;
         }
-        if (selectedCats.length >= MAX_CATS) {
-            showToast(`분야는 최대 ${MAX_CATS}개까지 선택할 수 있습니다.`);
+        // 프리랜서회원은 팀원.기술자 구인만 (부동산중개사회원이면 공동중개도) — 대표 리뷰 11/12 9번
+        if (freeOnly && !freelancerCanRegister(userData, catId)) {
+            showToast("프리랜서회원은 팀원.기술자 구인 분야만 등록할 수 있습니다.");
+            return;
+        }
+        // 팀원.기술자 구인은 5개 제한 밖에서 더 고를 수 있다 (대표 리뷰 11/12 9번)
+        if (catId !== WORKER_CALL_CAT && countedCats >= MAX_CATS) {
+            showToast(`분야는 최대 ${MAX_CATS}개까지 선택할 수 있습니다. 팀원.기술자 구인은 따로 더 고를 수 있습니다.`);
             return;
         }
         setSelectedCats([...selectedCats, catId]);
@@ -344,9 +355,8 @@ const ProCategoryRegisterPage = () => {
         (c) => c.subcategories?.length > 0 && !(subsByCat[c.id]?.length > 0)
     );
     // 개인 프리랜서(사업자등록 없음)는 사업자등록증이 선택 항목 (B14)
-    //  공동중개만 등록할 땐 자격증 사본 · 개설등록증 사진이 근거라 사업자등록증은 선택 (대표 리뷰 11/02 우선 등록 폼)
-    const brokerOnly = selectedCats.length > 0 && selectedCats.every((id) => isApprovalRequiredCategory(id));
-    const licenseOptional = brokerOnly || (isFreelancerNoBiz(userData) && !selectedCats.some((id) => isApprovalRequiredCategory(id)));
+    //  공동중개도 사업자등록증 필수 — 등록 즉시 활동(선활동 · 후관리)은 그대로 (대표 리뷰 11/12 10번 (나), 11/02 선택 처리를 되돌림)
+    const licenseOptional = isFreelancerNoBiz(userData) && !selectedCats.some((id) => isApprovalRequiredCategory(id));
     // 공동중개 필수: 사무소 명칭 · 등록번호 · 대표자 성명 · 연락처 + 인증서 사진 1장
     const brokerExtras = extrasByCat.brokerage || {};
     const brokerMissingField = isBrokerSelected && BROKER_REQUIRED_KEYS.some((k) => !String(brokerExtras[k] || "").trim());
@@ -399,11 +409,18 @@ const ProCategoryRegisterPage = () => {
                         <Section>
                             <SectionTitleRow>
                                 <SectionTitle $noGap>등록할 분야를 선택하세요</SectionTitle>
-                                <SelectCount $full={selectedCats.length >= MAX_CATS}>
-                                    {selectedCats.length}/{MAX_CATS} 선택
+                                {!freeOnly && (
+                                <SelectCount $full={countedCats >= MAX_CATS}>
+                                    {countedCats}/{MAX_CATS} 선택
                                 </SelectCount>
+                                )}
                             </SectionTitleRow>
-                            <HelpText>최대 {MAX_CATS}개까지 함께 선택해 한 번에 등록할 수 있습니다.{proCategories.length > 0 && " 체크 표시된 분야는 이미 등록한 분야로, 누르면 수정하거나 삭제할 수 있습니다."}</HelpText>
+                            <HelpText>
+                                {freeOnly
+                                    ? "프리랜서회원은 팀원.기술자 구인 분야만 등록하고 그 오더만 수락할 수 있습니다. 일반 시공 · 서비스 분야는 사업자회원으로 바꾸면 등록할 수 있습니다."
+                                    : `최대 ${MAX_CATS}개까지 함께 선택해 한 번에 등록할 수 있습니다. 팀원.기술자 구인은 5개와 별도로 더 고를 수 있습니다.`}
+                                {proCategories.length > 0 && " 체크 표시된 분야는 이미 등록한 분야로, 누르면 수정하거나 삭제할 수 있습니다."}
+                            </HelpText>
                             {/* 소비자용 그룹 + 전문분야 등록 전용 그룹(공동중개) */}
                             {[...CATEGORY_GROUPS, ...PRO_ONLY_CATEGORY_GROUPS].map((group) => (
                                 <div key={group.id}>
@@ -412,10 +429,12 @@ const ProCategoryRegisterPage = () => {
                                         {CATEGORIES.filter((c) => c.group === group.id).map((cat) => {
                                             const isRegistered = proCategories.includes(cat.id);
                                             const isSelected = selectedCats.includes(cat.id);
+                                            const isOff = freeOnly && !isRegistered && !freelancerCanRegister(userData, cat.id);
                                             const Icon = DETAIL_ICONS[cat.id];
                                             return (
                                                 <CatGridItem
                                                     key={cat.id}
+                                                    style={isOff ? { opacity: 0.35 } : undefined}
                                                     $selected={isSelected}
                                                     onClick={() => handleToggleCat(cat.id)}
                                                 >
@@ -607,7 +626,7 @@ const ProCategoryRegisterPage = () => {
                             <SectionTitle>사업자등록증{licenseOptional ? " (선택)" : ""}</SectionTitle>
                             {licenseOptional && (
                                 <HelpText style={{ marginTop: 0, marginBottom: 10 }}>
-                                    {brokerOnly ? "공동중개는 위 자격증 사본 · 개설등록증으로 확인합니다. 사업자등록증은 있으면 함께 올려 주세요." : "개인 프리랜서는 사업자등록증 없이 등록할 수 있습니다."}
+                                    개인 프리랜서는 사업자등록증 없이 등록할 수 있습니다.
                                 </HelpText>
                             )}
                             <UploadBox onClick={() => fileRef.current?.click()}>

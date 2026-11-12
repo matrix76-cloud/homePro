@@ -1379,26 +1379,6 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               <GuideText>도급배상책임보험{"\n"}가입 및 보장 안내</GuideText>
             </GuideCard>
             )}
-            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/1")}>
-              <GuideIconWrap><IoDocumentTextOutline size={32} color={THEME.primary} /><GuideSubIcon><IoSendOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
-              <GuideText>첫 견적 보내기,{"\n"}이렇게 하면 쉬워요</GuideText>
-            </GuideCard>
-            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/2")}>
-              <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /><GuideSubIcon><IoChatbubbleOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
-              <GuideText>고객 리뷰를 늘리는{"\n"}가장 효과적인 방법</GuideText>
-            </GuideCard>
-            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/3")}>
-              <GuideIconWrap><IoWalletOutline size={32} color={THEME.primary} /><GuideSubIcon><IoCashOutline size={18} color={THEME.primary} /></GuideSubIcon></GuideIconWrap>
-              <GuideText>홈프로캐시 보상은{"\n"}언제 이루어지나요?</GuideText>
-            </GuideCard>
-            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/4")}>
-              <GuideIconWrap><IoCameraOutline size={32} color={THEME.primary} /></GuideIconWrap>
-              <GuideText>프로필 사진,{"\n"}이렇게 찍으세요</GuideText>
-            </GuideCard>
-            <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/5")}>
-              <GuideIconWrap><IoStarOutline size={32} color={THEME.primary} /></GuideIconWrap>
-              <GuideText>등급 시스템{"\n"}포인트로 올리세요</GuideText>
-            </GuideCard>
           </HScrollRow>
         </GuideSection>
       )}

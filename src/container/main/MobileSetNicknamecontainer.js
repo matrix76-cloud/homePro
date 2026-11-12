@@ -52,6 +52,9 @@ export default function MobileSetNicknamecontainer() {
     const [userType, setUserType] = useState(""); // "" | "customer" | "freelancer" | "business"
     const [companyName, setCompanyName] = useState("");
     const isBiz = userType === "business";
+    // 프리랜서는 대화명 대신 성명(실명)을 반드시 입력 — 사업자명 · 대화명 자리에 성명이 나온다 (대표 리뷰 11/12 9번)
+    const isFree = userType === "freelancer";
+    const [realName, setRealName] = useState("");
     const pickType = (t) => { setUserType(t); setStep("info"); };
 
     // 추천코드 보상액은 settings/point_rules 운영값 표시 (하드코딩 금지 — 리뷰 7/30)
@@ -137,9 +140,13 @@ export default function MobileSetNicknamecontainer() {
     const handleComplete = async () => {
         if (!userType) { setStep("type"); return; }
         // 사업자회원=업체명 / 일반고객=대화명
-        const displayValue = isBiz ? companyName.trim() : nickname.trim();
+        const displayValue = isBiz ? companyName.trim() : isFree ? realName.trim() : nickname.trim();
         if (!displayValue) {
-            window.alert(isBiz ? "업체명을 입력해주세요." : "대화명을 입력해주세요.");
+            window.alert(isBiz ? "업체명을 입력해주세요." : isFree ? "성명을 입력해주세요." : "대화명을 입력해주세요.");
+            return;
+        }
+        if (isFree && displayValue.replace(/\s/g, "").length < 2) {
+            window.alert("성명을 정확히 입력해주세요.");
             return;
         }
         if (!uid) return;
@@ -147,8 +154,8 @@ export default function MobileSetNicknamecontainer() {
 
         setBusy(true);
         try {
-            // 대화명(일반고객)만 중복 검사 — 업체명은 중복 허용
-            if (!isBiz) {
+            // 대화명(일반고객)만 중복 검사 — 업체명 · 성명(프리랜서)은 같은 이름이 있을 수 있어 허용
+            if (!isBiz && !isFree) {
                 const taken = await isNicknameTaken(displayValue);
                 if (taken) {
                     setNickStatus("taken");
@@ -178,7 +185,9 @@ export default function MobileSetNicknamecontainer() {
             // 사업자회원: 업체명을 상호/표시명으로. 일반고객: 대화명.
             const patch = isBiz
                 ? { nickname: displayValue, name: displayValue, companyName: displayValue, userType: "business", role: "user" }
-                : { nickname: displayValue, name: displayValue, userType: userType === "freelancer" ? "freelancer" : "customer", role: "user" };
+                : isFree
+                ? { nickname: displayValue, name: displayValue, realName: displayValue, userType: "freelancer", userTypes: ["freelancer"], role: "user" }
+                : { nickname: displayValue, name: displayValue, userType: "customer", role: "user" };
             // provider가 아직 없을 때만 설정
             const existingProfile = await getUserProfileByUid(targetUid);
             if (!existingProfile?.provider) {
@@ -280,8 +289,8 @@ export default function MobileSetNicknamecontainer() {
 
     return (
         <Wrap>
-            <Title>{isBiz ? "업체 정보 설정" : "대화명 설정"}</Title>
-            <Desc>{isBiz ? "다른 사용자에게 보여질 업체명이에요" : "다른 사용자에게 보여질 이름이에요"}</Desc>
+            <Title>{isBiz ? "업체 정보 설정" : isFree ? "성명 입력" : "대화명 설정"}</Title>
+            <Desc>{isBiz ? "다른 사용자에게 보여질 업체명이에요" : isFree ? "프리랜서 회원은 성명이 그대로 이름으로 보여요" : "다른 사용자에게 보여질 이름이에요"}</Desc>
 
             {/* 지난 단계 — 고른 값만 한 줄로, 오른쪽 수정 */}
             <PickedRow>
@@ -308,6 +317,22 @@ export default function MobileSetNicknamecontainer() {
                         {companyName.trim() && (
                             <Preview>미리보기: <strong>{companyName.trim()}</strong></Preview>
                         )}
+                    </Field>
+                ) : isFree ? (
+                    <Field>
+                        <LabelRow>
+                            <Label>성명</Label>
+                            <RequiredMark>*</RequiredMark>
+                        </LabelRow>
+                        <Input
+                            type="text"
+                            placeholder="실명을 입력하세요 (예: 홍길동)"
+                            value={realName}
+                            onChange={(e) => setRealName(e.target.value)}
+                            disabled={busy}
+                            maxLength={20}
+                        />
+                        <HelperText>프리랜서 회원은 대화명 대신 성명을 씁니다. 오더 · 채팅 · 프로필에 이 이름이 나옵니다</HelperText>
                     </Field>
                 ) : (
                 <Field>
@@ -367,7 +392,7 @@ export default function MobileSetNicknamecontainer() {
                 </ReferralBox>
 
                 <BtnRow>
-                    <PrimaryBtn type="button" onClick={handleComplete} disabled={busy || (isBiz ? !companyName.trim() : (!nickname.trim() || nickStatus === "taken" || nickStatus === "checking"))}>
+                    <PrimaryBtn type="button" onClick={handleComplete} disabled={busy || (isBiz ? !companyName.trim() : isFree ? !realName.trim() : (!nickname.trim() || nickStatus === "taken" || nickStatus === "checking"))}>
                         {busy ? "저장중..." : "완료"}
                     </PrimaryBtn>
                 </BtnRow>

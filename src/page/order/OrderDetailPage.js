@@ -57,6 +57,7 @@ import { getAccessTier, getTierDelaySec, getAcceptRemainSec, formatAcceptRemain,
 import { pcOnly, PC } from "../../pc/pcKit";
 import usePcWide from "../../hooks/usePcWide";
 import { isIosApp } from "../../bridge/webviewBridge";
+import { acceptBlockReason } from "../../utility/acceptRules";
 
 const STATUS_BADGE = {
   "접수": { bg: THEME.logoPurple, text: "#fff" },
@@ -303,6 +304,8 @@ const OrderDetailPage = () => {
   const lockOpenOrder = !!order && !order.matchedProUid && ["접수", "요청"].includes(order.orderStatus || "접수");
   const lockMode = (() => {
     if (!order || !myUid || isOwner || !lockOpenOrder || isApplicant) return null;
+    // 수락 자격이 없는 사람(프리랜서 · 외벽 미등록)은 30초 독점권을 잡지 않는다 — 남의 차례를 막지 않게 (대표 리뷰 11/12)
+    if (acceptBlockReason(order, userData, proDocs)) return null;
     if (matchType === "compare") return "compare";
     if (matchType === "direct" && !isDesignatedPro) return null;
     return "single";
@@ -480,6 +483,8 @@ const OrderDetailPage = () => {
 
   const handleAcceptOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    // 프리랜서는 구인 오더만 · 외벽.고소청소는 그 서비스를 등록한 홈프로만 (대표 리뷰 11/12 8 · 9번)
+    { const why = acceptBlockReason(order, userData, proDocs); if (why) { showToast(why); return; } }
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 수락 불가 (형 지시 7/31)
     if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
     // 차수 게이트 방어 (버튼 우회 대비) — 2차수는 오더 등록 후 5분 경과 전 수락 불가
@@ -513,6 +518,7 @@ const OrderDetailPage = () => {
 
   const handleApplyOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    { const why = acceptBlockReason(order, userData, proDocs); if (why) { showToast(why); return; } }
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 지원 불가 (형 지시 7/31)
     if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
     // 비교선정 — 3명이 상세를 보고 있으면 지원도 잠시 막는다 (대표 리뷰 10/31)
@@ -545,11 +551,14 @@ const OrderDetailPage = () => {
 
   // 접수자 핸들러
   const handleOwnerWaiting = async () => {
+    // 배정 뒤 대기 — 홈프로가 떨어진다는 걸 한 번 확인받는다 (대표 리뷰 11/12 3번)
+    if (order.matchedProUid && !window.confirm("배정된 홈프로에게 취소 알림이 가고, 오더는 대기 상태가 됩니다.\n대기 상태에서 수정 · 재접수 · 취소를 할 수 있습니다.\n대기로 돌릴까요?")) return;
     try {
       if (!setOrderWaiting) throw new Error("setOrderWaiting 함수 없음");
-      await setOrderWaiting(order.id);
-      await addOrderLog(order.id, { type: "status", message: "대기 전환", byUid: myUid, byName: myName, byRole: "접수자" });
-      showToast("대기 상태로 변경되었습니다");
+      const hadPro = !!order.matchedProUid;
+      await setOrderWaiting(order.id, { actorUid: myUid });
+      await addOrderLog(order.id, { type: "status", message: hadPro ? "대기 전환 (배정 취소 · 홈프로에게 알림)" : "대기 전환", byUid: myUid, byName: myName, byRole: "접수자" });
+      showToast(hadPro ? "대기로 돌리고 홈프로에게 알렸습니다" : "대기 상태로 변경되었습니다");
       const updated = await getOrder(order.id);
       if (updated) setFetchedOrder(updated);
     } catch (e) {
@@ -1557,11 +1566,11 @@ const OrderDetailPage = () => {
             {order.orderStatus === "대기" ? (
               <OutlinedBtn onClick={handleOwnerReregister}>재접수</OutlinedBtn>
             ) : (() => {
-              // 배정된 뒤에는 대기로 못 돌린다 — 배정 홈프로가 알림 없이 떨어져 나가던 구멍 (10/25 전면 점검)
-              const waitBlocked = CLOSED_STATUSES.has(order.orderStatus) || HP_ASSIGNED_STATUSES.has(order.orderStatus) || !!order.matchedProUid;
+              // 배정 뒤에도 대기로 돌릴 수 있다 — 홈프로에게 취소 알림 (대표 리뷰 11/12 3번). 체크인한 뒤에는 취소만
+              const waitBlocked = CLOSED_STATUSES.has(order.orderStatus) || !!order.checkInAt;
               return (
                 <OutlinedBtn
-                  onClick={() => { if (waitBlocked) { if (order.matchedProUid) showToast("배정된 오더는 대기로 돌릴 수 없어요. 취소를 이용해 주세요"); return; } handleOwnerWaiting(); }}
+                  onClick={() => { if (waitBlocked) { if (order.checkInAt) showToast("작업이 시작된 오더는 대기로 돌릴 수 없어요. 취소를 이용해 주세요"); return; } handleOwnerWaiting(); }}
                   disabled={waitBlocked}
                   style={waitBlocked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
                 >대기</OutlinedBtn>

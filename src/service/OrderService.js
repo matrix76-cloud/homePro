@@ -533,21 +533,35 @@ export const selectPro = async (orderId, selectedProUid) => {
   await notifyAssigned({ id: orderId, ...data }, selectedProUid, "select");
 };
 
-/** 대기 전환 */
-export const setOrderWaiting = async (orderId) => {
+/** 대기 전환
+ *  배정된 뒤에도 접수자가 대기로 돌릴 수 있다 (대표 리뷰 11/12 3번 (가)) — 대신
+ *   · 배정 홈프로(또는 지원자)에게 "취소" 알림(채팅 + 푸시)을 보내고
+ *   · H-포인트 오더면 보관 포인트를 접수자에게 돌려주고
+ *   · 배정 기록은 revertedAssign 으로 남긴다.
+ *  작업이 시작된(체크인한) 오더는 대기로 못 돌린다 — 그땐 취소로. */
+export const setOrderWaiting = async (orderId, opts = {}) => {
   const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-  // 배정된 뒤에는 대기로 못 돌린다 — 배정 홈프로가 알림 없이 떨어지고 체크인·보험·보관 포인트가 남던 구멍 (10/25)
   const cur = await getDoc(orderRef);
-  if (cur.exists() && cur.data()?.matchedProUid) throw new Error("배정된 오더는 대기로 돌릴 수 없습니다. 취소를 이용해 주세요");
-  if (cur.exists() && ENDED_STATUSES.has(cur.data()?.orderStatus)) throw new Error(`${cur.data().orderStatus}된 오더입니다`);
+  const before = cur.exists() ? { id: orderId, ...cur.data() } : null;
+  if (before && ENDED_STATUSES.has(before.orderStatus)) throw new Error(`${before.orderStatus}된 오더입니다`);
+  if (before?.checkInAt) throw new Error("작업이 시작된(체크인한) 오더는 대기로 돌릴 수 없습니다. 취소를 이용해 주세요");
+  const prevPro = before?.matchedProUid || null;
+  const prevApplicants = before?.applicantUids || [];
+  // H-포인트 보관분 환급 — 배정 때 접수자 포인트를 잡아 뒀다 (PayFlowService ③)
+  if (prevPro && before?.b2bPriceType === "hpoint") {
+    try { await refundHpointEscrow(orderId); } catch (e) { console.error("[escrow refund · 대기]", e); }
+  }
   await updateDoc(orderRef, {
     orderStatus: ORDER_STATUS.WAITING,
     matchedProUid: null,
+    assignedAt: null,
     // 지원 데이터도 함께 초기화 (전수검사 7/29: applicants 서브컬렉션만 지우고
     // 이 필드들을 남겨서, 재접수 후에도 옛 지원자 화면에 유령 "선정대기" 카드가 남았음)
     applicantUids: [],
     applicantCount: 0,
     applicantQuotes: {},
+    updatedAt: serverTimestamp(),
+    ...(prevPro ? { revertedAssign: { proUid: prevPro, at: serverTimestamp(), by: opts.actorUid || before?.createdBy || "" } } : {}),
   });
   // applicants 서브컬렉션 전체 삭제 (재접수 시 새로 모집)
   const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
@@ -555,6 +569,54 @@ export const setOrderWaiting = async (orderId) => {
   const batch = writeBatch(db);
   snap.docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
+  // 떨어진 홈프로 · 지원자에게 취소 알림
+  const to = prevPro ? [prevPro] : prevApplicants;
+  if (before && to.length) {
+    try {
+      await notifyOrderEvent(before, {
+        toUids: to, actorUid: opts.actorUid || before.createdBy || undefined,
+        title: "오더 취소",
+        body: `접수자가 ${prevPro ? "배정을" : "모집을"} 취소하고 오더를 대기로 돌렸습니다.${before.title ? ` (${before.title})` : ""}`,
+        type: "order_cancelled",
+        chatText: prevPro
+          ? "접수자가 배정을 취소하고 오더를 대기로 돌렸습니다.\n이 오더의 작업은 진행하지 않으셔도 됩니다."
+          : "접수자가 모집을 멈추고 오더를 대기로 돌렸습니다.",
+        chatType: "cancelled",
+      });
+    } catch (e) { console.warn("[대기 알림]", e?.message); }
+  }
+};
+
+/** 작업일 변경 — 배정 홈프로가 접수자 · 현장담당자와 협의해 미룬 날짜로 바꾼다 (대표 리뷰 11/12 4번 (라))
+ *  체크인은 작업 당일에만 되므로, 날짜가 바뀌면 여기서 고쳐야 체크인(보험 증빙)이 이어진다.
+ *  바꾸면 접수자에게 채팅 안내 + 푸시. 이력은 workDayChanges 에 쌓는다. */
+export const changeWorkDay = async (orderId, ymd, { actorUid, prevDay } = {}) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || "")) throw new Error("날짜를 골라 주세요");
+  const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+  const cur = await getDoc(orderRef);
+  if (!cur.exists()) throw new Error("오더를 찾을 수 없습니다");
+  const o = { id: orderId, ...cur.data() };
+  if (!o.matchedProUid || (actorUid && o.matchedProUid !== actorUid)) throw new Error("배정받은 홈프로만 작업일을 바꿀 수 있습니다");
+  if (o.checkInAt) throw new Error("이미 체크인한 오더입니다");
+  if (ENDED_STATUSES.has(o.orderStatus)) throw new Error(`${o.orderStatus}된 오더입니다`);
+  const history = Array.isArray(o.workDayChanges) ? o.workDayChanges : [];
+  await updateDoc(orderRef, {
+    workDate: "예약날짜",
+    workDatePicker: ymd,
+    workDayChanges: [...history, { from: prevDay || null, to: ymd, by: actorUid || "", at: new Date().toISOString() }],
+    updatedAt: serverTimestamp(),
+  });
+  const [y, m, d] = ymd.split("-");
+  const label = `${Number(m)}월 ${Number(d)}일`;
+  try {
+    await notifyOrderEvent(o, {
+      toUids: [o.createdBy], actorUid: actorUid || o.matchedProUid,
+      title: "작업일 변경",
+      body: `홈프로가 작업일을 ${label}로 바꿨습니다.${o.title ? ` (${o.title})` : ""}`,
+      type: "work_day_changed",
+      chatText: `홈프로가 작업일을 ${prevDay ? `${Number(prevDay.slice(5, 7))}월 ${Number(prevDay.slice(8, 10))}일에서 ` : ""}${label}로 바꿨습니다.\n협의한 날짜와 다르면 이 대화방에서 알려 주세요.`,
+    });
+  } catch (e) { console.warn("[작업일 변경 알림]", e?.message); }
 };
 
 /** 대기 → 재접수 */
