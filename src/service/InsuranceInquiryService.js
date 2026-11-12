@@ -54,6 +54,22 @@ export async function createInsuranceInquiry({ uid, name, photo, type, title, bo
     createdAt: serverTimestamp(),
     readBy: [uid],
   });
+  // 관리자에게 앱 푸시 (대표 리뷰 11/12 14번 (다)) — 관리자 웹 계정(admin 컬렉션)은 앱에 로그인하지 않으므로,
+  //  알림을 받을 앱 회원 uid 를 settings/notify.insuranceInquiryUids 에 적어 둔다. 비어 있으면 안 보낸다.
+  try {
+    const cfg = await getDoc(doc(db, "settings", "notify"));
+    const to = (cfg.exists() ? cfg.data().insuranceInquiryUids : null) || [];
+    if (Array.isArray(to) && to.length) {
+      await addDoc(collection(db, "notifications"), {
+        targetUids: to,
+        title: `보험 문의 · ${type || "기타"}`,
+        body: `${name || "홈프로"}: ${t}`,
+        type: "insurance_inquiry",
+        data: { roomId: roomDoc.id },
+        read: false, sent: false, createdAt: serverTimestamp(),
+      });
+    }
+  } catch (e) { console.warn("[보험 문의 알림]", e?.message); }
   return roomDoc.id;
 }
 
