@@ -172,7 +172,7 @@ const PrivacyPage = () => (
                 <Row><RowLabel>성명</RowLabel><RowValue>박성우</RowValue></Row>
                 <Row><RowLabel>직책</RowLabel><RowValue>운영팀장</RowValue></Row>
                 <Row><RowLabel>연락처</RowLabel><RowValue>1555-3364</RowValue></Row>
-                <Row><RowLabel>이메일</RowLabel><RowValue>support@gethomepro.co.kr</RowValue></Row>
+                <Row><RowLabel>이메일</RowLabel><RowValue>support@tryhomepro.com</RowValue></Row>
             </Block>
 
             <H2>제12조 (개인정보 처리방침의 변경)</H2>

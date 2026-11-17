@@ -402,8 +402,7 @@ export const acceptOrder = async (orderId, proUid) => {
     const d = snap.data() || {};
     if (d.matchedProUid) throw new Error("배정된 오더입니다");
     assertOpenForMatch(d);
-    // 보험 필수(9/14): 건당 보험을 선결제한 홈프로가 있으면 그 사람만 수락 가능
-    if (d.insurance?.applied && d.insurance.prepaidBy && d.insurance.prepaidBy !== proUid) throw new Error("다른 홈프로가 보험을 결제한 오더입니다");
+    // (건당 보험 선결제 홈프로만 수락 — 건당 보험이 없어져 걷어냄, 대표 리뷰 11/13 "월구독형 가입만 가능")
     tx.update(orderRef, {
       matchedProUid: proUid,
       orderStatus: ORDER_STATUS.ASSIGNED,
@@ -561,7 +560,10 @@ export const setOrderWaiting = async (orderId, opts = {}) => {
     applicantCount: 0,
     applicantQuotes: {},
     updatedAt: serverTimestamp(),
-    ...(prevPro ? { revertedAssign: { proUid: prevPro, at: serverTimestamp(), by: opts.actorUid || before?.createdBy || "" } } : {}),
+    // 보험 적용은 배정 홈프로의 월 보험이었다 — 다음 홈프로에게 넘어가면 안 되니 비운다 (11/18).
+    // 안 비우면 다음 홈프로가 보험 없이도 '보험 적용'으로 보이고 보험가입 필수 오더 체크인까지 통과했다. 예전 값은 revertedAssign 에 남긴다
+    insurance: null,
+    ...(prevPro ? { revertedAssign: { proUid: prevPro, at: serverTimestamp(), by: opts.actorUid || before?.createdBy || "", insurance: before?.insurance || null } } : {}),
   });
   // applicants 서브컬렉션 전체 삭제 (재접수 시 새로 모집)
   const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");

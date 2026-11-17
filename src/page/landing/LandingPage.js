@@ -115,7 +115,7 @@ const COMPANY_FALLBACK = {
   bizNumber: '696-87-02440',
   mailOrderNo: '2021-서울종로-1936',
   phone: '1555-3364',
-  email: 'homepro3364@gmail.com',
+  email: 'support@tryhomepro.com', // 공식 이메일 (대표 리뷰 11/13)
 };
 
 // 01~05 그림 칸 — 화면에 들어오면 사진이 먼저 살짝 당겨지며 자리 잡고, 0.35초 뒤 카드가 그 위로 올라온다.
@@ -419,6 +419,8 @@ const LandingPage = () => {
           <FootTop>
             <FootLogo>홈프로</FootLogo>
             <FootLinks>
+              {/* 로그인 없이 보는 공개 오더 목록 — 서버(publicOrders 함수)가 그린다. SPA 라우터를 타면 안 되니 a 태그 그대로 */}
+              <a href="/recent-orders">최근 오더</a>
               <a href="/legal/terms">이용약관</a>
               <a href="/legal/privacy">개인정보처리방침</a>
               <a href="/legal/location">위치기반서비스약관</a>

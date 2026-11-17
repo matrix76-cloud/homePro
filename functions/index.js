@@ -641,3 +641,6 @@ exports.insuranceExpireSweep = insuranceFns.insuranceExpireSweep;
 exports.subscriptionAutoCharge = insuranceFns.subscriptionAutoCharge;
 exports.subscriptionExpireSweep = insuranceFns.subscriptionExpireSweep;
 exports.onInsuranceClaimCreated = insuranceFns.onInsuranceClaimCreated;
+
+// ─── 공개 '최근 오더' 목록 + RSS (대표 리뷰 11/13) — tryhomepro.com/recent-orders ───
+exports.publicOrders = require("./publicOrders").publicOrders;
