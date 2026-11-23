@@ -405,6 +405,12 @@ const AnimatedRoutes = () => {
     }
   });
 
+  // 대표 도메인의 첫 주소(/)는 로그인 전이면 인트로를 그 자리에서 그린다(RootRedirect, 10/27) — /intro 와 같은 틀(전폭 + 위 메뉴)로 보여야 한다.
+  // (이 판정이 없어 PC 에서 tryhomepro.com 첫 화면이 폭 400 단 안에 위 메뉴 없이 나오고 있었다 — 11/24 발견)
+  const { isLoggedIn: authedForRoot, loading: authLoadingForRoot } = useAuth();
+  const introAtRoot = IS_BRAND_DOMAIN && location.pathname === "/" && !authLoadingForRoot && !authedForRoot;
+  const isIntroPage = location.pathname === "/intro" || introAtRoot;
+
   // PC 폭에서는 로그인 화면이 좌우 분할 전폭으로 뜬다 (폰·앱은 그대로 폭 400)
   const pcWide = usePcWide();
   const isFullWidth =
@@ -416,18 +422,18 @@ const AnimatedRoutes = () => {
     location.pathname.startsWith("/iconlab") ||
     location.pathname.startsWith("/colorlab") ||
     location.pathname === "/app" ||
-    location.pathname === "/intro";
+    isIntroPage;
   let Wrapper = isFullWidth ? FullContainer : Container;
 
   // PC 위 메뉴 — 관리자·리뷰·시안·결제 링크(고객용)·로그인·스플래시에는 달지 않는다
   const p = location.pathname;
   const pcBare =
-    p === "/" || p === "/app" || p === "/MobileLogin" || p === "/MobileSignup" || p === "/MobileFindAccount" || p === "/MobileSplash" || p === "/seed-login" ||
+    (p === "/" && !introAtRoot) || p === "/app" || p === "/MobileLogin" || p === "/MobileSignup" || p === "/MobileFindAccount" || p === "/MobileSplash" || p === "/seed-login" ||
     p.startsWith("/admin") || p.startsWith("/insurance-admin") || p.startsWith("/review") ||
     p.startsWith("/lab") || p.startsWith("/iconlab") || p.startsWith("/colorlab") || p.startsWith("/pg/");
   // 홍보 화면(/intro)은 위 메뉴, 그 밖의 앱 화면은 왼쪽 세로 메뉴 틀 (시안 랩 pcshell 3번)
-  const showPcHeader = pcWide && !pcBare && p === "/intro";
-  const pcApp = pcWide && !pcBare && p !== "/intro";
+  const showPcHeader = pcWide && !pcBare && isIntroPage;
+  const pcApp = pcWide && !pcBare && !isIntroPage;
   // 아직 PC 용으로 옮기지 않은 화면은 본문 가운데 단(폭 400)에 기존 화면 그대로 보여 준다
   // PC 용으로 옮긴 화면(넓은 본문) — 지금은 오더목록. 나머지는 가운데 단
   const pcTab = new URLSearchParams(location.search).get("tab");

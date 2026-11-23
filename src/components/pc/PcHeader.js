@@ -35,14 +35,14 @@ const PcHeader = () => {
 
   // 랜딩에서는 QR 이 있는 섹션으로 내려가고, 그 밖에서는 이동 페이지(/app)로
   const goApp = () => {
-    const el = path === "/intro" ? document.getElementById("app-download") : null;
+    const el = (path === "/intro" || path === "/") ? document.getElementById("app-download") : null; // 대표 도메인은 / 에서 인트로를 그대로 그린다
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     else navigate("/app");
   };
 
   // PG 심사 계정에서는 안심케어(보험)를 뺀다 (형 2026-10-07)
   const menuList = userData?.pgReview === true ? MENU.filter((m) => m.to !== "/insurance") : MENU;
-  const items = loggedIn ? menuList : [{ label: "홈", to: "/intro", match: (p) => p === "/intro" }, ...menuList];
+  const items = loggedIn ? menuList : [{ label: "홈", to: "/intro", match: (p) => p === "/intro" || p === "/" }, ...menuList];
 
   return (
     <Bar>
