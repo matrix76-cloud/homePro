@@ -227,19 +227,22 @@ const getBreadcrumb = (pathname) => {
     const crumbs = [{ label: "관리자 홈", to: "/admin" }];
     if (pathname === "/admin") return crumbs;
 
+    // 주소와 가장 길게 맞는 메뉴를 고른다 — 앞에서부터 처음 맞는 것을 고르면
+    // /admin/stats/subscription 이 '/admin/stats'(오더 등록 통계)로 잘못 찍힌다
+    let best = null;
+    const hit = (to) => to && to !== "/admin" && (pathname === to || pathname.startsWith(to + "/"));
     for (const m of MENUS) {
         if (m.sub) {
             for (const s of m.sub) {
-                if (pathname === s.to || pathname.startsWith(s.to + "/")) {
-                    crumbs.push({ label: m.label, to: m.sub[0]?.to || "" });
-                    crumbs.push({ label: s.label });
-                    return crumbs;
-                }
+                if (hit(s.to) && (!best || s.to.length > best.to.length)) best = { to: s.to, group: m, label: s.label };
             }
-        } else if (m.to && pathname === m.to) {
-            crumbs.push({ label: m.label });
-            return crumbs;
+        } else if (hit(m.to) && (!best || m.to.length > best.to.length)) {
+            best = { to: m.to, group: null, label: m.label };
         }
+    }
+    if (best) {
+        if (best.group) crumbs.push({ label: best.group.label, to: best.group.sub[0]?.to || "" });
+        crumbs.push({ label: best.label });
     }
     return crumbs;
 };
