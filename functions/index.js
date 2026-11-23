@@ -139,6 +139,14 @@ exports.api = require("firebase-functions").region("asia-northeast3").https.onRe
 exports.resetPassword = onRequest({ region: "asia-northeast3", cors: true }, (req, res) => {
     res.status(410).json({ ok: false, error: "이 방식은 더 이상 지원하지 않습니다." });
 });
+// 알림 종류 → 음성 이름. 같은 이름으로 앱 껍데기에 알림 채널(안드로이드) · <이름>.caf(아이폰), 웹에 public/sounds/<이름>.mp3 가 있어야 한다.
+// 새 음성을 받으면 여기에 알림 종류를 잇고, 웹 src/bridge/pushSound.js 의 FILES 와 앱 껍데기에 같은 이름으로 넣는다.
+const PUSH_SOUNDS = {
+    quote: "quote_arrived",           // 견적 도착 — "견적서가 도착했습니다"
+    applicant_quote: "quote_arrived", // 비교선정 지원 홈프로의 견적가 도착
+    onsite_quote: "quote_arrived",    // 현장견적 견적가 도착
+};
+
 // ─── 푸시 알림 발송 (notifications 문서 생성 트리거) ───
 exports.onNotificationSend = onDocumentCreated(
     { document: "notifications/{notifId}", region: "asia-northeast3" },
@@ -220,6 +228,17 @@ exports.onNotificationSend = onDocumentCreated(
             },
             data: fcmData,
         };
+
+        // 알림 종류별 음성 (대표 리뷰 11/21 · 음성 파일 11/23 전달) — 견적 도착 = "견적서가 도착했습니다"
+        //  · 앱이 꺼져 있거나 뒤에 있을 때: 안드로이드는 같은 이름의 알림 채널(소리가 채널에 묶여 있다), 아이폰은 앱 안의 <이름>.caf
+        //    그 채널 · 파일이 없는 옛 앱에서는 기본 채널 · 기본음으로 울린다(안 울리는 일은 없다).
+        //  · 앱을 보고 있을 때: 웹이 data.sound 를 보고 직접 튼다 (src/bridge/pushSound.js)
+        const sound = PUSH_SOUNDS[data.type];
+        if (sound) {
+            fcmData.sound = sound;
+            message.android = { notification: { channelId: sound, sound } };
+            message.apns = { payload: { aps: { sound: `${sound}.caf` } } };
+        }
 
         const result = await admin.messaging().sendEachForMulticast({
             tokens: tokens.map((t) => t.token),
@@ -315,13 +334,20 @@ exports.sendTestPush = onRequest({ region: "asia-northeast3", cors: true }, asyn
             return;
         }
 
+        // type 을 같이 주면(예: "quote") 그 알림 종류의 음성 설정으로 보낸다 — 음성 시험용
+        const testType = String(req.body?.type || "test");
+        const testSound = PUSH_SOUNDS[testType];
         const result = await admin.messaging().sendEachForMulticast({
             tokens,
             notification: {
                 title: title || "테스트 푸시",
                 body: body || "테스트 메시지입니다.",
             },
-            data: { type: "test" },
+            data: testSound ? { type: testType, sound: testSound } : { type: testType },
+            ...(testSound ? {
+                android: { notification: { channelId: testSound, sound: testSound } },
+                apns: { payload: { aps: { sound: `${testSound}.caf` } } },
+            } : {}),
         });
 
         res.status(200).json({

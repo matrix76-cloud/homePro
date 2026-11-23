@@ -14,6 +14,7 @@ import { PcSidebar, PcTopBar, PC_SIDE_W, PC_TOP_H } from "./components/pc/PcAppS
 import PcOrdersPage from "./pc/PcOrdersPage";
 import PcAuthSplit from "./components/pc/PcAuthSplit";
 import { attachMessageListener, postToRN, sendNavState, sendWebReady, isInRnWebView, isIosApp } from "./bridge/webviewBridge";
+import { initPushSound, playPushSound } from "./bridge/pushSound";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -294,6 +295,9 @@ const AnimatedRoutes = () => {
     return () => clearTimeout(t);
   }, [location.pathname]);
 
+  // 앱(RN) 안에서만 — 푸시 음성을 틀 수 있게 첫 터치에 소리 장치를 깨워 둔다 (견적 도착 음성 등)
+  useEffect(() => { if (isInRnWebView()) initPushSound(); }, []);
+
   // 앱이 다시 앞으로 오거나 뒤로가기(popstate)로 화면이 바뀐 뒤에도 같은 이유로 준비 신호를 다시 보낸다
   useEffect(() => {
     if (!isInRnWebView() || !/Android/i.test(navigator.userAgent)) return;
@@ -379,6 +383,8 @@ const AnimatedRoutes = () => {
         }
         // 앱을 보고 있을 때 온 푸시 — 화면 위 배너
         if (!p?.title && !p?.body) break;
+        // 음성이 정해진 알림이면 같이 튼다 (견적 도착 → "견적서가 도착했습니다") — 앱이 앞에 있으면 휴대폰은 소리를 안 낸다
+        if (p?.data?.sound) playPushSound(p.data.sound, p?.messageId || "");
         toast(
           <PushBanner>
             <div className="t">{p?.title || "홈프로"}</div>
