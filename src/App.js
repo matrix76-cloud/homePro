@@ -162,6 +162,9 @@ const AdminSettlementPage = React.lazy(() => import("./page/admin/AdminSettlemen
 const AdminProApprovalPage = React.lazy(() => import("./page/admin/AdminProApprovalPage"));
 const AdminBlacklistPage = React.lazy(() => import("./page/admin/AdminBlacklistPage"));
 const AdminReportsPage = React.lazy(() => import("./page/admin/AdminReportsPage"));
+const AdminModerationPage = React.lazy(() => import("./page/admin/AdminModerationPage"));
+const AdminOrderStatsPage = React.lazy(() => import("./page/admin/AdminOrderStatsPage"));
+const AdminSubscriptionStatsPage = React.lazy(() => import("./page/admin/AdminSubscriptionStatsPage"));
 const AdminInsuranceInquiriesPage = React.lazy(() => import("./page/admin/AdminInsuranceInquiriesPage"));
 
 /* Dev 전용 — 리뷰 허브 (프로덕션 빌드에서 라우트 게이트로 제외, lazy로 청크 분리) */
@@ -613,6 +616,10 @@ const AnimatedRoutes = () => {
               <Route path="blacklist" element={<AdminBlacklistPage />} />
               <Route path="blacklist/:filter" element={<AdminBlacklistPage />} />
               <Route path="reports" element={<AdminReportsPage />} />
+              <Route path="stats" element={<AdminOrderStatsPage />} />
+              <Route path="stats/subscription" element={<AdminSubscriptionStatsPage />} />
+              <Route path="moderation" element={<AdminModerationPage />} />
+              <Route path="moderation/:filter" element={<AdminModerationPage />} />
               <Route path="insurance-inquiries" element={<AdminInsuranceInquiriesPage />} />
               <Route path="matching" element={<AdminMatchingPage />} />
               <Route path="matching/:filter" element={<AdminMatchingPage />} />

@@ -16,6 +16,7 @@ import {
   callTrainer, chatTrainer,
 } from "./trainingShared";
 import usePcWide from "../../hooks/usePcWide";
+import { AdminHiddenText } from "../../components/AdminHiddenNotice";
 import { pcOnly, PC, PcFilterRow, PcField } from "../../pc/pcKit";
 
 const TABS = [
@@ -59,6 +60,7 @@ const TrainingPage = ({ embedded } = {}) => {
   const filtered = useMemo(() => {
     if (tab === "mine") return items.filter((n) => uid && n.authorUid === uid);
     let list = items.filter((n) => {
+      if (n.adminHidden === true) return false; // 운영자가 숨긴 공고 — 전체 목록에서는 누구에게도 안 보이고 '내 공고'에서만 안내와 함께 보인다
       if (cat !== "전체" && n.category !== cat) return false;
       // 시·도를 고르면 그 지역 + 전국 대상 교육을 함께 보여준다
       if (sido !== "전국" && n.sido !== sido && n.sido !== "전국") return false;
@@ -191,6 +193,7 @@ const TrainingPage = ({ embedded } = {}) => {
                       {n.tag && <TagText>[{n.tag}]</TagText>}
                       {n.title}
                     </CardTitle>
+                    {n.adminHidden === true && <AdminHiddenText style={{ display: "block" }} />}
                     <InfoLine><IoLocationOutline size={15} /> {n.regionLabel || "장소 미정"}{n.method ? ` · ${n.method}` : ""}</InfoLine>
                     <InfoLine><IoCalendarOutline size={15} /> {eduDateText(n)}</InfoLine>
                     <PriceLine>

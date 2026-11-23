@@ -277,7 +277,8 @@ export async function applyPointPayment(payerUid, payerName, amount, reason) {
   try {
     const userSnap = await getDoc(doc(db, USERS_COL, payerUid));
     const referredBy = userSnap.exists() ? userSnap.data().referredBy : null;
-    if (referredBy) {
+    // 공식 초대코드(OFFICIAL:HOMEPRO2026)로 가입한 사람은 추천인이 없다 — 없는 회원 앞으로 보상을 쌓지 않는다
+    if (referredBy && !String(referredBy).startsWith("OFFICIAL:")) {
       const rewardAmount = Math.round(amount * policy.referralRewardRate);
       if (rewardAmount > 0) {
         await addDoc(collection(db, CASH_COL), {

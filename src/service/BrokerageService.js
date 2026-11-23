@@ -31,7 +31,8 @@ export async function createBrokeragePost(data) {
 // 전체 목록 (최신순). 거래 종료(closed) 글은 메인 리스트에서 뺀다 (대표 9/10: 종료 글은 블라인드)
 export async function getBrokeragePosts() {
   const snap = await getDocs(query(collection(db, COL), orderBy("createdAt", "desc")));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.status !== "closed");
+  // 운영자가 숨긴 글(adminHidden)도 메인 리스트에서 뺀다 — 작성자는 '내 글'에서 안내와 함께 본다
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.status !== "closed" && p.adminHidden !== true);
 }
 
 // 내 작성글 (종료 포함, 최신순) — 거래 종료 관리용 (대표 9/10)

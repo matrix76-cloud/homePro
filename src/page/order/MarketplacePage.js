@@ -9,6 +9,7 @@ import { db } from "../../api/config";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
+import { AdminHiddenText } from "../../components/AdminHiddenNotice";
 import { isSubscriber } from "../../utility/tierUtils";
 import { KR_AREAS } from "../../utility/constants";
 import {
@@ -22,6 +23,7 @@ const MarketplacePage = ({ embedded } = {}) => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const canWrite = isSubscriber(userData);
+  const myUid = userData?.uid;
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,12 +47,14 @@ const MarketplacePage = ({ embedded } = {}) => {
   const filtered = useMemo(
     () =>
       items.filter((it) => {
+        // 운영자가 숨긴 글은 남에게 안 보인다 — 등록한 본인에게만 안내와 함께 남긴다
+        if (it.adminHidden === true && !(myUid && it.createdBy === myUid)) return false;
         if (cat !== "all" && getCategoryKey(it) !== cat) return false;
         if (sido && !regionText(it).startsWith(sido)) return false;
         if (status && getStatus(it).key !== status) return false;
         return true;
       }),
-    [items, cat, sido, status]
+    [items, cat, sido, status, myUid]
   );
 
   const handleWrite = () => {
@@ -114,6 +118,7 @@ const MarketplacePage = ({ embedded } = {}) => {
                   <Title>
                     <TagText>[{c.tag}]</TagText> {it.title}
                   </Title>
+                  {it.adminHidden === true && <AdminHiddenText style={{ display: "block" }} />}
                   <PriceLine>
                     <Price>{premiumText(it)}</Price>
                     {rent && <Rent>{rent}</Rent>}

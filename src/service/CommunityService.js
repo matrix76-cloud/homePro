@@ -20,12 +20,16 @@ import { db, storage } from "../api/config";
 
 const postsRef = collection(db, "community_posts");
 
-/** 게시글 목록 조회 (type별, 최신순, 최대 20건) */
-export async function getPosts(type) {
+/** 숨겨진 글인가 — 신고 가림(hidden) · 운영자 강제 숨김(adminHidden) 둘 다 */
+export const isPostHidden = (p) => !!p && (p.hidden === true || p.adminHidden === true);
+
+/** 게시글 목록 조회 (type별, 최신순, 최대 20건)
+ *  숨겨진 글은 남에게 안 보인다. viewerUid 를 주면 본인이 쓴 숨김 글만 남긴다(화면에서 "운영자에 의해 숨김 처리" 안내) */
+export async function getPosts(type, { viewerUid = null } = {}) {
   const q = query(postsRef, where("type", "==", type), orderBy("createdAt", "desc"), limit(20));
   const snap = await getDocs(q);
-  // 신고로 가려진 글(hidden)은 목록에서 뺀다
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.hidden);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((p) => !isPostHidden(p) || (!!viewerUid && p.authorUid === viewerUid));
 }
 
 /**
@@ -44,17 +48,19 @@ export async function getNotices() {
     });
 }
 
-/** 게시글 상세 조회 — includeHidden: 관리자가 가려진 글을 확인할 때 */
-export async function getPostById(postId, { includeHidden = false } = {}) {
+/** 게시글 상세 조회 — includeHidden: 관리자가 가려진 글을 확인할 때 · viewerUid: 숨겨진 글은 작성자 본인에게만 열린다 */
+export async function getPostById(postId, { includeHidden = false, viewerUid = null } = {}) {
   const snap = await getDoc(doc(db, "community_posts", postId));
   if (!snap.exists()) return null;
-  if (snap.data().hidden && !includeHidden) return null;
-  return { id: snap.id, ...snap.data() };
+  const data = snap.data();
+  if (isPostHidden(data) && !includeHidden && !(viewerUid && data.authorUid === viewerUid)) return null;
+  return { id: snap.id, ...data };
 }
 
-/** 신고 처리 — 글·댓글 가리기/되살리기 (관리자). 지우지 않고 hidden 표시만 남긴다 */
+/** 신고 처리 — 글·댓글 가리기/되살리기 (관리자). 지우지 않고 hidden 표시만 남긴다.
+ *  운영자 강제 숨김(adminHidden, ModerationService)과 같은 글을 가리키도록 두 표시를 함께 맞춘다 */
 export async function setPostHidden(postId, hidden) {
-  await updateDoc(doc(db, "community_posts", postId), { hidden: !!hidden });
+  await updateDoc(doc(db, "community_posts", postId), { hidden: !!hidden, adminHidden: !!hidden });
 }
 export async function setCommentHidden(postId, commentId, hidden) {
   await updateDoc(doc(db, "community_posts", postId, "comments", commentId), { hidden: !!hidden });

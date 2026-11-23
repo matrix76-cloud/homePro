@@ -8,6 +8,7 @@ import {
     IoMegaphoneOutline, IoWalletOutline, IoNewspaperOutline, IoCloudDownloadOutline,
     IoSettingsOutline, IoLogOutOutline, IoCashOutline, IoChevronDownOutline,
     IoTimeOutline, IoChevronForwardOutline, IoHomeOutline, IoShieldCheckmarkOutline,
+    IoEyeOffOutline, IoStatsChartOutline,
 } from "react-icons/io5";
 
 const Wrap = styled.div`display: flex; min-height: 100vh; background: ${THEME.background};`;
@@ -113,6 +114,14 @@ const ContentBody = styled.div`
 const MENUS = [
     { to: "/admin", icon: IoGridOutline, label: "대시보드", end: true },
     {
+        // 오더 등록 · 구독 매출 통계 (대표 리뷰 11/22)
+        icon: IoStatsChartOutline, label: "통계", groupKey: "stats",
+        sub: [
+            { to: "/admin/stats", label: "오더 등록 통계", end: true },
+            { to: "/admin/stats/subscription", label: "구독 매출 통계" },
+        ],
+    },
+    {
         icon: IoPeopleOutline, label: "회원관리", groupKey: "users",
         sub: [
             { to: "/admin/users", label: "전체 회원 목록", end: true },
@@ -140,6 +149,8 @@ const MENUS = [
         ],
     },
     // 보험 탭 1:1 문의 (대표 10/6) — 홈프로 문의 목록·답변
+    // 허위 오더 · 도배글 강제 숨김 · 삭제 (대표 리뷰 11/22) — end 를 주지 않아 /admin/moderation/logs 등에서도 메뉴가 켜진다
+    { to: "/admin/moderation", icon: IoEyeOffOutline, label: "숨김 · 삭제 관리" },
     { to: "/admin/insurance-inquiries", icon: IoChatbubblesOutline, label: "보험 문의내역 관리" },
     {
         icon: IoLinkOutline, label: "매칭관리", groupKey: "matching",
@@ -168,6 +179,7 @@ const MENUS = [
             { to: "/admin/ads/middle", label: "중간 배너 관리" },
             { to: "/admin/ads/settings", label: "설정 페이지 배너" },
             { to: "/admin/ads/popup", label: "팝업 광고 관리" },
+            { to: "/admin/ads/chat", label: "채팅 상단 배너" },
         ],
     },
     {

@@ -8,6 +8,7 @@ import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
+import { AdminHiddenNotice, AdminHiddenBlocked } from "../../components/AdminHiddenNotice";
 import { IoCallOutline, IoChatbubbleEllipsesOutline } from "react-icons/io5";
 import {
   TRAINING_COL, STATUS_COLOR, normalizeTraining, computeStatus, recruitText, eduDateText,
@@ -44,6 +45,10 @@ const TrainingDetailPage = () => {
   if (!data || (data.status === "pending" && !mine)) {
     return <SimpleBackLayout NAME={NAME} hideFooter><Center>존재하지 않거나 게시되지 않은 교육입니다</Center></SimpleBackLayout>;
   }
+  // 운영자가 숨긴 공고 — 등록한 본인에게만 안내와 함께 열린다
+  if (data.adminHidden === true && !mine) {
+    return <SimpleBackLayout NAME={NAME} hideFooter><AdminHiddenBlocked /></SimpleBackLayout>;
+  }
 
   const status = computeStatus(data);
   const price = priceInfo(data);
@@ -77,6 +82,7 @@ const TrainingDetailPage = () => {
   return (
     <SimpleBackLayout NAME={NAME} hideFooter>
       <PageWrap>
+        {data.adminHidden === true && <AdminHiddenNotice item={data} style={{ margin: "12px 16px 0" }} />}
         {data.photos.length > 0 && (
           <Gallery>
             <MainPhoto><img src={data.photos[Math.min(photoIdx, data.photos.length - 1)]} alt="" /></MainPhoto>

@@ -6,7 +6,8 @@ import { IoHeartOutline, IoHeart, IoSendOutline, IoChatbubbleOutline, IoPersonCi
 import { THEME } from "../../config/homeproConfig";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { getPostById, toggleLike, checkLiked, getComments, addComment, increaseViewCount, getPosts } from "../../service/CommunityService";
+import { getPostById, toggleLike, checkLiked, getComments, addComment, increaseViewCount, getPosts, isPostHidden } from "../../service/CommunityService";
+import { AdminHiddenNotice, AdminHiddenBlocked } from "../../components/AdminHiddenNotice";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import usePcWide from "../../hooks/usePcWide";
 import ReportSheet from "../../components/ReportSheet";
@@ -66,7 +67,7 @@ const CommunityDetailPage = () => {
   useEffect(() => {
     if (!postId) return;
     Promise.all([
-      getPostById(postId),
+      getPostById(postId, { includeHidden: true }), // 숨긴 글은 아래에서 작성자 본인인지 보고 연다 (로그인 정보가 늦게 와도 튕기지 않게)
       checkLiked(postId, uid),
       getComments(postId),
     ]).then(([p, isLiked, cmts]) => {
@@ -150,6 +151,16 @@ const CommunityDetailPage = () => {
 
   if (!post) return null;
 
+  // 운영자가 숨긴 글(신고 가림 포함) — 작성자 본인에게만 안내와 함께 보이고, 남에게는 본문을 내주지 않는다
+  const hiddenPost = isPostHidden(post);
+  if (hiddenPost && post.authorUid !== uid) {
+    return (
+      <SimpleBackLayout NAME="커뮤니티" hideFooter>
+        <AdminHiddenBlocked />
+      </SimpleBackLayout>
+    );
+  }
+
   const canActOnPost = !!uid && post.type !== "notice" && !!post.authorUid && post.authorUid !== uid;
   const openPostSheet = () => setSheetTarget({
     type: "post", postId: post.id, targetUid: post.authorUid, targetName: post.authorName || "",
@@ -165,6 +176,7 @@ const CommunityDetailPage = () => {
     <SimpleBackLayout NAME="커뮤니티" hideFooter>
       <PageWrap>
         <ContentArea>
+          {hiddenPost && <AdminHiddenNotice item={post} />}
           {/* 작성자 줄 (커뮤니티 시안 2번, 형 9/18) */}
           <AuthorLine>
             <IoPersonCircle size={40} color="#C9CED6" />

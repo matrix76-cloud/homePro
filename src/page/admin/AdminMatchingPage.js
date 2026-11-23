@@ -5,6 +5,7 @@ import styled from "styled-components";
 import { THEME, CATEGORIES, COLLECTIONS } from "../../config/homeproConfig";
 import { db } from "../../api/config";
 import { updateOrderStatus } from "../../service/OrderService";
+import ModerationDialog from "../../components/admin/ModerationDialog";
 import {
     collection,
     getDocs,
@@ -77,6 +78,24 @@ const AdminMatchingPage = () => {
     const [searchText, setSearchText] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    // 운영자 강제 숨김 · 삭제 (대표 리뷰 11/22) — 사유 창은 [숨김 · 삭제 관리]와 같은 것을 쓴다
+    const [modDialog, setModDialog] = useState(null); // { action, items }
+    const handleModDone = ({ done, action }) => {
+        if (!done.length) return;
+        if (action === "delete") {
+            const gone = new Set(done.map((d) => d.item.id));
+            setOrders((prev) => prev.filter((o) => !gone.has(o.id)));
+            setSelectedOrder((prev) => (prev && gone.has(prev.id) ? null : prev));
+            return;
+        }
+        const hidden = action === "hide";
+        const patchOf = (o) => {
+            const hit = done.find((d) => d.item.id === o.id);
+            return hit ? { ...o, adminHidden: hidden, adminHiddenReason: hidden ? hit.result?.adminHiddenReason || "" : null } : o;
+        };
+        setOrders((prev) => prev.map(patchOf));
+        setSelectedOrder((prev) => (prev ? patchOf(prev) : prev));
+    };
 
     // Firestore에서 주문 + 사용자 목록 조회
     const fetchOrders = useCallback(async () => {
@@ -228,6 +247,7 @@ const AdminMatchingPage = () => {
                                     <Th style={{ textAlign: "right" }}>금액</Th>
                                     <Th>요청일</Th>
                                     <Th>상태</Th>
+                                    <Th>노출</Th>
                                     <Th>변경</Th>
                                 </tr>
                             </thead>
@@ -259,6 +279,11 @@ const AdminMatchingPage = () => {
                                                 {STATUS_MAP[order.status]
                                                     ?.label || order.status}
                                             </Badge>
+                                        </Td>
+                                        <Td>
+                                            {order.adminHidden === true
+                                                ? <HiddenText>숨김</HiddenText>
+                                                : "보임"}
                                         </Td>
                                         <Td>
                                             <StatusSelect
@@ -359,6 +384,20 @@ const AdminMatchingPage = () => {
                                     </InfoValue>
                                 </InfoRow>
                                 <InfoRow>
+                                    <InfoLabel>노출</InfoLabel>
+                                    <InfoValue>
+                                        {selectedOrder.adminHidden === true
+                                            ? <HiddenText>숨김{selectedOrder.adminHiddenReason ? ` — ${selectedOrder.adminHiddenReason}` : ""}</HiddenText>
+                                            : "보임"}
+                                        <ModBtns>
+                                            {selectedOrder.adminHidden === true
+                                                ? <ModBtn type="button" onClick={() => setModDialog({ action: "unhide", items: [selectedOrder] })}>숨김 해제</ModBtn>
+                                                : <ModBtn type="button" onClick={() => setModDialog({ action: "hide", items: [selectedOrder] })}>숨김</ModBtn>}
+                                            <ModBtn type="button" $danger onClick={() => setModDialog({ action: "delete", items: [selectedOrder] })}>삭제</ModBtn>
+                                        </ModBtns>
+                                    </InfoValue>
+                                </InfoRow>
+                                <InfoRow>
                                     <InfoLabel>상태 변경</InfoLabel>
                                     <InfoValue>
                                         <StatusSelect value={selectedOrder.status}
@@ -438,11 +477,45 @@ const AdminMatchingPage = () => {
                     </Modal>
                 </Overlay>
             )}
+
+            {modDialog && (
+                <ModerationDialog
+                    action={modDialog.action}
+                    targetKey="order"
+                    items={modDialog.items}
+                    onClose={() => setModDialog(null)}
+                    onDone={handleModDone}
+                />
+            )}
         </Wrapper>
     );
 };
 
 export default AdminMatchingPage;
+
+// 운영자 숨김 표시 · 버튼 (상태는 뱃지 없이 글 + 색으로만)
+const HiddenText = styled.span`
+    font-weight: 600;
+    color: #C62828;
+`;
+const ModBtns = styled.span`
+    display: inline-flex;
+    gap: 6px;
+    margin-left: 12px;
+    vertical-align: middle;
+`;
+const ModBtn = styled.button`
+    height: 32px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    color: ${(p) => (p.$danger ? "#C62828" : THEME.text)};
+    background: #fff;
+    border: 1px solid #D9DDE3;
+    border-radius: 4px;
+    &:hover { border-color: ${(p) => (p.$danger ? "#C62828" : THEME.text)}; }
+`;
 
 // ─── Styled Components ───
 

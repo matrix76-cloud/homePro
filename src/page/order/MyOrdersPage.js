@@ -111,6 +111,20 @@ const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
 const quotedAmount = (order) =>
   Number(order.onsiteQuotedPrice) || (order.matchedProUid ? Number(order.applicantQuotes?.[order.matchedProUid]) : 0) || 0;
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
+/* 비교선정 지원 현황 — 오더목록의 "1/3" 과 같은 값 · 같은 최대치(3명이면 지원 마감) (대표 리뷰 11/22) */
+const COMPARE_MAX_APPLICANTS = 3;
+const applicantCountOf = (order) => Math.max(Number(order.applicantCount) || 0, (order.applicantUids || []).length);
+/* 카드의 요청방식 글 — 비교선정이고 아직 선정 전이면 "비교선정 1/3 지원" */
+const matchLineOf = (order) => {
+  if (order.selfOrder) return "셀프 등록";
+  const label = MATCH_TYPE_LABEL[order.matchType] || "";
+  if (order.matchType !== "compare" || order.matchedProUid) return label;
+  const st = order.orderStatus;
+  if (!(st === "요청" || st === "접수" || st === "선정대기" || st === "업체선택대기" || st === "업체선택")) return label;
+  return `${label} ${applicantCountOf(order)}/${COMPARE_MAX_APPLICANTS} 지원`;
+};
+/* 운영자가 숨긴 오더 — 접수자 본인 카드에는 남기고 한 줄로 알린다 (대표 리뷰 11/22 — 관리자 강제 숨김) */
+const ADMIN_HIDDEN_TEXT = "운영자에 의해 숨김 처리된 오더입니다";
 
 const formatPriceLine = (order) => {
   // 정보공유: 리워드 금액을 같이 표기
@@ -608,13 +622,25 @@ export const MyOrdersContent = () => {
           )}
         </ActionRow>
       )}
-      {displayStatus === "선정대기" && order.createdBy === uid && (
-        <ActionRow>
-          <ActionBtn $variant="primary" onClick={(e) => { e.stopPropagation(); navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}>지원자 보기</ActionBtn>
-        </ActionRow>
-      )}
-      {/* 접수/대기 카드는 취소·재접수만 (수정·대기 변경은 상세 하단에서) */}
-      {displayStatus === "접수" && order.createdBy === uid && (
+      {/* [지원자 보기] — 비교선정은 3명이 다 차기 전(접수 상태)에도 1명 이상 지원하면 켜진다. 0명이면 흐리게 두고 눌러도 넘어가지 않는다 (대표 리뷰 11/22)
+          지금까지는 3명이 차서 '선정대기'가 된 뒤에만 버튼이 나왔다 */}
+      {order.createdBy === uid && !order.matchedProUid
+        && (displayStatus === "선정대기" || (displayStatus === "접수" && order.matchType === "compare")) && (() => {
+        const hasApplicant = applicantCountOf(order) > 0 || displayStatus === "선정대기";
+        return (
+          <ActionRow>
+            <ActionBtn
+              $variant={hasApplicant ? "primary" : "off"}
+              $dim={!hasApplicant}
+              aria-disabled={!hasApplicant}
+              onClick={(e) => { e.stopPropagation(); if (!hasApplicant) return; navigate(`/order/detail/${order.id}`, { state: { order, category: cat } }); }}
+            >지원자 보기</ActionBtn>
+            {displayStatus === "접수" && <ActionBtn $variant="cancel" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>}
+          </ActionRow>
+        );
+      })()}
+      {/* 접수/대기 카드는 취소·재접수만 (수정·대기 변경은 상세 하단에서) — 비교선정 접수 카드는 위에서 [지원자 보기]와 함께 그린다 */}
+      {displayStatus === "접수" && order.createdBy === uid && order.matchType !== "compare" && (
         <ActionRow>
           <ActionBtn $variant="cancel" onClick={(e) => handleStatusChange(e, order.id, "취소")}>취소</ActionBtn>
         </ActionRow>
@@ -708,7 +734,7 @@ export const MyOrdersContent = () => {
                   const isOwner = order.createdBy === uid;
                   const chats = chatsOf(order);
                   const ins = userData?.pgReview === true ? "" : insuranceLine(order); // PG 심사 계정에서는 보험 줄을 뺀다
-                  const meta = [order.selfOrder ? "셀프 등록" : (MATCH_TYPE_LABEL[order.matchType] || ""), `접수 ${formatOrderTime(order.createdAt)}`].filter(Boolean).join(" · ");
+                  const meta = [matchLineOf(order), `접수 ${formatOrderTime(order.createdAt)}`].filter(Boolean).join(" · ");
                   const other = isOwner
                     ? (order.matchedProUid ? (chats[0]?.otherName || "배정된 프로") : (chats.length > 0 ? `견적 ${chats.length}명` : "-"))
                     : (order.writer || "-");
@@ -729,6 +755,7 @@ export const MyOrdersContent = () => {
                       <span>{isOwner ? "내가 요청" : (PRO_ROLE_TAG_BY_MATCH[order.matchType] || "견적 지원")}</span>
                       <PcCellStack>
                         <b>{order.title}</b>
+                        {order.adminHidden === true && <small style={{ color: THEME.danger, fontWeight: 700 }}>{ADMIN_HIDDEN_TEXT}</small>}
                         <small>{meta}</small>
                         {ins && <small style={order.insurance?.applied ? { color: "#15803d", fontWeight: 700 } : null}>{ins}</small>}
                       </PcCellStack>
@@ -865,6 +892,7 @@ export const MyOrdersContent = () => {
                   <OrderDate>{formatOrderTime(order.createdAt)}</OrderDate>
                 </CardTop>
                 <CardTitle>{order.title}</CardTitle>
+                {order.adminHidden === true && <AdminHiddenLine>{ADMIN_HIDDEN_TEXT}</AdminHiddenLine>}
                 {/* 오늘의 작업 탭 — "08:00 시작 · 서울 종로구 종로 현장" 한 줄 (대표 리뷰 11/02) */}
                 {isTodayTab && !isUnselected(order) && (
                   <WorkLine>
@@ -886,7 +914,8 @@ export const MyOrdersContent = () => {
                         리스트 전체가 크래시 — 문자열로 정규화 (심화점검 11 발견) */}
                     <BottomText>{typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" ")}</BottomText>
                     <BottomText>{order.writer}</BottomText>
-                    <BottomText>{order.selfOrder ? "셀프 등록" : (MATCH_TYPE_LABEL[order.matchType] || "")}</BottomText>
+                    {/* 비교선정은 지원 현황까지 — "비교선정 1/3 지원" (대표 리뷰 11/22) */}
+                    <BottomText>{matchLineOf(order)}</BottomText>
                     {userData?.pgReview !== true && insuranceLine(order) && <BottomText style={{ color: order.insurance?.applied ? "#15803d" : THEME.muted, fontWeight: order.insurance?.applied ? 700 : 400 }}>{insuranceLine(order)}</BottomText>}
                     {workDateText(order) && <BottomText>작업일 {workDateText(order)}</BottomText>}
                   </BottomLeft>
@@ -1546,6 +1575,8 @@ const ActionBtn = styled.button`
   cursor: pointer;
   &:active { opacity: 0.7; }
   &:disabled { cursor: not-allowed; background: #F3F4F6; border-color: #D5D9DF; color: #545E6B; opacity: 1; }
+  /* 눌러도 넘어가지 않는 흐린 버튼 (지원자 0명일 때 [지원자 보기]) — disabled 로 두면 누름이 카드로 새서 상세로 넘어갈 수 있어 모양만 끈다 */
+  ${({ $dim }) => $dim && `cursor: not-allowed; background: #F3F4F6; border-color: #D5D9DF; color: #545E6B; opacity: 0.6; &:active { opacity: 0.6; }`}
   ${pcOnly`
     width: 100%; padding: 9px 8px; background: #fff; font-weight: 700; font-family: inherit; line-height: 1.3;
     border-color: ${({ $variant }) => ($variant === "danger" || $variant === "cancel" ? PC.line : PC.primary)};
@@ -1905,6 +1936,16 @@ const ReferralLine = styled.div`
   font-weight: ${({ $done }) => ($done ? 700 : 600)};
   svg { flex: 0 0 auto; }
   i { font-style: normal; font-weight: 500; margin-left: auto; color: #2b2f36; }
+`;
+
+/* 운영자 숨김 안내 — 뱃지 없이 글씨로만 */
+const AdminHiddenLine = styled.div`
+  margin: -2px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: ${THEME.danger};
+  word-break: keep-all;
 `;
 
 const UnselectedLine = styled.div`

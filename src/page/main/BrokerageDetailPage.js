@@ -12,6 +12,7 @@ import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
 import { getBrokeragePost } from "../../service/BrokerageService";
+import { AdminHiddenNotice, AdminHiddenBlocked } from "../../components/AdminHiddenNotice";
 import { getBrokerInfo, isActiveBrokerStatus } from "../../service/BrokerService";
 import { createChatRoom } from "../../service/ChatService";
 import { IoChatbubbleEllipsesOutline } from "react-icons/io5";
@@ -110,12 +111,17 @@ const BrokerageDetailPage = () => {
 
   const closed = post.status === "closed";
   const mine = post.authorUid === uid;
+  // 운영자가 숨긴 글 — 등록한 본인에게만 안내와 함께 열린다
+  if (post.adminHidden === true && !mine) {
+    return <SimpleBackLayout NAME="매물 상세"><AdminHiddenBlocked /></SimpleBackLayout>;
+  }
   const blocked = post.type === "demand" && !isBroker;
 
   return (
     <SimpleBackLayout NAME="매물 상세">
       <Page>
         <Body>
+          {post.adminHidden === true && <AdminHiddenNotice item={post} />}
           <TopRow>
             <TypeTag $listing={post.type === "listing"}>{post.type === "listing" ? "매물공유" : "손님공유"}</TypeTag>
             <StatusText $closed={closed}>{closed ? "거래종료" : "진행중"}</StatusText>

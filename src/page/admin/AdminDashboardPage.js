@@ -12,6 +12,8 @@ import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer,
 } from "recharts";
+import SignupStatsCard from "../../components/admin/SignupStatsCard";
+import { Ring, kstParts, toDate as toDateSafe, isCountedUser, isTestUser, isTestOrder } from "../../components/admin/statKit";
 
 // ─── 유틸 ───
 const formatDate = (ts) => {
@@ -29,6 +31,20 @@ const formatDateTime = (ts) => {
 const getMonthStart = () => {
     const now = new Date();
     return Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1));
+};
+
+// 이번 달(한국 시간) 날짜별 건수 — 아래 추이 그래프용
+const buildMonthDaily = (rows, getDate) => {
+    const nowP = kstParts(new Date());
+    const daysInMonth = new Date(Date.UTC(nowP.y, nowP.m, 0)).getUTCDate();
+    const out = Array.from({ length: daysInMonth }, (_, i) => ({ name: `${i + 1}일`, value: 0 }));
+    rows.forEach((r) => {
+        const d = toDateSafe(getDate(r));
+        if (!d) return;
+        const p = kstParts(d);
+        if (p.y === nowP.y && p.m === nowP.m) out[p.d - 1].value += 1;
+    });
+    return out;
 };
 
 
@@ -58,6 +74,11 @@ const AdminDashboardPage = () => {
     });
     const [recentUsers, setRecentUsers] = useState([]);
     const [recentOrders, setRecentOrders] = useState([]);
+    // 신규 가입자 현황(대표 리뷰 11/22)이 쓰는 회원 · 전문분야 등록 문서 — 아래에서 한 번 읽은 것을 그대로 넘긴다
+    const [userRows, setUserRows] = useState([]);
+    const [proRows, setProRows] = useState([]);
+    // 이번 달 날짜별 가입 · 오더 등록 건수 (테스트 계정 · 테스트 오더 제외)
+    const [monthCharts, setMonthCharts] = useState({ users: null, orders: null });
     // 차트 데이터 (추후 Firestore 연동)
     const emptyChartData = useMemo(() => {
         const now = new Date();
@@ -199,6 +220,15 @@ const AdminDashboardPage = () => {
                 monthRevenue,
             });
 
+            const allUsers = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const allOrders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setUserRows(allUsers);
+            setProRows(prosSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            setMonthCharts({
+                users: buildMonthDaily(allUsers.filter((u) => isCountedUser(u) && !isTestUser(u)), (u) => u.createdAt),
+                orders: buildMonthDaily(allOrders.filter((o) => !isTestOrder(o) && !o.selfOrder), (o) => o.createdAt),
+            });
+
             setRecentUsers(recentUsersSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
             setRecentOrders(recentOrdersSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         } catch (err) {
@@ -323,10 +353,15 @@ const AdminDashboardPage = () => {
         return null;
     };
 
-    if (loading) return <LoadingWrap>데이터를 불러오는 중...</LoadingWrap>;
+    if (loading) return <LoadingWrap role="status" aria-label="불러오는 중"><Ring $size={34} /></LoadingWrap>;
 
     return (
         <Wrap>
+            {/* 신규 가입자 현황 (대표 리뷰 11/22) */}
+            <SignupWrap>
+                <SignupStatsCard users={userRows} pros={proRows} loading={loading} />
+            </SignupWrap>
+
             {/* 통계 카드 */}
             <StatsWrap>
                 {cardGroups.flatMap((group) =>
@@ -347,11 +382,11 @@ const AdminDashboardPage = () => {
                 <ChartCard>
                     <ChartHeader>
                         <ChartTitle>회원 가입 추이</ChartTitle>
-                        <ChartSub>이번달 일별</ChartSub>
+                        <ChartSub>이번달 일별 · 테스트 계정 제외</ChartSub>
                     </ChartHeader>
                     <ChartBody>
                         <ResponsiveContainer width="100%" height={200}>
-                            <AreaChart data={emptyChartData.users} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                            <AreaChart data={monthCharts.users || emptyChartData.users} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                                 <XAxis dataKey="name" tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -364,17 +399,17 @@ const AdminDashboardPage = () => {
 
                 <ChartCard>
                     <ChartHeader>
-                        <ChartTitle>매칭 건수 추이</ChartTitle>
-                        <ChartSub>이번달 일별</ChartSub>
+                        <ChartTitle>오더 등록 추이</ChartTitle>
+                        <ChartSub>이번달 일별 · 테스트 오더 제외</ChartSub>
                     </ChartHeader>
                     <ChartBody>
                         <ResponsiveContainer width="100%" height={200}>
-                            <BarChart data={emptyChartData.orders} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                            <BarChart data={monthCharts.orders || emptyChartData.orders} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                                 <XAxis dataKey="name" tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 14, fill: "#9CA3AF" }} axisLine={false} tickLine={false} allowDecimals={false} />
                                 <Tooltip content={countTooltip} />
-                                <Bar dataKey="value" fill="#1B4D7A" radius={[4, 4, 0, 0]} barSize={28} />
+                                <Bar dataKey="value" fill="#1B4D7A" radius={[4, 4, 0, 0]} maxBarSize={28} />
                             </BarChart>
                         </ResponsiveContainer>
                     </ChartBody>
@@ -470,6 +505,8 @@ const LoadingWrap = styled.div`
     display: flex; align-items: center; justify-content: center;
     height: 50vh; font-size: 16px; color: ${THEME.muted};
 `;
+
+const SignupWrap = styled.div`margin-bottom: 20px;`;
 
 // ── 통계 카드 ──
 const StatsWrap = styled.div`

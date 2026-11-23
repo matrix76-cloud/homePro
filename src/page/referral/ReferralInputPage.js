@@ -88,7 +88,7 @@ export default function ReferralInputPage() {
                             setResultMsg("");
                         }}
                         disabled={busy}
-                        maxLength={8}
+                        maxLength={16} // 회원 코드는 8자, 공식 코드(HOMEPRO2026)는 11자
                     />
                 </Field>
 

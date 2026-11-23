@@ -14,6 +14,8 @@ import {
   formatPrice, dealMethodText, timeAgo, LINE, ACTIVE_FACE, INK_BUTTON,
 } from "./suppliesConstants";
 import { pcOnly, PC } from "../../pc/pcKit";
+import { useAuth } from "../../context/AuthContext";
+import { AdminHiddenText } from "../../components/AdminHiddenNotice";
 
 const TYPE_TABS = [{ key: "all", label: "전체" }, ...TRADE_TYPES];
 
@@ -24,6 +26,8 @@ const SuppliesPage = ({ embedded } = {}) => {
   const [typeTab, setTypeTab] = useState("all");
   const [category, setCategory] = useState("all");
   const [regionQ, setRegionQ] = useState("");
+  const { userData } = useAuth();
+  const myUid = userData?.uid;
 
   useEffect(() => {
     const q = query(collection(db, SUPPLIES_COL), orderBy("createdAt", "desc"));
@@ -44,6 +48,8 @@ const SuppliesPage = ({ embedded } = {}) => {
   const filtered = useMemo(() => {
     const rq = regionQ.trim();
     return items.filter((it) => {
+      // 운영자가 숨긴 글은 남에게 안 보인다 — 등록한 본인에게만 안내와 함께 남긴다
+      if (it.adminHidden === true && !(myUid && it.createdBy === myUid)) return false;
       const legacy = isLegacy(it);
       if (typeTab !== "all" && (legacy || it.tradeType !== typeTab)) return false;
       if (category !== "all" && (legacy || it.category !== category)) return false;
@@ -53,7 +59,7 @@ const SuppliesPage = ({ embedded } = {}) => {
       }
       return true;
     });
-  }, [items, typeTab, category, regionQ]);
+  }, [items, typeTab, category, regionQ, myUid]);
 
   const Wrapper = embedded ? React.Fragment : MainListLayout;
   const wrapperProps = embedded ? {} : { NAME: "자재.장비", footerType: "supplies", hideBack: true };
@@ -107,6 +113,7 @@ const SuppliesPage = ({ embedded } = {}) => {
                     <Title>
                       <CatText>[업체]</CatText> {it.name || "이름 없는 업체"}
                     </Title>
+                    {it.adminHidden === true && <AdminHiddenText style={{ display: "block" }} />}
                     {it.description && <Meta>{it.description}</Meta>}
                     <Foot>
                       {it.location || "지역 미등록"}
@@ -128,6 +135,7 @@ const SuppliesPage = ({ embedded } = {}) => {
                     <Title>
                       <CatText>[{categoryShort(it.category) || "기타"}]</CatText> {it.title}
                     </Title>
+                    {it.adminHidden === true && <AdminHiddenText style={{ display: "block" }} />}
                     <Meta>
                       <TypeText $type={it.tradeType}>{TRADE_TYPES.find((t) => t.key === it.tradeType)?.label}</TypeText>
                       {it.condition ? ` · ${conditionLabel(it.condition)}` : ""}

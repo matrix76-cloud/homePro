@@ -1,7 +1,24 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Allow: /
-# 로그인 뒤 화면·개발용 화면은 검색에 안 잡히게
+# 공개 오더리스트 — 지역 · 업종별 목록 전부 수집 허용 (/orders, /orders/seoul, /orders/seoul/move-cleaning …)
+Allow: /orders
+# 관리자 화면
+Disallow: /admin
+Disallow: /insurance-admin
+# 로그인 뒤 화면 · 개인정보가 나오는 화면 (/order/ 는 앱 안 오더 화면 — 끝의 / 를 빼면 /orders 까지 막힌다)
+Disallow: /order/
+Disallow: /my-orders
+Disallow: /mypage
+Disallow: /profile
+Disallow: /biz-profile
+Disallow: /chat
+Disallow: /MobileChat
+Disallow: /calendar
+Disallow: /blacklist-board
+Disallow: /MobileLinkPhone
+Disallow: /MobileFindAccount
+# 개발용 화면
 Disallow: /seed-login
 Disallow: /review
 Disallow: /review-table

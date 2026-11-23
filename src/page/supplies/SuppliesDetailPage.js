@@ -10,6 +10,7 @@ import { IoCallOutline, IoChatbubbleEllipsesOutline, IoImageOutline } from "reac
 import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
+import { AdminHiddenNotice, AdminHiddenBlocked } from "../../components/AdminHiddenNotice";
 import { createChatRoom } from "../../service/ChatService";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import {
@@ -127,6 +128,14 @@ const SuppliesDetailPage = () => {
       </SimpleBackLayout>
     );
   }
+  // 운영자가 숨긴 글 — 등록한 본인에게만 안내와 함께 열린다
+  if (data.adminHidden === true && !isAuthor) {
+    return (
+      <SimpleBackLayout NAME="자재·장비" hideFooter>
+        <AdminHiddenBlocked />
+      </SimpleBackLayout>
+    );
+  }
 
   const rows = legacy
     ? [
@@ -156,6 +165,7 @@ const SuppliesDetailPage = () => {
     <SimpleBackLayout NAME="자재·장비" hideFooter>
       {toast && <ToastWrap>{toast}</ToastWrap>}
       <PageWrap>
+        {data.adminHidden === true && <AdminHiddenNotice item={data} style={{ margin: "12px 16px 0" }} />}
         {!legacy && (
           <Gallery>
             {images.length ? (

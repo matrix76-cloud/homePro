@@ -34,7 +34,9 @@ import {
     IoSparklesOutline,
     IoFlaskOutline,
     IoTrashOutline,
+    IoMegaphoneOutline,
 } from "react-icons/io5";
+import { PREOPEN_DEFAULT } from "../landing/PreopenPopup";
 
 // ─── 약관 타입 정의 ───
 const POLICY_TYPES = [
@@ -106,6 +108,13 @@ const AdminSettingsPage = () => {
     const [companySaving, setCompanySaving] = useState(false);
     const [companySuccess, setCompanySuccess] = useState(false);
 
+    // 홈페이지 사전예약 팝업 — settings/preopenPopup (대표 리뷰 11/22. 오픈 날짜가 정해지면 여기서 바꾼다)
+    const [preopen, setPreopen] = useState({ ...PREOPEN_DEFAULT });
+    const [preopenSaving, setPreopenSaving] = useState(false);
+    const [preopenSuccess, setPreopenSuccess] = useState(false);
+    // 적어 둔 코드가 실제 공식 초대코드(referral_codes/<코드>.official)인지 — "" 확인 전 · ok · none(등록 안 됨) · off(꺼짐)
+    const [preopenCodeState, setPreopenCodeState] = useState("");
+
     // AI 설정
     const [aiSettings, setAiSettings] = useState({
         enabled: true,
@@ -119,7 +128,7 @@ const AdminSettingsPage = () => {
     // ─── 초기 로드 ───
     useEffect(() => {
         if (section === "all") { loadNotifications(); }
-        if (section === "policies") { loadPolicies(); loadCompanyInfo(); }
+        if (section === "policies") { loadPolicies(); loadCompanyInfo(); loadPreopen(); }
         if (section === "ai") { loadAiSettings(); }
         loadAdminInfo();
     }, [section]);
@@ -276,6 +285,59 @@ const AdminSettingsPage = () => {
             console.error("회사 정보 저장 실패:", e);
         } finally {
             setCompanySaving(false);
+        }
+    };
+
+    // ─── 사전예약 팝업 로드 · 저장 ───
+    const checkPreopenCode = async (raw) => {
+        const c = String(raw || "").trim().toUpperCase();
+        if (!c) { setPreopenCodeState(""); return; }
+        try {
+            const snap = await getDoc(doc(db, "referral_codes", c));
+            if (!snap.exists() || snap.data()?.official !== true) setPreopenCodeState("none");
+            else setPreopenCodeState(snap.data()?.active === false ? "off" : "ok");
+        } catch (e) {
+            setPreopenCodeState("");
+        }
+    };
+
+    const loadPreopen = async () => {
+        let code = PREOPEN_DEFAULT.code;
+        try {
+            const snap = await getDoc(doc(db, "settings", "preopenPopup"));
+            if (snap.exists()) {
+                const d = snap.data() || {};
+                code = d.code || PREOPEN_DEFAULT.code;
+                setPreopen({
+                    enabled: d.enabled !== false,
+                    openDateText: d.openDateText || PREOPEN_DEFAULT.openDateText,
+                    code,
+                });
+            }
+        } catch (e) {
+            console.error("사전예약 팝업 설정 로드 실패:", e);
+        }
+        checkPreopenCode(code);
+    };
+
+    const savePreopen = async () => {
+        setPreopenSaving(true);
+        setPreopenSuccess(false);
+        try {
+            const next = {
+                enabled: preopen.enabled !== false,
+                openDateText: String(preopen.openDateText || "").trim() || PREOPEN_DEFAULT.openDateText,
+                code: String(preopen.code || "").trim().toUpperCase() || PREOPEN_DEFAULT.code,
+            };
+            await setDoc(doc(db, "settings", "preopenPopup"), { ...next, updatedAt: serverTimestamp() }, { merge: true });
+            setPreopen(next);
+            checkPreopenCode(next.code);
+            setPreopenSuccess(true);
+            setTimeout(() => setPreopenSuccess(false), 2000);
+        } catch (e) {
+            console.error("사전예약 팝업 설정 저장 실패:", e);
+        } finally {
+            setPreopenSaving(false);
         }
     };
 
@@ -710,6 +772,61 @@ const AdminSettingsPage = () => {
                                 <SaveButton onClick={saveCompanyInfo} disabled={companySaving}>
                                     <IoSaveOutline size={16} />
                                     {companySaving ? "저장 중..." : "저장"}
+                                </SaveButton>
+                            </SaveRow>
+                        </CardBody>
+                    </Card>
+
+                    {/* 홈페이지 사전예약 팝업 — 켜고 끄기 · 오픈 날짜 문구 · 초대코드 (대표 리뷰 11/22) */}
+                    <Card>
+                        <CardHeader>
+                            <HeaderLeft>
+                                <IoMegaphoneOutline size={20} />
+                                <HeaderTitle>홈페이지 사전예약 팝업</HeaderTitle>
+                            </HeaderLeft>
+                        </CardHeader>
+                        <CardBody>
+                            <ToggleRow>
+                                <ToggleLabel>홈페이지 첫 화면에 팝업 띄우기</ToggleLabel>
+                                <ToggleSwitch
+                                    $active={preopen.enabled}
+                                    onClick={() => setPreopen((prev) => ({ ...prev, enabled: !prev.enabled }))}
+                                >
+                                    <ToggleKnob $active={preopen.enabled} />
+                                </ToggleSwitch>
+                            </ToggleRow>
+                            <FormGroup style={{ marginTop: 16 }}>
+                                <FormLabel>오픈 날짜 문구</FormLabel>
+                                <FormInput value={preopen.openDateText || ""}
+                                    onChange={(e) => setPreopen((prev) => ({ ...prev, openDateText: e.target.value }))}
+                                    placeholder="12월 1일" />
+                            </FormGroup>
+                            <InsText style={{ marginBottom: 14 }}>
+                                팝업 제목 : {(preopen.openDateText || "").trim() || PREOPEN_DEFAULT.openDateText} 그랜드 오픈 사전예약 시작
+                            </InsText>
+                            <FormGroup>
+                                <FormLabel>공식 사전예약 초대코드</FormLabel>
+                                <FormInput value={preopen.code || ""}
+                                    onChange={(e) => { setPreopen((prev) => ({ ...prev, code: e.target.value.toUpperCase() })); setPreopenCodeState(""); }}
+                                    onBlur={(e) => checkPreopenCode(e.target.value)}
+                                    placeholder="HOMEPRO2026" />
+                            </FormGroup>
+                            {preopenCodeState === "ok" && (
+                                <InsText style={{ color: "#00803a", fontWeight: 600 }}>공식 초대코드로 등록돼 있습니다. 이 코드로 가입하면 포인트가 지급됩니다.</InsText>
+                            )}
+                            {preopenCodeState === "none" && (
+                                <InsText style={{ color: "#c0392b", fontWeight: 600 }}>공식 초대코드로 등록되지 않은 코드입니다. 이 코드로 가입해도 포인트가 지급되지 않습니다.</InsText>
+                            )}
+                            {preopenCodeState === "off" && (
+                                <InsText style={{ color: "#c0392b", fontWeight: 600 }}>꺼져 있는 코드입니다. 가입할 때 이 코드를 넣으면 만료된 코드로 나옵니다.</InsText>
+                            )}
+                            <SaveRow>
+                                {preopenSuccess && (
+                                    <SuccessText><IoCheckmarkCircle size={16} />저장되었습니다</SuccessText>
+                                )}
+                                <SaveButton onClick={savePreopen} disabled={preopenSaving}>
+                                    <IoSaveOutline size={16} />
+                                    {preopenSaving ? "저장 중..." : "저장"}
                                 </SaveButton>
                             </SaveRow>
                         </CardBody>

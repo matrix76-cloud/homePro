@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { IoHeartOutline, IoChatbubbleOutline, IoEyeOutline, IoCreateOutline } from "react-icons/io5";
 import { THEME } from "../../config/homeproConfig";
-import { getPosts, getNotices } from "../../service/CommunityService";
+import { getPosts, getNotices, isPostHidden } from "../../service/CommunityService";
+import { AdminHiddenText } from "../../components/AdminHiddenNotice";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import Tabs from "../../common/Tabs";
 import usePcWide from "../../hooks/usePcWide";
@@ -42,7 +43,7 @@ const CommunityPage = () => {
     // community_posts type=notice(쓰는 곳 없음)를 읽어 늘 비어 있었다. /notice 와 같은 목록.
     const load = type === "notice"
       ? getNotices().then((list) => list.map((n) => ({ ...n, _notice: true })))
-      : getPosts(type);
+      : getPosts(type, { viewerUid: myUid }); // 운영자가 숨긴 글은 남에게 안 오고, 내가 쓴 숨김 글만 안내와 함께 온다
     load
       // (전수검사 7/29) 가짜 공지 폴백 제거 — "오픈 기념 이벤트" 같은 실체 없는
       // 이벤트 안내가 하드코딩으로 노출되고 있었음. 없으면 빈 상태로 정직하게.
@@ -52,7 +53,7 @@ const CommunityPage = () => {
         setPosts([]);
       })
       .finally(() => setLoading(false));
-  }, [type]);
+  }, [type, myUid]);
 
   const formatDate = (ts) => {
     if (!ts) return "";
@@ -63,8 +64,9 @@ const CommunityPage = () => {
   // 많이 본 글 3개 — 이번 주 글이 3개 미만이면 받아온 글 전체에서 고른다 (시안 4번, 형 9/18)
   const WEEK_MS = 7 * 24 * 3600 * 1000;
   const toMs = (ts) => (ts?.toMillis ? ts.toMillis() : ts ? new Date(ts).getTime() : 0);
-  const weekPosts = posts.filter((p) => Date.now() - toMs(p.createdAt) < WEEK_MS);
-  const popularPool = weekPosts.length >= 3 ? weekPosts : posts;
+  const shownPosts = posts.filter((p) => !isPostHidden(p)); // 많이 본 글에는 숨긴 글(내 글이어도)을 올리지 않는다
+  const weekPosts = shownPosts.filter((p) => Date.now() - toMs(p.createdAt) < WEEK_MS);
+  const popularPool = weekPosts.length >= 3 ? weekPosts : shownPosts;
   const popularTitle = weekPosts.length >= 3 ? "이번 주 많이 본 글" : "많이 본 글";
   const score = (p) => (p.viewCount || 0) * 1000 + (p.likeCount || 0) + (p.commentCount || 0);
   const popular = type === "free" && posts.length >= 4
@@ -102,6 +104,7 @@ const CommunityPage = () => {
                   <PcTitleCell>
                     {post.images && post.images.length > 0 && <img src={post.images[0]} alt="" />}
                     <b>{post.title}</b>
+                    {isPostHidden(post) && <AdminHiddenText style={{ marginLeft: 10, flexShrink: 0 }} />}
                   </PcTitleCell>
                   <span>{post._notice ? `${post.category || "공지"}${post.pinned ? " · 고정" : ""}` : (post.authorName || "-")}</span>
                   <span>{formatDate(post.createdAt)}</span>
@@ -157,6 +160,7 @@ const CommunityPage = () => {
                 <PostRow key={post.id} onClick={() => goPost(post)}>
                   <PostMain>
                     <PostTitle>{post.title}</PostTitle>
+                    {isPostHidden(post) && <AdminHiddenText style={{ display: "block", marginTop: 4 }} />}
                     <PostInfo>
                       {post._notice && post.pinned && <PinnedText>고정</PinnedText>}
                       {post._notice && <span>{post.category || "공지"}</span>}

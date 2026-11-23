@@ -252,6 +252,25 @@ const CheckRow = styled.label`
   cursor: pointer;
 `;
 
+/* 짧은 체크 문구 여러 개를 한 줄에 이어 놓는다 (구인 조건 — 초보X · 대타X …). 좁으면 다음 줄로 넘어간다 */
+const CheckWrap = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 22px;
+  row-gap: 0;
+`;
+
+/* 주소 단계 — 현장도착을 고르면 그 주소지를 글로 보여 준다 */
+const ArrivalText = styled.div`
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: ${THEME.text};
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+`;
+
 const SubmitButton = styled.button`
   width: 100%;
   padding: 16px;
@@ -657,6 +676,11 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   const [spaceFields, setSpaceFields] = useState({});
   const [detail, setDetail] = useState("");
   const [callFirst, setCallFirst] = useState(false);
+  // 구인 조건 체크 문구(초보X · 대타X …) — config 의 checkTags 가 있는 카테고리(팀원.기술자 구인)만 (대표 리뷰 11/21)
+  const [workerTags, setWorkerTags] = useState([]);
+  // 주소 단계의 도착 방식 — "site"(현장도착) / "pickup"(픽업위치) + 픽업 장소. config 의 arrivalChoice 묶음이 있는 카테고리만 (대표 리뷰 11/21)
+  const [arrivalMode, setArrivalMode] = useState("");
+  const [pickupPlace, setPickupPlace] = useState("");
   const [insurancePreferred, setInsurancePreferred] = useState(false); // 보험 가입 업체 매칭 선호 (대표 10/2) — 강제가 아니라 요청 문구
   const [schedule, setSchedule] = useState("");
   const [address, setAddress] = useState("");
@@ -797,6 +821,16 @@ export const OrderCreateContent = ({ backRef } = {}) => {
     // 검수 7/28: 수정 진입 시 복원 누락 → 저장할 때 null 로 덮어써 기존 값이 소멸하던 버그
     setAttrValues(editOrder.attrs || {});
     setInputValues(editOrder.inputs || {});
+    // 도착 방식(현장도착 / 픽업위치) — 주소 단계에서 고르는 묶음. 옛 오더(체크 · 픽업장소 칸)도 같은 꼴이라 그대로 되살린다
+    {
+      const arrSec = (cfg?.inputSections || []).find((s) => s.arrivalChoice);
+      const saved = arrSec ? editOrder.inputs?.[arrSec.key] : null;
+      if (saved?.direct === "예") { setArrivalMode("site"); setPickupPlace(""); }
+      else if (String(saved?.pickup ?? "").trim()) { setArrivalMode("pickup"); setPickupPlace(String(saved.pickup)); }
+      else { setArrivalMode(""); setPickupPlace(""); }
+    }
+    // 구인 조건 체크 문구 — 지금 설정에 있는 것만 되살린다
+    setWorkerTags(Array.isArray(editOrder.workerTags) ? editOrder.workerTags.filter((t) => (cfg?.checkTags || []).includes(t)) : []);
     setItemQty(editOrder.itemQty || {});
     setDetail(editOrder.description || "");
     // 주소 — 구버전 location 은 {sido, gu} 객체일 수 있어 문자열로 바꿔 쓴다.
@@ -1006,7 +1040,11 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   };
   // inputSections 조건부 표시 (대표 지시 8/5)
   //  whenItems: 특정 종목(부분청소 등)을 골랐을 때만  ·  whenAttr: 특정 속성값(옵션 '기타')을 골랐을 때만
+  // 도착 방식(현장도착 / 픽업위치) 묶음 — 다른 입력 묶음처럼 그리지 않고 주소 단계에서 따로 고른다 (구인, 대표 리뷰 11/21)
+  const arrivalSec = (Array.isArray(detailConfig?.inputSections) ? detailConfig.inputSections : []).find((sec) => sec.arrivalChoice) || null;
+  const fullAddress = addressDetail.trim() ? `${address} ${addressDetail.trim()}` : address;
   const visibleInputSections = (Array.isArray(detailConfig?.inputSections) ? detailConfig.inputSections : []).filter((sec) => {
+    if (sec.arrivalChoice) return false;
     if (sec.services && !sec.services.some((sv) => activeServices.includes(sv))) return false;
     if (!passItemCond(sec)) return false;
     if (sec.whenItems) {
@@ -1198,6 +1236,24 @@ export const OrderCreateContent = ({ backRef } = {}) => {
     );
   };
 
+  // 구인 조건 체크 문구 — 고른 것을 상세 요청내용에 "[초보X] [대타X]" 한 줄로 붙이고, 풀면 그 줄에서도 뺀다 ('전화먼저 주세요!'와 같은 결)
+  const workerTagLine = (tags) => tags.map((t) => `[${t}]`).join(" ");
+  const toggleWorkerTag = (tag) => {
+    const all = Array.isArray(detailConfig?.checkTags) ? detailConfig.checkTags : [];
+    const next = workerTags.includes(tag)
+      ? workerTags.filter((t) => t !== tag)
+      : all.filter((t) => workerTags.includes(t) || t === tag); // 설정에 적힌 순서대로
+    const oldLine = workerTagLine(workerTags);
+    const newLine = workerTagLine(next);
+    setWorkerTags(next);
+    setDetail((prev) => {
+      let base = prev || "";
+      if (oldLine) base = base.includes("\n" + oldLine) ? base.replace("\n" + oldLine, "") : base.replace(oldLine, "");
+      if (!newLine) return base;
+      return base ? `${base}\n${newLine}` : newLine;
+    });
+  };
+
   // 카테고리 변경 시 폼 상태 초기화
   const resetForm = () => {
     setSelectedSub([]);
@@ -1207,6 +1263,9 @@ export const OrderCreateContent = ({ backRef } = {}) => {
     setSpaceFields({});
     setDetail("");
     setCallFirst(false);
+    setWorkerTags([]);
+    setArrivalMode("");
+    setPickupPlace("");
     setSchedule("");
     setSpaceType("");
     setCustomInput("");
@@ -1263,6 +1322,11 @@ export const OrderCreateContent = ({ backRef } = {}) => {
     if (workDate === "예약날짜" && !workDatePicker) { showToast("예약날짜(달력)를 선택해주세요"); return false; }
     if (workDate === "예약날짜" && workDatePicker > reserveMaxDate()) { showToast("예약날짜는 오늘부터 1개월 안에서 골라주세요"); return false; }
     if (!address.trim()) { showToast("주소를 입력해주세요"); return false; }
+    // 구인 — 주소 아래에서 현장도착 / 픽업위치 중 하나를 고르고, 픽업위치면 장소를 적어야 한다 (대표 리뷰 11/21)
+    if (arrivalSec) {
+      if (!arrivalMode) { showToast("현장도착 · 픽업위치 중 하나를 골라주세요"); return false; }
+      if (arrivalMode === "pickup" && !pickupPlace.trim()) { showToast("픽업위치를 입력해주세요"); return false; }
+    }
     if (!detail.trim()) { showToast("요청 내용을 입력해주세요"); return false; }
     if (priceType === "direct" && !directPrice) { showToast("금액을 입력해주세요"); return false; }
     if (isWorkerCall) {
@@ -1466,7 +1530,18 @@ export const OrderCreateContent = ({ backRef } = {}) => {
                 .filter(([, v]) => String(v ?? "").trim() !== "");
               if (filled.length) out[sec.key] = Object.fromEntries(filled);
             });
+            // 도착 방식 — 주소 단계에서 고른 값. 꼴은 예전 그대로(현장도착 = direct "예" / 픽업위치 = pickup 장소)
+            if (arrivalSec) {
+              if (arrivalMode === "site") out[arrivalSec.key] = { direct: "예" };
+              else if (arrivalMode === "pickup" && pickupPlace.trim()) out[arrivalSec.key] = { pickup: pickupPlace.trim() };
+            }
             return Object.keys(out).length ? out : null;
+          })(),
+          // 구인 조건 체크 문구 (초보X · 대타X …) — 글(description)에도 한 줄로 들어가 있고, 여기엔 값으로 따로 남긴다
+          workerTags: (() => {
+            const all = Array.isArray(detailConfig?.checkTags) ? detailConfig.checkTags : [];
+            const picked = all.filter((t) => workerTags.includes(t));
+            return picked.length ? picked : null;
           })(),
           // 종목별 수량
           itemQty: pickedItemQty.length ? Object.fromEntries(pickedItemQty) : null,
@@ -1581,8 +1656,12 @@ export const OrderCreateContent = ({ backRef } = {}) => {
       items.push({ k: `${qtyNameOf(key)} 수량`, v: `${qty}${detailConfig?.qtyPerSelected?.unit || "개"}` });
     });
     items.push({ k: "주소", v: addressDetail ? `${address} ${addressDetail}` : address });
+    // 구인 — 현장도착이면 주소지를, 픽업위치면 적은 장소를 그 이름으로 한 줄 (대표 리뷰 11/21)
+    if (arrivalSec && arrivalMode === "site") items.push({ k: "현장도착", v: fullAddress });
+    if (arrivalSec && arrivalMode === "pickup") items.push({ k: "픽업위치", v: pickupPlace.trim() });
     items.push({ k: "요청 내용", v: detail });
     if (callFirst) items.push({ k: "선통화 요청", v: "예" });
+    if (Array.isArray(detailConfig?.checkTags) && workerTags.length) items.push({ k: "구인 조건", v: detailConfig.checkTags.filter((t) => workerTags.includes(t)).join(" · ") });
     // 연락처는 확인화면에서 표기하지 않는다 (대표 지시 8/6) — 저장·전달은 그대로
     if (priceType === "direct") items.push({ k: "단가(직접)", v: `${Number(directPrice).toLocaleString()}원` });
     if (workDate) items.push({ k: "작업 날짜", v: workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate });
@@ -1677,6 +1756,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
           {category && workDate && <PcAsideRow><span>작업날짜</span><b>{workDate === "예약날짜" ? (workDatePicker || "예약날짜") : workDate}</b><i /></PcAsideRow>}
           {category && workTimeMode && <PcAsideRow><span>작업시간</span><b>{workTimeMode === "작업시작 설정" ? (workTimeStart ? `${workTimeStart} 시작` : "작업시작 설정") : workTimeMode}</b><i /></PcAsideRow>}
           {category && address && <PcAsideRow><span>주소</span><b>{addressDetail ? `${address} ${addressDetail}` : address}</b><i /></PcAsideRow>}
+          {category && arrivalSec && arrivalMode === "site" && <PcAsideRow><span>현장도착</span><b>{fullAddress || "주소 입력 전"}</b><i /></PcAsideRow>}
+          {category && arrivalSec && arrivalMode === "pickup" && <PcAsideRow><span>픽업위치</span><b>{pickupPlace.trim() || "입력 전"}</b><i /></PcAsideRow>}
           {category && pcPriceText && <PcAsideRow><span>단가유형</span><b>{pcPriceText}</b><i /></PcAsideRow>}
         </PcAside>
         <PcMain>{body}</PcMain>
@@ -2102,6 +2183,17 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               <input type="checkbox" checked={callFirst} onChange={(e) => { setCallFirst(e.target.checked); if (e.target.checked) setDetail((prev) => prev + "\n전화먼저 주세요!"); }} />
               전화먼저 주세요!
             </CheckRow>
+            {/* 구인 조건 체크 문구 — 팀원.기술자 구인에서만, 여러 개 선택 (대표 리뷰 11/21) */}
+            {Array.isArray(detailConfig?.checkTags) && detailConfig.checkTags.length > 0 && (
+              <CheckWrap>
+                {detailConfig.checkTags.map((tag) => (
+                  <CheckRow key={tag}>
+                    <input type="checkbox" checked={workerTags.includes(tag)} onChange={() => toggleWorkerTag(tag)} />
+                    {tag}
+                  </CheckRow>
+                ))}
+              </CheckWrap>
+            )}
             {!selfOrder && !isInfoType && userData?.pgReview !== true && (
             <CheckRow style={{ alignItems: "flex-start", lineHeight: 1.45 }}>
               <input type="checkbox" style={{ flexShrink: 0, marginTop: 4 }} checked={insurancePreferred} onChange={(e) => { setInsurancePreferred(e.target.checked); if (e.target.checked) setDetail((prev) => prev + "\n" + INSURANCE_PREFER_TEXT); else setDetail((prev) => prev.replace("\n" + INSURANCE_PREFER_TEXT, "").replace(INSURANCE_PREFER_TEXT, "")); }} />
@@ -2162,6 +2254,33 @@ export const OrderCreateContent = ({ backRef } = {}) => {
             </AddressRow>
             {address && (
               <Input style={{ marginTop: 8 }} placeholder="상세주소 입력 (동/호수 등)" value={addressDetail} onChange={(e) => setAddressDetail(e.target.value)} />
+            )}
+            {/* 구인 — 주소 아래에서 현장도착 / 픽업위치 중 하나를 고른다. 현장도착은 주소지를, 픽업위치는 입력칸을 보여 준다 (대표 리뷰 11/21) */}
+            {arrivalSec && (
+              <>
+                <WageLabel>{arrivalSec.label}</WageLabel>
+                <ChipGrid $min={110} style={{ marginTop: 8 }}>
+                  <Chip $selected={arrivalMode === "site"} onClick={() => setArrivalMode("site")}>현장도착</Chip>
+                  <Chip $selected={arrivalMode === "pickup"} onClick={() => setArrivalMode("pickup")}>픽업위치</Chip>
+                </ChipGrid>
+                {arrivalMode === "site" && (
+                  <FieldRow style={{ marginTop: 12 }}>
+                    <InputFieldLabel>현장도착</InputFieldLabel>
+                    <ArrivalText>{fullAddress || "위에서 주소를 검색하면 그 주소가 표시됩니다"}</ArrivalText>
+                  </FieldRow>
+                )}
+                {arrivalMode === "pickup" && (
+                  <FieldRow style={{ marginTop: 12 }}>
+                    <InputFieldLabel>픽업위치</InputFieldLabel>
+                    <Input
+                      style={{ flex: 1 }}
+                      placeholder={arrivalSec.fields?.find((f) => f.key === "pickup")?.placeholder || "픽업 장소 입력"}
+                      value={pickupPlace}
+                      onChange={(e) => setPickupPlace(e.target.value)}
+                    />
+                  </FieldRow>
+                )}
+              </>
             )}
           </Section>
 

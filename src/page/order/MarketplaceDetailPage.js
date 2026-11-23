@@ -14,6 +14,7 @@ import styled from "styled-components";
 import { doc, onSnapshot, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../api/config";
 import { useAuth } from "../../context/AuthContext";
+import { AdminHiddenNotice, AdminHiddenBlocked } from "../../components/AdminHiddenNotice";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
 import { THEME } from "../../config/homeproConfig";
 import { createChatRoom } from "../../service/ChatService";
@@ -62,6 +63,14 @@ const MarketplaceDetailPage = () => {
   }
 
   const isOwner = !!myUid && post.createdBy === myUid;
+  // 운영자가 숨긴 글 — 등록한 본인에게만 안내와 함께 열린다
+  if (post.adminHidden === true && !isOwner) {
+    return (
+      <SimpleBackLayout NAME="매물 상세" hideFooter>
+        <AdminHiddenBlocked />
+      </SimpleBackLayout>
+    );
+  }
   const loggedIn = !!myUid;
   const images = Array.isArray(post.images) ? post.images.filter(Boolean) : [];
   const cat = getCategory(post);
@@ -133,6 +142,7 @@ const MarketplaceDetailPage = () => {
   return (
     <SimpleBackLayout NAME="매물 상세" hideFooter>
       <Wrap>
+        {post.adminHidden === true && <AdminHiddenNotice item={post} style={{ margin: "12px 16px 0" }} />}
         {images.length > 0 && (
           <PhotoBox>
             <MainImg src={images[Math.min(photoIdx, images.length - 1)]} alt="" />

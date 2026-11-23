@@ -11,6 +11,17 @@ import {
 const CODES_COL = "referral_codes";
 const USERS_COL = "users";
 
+/* ─── 공식 초대코드 (대표 리뷰 11/22 그랜드 오픈 사전예약 — HOMEPRO2026) ───
+   코드 문서(referral_codes/<코드>)에 official: true 면 '추천인이 없는 코드'다.
+   · 가입한 사람에게만 referral_signup 포인트를 준다(추천인 보상 · 추천 수 증가 없음).
+   · users.referredBy 에는 추천인 uid 대신 "OFFICIAL:<코드>" 를 적는다 — 한 번 쓴 사람은 기존 규칙대로 다시 못 쓴다.
+   · 회원 코드는 영문 2 + 숫자 6(8자)이라 공식 코드(HOMEPRO2026, 11자)와 겹칠 수 없다.
+   · 코드 문서는 scripts/seed-official-code.mjs 로 만든다. active: false 로 바꾸면 "만료된 코드"가 된다.
+   ★users.referredBy 를 추천인 uid 로 읽는 곳(오더 완료 추천인 보상 등)은 isOfficialReferrer 로 걸러야 한다 —
+     안 거르면 없는 회원("OFFICIAL:…") 앞으로 포인트 원장이 생긴다. */
+export const OFFICIAL_REF_PREFIX = "OFFICIAL:";
+export const isOfficialReferrer = (v) => typeof v === "string" && v.startsWith(OFFICIAL_REF_PREFIX);
+
 /** 영문 대문자 2자 + 숫자 6자리 */
 const randomStr = () => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -23,6 +34,8 @@ const randomStr = () => {
 
 /** 코드 생성 + referral_codes 저장 + users 업데이트 */
 export async function generateReferralCode(uid) {
+  // 공식 코드 표시("OFFICIAL:…")는 회원이 아니다 — 코드 · 회원 문서를 만들지 않는다
+  if (!uid || isOfficialReferrer(uid)) throw new Error("회원 정보가 없어 코드를 만들 수 없습니다");
   let code, exists;
   // 중복 방지 (최대 5회 시도)
   for (let i = 0; i < 5; i++) {
@@ -59,6 +72,9 @@ export async function regenerateReferralCode(uid, oldCode) {
 
 /** users에서 코드 조회, 없으면 자동 생성 */
 export async function getReferralCode(uid) {
+  // 초대 탭의 '등록한 코드'는 users.referredBy 를 uid 로 넘겨 이 함수를 부른다.
+  // 공식 코드로 가입한 사람은 그 값이 "OFFICIAL:HOMEPRO2026" 이라, 새로 만들지 않고 그 코드를 그대로 돌려준다
+  if (isOfficialReferrer(uid)) return uid.slice(OFFICIAL_REF_PREFIX.length);
   const snap = await getDoc(doc(db, USERS_COL, uid));
   const data = snap.data();
   if (data?.referralCode) return data.referralCode;
@@ -77,12 +93,37 @@ export async function applyReferralCode(myUid, code) {
 
   const codeData = codeSnap.data();
   if (!codeData.active) return { success: false, message: "만료된 코드입니다" };
-  if (codeData.uid === myUid) return { success: false, message: "본인 코드는 사용할 수 없습니다" };
+  const official = codeData.official === true;
+  // 공식 코드에 끝나는 날(expiresAt)을 적어 두면 그 뒤로는 안 받는다 (없으면 계속 받는다)
+  if (official && codeData.expiresAt) {
+    const end = codeData.expiresAt?.toMillis ? codeData.expiresAt.toMillis() : new Date(codeData.expiresAt).getTime();
+    if (end && end < Date.now()) return { success: false, message: "만료된 코드입니다" };
+  }
+  if (!official && codeData.uid === myUid) return { success: false, message: "본인 코드는 사용할 수 없습니다" };
 
   // 이미 사용했는지 확인
   const mySnap = await getDoc(doc(db, USERS_COL, myUid));
   const myData = mySnap.data();
   if (myData?.referredBy) return { success: false, message: "이미 추천인 코드를 사용했습니다" };
+
+  // 공식 초대코드 — 추천인이 없다. 가입한 사람에게만 포인트, 추천 수 · 추천인 보상은 건드리지 않는다
+  if (official) {
+    await setDoc(doc(db, USERS_COL, myUid), { referredBy: `${OFFICIAL_REF_PREFIX}${trimmed}` }, { merge: true });
+    try {
+      // 몇 명이 이 코드로 들어왔는지 코드 문서에 센다 (실패해도 진행)
+      await setDoc(doc(db, CODES_COL, trimmed), { usedCount: increment(1), lastUsedAt: serverTimestamp() }, { merge: true });
+    } catch (e) {
+      console.warn("공식 코드 사용 수 기록 실패:", e.message);
+    }
+    try {
+      const { grantPoints } = await import("./PointService");
+      const myName = myData?.name || myData?.nickname || "사용자";
+      await grantPoints(myUid, myName, "referral_signup", { relatedDocId: `official:${trimmed}` });
+    } catch (e) {
+      console.warn("추천 포인트 지급 실패:", e.message);
+    }
+    return { success: true, message: "추천인 코드가 적용되었습니다!" };
+  }
 
   // 적용: 내 referredBy 저장 + 추천인 카운트 +1
   await setDoc(doc(db, USERS_COL, myUid), { referredBy: codeData.uid }, { merge: true });

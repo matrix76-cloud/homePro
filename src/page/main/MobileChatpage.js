@@ -11,6 +11,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import MainListLayout from "../../screen/Layout/Layout/MainListLayout";
 import { MOBILEMAINMENU } from "../../utility/constants";
 import usePcWide from "../../hooks/usePcWide";
+import ChatTopBanner from "../../components/ChatTopBanner";
 
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
@@ -119,6 +120,8 @@ const MobileChatpage = () => {
 
   return (
     <MainListLayout NAME="채팅" footerType={MOBILEMAINMENU.CHAT} hideBack hideActions>
+      {/* 채팅 상단 롤링 배너 — 기술전수 수강생 모집 · 거래장터 · 양도·매매 + 관리자가 올린 이벤트 · 공지 (대표 리뷰 11/19) */}
+      <ChatTopBanner hideInsurance={userData?.pgReview === true} />
       {activeTab === "open" ? (
         <CatTabRow>
           {OPEN_CATEGORIES.map((c) => (

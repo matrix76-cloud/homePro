@@ -25,6 +25,16 @@ import { notifyOrderEvent, getUserBrief } from "./OrderNotifyService";
 
 const ordersRef = collection(db, COLLECTIONS.ORDERS);
 
+/* ─── 운영자 강제 숨김 (대표 리뷰 11/22, ModerationService) ───
+ * 관리자가 숨긴 오더(adminHidden)는 남에게 보이는 목록에서 뺀다.
+ *  - viewerUid 를 주면 그 사람이 접수한 숨김 오더만 남긴다(화면에서 "운영자에 의해 숨김 처리" 안내용)
+ *  - includeAdminHidden: true 면 거르지 않는다(관리자 화면용)
+ * 나의오더현황이 쓰는 조회(getOrdersByUser · getOrdersByMatchedPro · getOrdersByApplicant · getOrder)는 거르지 않는다 —
+ * 본인 오더는 안내와 함께 보여야 해서 화면이 adminHidden 을 보고 표시한다. */
+export const isOrderAdminHidden = (o) => !!o && o.adminHidden === true;
+const dropAdminHidden = (orders, { viewerUid = null, includeAdminHidden = false } = {}) =>
+  includeAdminHidden ? orders : orders.filter((o) => !isOrderAdminHidden(o) || (!!viewerUid && o.createdBy === viewerUid));
+
 /** 리뷰 포인트 지급 최소 글자수 (대표 확정 2026-07-30: 15자 이상 + 별점 등록) */
 export const REVIEW_MIN_LENGTH = 15;
 
@@ -85,15 +95,15 @@ export async function getOrder(orderId) {
   return { id: snap.id, ...snap.data() };
 }
 
-/** 카테고리별 조회 */
-export async function getOrdersByCategory(categoryId) {
+/** 카테고리별 조회 — 운영자가 숨긴 오더는 뺀다 */
+export async function getOrdersByCategory(categoryId, opts = {}) {
   const q = query(
     ordersRef,
     where("categoryId", "==", categoryId),
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return dropAdminHidden(snap.docs.map((d) => ({ id: d.id, ...d.data() })), opts);
 }
 
 /** 오더 1건 조회 */
@@ -125,22 +135,22 @@ export async function getOrdersByMatchedPro(uid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-/** 전체 오더 실시간 구독 */
-export function subscribeToAllOrders(callback) {
+/** 전체 오더 실시간 구독 — 운영자가 숨긴 오더는 뺀다 (opts: { viewerUid, includeAdminHidden }) */
+export function subscribeToAllOrders(callback, opts = {}) {
   const q = query(ordersRef, orderBy("createdAt", "desc"));
   return onSnapshot(q, (snap) => {
-    const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const orders = dropAdminHidden(snap.docs.map((d) => ({ id: d.id, ...d.data() })), opts);
     callback(orders);
   });
 }
 
-/** 전체 오더 페이징 조회 (커서 방식) */
-export async function getOrdersPaginated(lastDoc = null, pageSize = 20) {
+/** 전체 오더 페이징 조회 (커서 방식) — 운영자가 숨긴 오더는 뺀다(쪽 크기는 숨긴 건수만큼 줄 수 있다) */
+export async function getOrdersPaginated(lastDoc = null, pageSize = 20, opts = {}) {
   const constraints = [orderBy("createdAt", "desc"), limit(pageSize)];
   if (lastDoc) constraints.push(startAfter(lastDoc));
   const q = query(ordersRef, ...constraints);
   const snap = await getDocs(q);
-  const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const orders = dropAdminHidden(snap.docs.map((d) => ({ id: d.id, ...d.data() })), opts);
   const last = snap.docs[snap.docs.length - 1] || null;
   return { orders, lastDoc: last, hasMore: snap.docs.length === pageSize };
 }
@@ -262,7 +272,8 @@ export async function grantOrderCompletionPoints(orderId) {
 
       // 피추천인이 오더를 완료하면 추천인에게 100P
       const referrerUid = userData.referredBy;
-      if (referrerUid && referrerUid !== uid) {
+      // 공식 초대코드(OFFICIAL:HOMEPRO2026)로 가입한 사람은 추천인이 없다 — 없는 회원 앞으로 보상 · 알림을 만들지 않는다
+      if (referrerUid && referrerUid !== uid && !String(referrerUid).startsWith("OFFICIAL:")) {
         try {
           const rSnap = await getDoc(doc(db, COLLECTIONS.USERS, referrerUid));
           const rData = rSnap.exists() ? rSnap.data() || {} : {};
@@ -389,6 +400,8 @@ export async function updateOrder(orderId, data) {
 // 끝난 오더 — 수락·지원·선정이 들어오면 안 되는 상태 (10/25 전면 점검: 취소 오더를 수락해 배정으로 되살리던 구멍)
 const ENDED_STATUSES = new Set([ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED, ORDER_STATUS.REJECTED, "마감", "리뷰"]);
 const assertOpenForMatch = (d) => {
+  // 운영자가 숨긴 오더는 주소를 알아도 수락 · 지원이 안 된다 (대표 리뷰 11/22)
+  if (d.adminHidden === true) throw new Error("운영자에 의해 숨김 처리된 오더입니다");
   if (ENDED_STATUSES.has(d.orderStatus)) throw new Error(`${d.orderStatus}된 오더입니다`);
   if (d.orderStatus === ORDER_STATUS.WAITING) throw new Error("접수자가 보류 중인 오더입니다");
 };
@@ -497,6 +510,7 @@ export const selectPro = async (orderId, selectedProUid) => {
     if (!snap.exists()) throw new Error("오더를 찾을 수 없습니다");
     const d = snap.data() || {};
     if (d.matchedProUid) throw new Error("이미 선정된 오더입니다"); // 중복선정 방지
+    if (d.adminHidden === true) throw new Error("운영자에 의해 숨김 처리된 오더입니다");
     if (ENDED_STATUSES.has(d.orderStatus)) throw new Error(`${d.orderStatus}된 오더입니다`);
     // 비교선정: 다른 지원자가 건당 보험을 선결제해 뒀는데 그 사람이 선정되지 않으면 보험 적용을 풀고 환불 대상으로 표시(환불은 관리자 수동)
     const curIns = d.insurance;

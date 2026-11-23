@@ -9,6 +9,7 @@ import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { UserContext } from "../../context/User";
 import { getBrokeragePosts, getMyBrokeragePosts, setBrokeragePostStatus, DEAL_TYPES } from "../../service/BrokerageService";
+import { AdminHiddenText } from "../../components/AdminHiddenNotice";
 import { createChatRoom } from "../../service/ChatService";
 import { IoChatbubbleEllipsesOutline, IoLocationOutline, IoAddCircle } from "react-icons/io5";
 import usePcWide from "../../hooks/usePcWide";
@@ -193,7 +194,7 @@ const BrokeragePage = () => {
                 <span>{timeAgo(p.createdAt)}</span>
                 <span style={{ fontWeight: 700 }}>{p.type === "listing" ? "매물공유" : "손님공유"}</span>
                 <span style={{ fontWeight: 700, color: p.status === "closed" ? PC.body : PC.primary }}>{p.status === "closed" ? "거래종료" : "진행중"}</span>
-                <b>{p.oneLine}</b>
+                <b>{p.oneLine}{p.adminHidden === true && <><br /><AdminHiddenText /></>}</b>
                 <span>{p.region}</span>
                 <span>{[p.dealType, p.contractType].filter(Boolean).join(" · ") || "-"}</span>
                 <b>{p.price || "-"}</b>
@@ -229,6 +230,7 @@ const BrokeragePage = () => {
                 <TimeText>{timeAgo(p.createdAt)}</TimeText>
               </CardTop>
               <OneLine>{p.oneLine}</OneLine>
+              {p.adminHidden === true && <AdminHiddenText style={{ display: "block", marginBottom: 6 }} />}
               <MetaRow>
                 {p.dealType && <MetaChip>{p.dealType}</MetaChip>}
                 {p.contractType && <MetaChip>{p.contractType}</MetaChip>}

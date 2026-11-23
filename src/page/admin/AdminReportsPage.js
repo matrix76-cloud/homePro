@@ -9,6 +9,7 @@ import { db } from "../../api/config";
 import { THEME } from "../../config/homeproConfig";
 import { getAllReports, updateReportStatus, REPORT_TARGET_LABEL } from "../../service/ReportService";
 import { setPostHidden, setCommentHidden } from "../../service/CommunityService";
+import { logModeration } from "../../service/ModerationService";
 
 const TAB_LIST = [
     { key: "pending", label: "확인중" },
@@ -72,8 +73,19 @@ const AdminReportsPage = () => {
         setBusy(true);
         try {
             const hide = status === "hidden";
-            if (r.targetType === "post" && r.postId) await setPostHidden(r.postId, hide);
-            if (r.targetType === "comment" && r.postId && r.commentId) await setCommentHidden(r.postId, r.commentId, hide);
+            // 가림 상태가 실제로 바뀔 때만 글을 건드린다 — 확인중 신고를 반려할 때 글의 숨김을 풀어 버리면
+            // [숨김 · 삭제 관리]에서 운영자가 따로 숨겨 둔 글까지 다시 보이게 된다 (대표 리뷰 11/22)
+            const wasHidden = (r.status || "pending") === "hidden";
+            if (hide !== wasHidden) {
+                if (r.targetType === "post" && r.postId) {
+                    await setPostHidden(r.postId, hide);
+                    // 신고로 가린 글도 숨김 · 삭제 관리의 처리 기록에 같이 남긴다
+                    await logModeration("community",
+                        { id: r.postId, title: String(r.snippet || "").split("\n")[0], authorUid: r.targetUid || null, authorName: r.targetName || "" },
+                        { action: hide ? "hide" : "unhide", reason: hide ? `신고 처리 — ${r.reasonType || "기타"}` : "신고 가림 되살리기", memo: r.content || "", extra: { reportId: r.id } });
+                }
+                if (r.targetType === "comment" && r.postId && r.commentId) await setCommentHidden(r.postId, r.commentId, hide);
+            }
             await updateReportStatus(r.id, status);
             setReports(prev => prev.map(x => x.id === r.id ? { ...x, status } : x));
         } catch (e) {

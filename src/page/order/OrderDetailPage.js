@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { THEME, CATEGORIES, ORDER_STATUS } from "../../config/homeproConfig";
-import ORDER_FORM_CONFIG, { infoIncentiveText } from "../../config/orderFormConfig";
+import ORDER_FORM_CONFIG, { infoIncentiveText, COMMON_B2B_FIELDS } from "../../config/orderFormConfig";
 import { getOrder, formatOrderTime, hasMyQuote, sendQuote, getQuotes, acceptQuote, updateOrderStatus, addOrderLog, getOrderLogs } from "../../service/OrderService";
 import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
@@ -74,6 +74,8 @@ const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", di
 const HP_ASSIGNED_STATUSES = new Set(["배정", "선정대기", "업체선택대기", "완료", "마감"]);
 // 종료된 오더 — 되돌릴 수 없으므로 접수자의 대기·재접수·취소를 모두 막는다 (대표 지시 8/5)
 const CLOSED_STATUSES = new Set(["완료", "취소", "거부", "마감", "리뷰"]);
+// 운영자가 숨긴 오더 안내 (대표 리뷰 11/22 — 관리자 강제 숨김, homepro_orders.adminHidden)
+const ADMIN_HIDDEN_TEXT = "운영자에 의해 숨김 처리된 오더입니다";
 
 const OrderDetailPage = () => {
   const { state } = useLocation();
@@ -108,6 +110,10 @@ const OrderDetailPage = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [applicants, setApplicants] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  // [대기]는 배정 전이어도 한 번 더 확인받는다 (대표 리뷰 11/21)
+  const [showWaitModal, setShowWaitModal] = useState(false);
+  // [?] 안내 팝업 — 접수폼과 같은 문구 · 같은 모양 (대표 리뷰 11/22). { title, items:[{name,desc}] | text }
+  const [helpPopup, setHelpPopup] = useState(null);
   // 정보공유 미계약 신고 (대표 10/26)
   const [showNoContract, setShowNoContract] = useState(false);
   const [ncReason, setNcReason] = useState("");
@@ -195,6 +201,30 @@ const OrderDetailPage = () => {
     try { await resetOrderInsurance(order.id); await refreshOrder(); }
     catch (e) { showToast(e.message || "처리에 실패했습니다"); }
     finally { setInsBusy(false); }
+  };
+  // 단가유형 [?] — 접수폼과 같은 문구, 그 카테고리에 있는 유형만 (대표 리뷰 11/22)
+  const openPriceTypeHelp = () => setHelpPopup({
+    title: "단가유형 안내",
+    items: COMMON_B2B_FIELDS.priceType.options
+      .filter((o) => !o.onlyCategories || o.onlyCategories.includes(order?.categoryId))
+      .map((o) => ({ name: o.label, desc: o.desc })),
+  });
+  // 주소 복사 — 내비 앱에 붙여 넣게 (대표 리뷰 11/21). 앱(웹뷰)에서 clipboard 가 막히면 textarea 로 한 번 더 시도
+  const handleCopyAddress = async () => {
+    const text = String(order?.location || "").trim();
+    if (!text) return;
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; }
+    catch (e) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "-1000px";
+        document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+        try { ok = document.execCommand("copy"); } finally { document.body.removeChild(ta); }
+      } catch (e2) { ok = false; }
+    }
+    if (ok) showToast("주소를 복사했습니다");
+    else window.prompt("주소를 복사하세요", text);
   };
   const handleCopyAccount = async () => {
     if (!payAccount) return;
@@ -483,6 +513,7 @@ const OrderDetailPage = () => {
 
   const handleAcceptOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    if (order.adminHidden === true) { showToast(ADMIN_HIDDEN_TEXT); return; }
     // 프리랜서는 구인 오더만 · 외벽.고소청소는 그 서비스를 등록한 홈프로만 (대표 리뷰 11/12 8 · 9번)
     { const why = acceptBlockReason(order, userData, proDocs); if (why) { showToast(why); return; } }
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 수락 불가 (형 지시 7/31)
@@ -518,6 +549,7 @@ const OrderDetailPage = () => {
 
   const handleApplyOrder = async () => {
     if (isBlocked) { showToast("거부된 오더입니다"); return; }
+    if (order.adminHidden === true) { showToast(ADMIN_HIDDEN_TEXT); return; }
     { const why = acceptBlockReason(order, userData, proDocs); if (why) { showToast(why); return; } }
     // 블랙리스트 확정 사용자 — 관리자가 차단한 계정은 오더 지원 불가 (형 지시 7/31)
     if (userData?.orderBlocked) { showToast("관리자에 의해 오더 수락 권한이 차단된 계정입니다"); return; }
@@ -551,8 +583,8 @@ const OrderDetailPage = () => {
 
   // 접수자 핸들러
   const handleOwnerWaiting = async () => {
-    // 배정 뒤 대기 — 홈프로가 떨어진다는 걸 한 번 확인받는다 (대표 리뷰 11/12 3번)
-    if (order.matchedProUid && !window.confirm("배정된 홈프로에게 취소 알림이 가고, 오더는 대기 상태가 됩니다.\n대기 상태에서 수정 · 재접수 · 취소를 할 수 있습니다.\n대기로 돌릴까요?")) return;
+    // 확인은 화면의 확인 창(showWaitModal)에서 받는다 — 배정 전에도 한 번 더 확인 (대표 리뷰 11/12 3번 · 11/21)
+    setShowWaitModal(false);
     try {
       if (!setOrderWaiting) throw new Error("setOrderWaiting 함수 없음");
       const hadPro = !!order.matchedProUid;
@@ -896,6 +928,8 @@ const OrderDetailPage = () => {
             <WriterText>{order.writer}</WriterText>
             <TimeLabel style={{ color: THEME.muted, marginLeft: "auto" }}>{timeLabel}</TimeLabel>
           </WriterRow>
+          {/* 운영자가 숨긴 오더 — 뱃지 없이 글 한 줄 (대표 리뷰 11/22) */}
+          {order.adminHidden === true && <AdminHiddenNote>{ADMIN_HIDDEN_TEXT}</AdminHiddenNote>}
         </TitleSection>
 
         {/* ── 업무 분류 ── */}
@@ -947,8 +981,14 @@ const OrderDetailPage = () => {
           <ConditionRow>
             <ConditionLabel>지역</ConditionLabel>
             <ConditionValue>
+              {/* 주소 전체가 보이는 사람(접수자 · 배정 홈프로)에게만 [주소 복사] (대표 리뷰 11/21) */}
               {(isOwner || isMatchedPro)
-                ? (order.location || "-")
+                ? (order.location ? (
+                    <AddrCopyWrap>
+                      <span>{order.location}</span>
+                      <AddrCopyBtn type="button" onClick={handleCopyAddress}><IoCopyOutline size={16} /> 주소 복사</AddrCopyBtn>
+                    </AddrCopyWrap>
+                  ) : "-")
                 : (order.location ? order.location.split(" ").slice(0, 2).join(" ") : "-")}
             </ConditionValue>
           </ConditionRow>
@@ -957,7 +997,12 @@ const OrderDetailPage = () => {
             <ConditionValue>{scheduleLabel}</ConditionValue>
           </ConditionRow>
           <ConditionRow>
-            <ConditionLabel>금액</ConditionLabel>
+            <ConditionLabel>
+              <WithHelp>
+                금액
+                {order.b2bPriceType && <HelpBtn type="button" aria-label="단가유형 안내" onClick={openPriceTypeHelp}>?</HelpBtn>}
+              </WithHelp>
+            </ConditionLabel>
             <ConditionValue>{(() => {
               if (order.b2bPriceType) {
                 const label = PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType;
@@ -994,7 +1039,8 @@ const OrderDetailPage = () => {
               const fieldLabel = (fk) => sec?.fields?.find((f) => f.key === fk);
               Object.entries(fields).forEach(([fk, fv]) => {
                 const f = fieldLabel(fk);
-                rows.push([`${sec?.label || secKey} ${f?.label || fk}`, `${fv}${f?.unit || ""}`]);
+                // rowLabel · rowValue 가 있으면 그 이름 · 값으로 (구인의 도착 방식: "도착 방식 | 현장도착", "픽업위치 | 장소")
+                rows.push([f?.rowLabel || `${sec?.label || secKey} ${f?.label || fk}`, f?.rowValue || `${fv}${f?.unit || ""}`]);
               });
             });
           }
@@ -1125,7 +1171,9 @@ const OrderDetailPage = () => {
             <SectionTitle>단가 · 결제</SectionTitle>
             {order.b2bPriceType && (
               <ConditionRow>
-                <ConditionLabel>단가유형</ConditionLabel>
+                <ConditionLabel>
+                  <WithHelp>단가유형 <HelpBtn type="button" aria-label="단가유형 안내" onClick={openPriceTypeHelp}>?</HelpBtn></WithHelp>
+                </ConditionLabel>
                 <ConditionValue>
                   {PRICE_TYPE_LABEL[order.b2bPriceType] || order.b2bPriceType}
                   {order.b2bPriceAmount ? ` ${Number(order.b2bPriceAmount).toLocaleString()}${order.b2bPriceType === "hpoint" ? "P" : "원"}` : ""}
@@ -1163,7 +1211,12 @@ const OrderDetailPage = () => {
         {order.referralFee && (
           <DetailSection>
             {/* 역할별 제목 — 접수자는 받을 돈, 수락자는 보낼 돈 (대표 리뷰 11/02) */}
-            <SectionTitle>{isOwner ? "입금받을 소개수수료" : isMatchedPro ? "송금보낼 소개수수료" : "소개수수료"}</SectionTitle>
+            <SectionTitle>
+              <WithHelp>
+                {isOwner ? "입금받을 소개수수료" : isMatchedPro ? "송금보낼 소개수수료" : "소개수수료"}
+                <HelpBtn type="button" aria-label="소개수수료 안내" onClick={() => setHelpPopup({ title: "소개수수료 안내", text: COMMON_B2B_FIELDS.referralFee.desc })}>?</HelpBtn>
+              </WithHelp>
+            </SectionTitle>
             <ConditionRow>
               <ConditionLabel>수수료</ConditionLabel>
               <ConditionValue>
@@ -1342,7 +1395,12 @@ const OrderDetailPage = () => {
         {/* ── 요청 방식 (매칭) ── */}
         {order.matchType && (
           <DetailSection>
-            <SectionTitle>요청 방식</SectionTitle>
+            <SectionTitle>
+              <WithHelp>
+                요청 방식
+                <HelpBtn type="button" aria-label="요청방식 안내" onClick={() => setHelpPopup({ title: "요청방식 안내", items: COMMON_B2B_FIELDS.matchType.options.map((o) => ({ name: o.label, desc: o.desc })) })}>?</HelpBtn>
+              </WithHelp>
+            </SectionTitle>
             <ConditionRow>
               <ConditionLabel>매칭방식</ConditionLabel>
               <ConditionValue>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</ConditionValue>
@@ -1570,7 +1628,7 @@ const OrderDetailPage = () => {
               const waitBlocked = CLOSED_STATUSES.has(order.orderStatus) || !!order.checkInAt;
               return (
                 <OutlinedBtn
-                  onClick={() => { if (waitBlocked) { if (order.checkInAt) showToast("작업이 시작된 오더는 대기로 돌릴 수 없어요. 취소를 이용해 주세요"); return; } handleOwnerWaiting(); }}
+                  onClick={() => { if (waitBlocked) { if (order.checkInAt) showToast("작업이 시작된 오더는 대기로 돌릴 수 없어요. 취소를 이용해 주세요"); return; } setShowWaitModal(true); }}
                   disabled={waitBlocked}
                   style={waitBlocked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
                 >대기</OutlinedBtn>
@@ -1629,6 +1687,9 @@ const OrderDetailPage = () => {
         ) : isUnselectedApplicant ? (
           /* 비교선정 미선정 — 다른 홈프로가 선정됨 */
           <ApplyStatusLine $muted>미선정 · 다른 홈프로가 선정되었습니다</ApplyStatusLine>
+        ) : order.adminHidden === true ? (
+          /* 운영자가 숨긴 오더 — 본인 아닌 사람은 지원 · 수락할 수 없다 (대표 리뷰 11/22) */
+          <ApplyStatusLine $muted>{ADMIN_HIDDEN_TEXT}</ApplyStatusLine>
         ) : (CLOSED_STATUSES.has(order.orderStatus) || !!order.matchedProUid || order.orderStatus === "배정" || order.orderStatus === "선정대기") ? (
           /* 끝났거나 이미 배정된 오더 — 수락·지원 버튼을 그리지 않는다 (취소 오더를 수락해 되살리던 구멍, 10/25 전면 점검) */
           <ApplyStatusLine $muted>
@@ -1713,6 +1774,50 @@ const OrderDetailPage = () => {
             <CancelConfirmBtn onClick={handleOwnerCancel} disabled={!cancelReason}>확인</CancelConfirmBtn>
           </CancelSheet>
         </SheetOverlay>
+      )}
+
+      {/* 대기 확인 창 — 배정 전이어도 한 번 더 확인 (대표 리뷰 11/21). 취소 사유 창과 같은 틀 */}
+      {showWaitModal && (
+        <SheetOverlay onClick={() => setShowWaitModal(false)}>
+          <CancelSheet onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>대기로 돌릴까요?</SheetTitle>
+              <SheetCloseBtn onClick={() => setShowWaitModal(false)}>
+                <IoCloseOutline size={24} color={THEME.text} />
+              </SheetCloseBtn>
+            </SheetHeader>
+            <WaitText>
+              {order.matchedProUid
+                ? "배정된 홈프로에게 취소 알림이 가고, 오더는 대기 상태가 됩니다.\n대기 상태에서 수정 · 재접수 · 취소를 할 수 있습니다."
+                : "오더가 대기 상태가 되어 홈프로가 수락 · 지원할 수 없습니다.\n대기 상태에서 수정 · 재접수 · 취소를 할 수 있습니다."}
+            </WaitText>
+            <WaitBtnRow>
+              <WaitCloseBtn type="button" onClick={() => setShowWaitModal(false)}>닫기</WaitCloseBtn>
+              <WaitOkBtn type="button" onClick={handleOwnerWaiting}>대기로 변경</WaitOkBtn>
+            </WaitBtnRow>
+          </CancelSheet>
+        </SheetOverlay>
+      )}
+
+      {/* [?] 안내 팝업 — 접수폼(OrderCreatePage)과 같은 문구 · 같은 모양 */}
+      {helpPopup && (
+        <HelpOverlay onClick={() => setHelpPopup(null)}>
+          <HelpBox onClick={(e) => e.stopPropagation()}>
+            <HelpTitle>{helpPopup.title}</HelpTitle>
+            {helpPopup.text ? (
+              <HelpText>{helpPopup.text}</HelpText>
+            ) : (
+              (helpPopup.items || []).map((it) => (
+                <HelpItem key={it.name}>
+                  <HelpItemName>{it.name}</HelpItemName>
+                  <HelpItemDesc>{it.desc}</HelpItemDesc>
+                </HelpItem>
+              ))
+            )}
+            <HelpCloseBtn type="button" onClick={() => setHelpPopup(null)}>확인</HelpCloseBtn>
+          </HelpBox>
+        </HelpOverlay>
       )}
 
       {/* 미계약 신고 시트 (대표 10/26) */}
@@ -2601,6 +2706,168 @@ const ReceiptImg = styled.img`
   border-radius: 10px;
   margin-top: 8px;
   cursor: pointer;
+`;
+
+/* 제목 · 이름 옆 [?] — 접수폼과 같은 모양 (대표 리뷰 11/22) */
+const WithHelp = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+`;
+const HelpBtn = styled.button`
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid ${THEME.primary};
+  background: ${THEME.surface};
+  color: ${THEME.primary};
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  &:active { background: ${THEME.primary}12; }
+`;
+const HelpOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+`;
+const HelpBox = styled.div`
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 20px;
+`;
+const HelpTitle = styled.div`
+  font-size: 18px;
+  font-weight: 700;
+  color: ${THEME.text};
+  margin-bottom: 14px;
+`;
+const HelpText = styled.div`
+  font-size: 15px;
+  color: ${THEME.text};
+  line-height: 1.6;
+  white-space: pre-line;
+`;
+const HelpItem = styled.div`
+  padding: 10px 0;
+  border-bottom: 1px solid ${THEME.border};
+  &:last-of-type { border-bottom: none; }
+`;
+const HelpItemName = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${THEME.primary};
+  margin-bottom: 4px;
+`;
+const HelpItemDesc = styled.div`
+  font-size: 15px;
+  color: ${THEME.textSecondary};
+  line-height: 1.55;
+  white-space: pre-line;
+`;
+const HelpCloseBtn = styled.button`
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: ${THEME.button};
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+`;
+
+/* 주소 + [주소 복사] — 주소는 줄바꿈으로 끝까지, 버튼은 그 아래 */
+const AddrCopyWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  span { word-break: keep-all; overflow-wrap: anywhere; }
+  ${pcOnly`align-items: flex-start;`}
+`;
+const AddrCopyBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  background: #fff;
+  color: ${THEME.text};
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  &:active { background: #F3F4F6; }
+`;
+
+/* 운영자 숨김 안내 — 글씨로만 */
+const AdminHiddenNote = styled.div`
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: ${THEME.danger};
+  word-break: keep-all;
+`;
+
+/* 대기 확인 창 */
+const WaitText = styled.div`
+  padding: 4px 16px 18px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: ${THEME.text};
+  white-space: pre-line;
+  word-break: keep-all;
+`;
+const WaitBtnRow = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 0 16px;
+`;
+const WaitCloseBtn = styled.button`
+  flex: 1;
+  padding: 14px;
+  border: 1px solid #D1D5DB;
+  border-radius: 10px;
+  background: #fff;
+  color: ${THEME.text};
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { background: #F3F4F6; }
+`;
+const WaitOkBtn = styled.button`
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: ${THEME.button};
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  &:active { opacity: 0.85; }
 `;
 
 const OutlinedBtn = styled.button`

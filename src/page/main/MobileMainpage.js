@@ -485,6 +485,22 @@ export const InviteMessagePreview = ({ code, url, points }) => (
   </InviteMsgBox>
 );
 
+/* 초대문구는 평소 접어 두고 "[홈프로 파트너 초대장] 보기"를 누르면 펼친다 — 다시 누르면 접힌다 (대표 리뷰 11/22)
+   복사 · 공유 버튼은 접혀 있어도 늘 보인다 */
+const InviteMessageFold = ({ code, url, points }) => {
+  const [open, setOpen] = useState(false);
+  const head = inviteMessageLines(code, url, points)[0]?.text || "[홈프로 파트너 초대장]";
+  return (
+    <>
+      <InviteFoldBtn type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span>{head} {open ? "접기" : "보기"}</span>
+        <FilterChevron $open={open}><IoChevronDown size={18} /></FilterChevron>
+      </InviteFoldBtn>
+      {open && <InviteMessagePreview code={code} url={url} points={points} />}
+    </>
+  );
+};
+
 const InviteTabContent = ({ pointHistory = [] }) => {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
@@ -621,8 +637,8 @@ const InviteTabContent = ({ pointHistory = [] }) => {
       <InviteCard>
         <InviteCardTitle>초대 공유</InviteCardTitle>
         <InviteCardDesc>링크로 가입하면 코드가 자동 입력됩니다</InviteCardDesc>
-        {/* 복사 · 공유되는 문구를 버튼 위에 전부 보여 준다 (대표 리뷰 11/02) */}
-        {myCode && <InviteMessagePreview code={myCode} url={inviteUrl} points={invitePoints} />}
+        {/* 복사 · 공유되는 문구 — 접어 두고 누르면 전부 펼친다 (대표 리뷰 11/02 → 11/22 접기) */}
+        {myCode && <InviteMessageFold code={myCode} url={inviteUrl} points={invitePoints} />}
         <ShareBtnRow>
           <ShareBtn onClick={handleCopyInvite}>초대문구 복사</ShareBtn>
           <ShareBtn $primary onClick={handleWebShare}>공유하기</ShareBtn>
@@ -729,7 +745,7 @@ const GuestAssets = ({ onLogin }) => {
           <InviteCard>
             <InviteCardTitle>초대 공유</InviteCardTitle>
             <InviteCardDesc>링크로 가입하면 코드가 자동 입력됩니다</InviteCardDesc>
-            <InviteMessagePreview code="(로그인 후 발급)" url="(로그인하면 내 초대 링크가 붙습니다)" points={INVITE_POINT_FALLBACK} />
+            <InviteMessageFold code="(로그인 후 발급)" url="(로그인하면 내 초대 링크가 붙습니다)" points={INVITE_POINT_FALLBACK} />
             <ShareBtnRow>
               <ShareBtn type="button" onClick={onLogin}>초대문구 복사</ShareBtn>
               <ShareBtn type="button" $primary onClick={onLogin}>공유하기</ShareBtn>
@@ -789,7 +805,6 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const [showDistSheet, setShowDistSheet] = useState(false);
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showStatusSheet, setShowStatusSheet] = useState(false);
-  const [showSortSheet, setShowSortSheet] = useState(false);
   const [rawOrders, setRawOrders] = useState([]);
   const [toast, setToast] = useState("");
   const [userPoints, setUserPoints] = useState(0);
@@ -897,6 +912,8 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   const allOrders = useMemo(() => {
     return rawOrders
       .filter((o) => !(o.hiddenBy || []).includes(uid))
+      // 운영자가 숨긴 오더는 남에게 보이는 목록에서 뺀다 (대표 리뷰 11/22 — 관리자 강제 숨김). 접수자 본인은 나의오더현황에서 본다
+      .filter((o) => o.adminHidden !== true)
       .map((o) => {
         const cat = CATEGORIES.find((c) => c.id === o.categoryId);
         return { ...o, categoryName: cat?.shortName || o.categoryName || o.categoryId, categoryIcon: cat?.icon };
@@ -1206,10 +1223,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
             </SummaryLine>
           ) : null}
 
-          {/* 필터 줄 — [정렬][거리][상태][카테고리][필터] 다섯 칸, [필터] 안에는 기간 · 마감·취소 제외 (대표 10/8) */}
+          {/* 필터 줄 — [기간][거리][상태][카테고리][필터] 다섯 칸, [필터] 안에는 정렬 · 마감·취소 (대표 10/8 → 11/22 기간과 정렬 자리를 바꿈) */}
           <FilterToggleRow>
-            <FilterToggleBtn $on={activeSort !== "등록순"} onClick={() => setShowSortSheet(true)}>
-              {activeSort}
+            <FilterToggleBtn $on={activePeriod !== "전체"} onClick={() => setShowPeriodSheet(true)}>
+              {activePeriod !== "전체" ? activePeriod : "기간"}
               <FilterChevron><IoChevronDown size={14} /></FilterChevron>
             </FilterToggleBtn>
             <FilterToggleBtn $on={activeDist !== DEFAULT_DIST} onClick={() => setShowDistSheet(true)}>
@@ -1224,7 +1241,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               {activeCatFilters.length > 0 ? `카테고리 ${activeCatFilters.length}` : "카테고리"}
               <FilterChevron><IoChevronDown size={14} /></FilterChevron>
             </FilterToggleBtn>
-            <FilterToggleBtn $on={showFilters || activePeriod !== "전체" || hideClosed} onClick={() => setShowFilters((v) => !v)}>
+            <FilterToggleBtn $on={showFilters || activeSort !== "등록순" || hideClosed} onClick={() => setShowFilters((v) => !v)}>
               필터
               <FilterChevron $open={showFilters}><IoChevronDown size={16} /></FilterChevron>
             </FilterToggleBtn>
@@ -1234,10 +1251,10 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
           {showFilters && (
           <FilterPanel>
             <FilterGroup>
-              <FilterGroupLabel>기간</FilterGroupLabel>
+              <FilterGroupLabel>정렬</FilterGroupLabel>
               <FilterBtnRow>
-                {PERIOD_OPTIONS.map((t) => (
-                  <FilterBtn key={t} $active={activePeriod === t} onClick={() => setActivePeriod(t)}>{t}</FilterBtn>
+                {SORT_OPTIONS.map((t) => (
+                  <FilterBtn key={t} $active={activeSort === t} onClick={() => setActiveSort(t)}>{t}</FilterBtn>
                 ))}
               </FilterBtnRow>
             </FilterGroup>
@@ -1497,29 +1514,6 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 <SheetItem key={t} onClick={() => { setActivePeriod(t); setShowPeriodSheet(false); }}>
                   <SheetItemName>{t}</SheetItemName>
                   {activePeriod === t && <IoCheckmarkCircle size={22} color={THEME.primary} />}
-                </SheetItem>
-              ))}
-            </SheetList>
-          </SheetContent>
-        </SheetOverlay>
-      )}
-
-      {/* 정렬 바텀시트 */}
-      {showSortSheet && (
-        <SheetOverlay onClick={() => setShowSortSheet(false)}>
-          <SheetContent onClick={(e) => e.stopPropagation()}>
-            <SheetHandle />
-            <SheetHeader>
-              <SheetTitle>정렬</SheetTitle>
-              <SheetCloseBtn onClick={() => setShowSortSheet(false)}>
-                <IoCloseOutline size={24} color={THEME.text} />
-              </SheetCloseBtn>
-            </SheetHeader>
-            <SheetList>
-              {SORT_OPTIONS.map((s) => (
-                <SheetItem key={s} onClick={() => { setActiveSort(s); setShowSortSheet(false); }}>
-                  <SheetItemName>{s}</SheetItemName>
-                  {activeSort === s && <IoCheckmarkCircle size={22} color={THEME.primary} />}
                 </SheetItem>
               ))}
             </SheetList>
@@ -2399,6 +2393,29 @@ const InviteMsgLine = styled.div`
   white-space: pre-wrap;
   word-break: ${({ $link }) => ($link ? "break-all" : "keep-all")};
   overflow-wrap: anywhere;
+`;
+
+/* 초대문구 펼치기 줄 — 흰 면 + 1px 테두리, 글은 왼쪽 · 화살표는 오른쪽 끝 */
+const InviteFoldBtn = styled.button`
+  margin-top: 14px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #D9DDE3;
+  border-radius: 4px;
+  color: ${THEME.text};
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  word-break: keep-all;
+  cursor: pointer;
+  &:active { opacity: 0.8; }
 `;
 
 const ShareBtnRow = styled.div`

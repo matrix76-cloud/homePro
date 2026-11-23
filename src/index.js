@@ -17,7 +17,8 @@ initDarkMode();
   try {
     const params = new URLSearchParams(window.location.search);
     const code = (params.get('code') || '').trim().toUpperCase();
-    if (/^[A-Z]{2}\d{6}$/.test(code)) {
+    // 공식 사전예약 코드(HOMEPRO2026 꼴)도 같이 받는다 — tryhomepro.com/?code=HOMEPRO2026
+    if (/^[A-Z]{2}\d{6}$/.test(code) || /^HOMEPRO\d{4}$/.test(code)) {
       localStorage.setItem('homepro.pendingReferralCode', code);
       params.delete('code');
       const rest = params.toString();

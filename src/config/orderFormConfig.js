@@ -991,12 +991,17 @@ const ORDER_FORM_CONFIG = {
         { key: "기공", label: "기공", type: "number", unit: "명", whenAttr: { key: "skillLevel", value: "기공" } },
         { key: "팀장", label: "팀장", type: "number", unit: "명", whenAttr: { key: "skillLevel", value: "팀장" } },
       ] },
-      // 현장으로 바로 가는 경우가 많아 체크 하나로 끝내고, 아니면 픽업장소만 받는다 (대표 지시 8/7)
-      { key: "site", label: "픽업위치", fields: [
-        { key: "direct", label: "현장으로 직접 도착", type: "check" },
-        { key: "pickup", label: "픽업장소", type: "text", placeholder: "픽업 주소", hideWhenChecked: "direct" },
+      // 현장도착 / 픽업위치 — 접수폼에서는 이 묶음을 여기(숙련도 아래)에 그리지 않고 주소 단계에서 둘 중 하나를 고르게 한다 (대표 리뷰 11/21).
+      //  arrivalChoice: 접수폼(OrderCreatePage)이 주소 칸 아래에 [현장도착][픽업위치] 선택으로 그린다는 표시
+      //  저장 꼴은 8/7 때 그대로 — 현장도착이면 inputs.site.direct = "예", 픽업위치면 inputs.site.pickup = 입력한 장소 (옛 오더와 같은 꼴)
+      //  rowLabel · rowValue: 오더 상세가 한 줄로 보여 줄 때 쓸 이름 · 값 (없으면 "묶음 이름 + 칸 이름"으로 나온다)
+      { key: "site", label: "도착 방식", arrivalChoice: true, fields: [
+        { key: "direct", label: "현장도착", type: "check", rowLabel: "도착 방식", rowValue: "현장도착" },
+        { key: "pickup", label: "픽업위치", type: "text", placeholder: "픽업 장소 입력 (예: OO역 3번 출구)", hideWhenChecked: "direct", rowLabel: "픽업위치" },
       ] },
     ],
+    // 구인 조건 체크 문구 — '전화먼저 주세요!' 줄 아래, 여러 개 고를 수 있다 (대표 리뷰 11/21). 고른 것은 workerTags 로 저장되고 상세 요청내용에도 한 줄로 붙는다
+    checkTags: ["초보X", "대타X", "펑크X", "한국어소통", "고정구인"],
     notice: "홈프로는 작업 인력 연결을 위한 중개 서비스만 제공하며, 실제 작업 계약·작업 대금지급·작업 안전 및 사고 책임은 작업 요청자와 작업자 간에 이루어집니다.",
     subGroups: [
       { label: "청소작업", items: ["이사청소", "입주청소", "준공청소", "특수청소", "화재청소", "공장청소", "창고청소", "가전청소", "기타청소"] },
@@ -1017,7 +1022,7 @@ const ORDER_FORM_CONFIG = {
         },
       }
     ],
-    detailPlaceholder: "필요 인원수, 픽업장소·현장도착 주소, 작업 내용 등…",
+    detailPlaceholder: "필요 인원수, 작업 내용 등…",
     scheduleOptions: ["긴급", "오늘", "내일", "예약날짜", "가능한 빨리 진행 원해요", "협의가능해요!"],
   },
   paint_waterproof: {

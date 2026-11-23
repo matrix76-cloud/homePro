@@ -97,6 +97,8 @@ const PcOrdersPage = () => {
     };
     const list = (rawOrders || [])
       .filter((o) => !(o.hiddenBy || []).includes(uid))
+      // 운영자가 숨긴 오더는 남에게 보이는 목록에서 뺀다 (대표 리뷰 11/22 — 관리자 강제 숨김)
+      .filter((o) => o.adminHidden !== true)
       .map((o) => {
         const cat = CATEGORIES.find((c) => c.id === o.categoryId);
         return { ...o, categoryName: cat?.shortName || o.categoryName || o.categoryId, _cat: cat, _status: mapStatus(o.orderStatus) };
@@ -143,17 +145,18 @@ const PcOrdersPage = () => {
         <CreateBtn onClick={() => navigate("/order/create")}><FiPlus />오더 접수</CreateBtn>
       </TitleRow>
 
+      {/* 폰 오더목록과 같은 순서 — 기간이 맨 앞, 정렬은 뒤쪽 마감·취소 옆 (대표 리뷰 11/22) */}
       <FilterRow>
-        <Field><label>정렬</label><select value={sort} onChange={(e) => setSort(e.target.value)}>{SORT_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
-        <Field><label>상태</label><select value={status} onChange={(e) => setStatus(e.target.value)}>{STATUS_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
-        <Field><label>거리</label><select value={dist} onChange={(e) => setDist(e.target.value)}>{DISTANCE_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
         <Field><label>기간</label><select value={period} onChange={(e) => setPeriod(e.target.value)}>{PERIOD_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
+        <Field><label>거리</label><select value={dist} onChange={(e) => setDist(e.target.value)}>{DISTANCE_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
+        <Field><label>상태</label><select value={status} onChange={(e) => setStatus(e.target.value)}>{STATUS_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
         <Field $wide><label>카테고리</label>
           <select value={catId} onChange={(e) => setCatId(e.target.value)}>
             <option value="전체">전체</option>
             {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.shortName || c.name}</option>)}
           </select>
         </Field>
+        <Field><label>정렬</label><select value={sort} onChange={(e) => setSort(e.target.value)}>{SORT_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></Field>
         {/* [마감·취소 포함][마감·취소 제외] — 포함이 앞 · 기본 (대표 리뷰 11/02) */}
         <Field><label>마감·취소</label>
           <select value={hideClosed ? "exclude" : "include"} onChange={(e) => setHideClosed(e.target.value === "exclude")}>

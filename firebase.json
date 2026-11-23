@@ -13,12 +13,39 @@
     ],
     "rewrites": [
       {
+        "source": "/orders",
+        "function": {
+          "functionId": "publicOrders",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/orders/**",
+        "function": {
+          "functionId": "publicOrders",
+          "region": "asia-northeast3"
+        }
+      },
+      {
         "source": "/recent-orders",
-        "function": { "functionId": "publicOrders", "region": "asia-northeast3" }
+        "function": {
+          "functionId": "publicOrders",
+          "region": "asia-northeast3"
+        }
       },
       {
         "source": "/recent-orders/feed.xml",
-        "function": { "functionId": "publicOrders", "region": "asia-northeast3" }
+        "function": {
+          "functionId": "publicOrders",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/sitemap.xml",
+        "function": {
+          "functionId": "publicOrders",
+          "region": "asia-northeast3"
+        }
       },
       {
         "source": "**",
@@ -50,6 +77,51 @@
           {
             "key": "Cache-Control",
             "value": "public, max-age=86400"
+          }
+        ]
+      },
+      {
+        "source": "/orders",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=120, s-maxage=300"
+          }
+        ]
+      },
+      {
+        "source": "/orders/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=120, s-maxage=300"
+          }
+        ]
+      },
+      {
+        "source": "/recent-orders",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=120, s-maxage=300"
+          }
+        ]
+      },
+      {
+        "source": "/recent-orders/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=120, s-maxage=300"
+          }
+        ]
+      },
+      {
+        "source": "/sitemap.xml",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=600, s-maxage=1800"
           }
         ]
       }

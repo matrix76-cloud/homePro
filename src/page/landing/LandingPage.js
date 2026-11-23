@@ -8,6 +8,8 @@
  *   01~04 는 화면 조각을 새로 그린 것 — LandingArt.js (시안 랩 /lab?tab=landing 첫 화면 2번 + 섹션 1번)
  * - 01~05 그림 칸은 화면에 들어올 때 사진이 먼저 자리 잡고 카드가 뒤따라 올라온다 (시안 랩 /lab?tab=landingreveal 3번, 형 10/1)
  * - PC 기준 + 반응형(900px 이하 세로 쌓기)
+ * - 대표 리뷰 11/21~11/22: 첫 화면 문구 최종본(헤드라인 · 큰 문구 · 서브소개), 01 안에 현장구인 문구,
+ *   푸터 위 업종별 바로가기 글 링크(TAG_LINKS), 그랜드 오픈 사전예약 팝업(PreopenPopup)
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +22,7 @@ import { getAppLinks } from '../../service/AppLinkService';
 import { StoreLink } from './AppDownloadPage';
 import usePcWide from '../../hooks/usePcWide';
 import { PC_HEADER_H } from '../../components/pc/PcHeader';
+import PreopenPopup from './PreopenPopup';
 
 /* PC 에서만 줄을 바꾼다 — 폰 폭에서는 글이 알아서 접히게 둔다. SECTIONS 가 쓰므로 그 위에 둔다 */
 const PcBr = styled.br` @media (max-width: 900px) { display: none; } `;
@@ -95,6 +98,22 @@ const SECTION_PHOTO = {
 
 const WAY = ['오더 공유', '소개수익', 'PG 결제', '직접정산', '배상책임보험'];
 
+// 푸터 위 업종별 바로가기 — 검색으로 들어온 사람과 검색 로봇이 타고 가는 글 링크 (대표 리뷰 11/21 검색 노출 3장 3번).
+// ★주소는 여기 한 곳에서만 고친다. 공개 오더리스트(/orders)는 서버가 그려 보내는 페이지라 a 태그 그대로 둔다(라우터를 타면 안 된다).
+//   업종 · 지역별 주소가 열리면 href 만 바꾼다(예: '/orders/cleaning'). 보험 태그는 이 페이지의 04 구역으로.
+const ORDERS_URL = '/orders';
+// 업종 주소는 functions/publicOrderSlugs.js 의 slug 와 같아야 한다 (없는 slug 는 404)
+const TAG_LINKS = [
+  { label: '#입주청소오더방', href: `${ORDERS_URL}/move-cleaning` },
+  { label: '#인테리어구인', href: `${ORDERS_URL}/workers` },
+  { label: '#설비하도급', href: `${ORDERS_URL}/plumbing` },
+  { label: '#에어컨설치오더', href: `${ORDERS_URL}/aircon` },
+  { label: '#전국설비오더공유', href: `${ORDERS_URL}/plumbing` },
+  { label: '#현장일당구인', href: `${ORDERS_URL}/workers` },
+  { label: '#오더방', href: ORDERS_URL },
+  { label: '#공사배상책임보험', href: '#insurance' },
+];
+
 const Flow = ({ items }) => (
   <FlowBox>
     {items.map((t, i) => (
@@ -116,6 +135,7 @@ const COMPANY_FALLBACK = {
   mailOrderNo: '2021-서울종로-1936',
   phone: '1555-3364',
   email: 'support@tryhomepro.com', // 공식 이메일 (대표 리뷰 11/13)
+  jobInfoNo: '서울청 제 2026-34호', // 직업정보제공사업 신고번호 (대표 리뷰 11/18)
 };
 
 // 01~05 그림 칸 — 화면에 들어오면 사진이 먼저 살짝 당겨지며 자리 잡고, 0.35초 뒤 카드가 그 위로 올라온다.
@@ -186,6 +206,14 @@ const LandingPage = () => {
             </Bullets>
           </ListBox>
         </TwoCol>
+        {/* 현장구인 · 기술자 구인 — 대표 문구 그대로 (리뷰 11/21 검색 노출 3장 2번).
+            구인도 오더의 한 갈래(팀원.기술자 구인 접수)라 01 안에 둔다 */}
+        <ListBox style={{ margin: '16px 0 8px' }}>
+          <ListTitle as="h3" style={{ margin: '0 0 10px', lineHeight: 1.45 }}>
+            갑작스러운 현장 인력 펑크, 3분 만에 해결하는 현장구인 · 기술자 구인
+          </ListTitle>
+          <BoxText>검증된 기공·조공 프리랜서부터 철거·목공·전기·청소 팀원 모집까지, 필요한 인원만큼 빠르게 매칭해 드립니다.</BoxText>
+        </ListBox>
         <Punch>혼자 영업하는 사업자에서<br />서로 오더를 연결하는 사업자로</Punch>
       </>
     ),
@@ -292,15 +320,23 @@ const LandingPage = () => {
         <Inner>
           <HeroGrid>
             <div>
-              <Kicker>일감을 공유하고, 수익을 만들고, 결제하고, 안전하게 일하는 사업자 플랫폼</Kicker>
+              {/* 대표 11/22 최종 문구 그대로 — [헤드라인] 윗줄 · [큰 문구] · [서브소개].
+                  윗줄과 큰 문구를 제목(h1) 하나로 묶었다: 검색 로봇이 '오더공유 · 현장구인'을 이 페이지 제목으로 읽는다.
+                  줄마다 한 덩어리(block)라 PC 에서는 원문 줄바꿈 그대로, 폰 폭에서는 줄 안에서 고르게 접힌다 */}
               <H1>
-                사업자의 일을 더 쉽게,<br />
-                사업자의 수익을 더 넓게.
+                <HeadLine>
+                  <span>오더공유부터 현장구인, 안심시공까지—</span>{' '}
+                  <span>사장님·기술자·고객이 함께 성장하는 플랫폼</span>
+                </HeadLine>
+                <HeadBig>
+                  <span>사업자에겐 더 쉬운 일감과 넓은 수익을,</span>{' '}
+                  <span>고객에겐 검증된 전문가의 안심 시공을.</span>
+                </HeadBig>
               </H1>
               <Lead>
-                {/* 대표 10/1 문구 그대로. 줄바꿈은 PC 에서만 — 폰 폭에서는 글이 알아서 접힌다 */}
+                {/* 줄바꿈은 PC 에서만 — 폰 폭에서는 글이 알아서 접힌다 */}
                 홈프로는 설비·청소·인테리어부터 특수 시공까지—<PcBr />{' '}
-                28개 전문 카테고리, 300여 이상의 세부 종목의<PcBr />{' '}
+                30개 전문 카테고리, 350여 이상의 세부 종목의<PcBr />{' '}
                 집 전문가들이 모이는 단 하나의 비즈니스 생태계,<PcBr />{' '}
                 작업 중 사고 위험까지 관리할 수 있도록 돕습니다.
               </Lead>
@@ -416,11 +452,18 @@ const LandingPage = () => {
 
       <Footer>
         <Inner>
+          {/* 업종별 바로가기 — 글 링크(a href)라 검색 로봇이 그대로 따라간다. 주소는 맨 위 TAG_LINKS */}
+          <TagNav aria-label="업종별 바로가기">
+            <TagTitle>업종별 바로가기</TagTitle>
+            <TagList>
+              {TAG_LINKS.map((t) => <a key={t.label} href={t.href}>{t.label}</a>)}
+            </TagList>
+          </TagNav>
           <FootTop>
             <FootLogo>홈프로</FootLogo>
             <FootLinks>
               {/* 로그인 없이 보는 공개 오더 목록 — 서버(publicOrders 함수)가 그린다. SPA 라우터를 타면 안 되니 a 태그 그대로 */}
-              <a href="/recent-orders">최근 오더</a>
+              <a href="/orders">실시간 오더</a>
               <a href="/legal/terms">이용약관</a>
               <a href="/legal/privacy">개인정보처리방침</a>
               <a href="/legal/location">위치기반서비스약관</a>
@@ -440,6 +483,9 @@ const LandingPage = () => {
           <FootCopy>© 2026 {company.companyName || '홈프로'}. All rights reserved.</FootCopy>
         </Inner>
       </Footer>
+
+      {/* 그랜드 오픈 사전예약 팝업 — 로그인 전 · 웹에서만 (대표 리뷰 11/22) */}
+      <PreopenPopup />
     </Page>
   );
 };
@@ -515,10 +561,21 @@ const HeroGrid = styled.div`
   display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: center;
   @media (max-width: 900px) { grid-template-columns: 1fr; gap: 44px; }
 `;
-const Kicker = styled.p` font-size: 19px; font-weight: 700; color: ${PRIMARY}; line-height: 1.5; margin-bottom: 18px; `;
-const H1 = styled.h1`
-  font-size: 50px; line-height: 1.25; font-weight: 800; color: ${INK}; letter-spacing: -0.02em; margin-bottom: 24px;
-  @media (max-width: 900px) { font-size: 34px; }
+/* 첫 화면 제목 — h1 하나 안에 윗줄(초록 작은 글)과 큰 문구를 둔다. 줄(span)마다 한 덩어리 */
+const H1 = styled.h1` margin: 0 0 24px; font-weight: 800; `;
+const HeadLine = styled.span`
+  display: block; font-size: 19px; font-weight: 700; color: ${PRIMARY}; line-height: 1.5; letter-spacing: 0; margin-bottom: 18px;
+  span { display: block; }
+  @media (max-width: 600px) { font-size: 18px; }
+`;
+/* 큰 문구 — 한 줄이 글자 높이의 14.8배(Pretendard 800 실측)라, PC 에서는 왼쪽 단 폭에 한 줄씩 들어가게 화면 폭을 따라 크기를 잡는다.
+   (왼쪽 단 = (화면 폭 - 168) × 0.575 → 글씨 = (화면 폭 - 168) × 0.037, 가장 넓을 때 42) 폰 폭에서는 줄 안에서 고르게 접힌다 */
+const HeadBig = styled.span`
+  display: block; color: ${INK}; line-height: 1.3; letter-spacing: -0.02em;
+  font-size: clamp(27px, calc((100vw - 168px) * 0.037), 42px);
+  span { display: block; text-wrap: balance; }
+  @media (max-width: 900px) { font-size: 32px; }
+  @media (max-width: 600px) { font-size: 28px; }
 `;
 const Lead = styled.p`
   font-size: 20px; line-height: 1.75; color: ${BODY}; margin-bottom: 34px;
@@ -632,6 +689,7 @@ const TwoCol = styled.div`
 `;
 const ListBox = styled.div` background: #fff; border: 1px solid ${LINE}; border-radius: 12px; padding: 22px 22px 20px; `;
 const ListTitle = styled.div` font-size: 19px; font-weight: 800; color: ${INK}; margin-bottom: 14px; `;
+const BoxText = styled.p` margin: 0; font-size: 17px; line-height: 1.6; color: ${BODY}; `;
 const Bullets = styled.ul`
   list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px;
   li { display: flex; gap: 10px; font-size: 17px; line-height: 1.5; color: ${BODY}; }
@@ -714,6 +772,16 @@ const ClosingBtn = styled.button`
 
 /* Footer */
 const Footer = styled.footer` background: #fff; border-top: 1px solid ${LINE}; padding: 40px 0 36px; `;
+/* 업종별 바로가기 — 칩으로 감싸지 않고 글 링크만 줄지어 둔다 */
+const TagNav = styled.nav` padding-bottom: 24px; margin-bottom: 26px; border-bottom: 1px solid ${LINE}; `;
+const TagTitle = styled.div` font-size: 15px; font-weight: 700; color: ${INK}; margin-bottom: 10px; `;
+const TagList = styled.div`
+  display: flex; flex-wrap: wrap; gap: 4px 22px;
+  a {
+    font-size: 16px; line-height: 2; color: ${BODY}; text-decoration: none;
+    &:hover { color: ${PRIMARY}; text-decoration: underline; }
+  }
+`;
 const FootTop = styled.div` display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; `;
 const FootLogo = styled.div` font-size: 21px; font-weight: 800; color: ${PRIMARY}; `;
 const FootLinks = styled.div`
