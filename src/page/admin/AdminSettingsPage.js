@@ -799,7 +799,7 @@ const AdminSettingsPage = () => {
                                 <FormLabel>오픈 날짜 문구</FormLabel>
                                 <FormInput value={preopen.openDateText || ""}
                                     onChange={(e) => setPreopen((prev) => ({ ...prev, openDateText: e.target.value }))}
-                                    placeholder="12월 1일" />
+                                    placeholder="12월 14일(월) 09:00" />
                             </FormGroup>
                             <InsText style={{ marginBottom: 14 }}>
                                 팝업 제목 : {(preopen.openDateText || "").trim() || PREOPEN_DEFAULT.openDateText} 그랜드 오픈 사전예약 시작

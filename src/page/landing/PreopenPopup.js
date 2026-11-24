@@ -18,7 +18,7 @@ import { db } from '../../api/config';
 import { useAuth } from '../../context/AuthContext';
 import { isInRnWebView } from '../../bridge/webviewBridge';
 
-export const PREOPEN_DEFAULT = { enabled: true, openDateText: '12월 1일', code: 'HOMEPRO2026' };
+export const PREOPEN_DEFAULT = { enabled: true, openDateText: '12월 14일(월) 09:00', code: 'HOMEPRO2026' };
 const HIDE_KEY = 'homepro.preopenPopup.hideDay';
 const PENDING_CODE_KEY = 'homepro.pendingReferralCode';
 const POINT_FALLBACK = 3000;
