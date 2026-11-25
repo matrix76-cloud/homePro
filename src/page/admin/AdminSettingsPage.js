@@ -802,7 +802,7 @@ const AdminSettingsPage = () => {
                                     placeholder="12월 14일(월) 09:00" />
                             </FormGroup>
                             <InsText style={{ marginBottom: 14 }}>
-                                팝업 제목 : {(preopen.openDateText || "").trim() || PREOPEN_DEFAULT.openDateText} 그랜드 오픈 사전예약 시작
+                                팝업 제목(세 줄) : 그랜드오픈 / {(preopen.openDateText || "").trim() || PREOPEN_DEFAULT.openDateText} / 지금 사전예약 중
                             </InsText>
                             <FormGroup>
                                 <FormLabel>공식 사전예약 초대코드</FormLabel>

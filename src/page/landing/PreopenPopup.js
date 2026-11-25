@@ -1,5 +1,6 @@
 /**
  * 그랜드 오픈 사전예약 팝업 — 홍보 화면(랜딩)에 들어온 사람에게 뜬다 (대표 리뷰 11/22 "최종 시안", 문구 그대로)
+ *  · 제목은 세 줄 "그랜드오픈 / (오픈 날짜) / 지금 사전예약 중" (대표 11/25 — 앞서는 "(날짜) 그랜드 오픈 사전예약 시작")
  *  · 오픈 날짜 문구 · 켜고 끄기 · 초대코드는 관리자 설정(settings/preopenPopup)에서 바꾼다. 못 읽으면 PREOPEN_DEFAULT.
  *    (대표가 오픈 날짜를 따로 확정하기로 해서 날짜만 설정으로 뺐다 — 관리자 > 설정 > 정관/약관 관리 > 사전예약 팝업)
  *  · 혜택의 포인트 숫자는 포인트 규칙(settings/point_rules) 운영값 — referral_signup(가입한 사람) · referral_invite(초대한 사람)
@@ -145,7 +146,11 @@ const PreopenPopup = () => {
         <CloseX type="button" onClick={close} aria-label="닫기"><FiX /></CloseX>
         <Scroll>
           <Brand>청소·설비 등 30개 업종 최초의 오더공유 플랫폼!, 홈프로!</Brand>
-          <Title id="preopen-title">{conf.openDateText} 그랜드 오픈 사전예약 시작</Title>
+          <Title id="preopen-title">
+            <span>그랜드오픈</span>
+            <span>{conf.openDateText}</span>
+            <span>지금 사전예약 중</span>
+          </Title>
           <Desc>30개 전문 분야 · 300여 세부 종목 사장님과 기술자가 모이는 실시간 오더공유 · 현장구인 플랫폼이 열립니다.</Desc>
 
           <SubTitle>사전예약 특별 혜택</SubTitle>
@@ -223,6 +228,7 @@ const Brand = styled.p`
 const Title = styled.h2`
   margin: 0 0 12px; font-size: 27px; font-weight: 800; line-height: 1.35; letter-spacing: -0.02em; color: ${INK};
   text-wrap: balance;
+  span { display: block; } /* 세 줄 — 그랜드오픈 / 날짜 / 지금 사전예약 중 */
   @media (max-width: 600px) { font-size: 23px; }
 `;
 const Desc = styled.p`
