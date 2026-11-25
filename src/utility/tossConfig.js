@@ -21,6 +21,11 @@ export const TOSS_CLIENT_KEY = process.env.REACT_APP_TOSS_CLIENT_KEY || DOCS_TES
 const DOCS_TEST_BILLING_CLIENT_KEY = "test_ck_nRQoOaPz8LEPeMZyd0OW3y47BMw6";
 export const TOSS_BILLING_CLIENT_KEY = process.env.REACT_APP_TOSS_BILLING_CLIENT_KEY || DOCS_TEST_BILLING_CLIENT_KEY;
 
+/* 결제 링크(/pg/:id)의 카드 결제창 전용 클라이언트 키 — 일반결제 상점의 'API 개별 연동 키'. 서버 TOSS_LINK_SECRET_KEY 와 한 쌍.
+   실계약에서 자동결제가 별도 상점(MID)으로 나와 자동결제 키와 자리를 나눴다(2026-11-25).
+   비워두면 예전처럼 자동결제 키를 같이 쓴다(테스트 환경). */
+export const TOSS_LINK_CLIENT_KEY = process.env.REACT_APP_TOSS_LINK_CLIENT_KEY || TOSS_BILLING_CLIENT_KEY;
+
 /** 테스트 키로 돌고 있는지 — 화면에 "실제로 돈이 빠지지 않습니다" 안내를 띄울 때 본다 */
 export const isTossTestKey = () => String(TOSS_CLIENT_KEY).startsWith("test_");
 

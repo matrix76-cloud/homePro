@@ -9,10 +9,13 @@
  *
  * 키: 결제위젯이 아니라 결제창(payment().requestPayment)으로 열기 때문에 'API 개별 연동 키' 쌍을 쓴다
  *     — 앞단 REACT_APP_TOSS_BILLING_CLIENT_KEY(test_ck_…) ↔ 서버 TOSS_BILLING_SECRET_KEY(test_sk_…). 구독 자동결제와 같은 쌍.
+ *     ★2026-11-25 실계약에서 자동결제가 별도 상점(MID)으로 나와 자리를 나눴다 — 결제 링크는
+ *       앞단 REACT_APP_TOSS_LINK_CLIENT_KEY ↔ 서버 TOSS_LINK_SECRET_KEY (일반결제 상점의 API 개별 연동 키).
+ *       두 값을 비워두면 예전처럼 자동결제 키 쌍을 같이 쓴다(insurance.js linkSecretKey).
  * 분배(홈프로 정산계좌 → 사업자)는 여기서 하지 않는다. 요청 문서의 distribution 이 pending 으로 남는다.
  */
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { REGION, PAYMENTS, db, tsNow, billingSecretKey } = require("./insurance");
+const { REGION, PAYMENTS, db, tsNow, linkSecretKey } = require("./insurance");
 
 const PG_COL = "pg_payment_requests";
 const TOSS_API = "https://api.tosspayments.com";
@@ -24,7 +27,7 @@ async function tossConfirmRequest(body) {
     const res = await fetch(`${TOSS_API}/v1/payments/confirm`, {
         method: "POST",
         headers: {
-            Authorization: `Basic ${Buffer.from(`${billingSecretKey()}:`).toString("base64")}`,
+            Authorization: `Basic ${Buffer.from(`${linkSecretKey()}:`).toString("base64")}`,
             "Content-Type": "application/json",
             "Idempotency-Key": String(body.orderId),
         },

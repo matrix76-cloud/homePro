@@ -11,7 +11,7 @@ import styled from "styled-components";
 import { THEME } from "../../config/homeproConfig";
 import { getPgRequest, PG_KIND } from "../../service/PgPaymentService";
 import { requestPayLinkPayment, confirmPayLinkPayment } from "../../service/payService";
-import { TOSS_BILLING_CLIENT_KEY, TOSS_FAIL_REASON } from "../../utility/tossConfig";
+import { TOSS_LINK_CLIENT_KEY, TOSS_FAIL_REASON } from "../../utility/tossConfig";
 
 const PgLinkPage = () => {
   const { id } = useParams();
@@ -81,7 +81,7 @@ const PgLinkPage = () => {
           </PayBtn>
         )}
         {notice && <Notice>{notice}</Notice>}
-        {!done && String(TOSS_BILLING_CLIENT_KEY).startsWith("test_") && <Notice>지금은 테스트 결제입니다. 실제로 돈이 빠지지 않습니다.</Notice>}
+        {!done && String(TOSS_LINK_CLIENT_KEY).startsWith("test_") && <Notice>지금은 테스트 결제입니다. 실제로 돈이 빠지지 않습니다.</Notice>}
         {/* 결제 링크는 어디서 만들었든 PG → 홈프로 정산계좌 → 사업자에게 분배 (형 확정 2026-10-13) */}
         <Foot>결제 대금은 홈프로를 거쳐 사업자에게 정산됩니다.</Foot>
       </>

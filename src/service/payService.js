@@ -18,7 +18,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 import { firebaseApp, FUNCTIONS_REGION } from "../api/config";
 import {
-  TOSS_CLIENT_KEY, TOSS_BILLING_CLIENT_KEY, TOSS_SUCCESS_PATH, TOSS_FAIL_PATH, TOSS_BILLING_SUCCESS_PATH,
+  TOSS_CLIENT_KEY, TOSS_BILLING_CLIENT_KEY, TOSS_LINK_CLIENT_KEY, TOSS_SUCCESS_PATH, TOSS_FAIL_PATH, TOSS_BILLING_SUCCESS_PATH,
   PAY_SESSION_KEY, makeCustomerKey,
 } from "../utility/tossConfig";
 
@@ -188,7 +188,8 @@ export async function requestPayLinkPayment(requestId) {
     throw humanError(e, "결제 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.");
   }
   if (!prep.tossOrderId || !(Number(prep.amount) > 0)) throw new Error("결제 정보를 준비하지 못했습니다.");
-  const toss = await loadTossPayments(TOSS_BILLING_CLIENT_KEY);
+  // 결제 링크는 일반결제 상점의 키로 연다 — 자동결제 상점 키와 자리가 다르다(tossConfig TOSS_LINK_CLIENT_KEY)
+  const toss = await loadTossPayments(TOSS_LINK_CLIENT_KEY);
   const payment = toss.payment({ customerKey: ANONYMOUS });
   const back = `${window.location.origin}/pg/${encodeURIComponent(requestId)}`;
   await payment.requestPayment({

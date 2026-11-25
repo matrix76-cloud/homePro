@@ -32,6 +32,9 @@ const secretKey = () => process.env.TOSS_SECRET_KEY || TOSS_SECRET_KEY_FALLBACK;
 // 앞단 REACT_APP_TOSS_BILLING_CLIENT_KEY(test_ck_…) 와 한 쌍. 비워두면 토스 공식 예제의 공개 테스트 키로 폴백.
 const TOSS_BILLING_SECRET_KEY_FALLBACK = "test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R";
 const billingSecretKey = () => process.env.TOSS_BILLING_SECRET_KEY || TOSS_BILLING_SECRET_KEY_FALLBACK;
+// 결제 링크(/pg/:id)의 카드 결제창 — 일반결제 상점의 'API 개별 연동 키' 시크릿. 앞단 REACT_APP_TOSS_LINK_CLIENT_KEY 와 한 쌍.
+// 실계약에서 자동결제가 별도 상점(MID)으로 나와 자동결제 키와 자리를 나눴다(2026-11-25). 비워두면 예전처럼 자동결제 키를 같이 쓴다(테스트 환경).
+const linkSecretKey = () => process.env.TOSS_LINK_SECRET_KEY || billingSecretKey();
 /** 경로로 키를 고른다 — /v1/billing/… (빌링키 발급 · 빌링키 결제)만 자동결제 키 */
 const secretKeyFor = (path) => (String(path).startsWith("/v1/billing") ? billingSecretKey() : secretKey());
 
@@ -726,6 +729,7 @@ module.exports = {
     getMonthlySubscriptionPrice,
     secretKey,
     billingSecretKey,
+    linkSecretKey,
     db,
     tsNow,
     toDate,
