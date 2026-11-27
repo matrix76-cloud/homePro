@@ -196,7 +196,7 @@ export async function requestPayLinkPayment(requestId) {
     method: "CARD",
     amount: { currency: "KRW", value: Number(prep.amount) },
     orderId: prep.tossOrderId,
-    orderName: String(prep.orderName || "홈프로 시공대금").slice(0, 100),
+    orderName: String(prep.orderName || "홈프로 결제").slice(0, 100),
     successUrl: back,
     failUrl: `${back}?fail=1`,
     customerName: prep.customerName || undefined,

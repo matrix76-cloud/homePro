@@ -7,6 +7,7 @@
  * 폰·앱(WebView)은 이 헤더 없이 기존 하단 탭을 그대로 쓴다.
  */
 import React from "react";
+import { insuranceHidden } from "../../config/featureFlags";
 import styled from "styled-components";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FiMessageCircle, FiUser } from "react-icons/fi";
@@ -41,7 +42,7 @@ const PcHeader = () => {
   };
 
   // PG 심사 계정에서는 안심케어(보험)를 뺀다 (형 2026-10-07)
-  const menuList = userData?.pgReview === true ? MENU.filter((m) => m.to !== "/insurance") : MENU;
+  const menuList = insuranceHidden(userData) ? MENU.filter((m) => m.to !== "/insurance") : MENU;
   const items = loggedIn ? menuList : [{ label: "홈", to: "/intro", match: (p) => p === "/intro" || p === "/" }, ...menuList];
 
   return (

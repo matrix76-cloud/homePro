@@ -1,12 +1,13 @@
 /* eslint-disable */
 import React, { useState, useContext, useRef, useEffect, useCallback } from "react";
+import { insuranceHidden } from "../../config/featureFlags";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../api/config";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
-import { assertHpointBalanceForCreate, formatWagePay } from "../../service/PayFlowService";
+import { assertHpointBalanceForCreate, formatWagePay, getUserAccount } from "../../service/PayFlowService";
 import { serverTimestamp } from "firebase/firestore";
 import {
   CATEGORIES,
@@ -22,7 +23,8 @@ import { IoCloseCircle, IoShieldCheckmarkOutline, IoChevronForward } from "react
 import { CATEGORY_ICONS } from "../../utility/CategoryIcons";
 import usePcWide from "../../hooks/usePcWide";
 import { pcOnly, PC } from "../../pc/pcKit";
-import { PG_MAX_AMOUNT, PG_MAX_MSG } from "../../service/PgPaymentService";
+import { REFERRAL_RECEIVE_OPTIONS, referralReceiveLabel } from "../../config/referralReceive";
+import { RECRUIT_MAX_NEED, buildRecruitSlots, createRecruitOrders } from "../../service/RecruitService";
 
 /* 예약날짜는 오늘부터 1개월 안쪽만 — PG 신청서의 서비스 제공 기간(1개월)에 맞춤 (PG사 보완 요청 2026-10-14) */
 const ymdLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -737,6 +739,12 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   // H-포인트 지급액 (대표 지시 8/6: 지급방법 블록을 없애고 유형에 H-포인트를 넣음)
   const [referralFeeHpoint, setReferralFeeHpoint] = useState("");
   const [referralFeeHpointCustom, setReferralFeeHpointCustom] = useState("");
+  // 소개수수료 수령 수단 — 정률 · 정액으로 걸었을 때 꼭 고른다: any(상관없음) · transfer(일반계좌이체 받기) · pg(PG안전결제 받기) (대표 리뷰 11/27, config/referralReceive.js)
+  const [referralReceive, setReferralReceive] = useState("");
+  const [myAccount, setMyAccount] = useState(undefined); // 내 정산계좌 — undefined: 아직 안 읽음 · null: 없음
+  // 구인 모집 인원 — "작업 총 인원 N명 중 모집 인원 M명" (대표 리뷰 11/21 · 11/24). 모집 인원은 숙련도별 인원 합계, 숙련도별 인원이 없을 때만 직접 적는다
+  const [recruitTotal, setRecruitTotal] = useState("");
+  const [recruitNeedManual, setRecruitNeedManual] = useState("");
   const [matchType, setMatchType] = useState("");
   // 보험 조건 — 기본 선택(홈프로 자유). 필수로 고르면 배정 뒤 홈프로가 건당·월·년 중 가입해야 체크인 (대표 9/15 카톡 8번)
   const [insuranceRequired, setInsuranceRequired] = useState(false);
@@ -887,6 +895,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         else { setReferralFeeHpoint("custom"); setReferralFeeHpointCustom(String(amt)); }
       }
     }
+    // 수령 수단이 없는 예전 오더는 계좌이체로 본다 (config/referralReceive.js)
+    setReferralReceive(editOrder.referralReceiveMethod || (["rate", "fixed"].includes(editOrder.referralFee?.type) ? "transfer" : ""));
     setMatchType(editOrder.matchType || "");
     setSelfOrder(!!editOrder.selfOrder);
     setInsuranceRequired(editOrder.insuranceRequired === true);
@@ -999,9 +1009,14 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   const visibleAttrSections = (detailConfig?.attrSections || []).filter(
     (sec) => (!sec.services || sec.services.some((sv) => activeServices.includes(sv))) && passItemCond(sec)
   );
+  // 구인 모집 인원 설정 (orderFormConfig worker_call.recruit). 모집 묶음으로 접수된 오더를 수정할 때는
+  // 인원 · 숙련도를 잠근다 — 오더 한 건이 자리 하나라 숫자를 바꾸면 묶음(recruit)과 어긋난다
+  const recruitCfg = detailConfig?.recruit || null;
+  const recruitEditLock = isEdit && !!editOrder?.recruit && !!recruitCfg;
   // 속성 칩 섹션 — afterQty 가 붙은 섹션(제조사 등)은 선택 품목 수량 아래에 그린다 (대표 9/15 리뷰)
   const renderAttrSection = (sec) => {
     const picked = attrValues[sec.key] || [];
+    const locked = recruitEditLock && recruitCfg.skillAttr === sec.key;
     return (
       <Section key={sec.key}>
         {sec.descs ? (
@@ -1022,6 +1037,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               <Chip
                 key={opt}
                 $selected={on}
+                disabled={locked}
+                style={locked ? { opacity: on ? 1 : 0.45, cursor: "default" } : undefined}
                 onClick={() => setAttrValues((prev) => {
                   const cur = prev[sec.key] || [];
                   if (sec.multi) {
@@ -1085,6 +1102,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               return true;
             });
             if (!fields.length) return null;
+            const locked = recruitEditLock && recruitCfg.crewSection === sec.key; // 모집 묶음 오더 수정 — 인원은 못 바꾼다
             return (
             <Section key={sec.key}>
               <Label>{sec.label}</Label>
@@ -1119,8 +1137,9 @@ export const OrderCreateContent = ({ backRef } = {}) => {
                         inputMode={f.type === "number" ? "numeric" : undefined}
                         placeholder={f.placeholder || ""}
                         value={val}
+                        disabled={locked}
                         onChange={(e) => setVal(e.target.value)}
-                        style={{ flex: 1 }}
+                        style={locked ? { flex: 1, background: "#f3f5f7", color: THEME.text } : { flex: 1 }}
                       />
                     )}
                     {f.unit && f.type !== "select" ? <FieldUnit>{f.unit}</FieldUnit> : null}
@@ -1137,6 +1156,24 @@ export const OrderCreateContent = ({ backRef } = {}) => {
     if (f.hideWhenChecked && inputValues[sec.key]?.[f.hideWhenChecked] === "예") return false;
     return true;
   });
+
+  // ── 구인 모집 인원 (대표 리뷰 11/21 · 11/24) — "작업 총 인원 N명 중 모집 인원 M명"
+  //  모집 인원 = 지금 화면에 떠 있는 숙련도별 인원 합계. 숙련도별 인원을 안 적었으면 직접 적은 숫자.
+  //  접수하면 모집 인원만큼 같은 내용의 오더가 올라간다(RecruitService.createRecruitOrders).
+  const crewCounts = (() => {
+    if (!recruitCfg) return [];
+    const sec = visibleInputSections.find((s) => s.key === recruitCfg.crewSection);
+    if (!sec) return [];
+    return visibleFieldsOf(sec)
+      .map((f) => [f.key, Math.max(0, Math.floor(Number(inputValues[sec.key]?.[f.key]) || 0))])
+      .filter(([, n]) => n > 0);
+  })();
+  const crewSum = crewCounts.reduce((a, [, n]) => a + n, 0);
+  const recruitNeed = crewSum > 0 ? crewSum : Math.floor(Number(recruitNeedManual) || 0);
+  const recruitTotalNum = Math.floor(Number(recruitTotal) || 0);
+  const recruitMax = Math.min(Number(recruitCfg?.maxNeed) || RECRUIT_MAX_NEED, RECRUIT_MAX_NEED);
+  // 새로 접수할 때는 입력 칸, 모집 묶음 오더를 수정할 때는 읽기만. 예전 구인 오더(recruit 없음) 수정에는 안 나온다
+  const showRecruit = !!recruitCfg && !selfOrder && showDetail && (!isEdit || !!editOrder?.recruit);
 
   // 면적 기본값 — config 의 areaDefault (전문청소 20평, 대표 지시 8/5)
   // 수정 모드에서는 기존 입력값을 덮지 않는다.
@@ -1275,6 +1312,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
     setItemQty({});
     setSelectedService("");
     setSelectedServices([]);
+    setRecruitTotal("");
+    setRecruitNeedManual("");
   };
 
   // 금액이 정해진 유형(시공금액·잔금)만 선결제 가능 — H-포인트 유형은 대금이 H-포인트라 결제방식 칸 자체가 없다 (형 확정 9/12)
@@ -1290,6 +1329,18 @@ export const OrderCreateContent = ({ backRef } = {}) => {
   }, [selectedCategory, b2bPriceType, referralFeeType]);
   // 잔금 유형은 소개수수료 없음 — 접수자가 선수금으로 몫을 이미 챙긴 셈 (대표 확정 9/13)
   const isBalanceType = b2bPriceType === "balance";
+  // 소개수수료 수령 수단을 골라야 하나 — 돈으로 받는 소개수수료(정률 · 정액)를 걸었을 때만 (대표 리뷰 11/27).
+  //  H-포인트 소개수수료 · 배수 · 미설정 · 정보공유 · 잔금 · 구인 · 셀프등록에는 없다
+  const needsReferralReceive = !isInfoType && !isBalanceType && !isWorkerCall && !selfOrder && (referralFeeType === "rate" || referralFeeType === "fixed");
+  // PG안전결제(또는 상관없음)로 받으면 카드로 결제된 돈을 내 정산계좌로 정산받는다 → 계좌가 없으면 그 자리에서 알려 준다
+  const myUidForAccount = user?.uid || userData?.uid || "";
+  useEffect(() => {
+    if (!needsReferralReceive || myAccount !== undefined || !myUidForAccount) return;
+    if (referralReceive !== "pg" && referralReceive !== "any") return;
+    let alive = true;
+    getUserAccount(myUidForAccount).then((acc) => { if (alive) setMyAccount(acc || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [needsReferralReceive, referralReceive, myAccount, myUidForAccount]);
   // 소개수수료 정률 상한 — 선결제 30% · 후불 15% (결제방식 안 골랐으면 후불 기준)
   // 소개수수료 상한 없음 — 대표 9/12 회신 "소개비 상한 수치 해당 없습니다". rateCap 은 구 오더 호환용으로만 남김
   const referralRateCap = Infinity;
@@ -1334,6 +1385,13 @@ export const OrderCreateContent = ({ backRef } = {}) => {
       if (wageMethod !== "협의" && !(Number(wageAmount) > 0)) { showToast("지급 금액을 입력해주세요"); return false; }
       if (!wageTiming) { showToast("지급 시점을 선택해주세요"); return false; }
     }
+    // 구인 모집 인원 — 새로 접수할 때만 (수정은 숫자를 못 바꾼다)
+    if (recruitCfg && !isEdit && !selfOrder) {
+      if (!(recruitNeed >= 1)) { showToast("모집 인원을 입력해주세요"); return false; }
+      if (recruitNeed > recruitMax) { showToast(`모집 인원은 한 번에 ${recruitMax}명까지 접수할 수 있어요`); return false; }
+      if (!(recruitTotalNum >= 1)) { showToast("작업 총 인원을 입력해주세요"); return false; }
+      if (recruitTotalNum < recruitNeed) { showToast(`작업 총 인원(${recruitTotalNum}명)이 모집 인원(${recruitNeed}명)보다 적어요`); return false; }
+    }
     // 단가유형 · 금액 — 구인(worker_call)은 이 칸이 없고 위 지급금액 검사만 한다
     if (!isWorkerCall) {
       const ptOpt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
@@ -1355,6 +1413,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
       }
     }
     if (referralFeeType === "multiple" && !(Number(referralFeeTimes) > 0)) { showToast("소개수수료 배수를 숫자로 입력해주세요"); return false; }
+    // 소개수수료를 정률 · 정액으로 걸었으면 수령 수단은 필수 (대표 리뷰 11/27)
+    if (needsReferralReceive && !REFERRAL_RECEIVE_OPTIONS.some((o) => o.value === referralReceive)) { showToast("소개수수료 수령 수단을 선택해주세요"); return false; }
     // 홈프로 선택(매칭방식) — 셀프보장등록은 칸이 없다
     if (!selfOrder) {
       if (!matchType) { showToast("홈프로 선택(빠른배정 · 비교선정 · 지정배정)을 골라주세요"); return false; }
@@ -1375,8 +1435,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         if (!(v >= inc.rate.min && v <= inc.rate.max)) { showToast(`정률 소개비는 ${inc.rate.min}% ~ ${inc.rate.max}% 사이로 입력해주세요`); return false; }
       }
     }
-    // 시공금액·잔금은 300만원까지 — 접수 때 알럿으로 막는다 (PG 심사 요청, 형 지시 2026-10-15)
-    if (["fixed", "balance"].includes(b2bPriceType) && Number(b2bPriceAmount) > PG_MAX_AMOUNT) { window.alert(PG_MAX_MSG); return false; }
+    // 시공금액 · 잔금 300만원 상한은 없앴다 — 시공대금 카드 결제 링크를 빼면서 같이 (대표 리뷰 11/27. 10/15 PG 심사 때 넣었던 것)
     if (payMode === "prepay" && !(isPricedType && Number(b2bPriceAmount) > 0)) { showToast("선결제는 금액이 정해진 단가유형에서만 고를 수 있어요"); return false; }
     return true;
   };
@@ -1458,9 +1517,12 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         try { await assertHpointBalanceForCreate(user?.uid || userData?.uid, Number(b2bPriceAmount) || 0); }
         catch (e) { showToast(e.message || "H-포인트가 부족합니다"); return; }
       }
+      // 구인 모집 — 모집 인원이 2명 이상이면 오더가 그만큼 올라간다는 것을 접수 전에 알린다
+      const recruitMany = !!recruitCfg && !isEdit && !selfOrder && recruitNeed > 1;
+      const recruitNote = recruitMany ? `모집 인원 ${recruitNeed}명 — 같은 내용의 오더 ${recruitNeed}건이 올라가고, 한 건에 한 분씩 배정됩니다.\n\n` : "";
       const confirmMsg = isEdit
         ? "수정한 내용을 저장하시겠습니까?"
-        : (asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?");
+        : `${recruitNote}${asWaiting ? "대기 상태로 저장하시겠습니까?\n(메인에 노출되지 않고, 나중에 재접수 가능)" : "해당 오더를 접수 하시겠습니까?"}`;
       if (!window.confirm(confirmMsg)) return;
       setSubmitting(true);
       try {
@@ -1587,6 +1649,8 @@ export const OrderCreateContent = ({ backRef } = {}) => {
           referralFee: referralFeeType === "none" || isInfoType || isWorkerCall ? null : referralFeeValue,
           // 지급방법 선택칸은 없앴다 — H-포인트 유형이면 포인트, 그 외는 현금 지급 (대표 지시 8/6)
           referralPayMethod: referralFeeType === "none" ? null : (referralFeeType === "hpoint" ? "H-포인트" : "현금(계좌이체)"),
+          // 소개수수료 수령 수단 — any · transfer · pg. 정률 · 정액 소개수수료가 아니면 null (대표 리뷰 11/27)
+          referralReceiveMethod: needsReferralReceive ? (referralReceive || null) : null,
           matchType: selfOrder ? null : (matchType || null),
           insuranceRequired: !selfOrder && !isInfoType && insuranceRequired,
           insurancePreferred: !selfOrder && !isInfoType && insurancePreferred,
@@ -1596,15 +1660,28 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         // 셀프 등록 오더: 등록자 본인이 홈프로. 바로 배정 상태로 두고 메인 목록(접수)에는 안 나온다. 소개수수료 없음.
         if (selfOrder) {
           const me = user?.uid || userData?.uid || "";
-          Object.assign(orderPayload, { selfOrder: true, matchedProUid: me, orderStatus: "배정", assignedAt: serverTimestamp(), referralFee: null, referralPayMethod: null, matchType: null, directPhone: null });
+          Object.assign(orderPayload, { selfOrder: true, matchedProUid: me, orderStatus: "배정", assignedAt: serverTimestamp(), referralFee: null, referralPayMethod: null, referralReceiveMethod: null, matchType: null, directPhone: null });
         }
+        let createdCount = 1;
         if (isEdit) {
+          // 모집 묶음 오더는 그 한 건만 바뀐다 — recruit(묶음 · 인원)은 payload 에 없어 그대로 남는다
           await updateOrder(editOrder.id, orderPayload); // 상태값은 유지, 내용만 갱신
+        } else if (recruitCfg && !selfOrder) {
+          // 구인 — 모집 인원만큼 같은 내용의 오더를 한꺼번에 올린다(1명이어도 recruit 를 남긴다). 자리마다 그 자리 숙련도 한 명 몫
+          const pickedSkills = visibleAttrKeys.has(recruitCfg.skillAttr) ? (attrValues[recruitCfg.skillAttr] || []) : [];
+          const slotSource = crewSum > 0 ? crewCounts : (pickedSkills.length === 1 ? [[pickedSkills[0], recruitNeed]] : []);
+          const ids = await createRecruitOrders(orderPayload, {
+            total: recruitTotalNum,
+            slots: buildRecruitSlots(slotSource, recruitNeed),
+            crewSection: recruitCfg.crewSection,
+            skillAttr: recruitCfg.skillAttr,
+          });
+          createdCount = ids.length;
         } else {
           await createOrder(orderPayload);
         }
         keepLock = true;
-        showToast(isEdit ? "수정되었습니다" : (asWaiting ? "대기 상태로 저장되었습니다" : "오더가 등록되었습니다!"));
+        showToast(isEdit ? "수정되었습니다" : (asWaiting ? "대기 상태로 저장되었습니다" : (createdCount > 1 ? `오더 ${createdCount}건이 등록되었습니다!` : "오더가 등록되었습니다!")));
         // 접수 → 자동으로 나의오더현황으로 이동
         // PC 폭에서 /MobileMain 은 전체 오더목록(PcOrdersPage)이 떠서 나의 오더 화면으로 바로 보낸다. 폰은 메인의 나의오더현황 탭
         try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
@@ -1652,6 +1729,12 @@ export const OrderCreateContent = ({ backRef } = {}) => {
         items.push({ k: `${sec.label} ${f.label}`, v: `${fv}${f.unit || ""}` });
       });
     });
+    // 구인 모집 인원 — 새 접수는 적은 숫자, 모집 묶음 오더 수정은 접수 때 숫자 그대로
+    if (showRecruit && isEdit) {
+      items.push({ k: "모집 인원", v: `작업 총 인원 ${editOrder.recruit.total}명 중 모집 인원 ${editOrder.recruit.need}명` });
+    } else if (showRecruit && recruitNeed >= 1 && recruitTotalNum >= 1) {
+      items.push({ k: "모집 인원", v: `작업 총 인원 ${recruitTotalNum}명 중 모집 인원 ${recruitNeed}명${recruitNeed > 1 ? ` · 오더 ${recruitNeed}건으로 접수` : ""}` });
+    }
     pickedItemQty.forEach(([key, qty]) => {
       items.push({ k: `${qtyNameOf(key)} 수량`, v: `${qty}${detailConfig?.qtyPerSelected?.unit || "개"}` });
     });
@@ -1692,9 +1775,10 @@ export const OrderCreateContent = ({ backRef } = {}) => {
       }
       items.push({ k: "소개수수료", v });
     }
+    if (needsReferralReceive && referralReceive) items.push({ k: "소개수수료 수령 수단", v: referralReceiveLabel(referralReceive) });
     if (selfOrder) items.push({ k: "등록 방식", v: "셀프보장등록 (내가 직접 수주한 일)" });
-    if (!selfOrder && !isInfoType && insuranceRequired) items.push({ k: "도급배상책임보험", v: "보험가입 필수" });
-    if (insurancePreferred) items.push({ k: "보험 가입 업체 선호", v: "예" });
+    if (!insuranceHidden(userData) && !selfOrder && !isInfoType && insuranceRequired) items.push({ k: "도급배상책임보험", v: "보험가입 필수" });
+    if (!insuranceHidden(userData) && insurancePreferred) items.push({ k: "보험 가입 업체 선호", v: "예" });
     if (matchType && !selfOrder) {
       const mt = labelOf(COMMON_B2B_FIELDS.matchType.options, matchType);
       items.push({ k: "홈프로 선택", v: matchType === "direct" && directPhone ? `${mt} → ${directPhone}` : mt });
@@ -1824,7 +1908,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
       {/* 1. 카테고리 선택 — AI 견적과 같은 세 칸 그리드 (대표 9/17) */}
       {/* 셀프보장등록 안내 줄 — 카테고리 그리드 위 (대표 리뷰 11/02 "최상단에 도급업자 배상책임보험 셀프보장등록을 추가")
           ?self=1 로 들어온 셀프 오더 전체 폼 · 수정 모드 · PG 심사 계정(보험 숨김)에서는 안 보인다 */}
-      {!categoryId && !selectedCategory && !selfOrder && !isEdit && userData?.pgReview !== true && (
+      {!categoryId && !selectedCategory && !selfOrder && !isEdit && !insuranceHidden(userData) && (
         <Section>
           <SelfCoverRow type="button" onClick={() => navigate("/order/self-cover")}>
             <IoShieldCheckmarkOutline size={26} color={THEME.primary} style={{ flexShrink: 0 }} />
@@ -2144,6 +2228,47 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               config 의 inputSections 를 타입별 입력칸으로 렌더 (대표 사양서 7/28) */}
           {showDetail && visibleInputSections.filter((sec) => !sec.afterItems).map(renderInputSection)}
 
+          {/* 구인 모집 인원 — "작업 총 인원 [ ]명 중 모집 인원 [ ]명" (대표 리뷰 11/21 · 11/24).
+              모집 인원은 위 숙련도별 인원의 합계(숙련도별 인원이 없으면 직접 입력). 모집 인원만큼 같은 내용의 오더가 올라간다 */}
+          {showRecruit && !isEdit && (
+            <Section>
+              <Label>모집 인원</Label>
+              <RecruitRow>
+                <RecruitPart>
+                  <span>작업 총 인원</span>
+                  <RecruitInput inputMode="numeric" placeholder="0" aria-label="작업 총 인원" value={recruitTotal}
+                    onChange={(e) => setRecruitTotal(onlyDigits(e.target.value).slice(0, 3))} />
+                  <span>명 중</span>
+                </RecruitPart>
+                <RecruitPart>
+                  <span>모집 인원</span>
+                  <RecruitInput inputMode="numeric" placeholder="0" aria-label="모집 인원" disabled={crewSum > 0}
+                    value={crewSum > 0 ? String(crewSum) : recruitNeedManual}
+                    onChange={(e) => setRecruitNeedManual(onlyDigits(e.target.value).slice(0, 2))} />
+                  <span>명</span>
+                </RecruitPart>
+              </RecruitRow>
+              <RecruitNote>
+                {crewSum > 0
+                  ? `모집 인원은 위 숙련도별 인원의 합계입니다 (${crewCounts.map(([k, n]) => `${k} ${n}명`).join(" · ")}).`
+                  : "숙련도를 고르고 숙련도별 인원을 적으면 그 합계가 모집 인원으로 들어갑니다."}
+              </RecruitNote>
+              {recruitNeed > 1 && (
+                <RecruitNote>모집 인원만큼 같은 내용의 오더 {recruitNeed}건이 올라가고, 한 건에 한 분씩 배정됩니다.</RecruitNote>
+              )}
+            </Section>
+          )}
+          {showRecruit && isEdit && (
+            <Section>
+              <Label>모집 인원</Label>
+              <div style={{ fontSize: 16, color: THEME.text, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                작업 총 인원 {editOrder.recruit.total}명 중 모집 인원 {editOrder.recruit.need}명
+                {editOrder.recruit.need > 1 ? ` · 이 오더는 ${editOrder.recruit.slot}번째 자리${editOrder.recruit.skill ? ` (${editOrder.recruit.skill})` : ""}` : ""}
+              </div>
+              <RecruitNote>접수한 뒤에는 인원과 숙련도를 바꿀 수 없습니다. 바꾸려면 이 오더를 취소하고 다시 접수해 주세요.</RecruitNote>
+            </Section>
+          )}
+
           {/* 면적 입력 */}
           {showDetail && detailConfig?.areaInput && (
             <Section>
@@ -2194,7 +2319,7 @@ export const OrderCreateContent = ({ backRef } = {}) => {
                 ))}
               </CheckWrap>
             )}
-            {!selfOrder && !isInfoType && userData?.pgReview !== true && (
+            {!selfOrder && !isInfoType && !insuranceHidden(userData) && (
             <CheckRow style={{ alignItems: "flex-start", lineHeight: 1.45 }}>
               <input type="checkbox" style={{ flexShrink: 0, marginTop: 4 }} checked={insurancePreferred} onChange={(e) => { setInsurancePreferred(e.target.checked); if (e.target.checked) setDetail((prev) => prev + "\n" + INSURANCE_PREFER_TEXT); else setDetail((prev) => prev.replace("\n" + INSURANCE_PREFER_TEXT, "").replace(INSURANCE_PREFER_TEXT, "")); }} />
               {INSURANCE_PREFER_TEXT}
@@ -2396,13 +2521,9 @@ export const OrderCreateContent = ({ backRef } = {}) => {
               const opt = COMMON_B2B_FIELDS.priceType.options.find((o) => o.value === b2bPriceType);
               const unit = opt?.unit || "원";
               return (
-                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={opt?.inputLabel || (unit === "원" ? "금액 입력 (원, 최대 300만원)" : `금액 입력 (${unit})`)} value={withComma(b2bPriceAmount)}
-                  onChange={(e) => {
-                    const v = onlyDigits(e.target.value);
-                    // 원 단위 금액은 입력부터 300만원까지만 (PG 심사 요청 2026-10-15)
-                    if (unit === "원" && Number(v) > PG_MAX_AMOUNT) { setB2bPriceAmount(String(PG_MAX_AMOUNT)); showToast(PG_MAX_MSG); return; }
-                    setB2bPriceAmount(v);
-                  }} />
+                /* '최대 300만원' 문구와 300만원 상한을 뺐다 (대표 리뷰 11/27 — 시공대금 카드 결제 링크를 빼면서 같이) */
+                <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder={opt?.inputLabel || `금액 입력 (${unit})`} value={withComma(b2bPriceAmount)}
+                  onChange={(e) => setB2bPriceAmount(onlyDigits(e.target.value).slice(0, 12))} />
               );
             })()}
             {/* 정보공유 유형 — 소개비 설정: 미설정 / 고정금액 / 계약금액비율 / 홈프로 제안받기 (대표 10/26) */}
@@ -2537,6 +2658,27 @@ export const OrderCreateContent = ({ backRef } = {}) => {
                 </ChipGrid>
                 {referralFeeHpoint === "custom" && (
                   <Input style={{ marginTop: 10 }} inputMode="numeric" placeholder="지급 포인트 (P)" value={withComma(referralFeeHpointCustom)} onChange={(e) => setReferralFeeHpointCustom(onlyDigits(e.target.value))} />
+                )}
+              </>
+            )}
+            {/* 소개수수료 수령 수단 — 정률 · 정액으로 걸었으면 꼭 고른다 (대표 리뷰 11/27). 보기 · 설명은 config/referralReceive.js */}
+            {needsReferralReceive && (
+              <>
+                <Label style={{ marginTop: 24, marginBottom: 0 }}>
+                  소개수수료 수령 수단 <span style={{ fontWeight: 400, fontSize: 15 }}>(필수)</span>
+                </Label>
+                <ChipGrid $min={170} style={{ marginTop: 12 }}>
+                  {REFERRAL_RECEIVE_OPTIONS.map((o) => (
+                    <Chip key={o.value} $selected={referralReceive === o.value} onClick={() => setReferralReceive(o.value)}>{o.label}</Chip>
+                  ))}
+                </ChipGrid>
+                {REFERRAL_RECEIVE_OPTIONS.some((o) => o.value === referralReceive) && (
+                  <ReceiveDesc>{REFERRAL_RECEIVE_OPTIONS.find((o) => o.value === referralReceive).desc}</ReceiveDesc>
+                )}
+                {(referralReceive === "pg" || referralReceive === "any") && myAccount === null && (
+                  <ReceiveDesc style={{ fontWeight: 600 }}>
+                    PG안전결제로 받으려면 정산계좌가 필요합니다. 접수한 뒤 비즈프로필에서 정산계좌를 등록해 주세요.
+                  </ReceiveDesc>
                 )}
               </>
             )}
@@ -2750,6 +2892,46 @@ const FieldUnit = styled.div`
   flex: 0 0 auto;
   font-size: 15px;
   color: ${THEME.textSecondary};
+`;
+
+/* 구인 모집 인원 한 줄 — "작업 총 인원 [ ]명 중 / 모집 인원 [ ]명". 폰에서 좁으면 두 덩이로 줄이 바뀐다 */
+const RecruitRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+`;
+const RecruitPart = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  color: ${THEME.text};
+  white-space: nowrap;
+`;
+const RecruitInput = styled(Input)`
+  width: 72px;
+  flex: 0 0 72px;
+  padding: 12px 6px;
+  text-align: center;
+  font-weight: 700;
+  &:disabled { background: #f3f5f7; color: ${THEME.text}; -webkit-text-fill-color: ${THEME.text}; opacity: 1; }
+`;
+const RecruitNote = styled.div`
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: ${THEME.text};
+  word-break: keep-all;
+`;
+
+/* 소개수수료 수령 수단 — 고른 보기의 설명 글 */
+const ReceiveDesc = styled.div`
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: ${THEME.text};
+  word-break: keep-all;
 `;
 
 const TimeRow = styled.div`

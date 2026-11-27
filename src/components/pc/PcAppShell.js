@@ -5,6 +5,7 @@
  *  · 폭 900 이상·앱(WebView) 밖에서만. 폰·앱은 기존 하단 탭 그대로
  */
 import React from "react";
+import { insuranceHidden } from "../../config/featureFlags";
 import styled from "styled-components";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -35,7 +36,7 @@ export const PcSidebar = () => {
   const { isLoggedIn, userData } = useAuth();
   const tab = new URLSearchParams(location.search).get("tab");
   // PG 심사 계정에서는 안심케어(보험)를 뺀다 (형 2026-10-07)
-  const menu = userData?.pgReview === true ? MENU.filter((m) => m.to !== "/insurance") : MENU;
+  const menu = insuranceHidden(userData) ? MENU.filter((m) => m.to !== "/insurance") : MENU;
   return (
     <Side>
       <Logo onClick={() => navigate("/intro")}>홈프로</Logo>

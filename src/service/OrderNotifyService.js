@@ -10,8 +10,11 @@
  *          (시스템 메시지는 서버 onChatMessageCreated 가 푸시하지 않으므로 같은 일로 두 번 울리지 않는다)
  *          방이 없으면 접수자 ↔ 배정 홈프로 방을 만들어 거기에 남긴다.
  *  - 알림이 실패해도 본 동작(상태 변경 · 체크인 등)을 막지 않는다 — 전부 try/catch.
+ *  - chatHideFor: 그 채팅 안내를 보지 않을 사람(대표 리뷰 11/27 — 본인이 수락한 오더의 "배정되었습니다"는 수락자에게 불필요).
+ *          방은 둘이 같이 쓰므로 글은 남기되, 메시지에 hiddenFor · 방에 lastMessageHiddenFor { uids, text } 를 적어
+ *          그 사람 화면(카드 미리보기 · 채팅)에서만 뺀다. 다음 글이 오면 lastMessage 가 달라져 저절로 풀린다.
  */
-import { collection, addDoc, doc, getDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, getDocs, updateDoc, query, where, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../api/config";
 import { createChatRoom, sendSystemMessage } from "./ChatService";
 
@@ -30,6 +33,27 @@ export async function getUserBrief(uid) {
   } catch (e) {
     return { name: "", photo: "" };
   }
+}
+
+/** 일부 참여자에게는 보이지 않는 안내 글 (ChatService.sendSystemMessage 와 같은 꼴 + hiddenFor) */
+async function sendHiddenSystemMessage(roomId, text, type, hideFor) {
+  await addDoc(collection(db, "chatRooms", roomId, "messages"), {
+    text, senderId: "system", senderName: "시스템", type, quoteId: "", quoteData: {},
+    hiddenFor: hideFor,
+    createdAt: serverTimestamp(),
+  });
+  const first = text.split("\n")[0];
+  await updateDoc(doc(db, "chatRooms", roomId), {
+    lastMessage: first,
+    lastMessageAt: serverTimestamp(),
+    lastMessageHiddenFor: { uids: hideFor, text: first },
+  });
+}
+
+/** 이 방의 마지막 글(미리보기)을 이 사람에게는 보여 주지 않아야 하나 — 방 문서 또는 { lastMessage, lastMessageHiddenFor } 를 넘긴다 */
+export function isLastMessageHiddenFor(room, uid) {
+  const h = room?.lastMessageHiddenFor;
+  return !!uid && !!h && h.text === room.lastMessage && (h.uids || []).includes(uid);
 }
 
 /** 접수자 ↔ 배정 홈프로 방 (없으면 만든다). 둘 중 하나라도 없으면 null */
@@ -51,10 +75,11 @@ async function ensurePairRoom(order) {
  *   toUids    받을 사람들 (actorUid 는 자동으로 빠진다)
  *   title, body, type   푸시 문구 · 종류
  *   chatText, chatType  채팅 시스템 메시지 (없으면 채팅은 건너뛴다)
+ *   chatHideFor  그 채팅 안내를 보지 않을 사람들(uid)
  *   actorUid  이 일을 일으킨 사람 (없으면 지금 로그인한 사람)
  */
 export async function notifyOrderEvent(order, {
-  toUids = [], title = "", body = "", type = "order", chatText = "", chatType = "system",
+  toUids = [], title = "", body = "", type = "order", chatText = "", chatType = "system", chatHideFor = [],
   actorUid, actorName, actorPhoto, // actorName · actorPhoto 는 방을 새로 만들 때를 위해 받아 둔다(지금은 users 문서 값을 쓴다)
 } = {}) {
   if (!order?.id) return;
@@ -92,7 +117,11 @@ export async function notifyOrderEvent(order, {
       }
     }
     for (const r of list) {
-      try { await sendSystemMessage(r.id, { text: chatText, type: chatType || "system" }); } catch (_) {}
+      try {
+        const hideFor = uniq(chatHideFor).filter((u) => r.participants.includes(u));
+        if (hideFor.length) await sendHiddenSystemMessage(r.id, chatText, chatType || "system", hideFor);
+        else await sendSystemMessage(r.id, { text: chatText, type: chatType || "system" });
+      } catch (_) {}
     }
   } catch (e) { console.warn("[notifyOrderEvent] 채팅 안내 실패:", e?.message); }
 }

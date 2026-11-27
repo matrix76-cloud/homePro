@@ -997,11 +997,12 @@ const ChatDetailPage = () => {
       )}
 
       <MessageList ref={listRef}>
-        {messages.map((msg, i) => {
+        {/* hiddenFor — 본인이 수락한 오더의 "배정되었습니다" 안내처럼 그 사람에게는 보여 줄 필요가 없는 글 (대표 리뷰 11/27) */}
+        {messages.filter((m) => !(m.hiddenFor || []).includes(myUid)).map((msg, i, shown) => {
           const isMine = msg.senderId === myUid;
           const isSystem = msg.senderId === "system";
           const dateKey = getDateKey(msg);
-          const prevDateKey = i > 0 ? getDateKey(messages[i - 1]) : "";
+          const prevDateKey = i > 0 ? getDateKey(shown[i - 1]) : "";
           const showDate = dateKey && dateKey !== prevDateKey;
           const isEditing = editingMsgId === msg.id;
           const otherPhoto = !isMine && !isSystem ? (room?.participantPhotos?.[msg.senderId] || null) : null;

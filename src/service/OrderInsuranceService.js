@@ -17,6 +17,7 @@ import {
 import { db } from "../api/config";
 import { COLLECTIONS } from "../config/homeproConfig";
 import { getMoneyPriceAmount } from "./PayFlowService";
+import { INSURANCE_ENABLED } from "../config/featureFlags";
 
 // 가입은 업종 그룹별 월 정기결제만 (대표 10/26 확정 · 리뷰 10/30) — 1년 · 건당은 예전 기록 표시용으로만 남긴다
 export const INSURANCE_TYPE_LABEL = { monthly: "월 보험", yearly: "1년 단체보험", perOrder: "건당 단기보험" };
@@ -55,11 +56,13 @@ export function getOrderInsuranceState(order) {
 
 /** 접수자가 '보험가입 필수'로 등록한 오더인가 (대표 9/15 카톡 8번) — 배정 뒤 건당·월·년 중 가입해야 체크인 */
 export function isInsuranceRequired(order) {
+  if (!INSURANCE_ENABLED) return false; // 보험을 감춘 동안에는 '보험가입 필수'로 접수된 오더도 체크인을 막지 않는다 (대표 11/27)
   return order?.insuranceRequired === true && order?.b2bPriceType !== "info" && !order?.selfOrder;
 }
 
 /** 보험 결정이 필요한 오더인가 — 배정된 홈프로 있고, 정보공유 아니고, 아직 체크인 전 */
 export function needsInsuranceDecision(order) {
+  if (!INSURANCE_ENABLED) return false;
   if (!order || !order.matchedProUid) return false;
   if (order.b2bPriceType === "info") return false;
   if (order.checkInAt) return false;
@@ -95,6 +98,7 @@ export async function findActivePolicy(uid) {
 
 /** 월·1년 가입자면 오더에 자동 적용. 적용됐으면 true */
 export async function autoApplyPolicy(order, uid) {
+  if (!INSURANCE_ENABLED) return false;
   if (!order?.id || getOrderInsuranceState(order) !== "pending") return false;
   const policy = await findActivePolicy(uid);
   if (!policy) return false;
@@ -124,6 +128,7 @@ export async function resetOrderInsurance(orderId) {
 
 /** 카드·상세 표시용 한 줄 */
 export function insuranceLine(order) {
+  if (!INSURANCE_ENABLED) return "";
   const st = getOrderInsuranceState(order);
   if (st === "applied") return `보험 적용 · ${INSURANCE_TYPE_LABEL[order.insurance?.type] || "가입"}${order.insurance?.group ? ` · ${order.insurance.group}그룹` : ""}`;
   if (st === "skipped") return "보험 적용 제외";

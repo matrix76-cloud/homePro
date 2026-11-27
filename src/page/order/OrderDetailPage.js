@@ -1,5 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect, useCallback, useContext } from "react";
+import { insuranceHidden } from "../../config/featureFlags";
+import { fetchRecruitSiblings, recruitLine } from "../../service/RecruitService";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { THEME, CATEGORIES, ORDER_STATUS } from "../../config/homeproConfig";
@@ -9,10 +11,11 @@ import { createChatRoom } from "../../service/ChatService";
 import { getMyProDocs } from "../../service/ProService";
 import { getUserProfileByUid } from "../../service/UserProfileService";
 import {
-  getReferralFeeAmount, isCheckInBlockedByReferral, isWorkPayApplicable, getUserAccount,
-  buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived, getMoneyPriceAmount,
+  getReferralFeeAmount, isCheckInBlockedByQuote, getUserAccount,
+  buildTossSendUrl, openExternal, markReferralSent, confirmReferralReceived,
 } from "../../service/PayFlowService";
-import { PG_MAX_AMOUNT, PG_MAX_MSG, createOrderPayLink, cancelOrderPayLink, sharePayLink, payLinkMessage, getPgRequest, PG_STATUS_LABEL } from "../../service/PgPaymentService";
+import { PG_MAX_AMOUNT, createReferralPayRequest } from "../../service/PgPaymentService";
+import { referralReceiveOf, referralReceiveLabel, referralAllowsPg, referralAllowsTransfer, referralPgSettle, REFERRAL_PG_FEE_RATE } from "../../config/referralReceive";
 import { acquireLock, releaseLock, subscribeLock, isLockValid, lockRemainSec, validCompareLocks, COMPARE_MAX } from "../../service/OrderLockService";
 import { isInsuranceRequired, getOrderInsuranceState, needsInsuranceDecision, autoApplyPolicy, skipOrderInsurance, resetOrderInsurance, INSURANCE_TYPE_LABEL } from "../../service/OrderInsuranceService";
 import { useAuth } from "../../context/AuthContext";
@@ -120,6 +123,15 @@ const OrderDetailPage = () => {
   const [ncDetail, setNcDetail] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [matchedProInfo, setMatchedProInfo] = useState(null); // 배정된 홈프로 프로필(접수자 시점)
+  // 구인 모집 묶음 — 같은 접수에서 올라온 오더들을 읽어 "[4명중 2명 모집] 3/4" 를 보여 준다 (대표 리뷰 11/21 · 11/24)
+  const [recruitSiblings, setRecruitSiblings] = useState([]);
+  const recruitGroupId = order?.recruit?.groupId || null;
+  useEffect(() => {
+    if (!recruitGroupId) { setRecruitSiblings([]); return; }
+    let alive = true;
+    fetchRecruitSiblings(recruitGroupId).then((list) => { if (alive) setRecruitSiblings(list); }).catch(() => {});
+    return () => { alive = false; };
+  }, [recruitGroupId, order?.orderStatus]);
   const isOwner = order?.createdBy === myUid;
   const matchType = order?.matchType; // "priority" | "compare" | "direct"
   const isMatchedPro = order?.matchedProUid === myUid;
@@ -143,6 +155,18 @@ const OrderDetailPage = () => {
   const referralFeeInfo = order ? getReferralFeeAmount(order) : { amount: 0, pending: false };
   const referralOpen = !!(order && order.matchedProUid && order.orderStatus !== "취소" && order.orderStatus !== "거부"
     && (referralFeeInfo.pending || referralFeeInfo.amount > 0));
+  /* 소개수수료 수령 수단 (대표 리뷰 11/27) — 오더 문서 referralReceiveMethod: any 상관없음 / transfer 계좌이체 / pg 카드. 없으면 계좌이체.
+     돈으로 주는 소개수수료(정률 · 정액)에만 쓴다. H-포인트 소개수수료는 해당 없음 */
+  // 잔금 · 정보공유 · H-포인트 단가유형은 돈으로 보내는 소개수수료가 없다(getReferralFeeAmount 와 같은 기준) — 그 오더들은 예전 '지급방법' 줄 그대로
+  const referralIsMoney = !!order?.referralFee && order.referralFee.type !== "none" && order.referralFee.type !== "hpoint"
+    && !["balance", "info", "hpoint"].includes(order.b2bPriceType);
+  const referralReceive = referralReceiveOf(order);
+  const referralPgOnly = referralReceive === "pg";
+  const referralOverPgMax = referralFeeInfo.amount > PG_MAX_AMOUNT; // 결제 링크 한 건 상한(300만원)
+  // 카드 결제 버튼 — 아이폰 앱에는 결제 화면을 두지 않는다(형 지시 2026-10-01)
+  const referralCanCard = referralAllowsPg(order) && !isIosApp() && !referralOverPgMax && referralFeeInfo.amount > 0;
+  // 계좌이체 묶음 — 카드로만 받는 오더라도 카드 결제를 못 하는 경우(아이폰 앱 · 상한 초과)에는 대신 보여 준다
+  const referralShowTransfer = referralAllowsTransfer(order) || !referralCanCard;
   useEffect(() => {
     if (!order?.createdBy || !referralOpen) return;
     getUserAccount(order.createdBy).then(setPayAccount).catch(() => setPayAccount(null));
@@ -254,52 +278,38 @@ const OrderDetailPage = () => {
     catch (e) { showToast(e.message || "처리에 실패했습니다"); }
     finally { setPayBusy(false); }
   };
-  /* ── 시공대금 결제 링크 (형 확정 2026-10-07) — 완료 뒤 홈프로가 만들어 [공유하기]로 보낸다. 돈은 PG → 홈프로(플랫폼) 정산계좌 → 나중에 API 로 분배 ── */
-  const [payReq, setPayReq] = useState(null);       // pg_payment_requests 문서 (결제 상태의 진실)
-  const [payAmount, setPayAmount] = useState("");
-  const [myAccount, setMyAccount] = useState(undefined); // undefined = 확인 중, null = 없음
-  const payLinkId = order?.payLink?.requestId || null;
-  useEffect(() => {
-    if (!payLinkId) { setPayReq(null); return; }
-    let alive = true;
-    getPgRequest(payLinkId).then((r) => { if (alive) setPayReq(r); }).catch(() => {});
-    return () => { alive = false; };
-  }, [payLinkId]);
-  useEffect(() => {
-    if (!order || order.matchedProUid !== myUid || !isWorkPayApplicable(order)) return;
-    let alive = true;
-    getUserAccount(myUid).then((a) => { if (alive) setMyAccount(a && a.number ? a : null); }).catch(() => { if (alive) setMyAccount(null); });
-    if (!order.payLink) { const base = getMoneyPriceAmount(order); if (base) setPayAmount(String(base)); }
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order?.id, order?.orderStatus, myUid]);
-  const handleCreatePayLink = async () => {
+  /* ── 소개수수료 카드 결제 (대표 리뷰 11/27 '소개수수료 수령 수단') ──
+     접수자가 'PG안전결제 받기' 또는 '상관없음'으로 접수한 오더에서 수락자가 카드로 낸다.
+     결제 요청을 만들고 결제 화면(/pg/:id)으로 보낸다. 결제가 승인되면 서버(payLinkConfirm)가 이 오더의 referralPay 를 confirmed 로 바꾼다.
+     시공대금 결제 링크는 걷어냈다 (대표 리뷰 11/27 "시공대금 PG기능 삭제") */
+  const handleReferralCardPay = async () => {
     if (payBusy) return;
-    const amt = Number(String(payAmount).replace(/[^0-9]/g, ""));
-    if (!(amt > 0)) { showToast("결제 금액을 입력해 주세요"); return; }
-    if (amt > PG_MAX_AMOUNT) { window.alert(PG_MAX_MSG); return; }
-    if (!window.confirm(`${amt.toLocaleString()}원 결제 링크를 만드시겠습니까?`)) return;
     setPayBusy(true);
     try {
-      await createOrderPayLink(order, { uid: myUid, sellerName: userData?.companyName || myName, amount: amt, account: myAccount });
-      showToast("결제 링크를 만들었습니다. 공유하기로 보내 주세요");
-      await refreshOrder();
-    } catch (e) { showToast(e.message || "결제 링크를 만들지 못했습니다"); }
-    finally { setPayBusy(false); }
+      // 정산받을 계좌 — 아직 못 읽었으면 지금 읽는다. 없어도 결제는 된다(정산할 때 접수자 계좌를 다시 확인)
+      const account = payAccount === undefined ? await getUserAccount(order.createdBy).catch(() => null) : payAccount;
+      const id = await createReferralPayRequest(order, {
+        payerUid: myUid,
+        payerName: userData?.companyName || myName,
+        amount: referralFeeInfo.amount,
+        receiverAccount: account || null,
+      });
+      navigate(`/pg/${id}`);
+    } catch (e) {
+      showToast(e.message || "결제 화면을 열지 못했습니다");
+      // 그 사이 결제가 끝났거나 입금 확인이 된 경우 — 화면을 최신으로
+      try { await refreshOrder(); } catch (_) {}
+    } finally { setPayBusy(false); }
   };
-  const handleSharePayLink = async () => {
-    if (!order?.payLink?.url) return;
-    const res = await sharePayLink({ url: order.payLink.url, amount: order.payLink.amount, title: order.title, sellerName: userData?.companyName || myName, copyOnly: pcWide });
-    if (res === "copied") showToast("결제 링크를 복사했습니다. 카카오톡·문자에 붙여 넣어 보내 주세요");
-  };
-  const handleCancelPayLink = async () => {
-    if (payBusy) return;
-    if (!window.confirm("이 결제 링크를 취소하시겠습니까? 이미 보낸 링크는 더 이상 열리지 않습니다.")) return;
-    setPayBusy(true);
-    try { await cancelOrderPayLink(order); showToast("결제 링크를 취소했습니다"); await refreshOrder(); }
-    catch (e) { showToast(e.message || "취소하지 못했습니다"); }
-    finally { setPayBusy(false); }
-  };
+  // 결제 화면을 다녀오면(뒤로가기 포함) 목록에서 넘겨받은 옛 오더 정보가 남아 있다 — 소개수수료가 열려 있는 오더는 한 번 새로 읽는다
+  useEffect(() => {
+    if (!state?.order?.id || fetchedOrder) return;
+    if (!(isOwner || isMatchedPro) || !referralOpen || order?.referralPay?.status === "confirmed") return;
+    let alive = true;
+    getOrder(state.order.id).then((u) => { if (alive && u) setFetchedOrder(u); }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.order?.id, isOwner, isMatchedPro, referralOpen]);
 
   /* ── 차수(등급) 게이트 — 대표 지시 7/29 ──
      1차수: 오더 접수 즉시 수락 / 2차수: 오더 등록 후 300초(5분) 경과해야 수락 가능.
@@ -468,10 +478,12 @@ const OrderDetailPage = () => {
   }, [isOwner, order?.matchedProUid]);
 
   // 호출 유형별 핸들러
-  // 나의오더현황으로 이동
+  // 나의오더현황으로 이동 — 상세에서 상태를 바꾼 뒤(수락 · 지원 · 취소)에는 메인 첫 탭이 아니라 여기로 돌아간다 (대표 리뷰 11/27).
+  // 휴대폰은 메인이 탭을 sessionStorage 에서 되살리고, PC 는 왼쪽 메뉴와 같은 주소(?tab=my_orders)를 쓴다.
+  // 상세 기록은 덮어쓴다(replace) — 뒤로 눌렀을 때 바뀌기 전 내용이 담긴 상세로 돌아가지 않게.
   const goMyOrders = () => {
     try { sessionStorage.setItem("homepro.main.activeTab", "my_orders"); } catch (e) {}
-    navigate("/MobileMain");
+    navigate(pcWide ? "/MobileMain?tab=my_orders" : "/MobileMain", { replace: true });
   };
 
   // 채팅 시작 — 오더 기준 방 생성/재사용 후 진입 (당근식: 오더별 대화방)
@@ -575,7 +587,8 @@ const OrderDetailPage = () => {
       if (!setOrderWaiting) throw new Error("setOrderWaiting 함수 없음");
       await setOrderWaiting(order.id);
       showToast("거절되었습니다");
-      navigate(-1);
+      // 거절한 오더는 내 오더가 아니라 나의오더현황에 없다 — 보던 목록으로 한 칸 뒤로
+      if (window.history.length > 1) navigate(-1); else navigate("/MobileMain", { replace: true });
     } catch (e) {
       showToast(e.message || "거절에 실패했습니다");
     }
@@ -618,7 +631,7 @@ const OrderDetailPage = () => {
       await addOrderLog(order.id, { type: "cancel", message: `접수자가 취소 (사유: ${cancelReason})`, byUid: myUid, byName: myName, byRole: "접수자" });
       setShowCancelModal(false);
       showToast("오더가 취소되었습니다");
-      navigate(-1);
+      goMyOrders(); // 취소 → 나의오더현황 (예전엔 한 칸 뒤로 — 들어온 길에 따라 메인 첫 탭이 열렸다. 대표 리뷰 11/27)
     } catch (e) {
       showToast(e.message || "취소에 실패했습니다");
     }
@@ -1229,12 +1242,19 @@ const OrderDetailPage = () => {
                       : `정률 ${order.referralFee.rate}%`}
               </ConditionValue>
             </ConditionRow>
-            {order.referralPayMethod && (
+            {/* 돈으로 주는 소개수수료는 접수자가 고른 수령 수단을 보여 준다 (대표 리뷰 11/27). 값이 없는 예전 오더는 계좌이체.
+                H-포인트 소개수수료는 예전처럼 지급방법 한 줄 */}
+            {referralIsMoney ? (
+              <ConditionRow>
+                <ConditionLabel>수령 수단</ConditionLabel>
+                <ConditionValue>{referralReceiveLabel(referralReceive)}</ConditionValue>
+              </ConditionRow>
+            ) : order.referralPayMethod ? (
               <ConditionRow>
                 <ConditionLabel>지급방법</ConditionLabel>
                 <ConditionValue>{order.referralPayMethod}</ConditionValue>
               </ConditionRow>
-            )}
+            ) : null}
           </DetailSection>
         )}
 
@@ -1243,9 +1263,17 @@ const OrderDetailPage = () => {
           <DetailSection>
             <SectionTitle>{isOwner ? "입금받을 소개수수료 · 입금 확인" : "송금보낼 소개수수료 · 송금"}</SectionTitle>
             {referralFeeInfo.pending ? (
-              <PayNote>금액이 확정되면 소개수수료가 계산되고 송금 버튼이 생깁니다.</PayNote>
+              <PayNote>{isMatchedPro ? "견적서를 전송해 금액이 정해지면 소개수수료가 계산되고 보내는 버튼이 생깁니다. 현장 체크인도 그 뒤에 할 수 있습니다." : "홈프로가 견적서를 전송해 금액이 정해지면 소개수수료가 계산됩니다."}</PayNote>
             ) : order.referralPay?.status === "confirmed" ? (
-              <PayNote $done>소개수수료 {Number(order.referralPay.amount || referralFeeInfo.amount).toLocaleString()}원 · 입금 확인 완료</PayNote>
+              order.referralPay.method === "pg" ? (
+                /* 카드로 결제된 소개수수료 — 접수자에게는 결제수수료를 뺀 정산 예정 금액까지 (대표 리뷰 11/27) */
+                <PayNote $done>
+                  소개수수료 {Number(order.referralPay.amount || referralFeeInfo.amount).toLocaleString()}원 · 카드 결제 완료
+                  {isOwner ? ` (정산 예정 ${referralPgSettle(order.referralPay.amount || referralFeeInfo.amount).settle.toLocaleString()}원 · 결제수수료 ${REFERRAL_PG_FEE_RATE}% 공제)` : ""}
+                </PayNote>
+              ) : (
+                <PayNote $done>소개수수료 {Number(order.referralPay.amount || referralFeeInfo.amount).toLocaleString()}원 · 입금 확인 완료</PayNote>
+              )
             ) : order.referralPay?.status === "sent" ? (
               <>
                 <ConditionRow><ConditionLabel>금액</ConditionLabel><ConditionValue>{Number(order.referralPay.amount).toLocaleString()}원</ConditionValue></ConditionRow>
@@ -1260,30 +1288,65 @@ const OrderDetailPage = () => {
                 )}
               </>
             ) : isMatchedPro ? (
+              /* 수락자 — 접수자가 고른 수령 수단에 따라 계좌이체 묶음 · 카드 결제 버튼을 나눠 보여 준다 (대표 리뷰 11/27).
+                 계좌이체만 = 카드 결제창을 만들지 않는다 / 카드만 = 계좌 · 송금 버튼 없이 카드 결제만 / 상관없음 = 둘 다(하나만 하면 끝) */
               <>
                 <ConditionRow><ConditionLabel>보낼 금액</ConditionLabel><ConditionValue>{referralFeeInfo.amount.toLocaleString()}원</ConditionValue></ConditionRow>
-                {payAccount ? (
-                  <ConditionRow><ConditionLabel>받는 계좌</ConditionLabel><ConditionValue>{payAccount.bank} {payAccount.number}<br />{payAccount.holder}</ConditionValue></ConditionRow>
-                ) : payAccount === null ? (
-                  <PayNote>접수자가 정산계좌를 아직 등록하지 않았습니다. 채팅으로 계좌를 확인해 주세요.</PayNote>
-                ) : null}
-                <PayNote>매칭 직후 접수자 계좌로 보내는 것이 원칙이지만, 작업 완료 전후에 보내도 됩니다. 송금 후 [입금 완료]를 누르고 송금증을 붙여 주세요.</PayNote>
-                <ActionRow style={{ marginTop: 10 }}>
-                  <OutlinedBtn onClick={handleTossSend} disabled={!payAccount}>토스로 송금</OutlinedBtn>
-                  <OutlinedBtn onClick={handleCopyAccount} disabled={!payAccount}><IoCopyOutline size={17} /> 계좌 복사</OutlinedBtn>
-                </ActionRow>
-                <ActionRow style={{ marginTop: 8 }}>
-                  <PrimaryCTA onClick={() => receiptInputRef.current?.click()} disabled={payBusy}>{payBusy ? "처리 중..." : "입금 완료 (송금증 첨부)"}</PrimaryCTA>
-                  <input ref={receiptInputRef} type="file" accept="image/*" style={{ display: "none" }}
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; handleReferralSent(f); }} />
-                </ActionRow>
-                <PayNote style={{ marginTop: 6 }}>송금증이 없으면 <button type="button" onClick={() => handleReferralSent(null)} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>첨부 없이 입금 완료</button></PayNote>
+                {referralPgOnly && isIosApp() && (
+                  <PayNote $warn>아이폰 앱에서는 카드 결제를 할 수 없습니다. 웹(tryhomepro.com)에서 결제하거나 접수자와 협의해 계좌로 보내 주세요.</PayNote>
+                )}
+                {referralPgOnly && !isIosApp() && referralOverPgMax && (
+                  <PayNote $warn>카드 결제는 한 번에 {(PG_MAX_AMOUNT / 10000).toLocaleString()}만원까지 됩니다. 접수자와 협의해 계좌로 보내 주세요.</PayNote>
+                )}
+                {referralShowTransfer && (
+                  <>
+                    {referralCanCard && <PayNote style={{ marginTop: 10, color: THEME.text, fontWeight: 700 }}>방법 1 · 계좌이체</PayNote>}
+                    {payAccount ? (
+                      <ConditionRow><ConditionLabel>받는 계좌</ConditionLabel><ConditionValue>{payAccount.bank} {payAccount.number}<br />{payAccount.holder}</ConditionValue></ConditionRow>
+                    ) : payAccount === null ? (
+                      <PayNote>접수자가 정산계좌를 아직 등록하지 않았습니다. 채팅으로 계좌를 확인해 주세요.</PayNote>
+                    ) : null}
+                    <PayNote>매칭 직후 접수자 계좌로 보내는 것이 원칙이지만, 작업 완료 전후에 보내도 됩니다. 송금 후 [입금 완료]를 누르고 송금증을 붙여 주세요.</PayNote>
+                    <ActionRow style={{ marginTop: 10 }}>
+                      <OutlinedBtn onClick={handleTossSend} disabled={!payAccount}>토스로 송금</OutlinedBtn>
+                      <OutlinedBtn onClick={handleCopyAccount} disabled={!payAccount}><IoCopyOutline size={17} /> 계좌 복사</OutlinedBtn>
+                    </ActionRow>
+                    <ActionRow style={{ marginTop: 8 }}>
+                      {/* 카드 결제 버튼이 같이 있으면 주 버튼은 하나만 — 이쪽은 테두리 버튼으로 */}
+                      {referralCanCard
+                        ? <OutlinedBtn onClick={() => receiptInputRef.current?.click()} disabled={payBusy}>{payBusy ? "처리 중..." : "입금 완료 (송금증 첨부)"}</OutlinedBtn>
+                        : <PrimaryCTA onClick={() => receiptInputRef.current?.click()} disabled={payBusy}>{payBusy ? "처리 중..." : "입금 완료 (송금증 첨부)"}</PrimaryCTA>}
+                      <input ref={receiptInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; handleReferralSent(f); }} />
+                    </ActionRow>
+                    <PayNote style={{ marginTop: 6 }}>송금증이 없으면 <button type="button" onClick={() => handleReferralSent(null)} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>첨부 없이 입금 완료</button></PayNote>
+                  </>
+                )}
+                {referralCanCard && (
+                  <>
+                    {referralShowTransfer && <PayNote style={{ marginTop: 16, color: THEME.text, fontWeight: 700 }}>방법 2 · 카드 결제</PayNote>}
+                    <PayNote>{referralShowTransfer
+                      ? "계좌이체 대신 카드로 결제할 수 있습니다. 결제하면 접수자 확인 없이 바로 입금 확인까지 끝납니다."
+                      : "접수자가 PG안전결제로 받기를 선택한 오더입니다. 카드로 결제하면 접수자 확인 없이 바로 입금 확인까지 끝납니다."}</PayNote>
+                    <ActionRow style={{ marginTop: 10 }}>
+                      <PrimaryCTA onClick={handleReferralCardPay} disabled={payBusy}>{payBusy ? "처리 중..." : `카드로 결제하기 (${referralFeeInfo.amount.toLocaleString()}원)`}</PrimaryCTA>
+                    </ActionRow>
+                  </>
+                )}
               </>
             ) : (
+              /* 접수자 — 카드로 받는 오더면 결제수수료를 뺀 정산 금액을 미리 알린다 (대표 리뷰 11/27) */
               <>
                 <ConditionRow><ConditionLabel>받을 금액</ConditionLabel><ConditionValue>{referralFeeInfo.amount.toLocaleString()}원</ConditionValue></ConditionRow>
+                {referralAllowsPg(order) && (
+                  <PayNote>카드로 결제되면 결제수수료 {REFERRAL_PG_FEE_RATE}%(VAT 포함)를 뺀 {referralPgSettle(referralFeeInfo.amount).settle.toLocaleString()}원이 정산계좌로 입금됩니다.</PayNote>
+                )}
                 {payAccount === null ? (
-                  <PayNote $warn>정산계좌를 등록하세요. 등록된 계좌로 홈프로가 소개수수료를 입금해 드립니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
+                  <PayNote $warn>정산계좌를 등록하세요. {referralPgOnly ? "카드로 결제된 소개수수료를 이 계좌로 정산해 드립니다." : "등록된 계좌로 홈프로가 소개수수료를 입금해 드립니다."} <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
+                ) : referralPgOnly ? (
+                  <PayNote>홈프로가 카드로 결제하면 입금 확인까지 자동으로 끝납니다.</PayNote>
+                ) : referralAllowsPg(order) ? (
+                  <PayNote>홈프로가 계좌로 송금하면 입금 확인 요청이 오고, 카드로 결제하면 입금 확인까지 자동으로 끝납니다.</PayNote>
                 ) : (
                   <PayNote>홈프로가 소개수수료를 송금하면 입금 확인 요청이 옵니다.</PayNote>
                 )}
@@ -1293,7 +1356,7 @@ const OrderDetailPage = () => {
         )}
         {/* ── 보험 적용 — 일하는 홈프로가 정한다. 체크인 전까지 (정보공유 제외) ── */}
         {/* PG 심사 계정(users.pgReview)에서는 보험 칸을 그리지 않는다 (형 2026-10-07) */}
-        {userData?.pgReview !== true && order.matchedProUid && (isOwner || isMatchedPro) && order.b2bPriceType !== "info" && (insuranceState !== "pending" || insuranceNeeded) && (
+        {!insuranceHidden(userData) && order.matchedProUid && (isOwner || isMatchedPro) && order.b2bPriceType !== "info" && (insuranceState !== "pending" || insuranceNeeded) && (
           <DetailSection>
             <SectionTitle>보험 적용{insuranceRequired ? " · 보험가입 필수" : ""}</SectionTitle>
             {insuranceRequired && insuranceState !== "applied" && (
@@ -1342,55 +1405,7 @@ const OrderDetailPage = () => {
             </PayNote>
           </DetailSection>
         )}
-        {/* 시공대금 결제 링크 (형 확정 2026-10-07) — 예전 [대금 지급 완료]/[입금 확인] 두 버튼을 대체.
-            홈프로: 금액 확인 → [결제 링크 만들기] → [공유하기]. 접수자: 링크가 오면 [결제하기].
-            아이폰 앱에서는 결제 화면을 두지 않는다 (형 지시 2026-10-01) */}
-        {!isIosApp() && isWorkPayApplicable(order) && (isMatchedPro || (isOwner && order.payLink?.url)) && (
-          <DetailSection>
-            <SectionTitle>시공대금</SectionTitle>
-            {payReq?.status === "paid" ? (
-              <PayNote $done>시공대금 {Number(order.payLink?.amount || payReq.amount).toLocaleString()}원 · 결제완료</PayNote>
-            ) : order.payLink?.url ? (
-              <>
-                <ConditionRow><ConditionLabel>결제 요청 금액</ConditionLabel><ConditionValue>{Number(order.payLink.amount).toLocaleString()}원</ConditionValue></ConditionRow>
-                <ConditionRow><ConditionLabel>상태</ConditionLabel><ConditionValue>{payReq?.status === "paying" ? PG_STATUS_LABEL.paying : "결제 대기"}</ConditionValue></ConditionRow>
-                {isMatchedPro ? (
-                  <>
-                    <PayNote>아래 글을 접수자나 고객에게 보내 주세요. 결제된 시공대금은 홈프로를 거쳐 등록된 정산계좌로 정산됩니다.</PayNote>
-                    {/* 보낼 글을 글 상자에 그대로 보여 준다 — 복사만 하고 끝내면 뭐가 복사됐는지 안 보인다 (형 지시 2026-10-13) */}
-                    <textarea readOnly rows={4} onFocus={(e) => e.target.select()}
-                      value={payLinkMessage({ url: order.payLink.url, amount: order.payLink.amount, title: order.title, sellerName: userData?.companyName || myName })}
-                      style={{ width: "100%", boxSizing: "border-box", marginTop: 10, padding: "12px 14px", border: `1px solid ${THEME.border}`, borderRadius: pcWide ? 0 : 10, background: "#fff", color: THEME.text, fontSize: 15, lineHeight: 1.6, resize: "none", fontFamily: "inherit", wordBreak: "break-all" }} />
-                    <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={handleSharePayLink}>{pcWide ? "복사하기" : "공유하기"}</PrimaryCTA></ActionRow>
-                    <PayNote style={{ marginTop: 8 }}>금액을 잘못 넣었다면 <button type="button" onClick={handleCancelPayLink} disabled={payBusy} style={{ background: "none", border: "none", padding: 0, color: THEME.text, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>링크 취소</button> 후 다시 만들 수 있습니다.</PayNote>
-                  </>
-                ) : (
-                  <>
-                    <PayNote>홈프로가 시공대금 결제를 요청했습니다.</PayNote>
-                    <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={() => navigate(`/pg/${order.payLink.requestId}`)}>결제하기</PrimaryCTA></ActionRow>
-                  </>
-                )}
-              </>
-            ) : myAccount === null ? (
-              <PayNote $warn>결제 링크를 만들려면 정산계좌가 필요합니다. 결제된 시공대금을 이 계좌로 정산해 드립니다. <button type="button" onClick={() => navigate("/biz-profile")} style={{ background: "none", border: "none", padding: 0, color: THEME.button, fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" }}>비즈프로필에서 정산계좌 등록</button></PayNote>
-            ) : (
-              <>
-                <PayNote>작업을 마쳤으면 결제 링크를 만들어 접수자나 고객에게 보내 주세요. 결제된 시공대금은 홈프로를 거쳐 등록된 정산계좌로 정산됩니다.</PayNote>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-                  <input inputMode="numeric" placeholder="결제 금액 (최대 300만원)" value={payAmount ? Number(String(payAmount).replace(/[^0-9]/g, "")).toLocaleString() : ""}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, "");
-                      if (Number(v) > PG_MAX_AMOUNT) { setPayAmount(String(PG_MAX_AMOUNT)); showToast(PG_MAX_MSG); return; }
-                      setPayAmount(v);
-                    }}
-                    style={{ flex: 1, minWidth: 0, height: 52, padding: "0 14px", border: `1px solid ${THEME.border}`, borderRadius: 10, fontSize: 17, fontWeight: 700, fontFamily: "inherit", color: THEME.text, textAlign: "right", boxSizing: "border-box", outline: "none" }} />
-                  <span style={{ fontSize: 16, color: THEME.text }}>원</span>
-                </div>
-                <ActionRow style={{ marginTop: 10 }}><PrimaryCTA onClick={handleCreatePayLink} disabled={payBusy || myAccount === undefined}>결제 링크 만들기</PrimaryCTA></ActionRow>
-              </>
-            )}
-          </DetailSection>
-        )}
+        {/* 시공대금 결제 링크 칸은 걷어냈다 — 시공대금은 당사자끼리 직접 주고받는다 (대표 리뷰 11/27 "시공대금 PG기능 삭제") */}
 
         {/* ── 요청 방식 (매칭) ── */}
         {order.matchType && (
@@ -1405,7 +1420,13 @@ const OrderDetailPage = () => {
               <ConditionLabel>매칭방식</ConditionLabel>
               <ConditionValue>{MATCH_TYPE_LABEL[order.matchType] || order.matchType}</ConditionValue>
             </ConditionRow>
-            {userData?.pgReview !== true && order.b2bPriceType !== "info" && !order.selfOrder && (
+            {order.recruit && recruitLine(order, recruitSiblings) && (
+              <ConditionRow>
+                <ConditionLabel>모집 인원</ConditionLabel>
+                <ConditionValue>{recruitLine(order, recruitSiblings)}{order.recruit.skill ? ` · 이 오더는 ${order.recruit.skill} 한 자리` : ""}</ConditionValue>
+              </ConditionRow>
+            )}
+            {!insuranceHidden(userData) && order.b2bPriceType !== "info" && !order.selfOrder && (
               <ConditionRow>
                 <ConditionLabel>보험</ConditionLabel>
                 {/* '선택'은 접수자가 보험을 고른 것으로 읽힌다 — 안 골랐으면 미선택 (대표 9/21) */}
@@ -1659,11 +1680,13 @@ const OrderDetailPage = () => {
               // 체크인은 소개수수료 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡)
               // 단 접수자가 '보험가입 필수'로 등록한 오더는 보험 적용 전 체크인 불가 (대표 9/15 카톡 8번)
               const blocked = !order.checkInAt && insuranceRequired && insuranceState !== "applied";
+              // 소개수수료(정률)가 걸린 오더는 견적서를 보내 금액이 정해진 뒤에 체크인한다 — 그래야 소개수수료 금액이 나온다 (대표 리뷰 11/27)
+              const quoteBlocked = isCheckInBlockedByQuote(order);
               return (
                 <ActionRow>
                   <OutlinedBtn
-                    onClick={() => { if (blocked) { showToast(isIosApp() ? "보험가입 필수 오더입니다. 보험이 적용된 뒤 체크인할 수 있습니다" : "보험가입 필수 오더입니다. 월 보험에 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
-                    style={blocked ? { opacity: 0.45 } : undefined}
+                    onClick={() => { if (quoteBlocked) { showToast("견적서를 먼저 전송해 주세요. 금액이 정해져야 소개수수료가 계산됩니다"); return; } if (blocked) { showToast(isIosApp() ? "보험가입 필수 오더입니다. 보험이 적용된 뒤 체크인할 수 있습니다" : "보험가입 필수 오더입니다. 월 보험에 가입한 뒤 체크인해 주세요"); return; } navigate(`/order/worklog/${order.id}`); }}
+                    style={blocked || quoteBlocked ? { opacity: 0.45 } : undefined}
                   >
                     {order.checkInAt ? "현장기록" : "현장 체크인"}
                   </OutlinedBtn>

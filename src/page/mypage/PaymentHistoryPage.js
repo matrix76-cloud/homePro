@@ -12,6 +12,7 @@ import { THEME } from "../../config/homeproConfig";
 import { useAuth } from "../../context/AuthContext";
 import { PAY_PURPOSE_LABEL, TOSS_METHOD_LABEL } from "../../utility/tossConfig";
 import usePcWide from "../../hooks/usePcWide";
+import { INSURANCE_ENABLED } from "../../config/featureFlags";
 import { pcOnly, PC, PcTable, PcTHead, PcTRow, PcEmpty } from "../../pc/pcKit";
 
 const STATUS_LABEL = { done: "결제 완료", ready: "결제 대기", fail: "결제 실패", refund: "환불" };
@@ -44,12 +45,12 @@ const PaymentHistoryPage = () => {
   return (
     <SimpleBackLayout NAME="결제 내역" hideFooter>
       <Wrap>
-        <Intro>토스로 결제한 월 구독료와 보험료입니다.</Intro>
+        <Intro>{INSURANCE_ENABLED ? "토스로 결제한 월 구독료와 보험료입니다." : "토스로 결제한 내역입니다."}</Intro>
         {pcWide ? (
           <PcTable>
             <PcTHead $cols={PAY_COLS}><span>일시</span><span>내용</span><span>금액</span><span>결제 수단</span><span>상태</span><span>주문번호</span><span>영수증</span></PcTHead>
             {rows === null && <PcEmpty><b>불러오는 중...</b></PcEmpty>}
-            {rows !== null && rows.length === 0 && <PcEmpty><b>아직 결제 내역이 없어요.</b><span>구독료·보험료를 결제하면 이곳에 쌓입니다.</span></PcEmpty>}
+            {rows !== null && rows.length === 0 && <PcEmpty><b>아직 결제 내역이 없어요.</b><span>{INSURANCE_ENABLED ? "구독료·보험료를 결제하면 이곳에 쌓입니다." : "결제하면 이곳에 쌓입니다."}</span></PcEmpty>}
             {(rows || []).map((p) => {
               const when = toDate(p.approvedAt || p.createdAt);
               const method = p.method === "points" ? "H-포인트" : (TOSS_METHOD_LABEL[p.tossMethod] || TOSS_METHOD_LABEL[p.method] || p.tossMethod || p.method || "카드");

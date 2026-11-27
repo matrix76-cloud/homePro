@@ -60,7 +60,7 @@ export const PAY_PURPOSE_LABEL = {
   insurance_monthly: "월 구독형 보험",
   insurance_order: "건당 단기보험",
   subscription: "구독",
-  paylink: "시공대금 결제 링크",
+  paylink: "결제 링크 (소개수수료 등)", // 오더 시공대금 결제 링크는 뺐다 (대표 리뷰 11/27) — 소개수수료 카드 결제 · 사업자도구 결제 요청이 이 용도로 찍힌다
 };
 
 /** 토스 결제수단 코드 → 한국어 */

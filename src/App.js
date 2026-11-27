@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useContext, useEffect, useRef } from "react";
+import { insuranceHidden } from "./config/featureFlags";
 import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMediaQuery } from "react-responsive";
@@ -101,6 +102,7 @@ const InsAdminSettlementPage = React.lazy(() => import("./page/insurance-admin/I
 const InsAdminClaimsPage = React.lazy(() => import("./page/insurance-admin/InsAdminClaimsPage"));
 const InsAdminSettingsPage = React.lazy(() => import("./page/insurance-admin/InsAdminSettingsPage"));
 const AdminPaymentsPage = React.lazy(() => import("./page/admin/AdminPaymentsPage"));
+const AdminPgSettlePage = React.lazy(() => import("./page/admin/AdminPgSettlePage"));
 import PaymentHistoryPage from "./page/mypage/PaymentHistoryPage";
 import PgPaymentPage from "./page/mypage/PgPaymentPage";
 import PgLinkPage from "./page/pay/PgLinkPage";
@@ -192,7 +194,7 @@ const wrap = (el) => <PageWrapper>{el}</PageWrapper>;
 // PG 심사 계정(users.pgReview)은 보험 화면에 들어가지 못한다 (형 2026-10-07 — PG사가 보험을 꺼림)
 const NoPgReview = ({ children }) => {
   const { userData } = useAuth();
-  return userData?.pgReview === true ? <Navigate to="/MobileMain" replace /> : children;
+  return insuranceHidden(userData) ? <Navigate to="/MobileMain" replace /> : children;
 };
 const noIos = (el) => (isIosApp() ? <Navigate to="/MobileMain" replace /> : el);
 const noPg = (el) => <NoPgReview>{el}</NoPgReview>;
@@ -563,7 +565,7 @@ const AnimatedRoutes = () => {
             <Route path="/order/create" element={wrap(<OrderCreatePage />)} />
             <Route path="/order/create/:categoryId" element={wrap(<OrderCreatePage />)} />
             {/* 도급업자 배상책임보험 셀프보장등록 — 간단 등재 폼 (대표 리뷰 11/02) */}
-            <Route path="/order/self-cover" element={wrap(<SelfCoverRegisterPage />)} />
+            <Route path="/order/self-cover" element={noPg(wrap(<SelfCoverRegisterPage />))} />
             <Route path="/order/list" element={wrap(<OrderListPage />)} />
             <Route path="/order/detail/:orderId" element={wrap(<OrderDetailPage />)} />
             {/* 현장 작업기록 — 체크인(Before)/작업중/체크아웃(After) */}
@@ -645,6 +647,7 @@ const AnimatedRoutes = () => {
               <Route path="notice/:filter" element={<AdminNoticePage />} />
               <Route path="settlement" element={<AdminSettlementPage />} />
               <Route path="payments" element={<AdminPaymentsPage />} />
+              <Route path="pg-settle" element={<AdminPgSettlePage />} />
               <Route path="settlement/:filter" element={<AdminSettlementPage />} />
               <Route path="updates" element={<AdminUpdatesPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />

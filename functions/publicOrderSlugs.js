@@ -41,7 +41,7 @@ const MERGED_GWANGJU_JEONNAM = ["전남광주통합특별시", "광주전남통�
 const GWANGJU_GU = ["동구", "서구", "남구", "북구", "광산구"];
 
 // 업종 26개. items = 그 업종 접수폼의 대표 세부 항목(검색어가 되는 실제 항목명).
-// listName 이 있으면 제목의 "{업종} 실시간 오더공유 · 오더방 리스트" 자리에 그 말을 쓴다.
+// listName 이 있으면 제목의 "{업종} 실시간 예약 오더공유 리스트" 자리에 그 말을 쓴다.
 const CATS = [
   { id: "move_cleaning", slug: "move-cleaning", name: "입주청소", desc: "이사·입주·거주청소, 부분청소, 정리수납 등 홈클리닝", items: ["이사청소", "입주청소(신축)", "거주청소", "원룸청소", "인테리어 후 청소", "빈집정리"] },
   { id: "special_cleaning", slug: "special-cleaning", name: "특수청소", desc: "유품정리·고독사·쓰레기집 등 특수청소와 화재청소", items: ["유품정리 고독사 청소", "쓰레기집 청소", "그을음 제거청소", "냄새제거·탈취"] },

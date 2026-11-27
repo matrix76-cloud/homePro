@@ -7,11 +7,17 @@
  *
  *  ① 소개수수료 — 홈프로 → 접수자. 매칭되면 홈프로 화면에 접수자 계좌·금액이 뜨고
  *     홈프로가 토스 딥링크/계좌복사로 직접 송금 → [입금 완료(송금증)] → 접수자 푸시 → [입금 확인].
- *     확인 전에는 체크인을 못 한다. 현장견적은 금액이 확정되는 순간(onsiteQuotedPrice) 소개수수료가 계산된다.
+ *     현장견적 · 견적요청은 금액이 확정되는 순간(견적서 전송, onsiteQuotedPrice) 소개수수료가 계산된다.
+ *     체크인: 입금 확인 여부와는 무관하게 열어 둔다(대표 9/14 카톡). 다만 정률 소개수수료인데 아직 금액이 없으면
+ *     (견적서 전송 전) 체크인을 막는다 — isCheckInBlockedByQuote (대표 리뷰 11/27).
  *     오더 문서: referralPay { status: "sent"|"confirmed", amount, sentAt, sentBy, receiptUrl, confirmedAt }
+ *     ★수령 수단 (대표 리뷰 11/27, config/referralReceive.js): 접수자가 고른 referralReceiveMethod 가 pg · any 면 수락자가 카드로도 낼 수 있다.
+ *       카드 결제는 PgPaymentService.createReferralPayRequest → /pg/:id → 서버 payLinkConfirm 이 referralPay 를
+ *       { status:"confirmed", method:"pg", requestId, paidAt, feeAmount, settleAmount } 로 바꾼다(접수자 [입금 확인] 없음).
+ *       이 한 가지 길만 플랫폼이 돈을 거친다 — 결제수수료 3.5%를 뺀 금액을 접수자 정산계좌로 정산.
  *
- *  ② 후불 작업 대금 — 완료 후 접수자(원청) → 홈프로. 접수자 [지급 완료] → 홈프로 [입금 확인]. 기록만.
- *     오더 문서: workPay { status: "sent"|"confirmed", sentAt, confirmedAt }
+ *  ② 시공(작업) 대금 — 당사자끼리 직접 주고받는다. 앱은 관여하지 않는다.
+ *     (완료 뒤 홈프로가 만들던 시공대금 결제 링크는 대표 리뷰 11/27 "시공대금 PG기능 삭제"로 걷어냈다.)
  *
  *  ③ H-포인트 오더 에스크로 — 단가유형 hpoint. 접수 때 접수자 잔액 < 대금이면 접수 불가.
  *     배정 순간 접수자 H-포인트에서 대금만큼 차감해 보관 → 완료 때 홈프로에게 (대금 - 소개수수료), 접수자에게 소개수수료 환급
@@ -148,7 +154,19 @@ export function isReferralPayOpen(order) {
   return order.referralPay?.status !== "confirmed";
 }
 
-/** 체크인을 막아야 하나 — 소개수수료가 있는데 접수자 확인이 아직 안 됐으면 */
+/**
+ * 견적서 전송 전이라 체크인을 막아야 하나 (대표 리뷰 11/27 "소개수수료 오더는 견적서 전송 후 현장 체크인")
+ *  정률 소개수수료인데 금액이 아직 없으면(현장견적 · 견적요청에서 견적서를 안 보냄) 소개수수료가 계산되지 않는다.
+ *  금액이 정해지면 풀린다. 입금 확인 여부는 보지 않는다(체크인은 입금 확인과 무관 — 대표 9/14).
+ *  오더 상세 · 나의오더현황 카드가 같이 쓴다.
+ */
+export function isCheckInBlockedByQuote(order) {
+  if (!order || order.checkInAt) return false;
+  return getReferralFeeAmount(order).pending === true;
+}
+
+/** 체크인을 막아야 하나 — 소개수수료가 있는데 접수자 확인이 아직 안 됐으면.
+ *  ※ 지금 화면에서는 쓰지 않는다(체크인은 입금 확인과 무관하게 연다 — 대표 9/14). 견적서 전송 전 가드는 isCheckInBlockedByQuote */
 export function isCheckInBlockedByReferral(order) {
   const { amount, pending } = getReferralFeeAmount(order);
   if (pending) return true;
@@ -223,17 +241,10 @@ export async function confirmReferralReceived(order, { byUid }) {
   } catch (e) { console.warn("[소개수수료 알림]", e?.message); }
 }
 
-/* ───────────────────────── ② 후불 작업 대금 ───────────────────────── */
+/* ───────────────────────── ② 시공(작업) 대금 ───────────────────────── */
 
-/** 시공대금 결제 링크를 둘 오더인가 — 돈 오더이고 완료된 뒤 */
-export function isWorkPayApplicable(order) {
-  if (!order) return false;
-  if (order.orderStatus !== "완료" && order.orderStatus !== "리뷰" && order.orderStatus !== "정산") return false;
-  const t = order.b2bPriceType;
-  return t !== "hpoint" && t !== "info";
-}
-
-// 접수자 [대금 지급 완료] → 홈프로 [입금 확인] 두 버튼은 결제 링크로 대체했다 (형 확정 2026-10-07, PgPaymentService.createOrderPayLink)
+// 앱에는 시공대금 버튼이 없다 — 당사자끼리 직접 주고받는다.
+// (접수자 [대금 지급 완료] → 홈프로 [입금 확인] 두 버튼 → 10/07 결제 링크로 대체 → 대표 리뷰 11/27 "시공대금 PG기능 삭제"로 결제 링크도 걷어냄)
 
 /* ───────────────────────── ③ H-포인트 에스크로 ───────────────────────── */
 

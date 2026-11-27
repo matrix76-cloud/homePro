@@ -129,7 +129,9 @@ const PcOrdersPage = () => {
   const resetFilters = () => { setSort("등록순"); setStatus("전체"); setDist(DEFAULT_DIST); setPeriod("전체"); setCatId("전체"); };
 
   const openOrder = (order) => {
-    if (order._status === "마감") return showToast("이미 마감된 항목은 확인할 수 없습니다");
+    // 내 오더(내가 접수했거나 내가 배정받은 오더)는 마감이어도 상세가 열린다 (대표 리뷰 11/27)
+    const mine = !!uid && (order.createdBy === uid || order.matchedProUid === uid);
+    if (order._status === "마감" && !mine) return showToast("이미 마감된 항목은 확인할 수 없습니다");
     if (order._status === "대기" && order.createdBy !== uid) return showToast("접수자가 수정 중인 오더입니다");
     if (order.createdBy !== uid && blockedUids.has(order.createdBy)) return showToast("거부등록된 오더입니다");
     navigate(`/order/detail/${order.id}`, { state: { order, category: order._cat } });
@@ -189,7 +191,7 @@ const PcOrdersPage = () => {
                   return lockText ? <LockText>{lockText}</LockText> : null;
                 })()}
               </span>
-              <span>{formatMatchType(o)}</span>
+              <span>{formatMatchType(o, rawOrders)}</span>
               <b>{o.subcategory || o.subcategories?.[0] || o.categoryName}</b>
               <span>{formatRegionLabel(o.location)}</span>
               <span>{formatPriceType(o)}</span>

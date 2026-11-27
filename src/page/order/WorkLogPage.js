@@ -24,6 +24,7 @@ import {
 } from "react-icons/io5";
 import { pcOnly, PC } from "../../pc/pcKit";
 import usePcWide from "../../hooks/usePcWide";
+import { getReferralFeeAmount } from "../../service/PayFlowService";
 
 const MAX_PHOTOS = 5;
 
@@ -88,6 +89,11 @@ const WorkLogPage = () => {
   }, [loading, requested, isWorker, checkIn, checkOut]); // eslint-disable-line
 
   const openSheet = async (type) => {
+    // 소개수수료(정률)가 걸렸는데 금액이 아직 안 정해졌으면 견적서 전송이 먼저다 (대표 리뷰 11/27) — 카드 · 상세와 같은 기준
+    if (type === WORKLOG_TYPES.CHECKIN && order && getReferralFeeAmount(order).pending) {
+      showToast("견적서 전송 후 체크인할 수 있습니다");
+      return;
+    }
     // 체크인은 소개수수료 입금 확인·보험 적용과 무관하게 열어 둔다 (대표 9/14 카톡). 좌표 없음만 막는다
     setSheetType(type);
     setPhotos([]);

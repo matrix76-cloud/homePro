@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect, useContext, useRef } from "react";
+import { insuranceHidden } from "../../config/featureFlags";
 import EmptyOrders from "../../components/EmptyOrders";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
@@ -8,8 +9,9 @@ import { getOrdersByUser, getOrdersByMatchedPro, getOrdersByApplicant, formatOrd
 import { insuranceLine } from "../../service/OrderInsuranceService";
 import { infoIncentiveText } from "../../config/orderFormConfig";
 import { subscribeChatRooms, createChatRoom } from "../../service/ChatService";
-import { notifyOrderEvent, getUserBrief } from "../../service/OrderNotifyService";
+import { notifyOrderEvent, getUserBrief, isLastMessageHiddenFor } from "../../service/OrderNotifyService";
 import { getReferralFeeAmount } from "../../service/PayFlowService";
+import { recruitLabel, recruitProgressFromList } from "../../service/RecruitService";
 import { getCurrentGeo } from "../../service/WorkLogService";
 import { UserContext } from "../../context/User";
 import { useAuth } from "../../context/AuthContext";
@@ -111,9 +113,21 @@ const UNPRICED_TYPES = ["onsite", "estimate", "quote"];
 const quotedAmount = (order) =>
   Number(order.onsiteQuotedPrice) || (order.matchedProUid ? Number(order.applicantQuotes?.[order.matchedProUid]) : 0) || 0;
 const MATCH_TYPE_LABEL = { priority: "빠른배정", compare: "비교선정", direct: "지정배정" };
+/* 본인이 수락해 배정된 오더의 "홈프로 OO이(가) 배정되었습니다." 안내 — 수락자 카드에는 띄우지 않는다 (대표 리뷰 11/27).
+   새로 쌓이는 글은 방의 lastMessageHiddenFor 로 가리고, 그 전에 만들어진 방은 이 글 모양으로 가린다 */
+const ASSIGN_NOTICE_RE = /^홈프로(가| .+이\(가\)) 배정되었습니다\.$/;
 /* 비교선정 지원 현황 — 오더목록의 "1/3" 과 같은 값 · 같은 최대치(3명이면 지원 마감) (대표 리뷰 11/22) */
 const COMPARE_MAX_APPLICANTS = 3;
 const applicantCountOf = (order) => Math.max(Number(order.applicantCount) || 0, (order.applicantUids || []).length);
+/* 구인 모집 묶음 표기 (대표 리뷰 11/21 · 11/24) — 접수자 카드는 "[4명중 2명 모집] 3/4"(묶음 오더가 전부 내 목록에 있어 정확하다),
+   수락자 카드는 내 자리만 보이므로 진행 숫자 없이 "[4명중 2명 모집]" */
+const recruitLineOf = (order, list, uid) => {
+  const label = recruitLabel(order);
+  if (!label) return "";
+  if (order.createdBy !== uid) return label;
+  const p = recruitProgressFromList(order, list);
+  return p ? `${label} ${p.text}${p.full ? " 마감" : ""}` : label;
+};
 /* 카드의 요청방식 글 — 비교선정이고 아직 선정 전이면 "비교선정 1/3 지원" */
 const matchLineOf = (order) => {
   if (order.selfOrder) return "셀프 등록";
@@ -216,6 +230,39 @@ const formatChatTime = (ts) => {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 };
 
+/* ─── 보던 목록 그대로 돌아오기 (대표 리뷰 11/27) ───
+   카드를 눌러 오더 상세 · 현장기록 · 채팅에 갔다가 돌아오면(뒤로 가기든, 상태를 바꾼 뒤 돌아오든)
+   보던 상태 칸 · 기간 · 목록/달력 · 스크롤 위치 그대로 나온다.
+   다른 화면으로 떠날 때만 적어 두고(세션 한정 · 30분), 홈 안에서 탭만 바꿨다 다시 들어오면 예전처럼 '오늘의 작업'부터 연다. */
+export const MY_ORDERS_VIEW_KEY = "homepro.myorders.view";
+const VIEW_KEY = MY_ORDERS_VIEW_KEY;
+const VIEW_TTL = 30 * 60 * 1000;
+const VIEW_HOME_PATHS = ["/MobileMain", "/my-orders", "/order/my-orders"]; // 이 화면이 놓이는 주소
+const readSavedView = () => {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(VIEW_KEY) || "null");
+    if (!v || !v.away || Date.now() - (Number(v.at) || 0) > VIEW_TTL) return null;
+    const tabs = (Array.isArray(v.tabs) ? v.tabs : []).filter((t) => STATUS_TABS.includes(t));
+    return {
+      tabs: tabs.length ? tabs : null,
+      period: PERIOD_OPTIONS.includes(v.period) ? v.period : "전체",
+      range: { start: String(v.range?.start || ""), end: String(v.range?.end || "") },
+      view: v.view === "calendar" ? "calendar" : "list",
+      scroll: Math.max(0, Number(v.scroll) || 0),
+    };
+  } catch (e) { return null; }
+};
+/* 이 화면을 실제로 굴리는 틀 — 폰은 안쪽 틀, PC 넓은 화면은 창(null) */
+const scrollerOf = (el) => {
+  let p = el ? el.parentElement : null;
+  while (p && p !== document.body && p !== document.documentElement) {
+    const oy = window.getComputedStyle(p).overflowY;
+    if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight + 1) return p;
+    p = p.parentElement;
+  }
+  return null;
+};
+
 /* 탭 내장용 콘텐츠 컴포넌트 */
 export const MyOrdersContent = () => {
   const navigate = useNavigate();
@@ -242,7 +289,9 @@ export const MyOrdersContent = () => {
     return raw;
   };
   // 상태 다중 선택. 진입 시 '오늘의 작업' 이 첫 화면 — 오늘 작업이 0건이면 불러온 뒤 '전체' 로 (대표 리뷰 11/02)
-  const [activeTabs, setActiveTabs] = useState([TODAY_TAB]);
+  // 상세 등에 다녀온 길이면 떠날 때 보던 값으로 시작한다 (대표 리뷰 11/27)
+  const [savedView] = useState(readSavedView);
+  const [activeTabs, setActiveTabs] = useState(savedView?.tabs || [TODAY_TAB]);
   const toggleTab = (tab) => {
     if (SOLO_TABS.includes(tab)) { setActiveTabs([tab]); return; }
     setActiveTabs((prev) => {
@@ -257,9 +306,33 @@ export const MyOrdersContent = () => {
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chatMap, setChatMap] = useState({});
-  const [activePeriod, setActivePeriod] = useState("전체");
-  const [dateRange, setDateRange] = useState({ start: "", end: "" });
-  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
+  const [activePeriod, setActivePeriod] = useState(savedView?.period || "전체");
+  const [dateRange, setDateRange] = useState(savedView?.range || { start: "", end: "" });
+  const [viewMode, setViewMode] = useState(savedView?.view || "list"); // "list" | "calendar"
+  const rootRef = useRef(null);
+  const viewRef = useRef(null);
+  viewRef.current = { tabs: activeTabs, period: activePeriod, range: dateRange, view: viewMode };
+  const scrollPos = useRef(savedView?.scroll || 0);
+  useEffect(() => {
+    try { sessionStorage.removeItem(VIEW_KEY); } catch (e) {} // 읽었으면 비운다 — 같은 값으로 두 번 되살리지 않게
+    // 스크롤은 굴러간 틀이 어느 것이든(안쪽 틀 · 창) 잡히게 문서에서 받는다
+    const onScroll = (e) => {
+      if (!VIEW_HOME_PATHS.includes(window.location.pathname)) return; // 이미 다른 화면으로 넘어가는 중이면 그쪽 스크롤은 받지 않는다
+      const t = e.target;
+      if (t === document || t === document.documentElement || t === document.body) { scrollPos.current = window.scrollY || 0; return; }
+      if (t && t.contains && rootRef.current && t.contains(rootRef.current)) scrollPos.current = t.scrollTop || 0;
+    };
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("scroll", onScroll, true);
+      try {
+        const p = window.location.pathname;
+        // 주소가 그대로면 홈 안에서 탭만 바꾼 것 — 적지 않는다(다시 들어오면 '오늘의 작업'부터)
+        if (VIEW_HOME_PATHS.includes(p)) sessionStorage.removeItem(VIEW_KEY);
+        else sessionStorage.setItem(VIEW_KEY, JSON.stringify({ ...viewRef.current, scroll: scrollPos.current, away: true, at: Date.now() }));
+      } catch (e) {}
+    };
+  }, []);
   const [cancelReqOpen, setCancelReqOpen] = useState(null); // { orderId } | null
   const [cancelReqReason, setCancelReqReason] = useState("");
   const [cancelReqDetail, setCancelReqDetail] = useState("");
@@ -316,6 +389,7 @@ export const MyOrdersContent = () => {
             lastMessage: r.lastMessage || "",
             lastMessageAt: r.lastMessageAt,
             unreadCount: r.unreadCount?.[uid] || 0,
+            hiddenForMe: isLastMessageHiddenFor(r, uid),
             otherUid,
             otherName,
           });
@@ -377,11 +451,27 @@ export const MyOrdersContent = () => {
   const tabCount = (tab, list) => (tab === TODAY_TAB ? todayList.length : tab === "전체" ? list.length : list.filter((o) => viewStatus(o) === tab).length);
 
   // 처음 불러온 뒤 한 번 — 오늘 작업이 없으면 '전체' 로 떨어뜨린다
-  const autoTabDone = useRef(false);
+  const autoTabDone = useRef(!!savedView); // 되살린 화면이면 건너뛴다
   useEffect(() => {
     if (loading || autoTabDone.current) return;
     autoTabDone.current = true;
     if (todayList.length === 0) setActiveTabs((prev) => (prev.length === 1 && prev[0] === TODAY_TAB ? ["전체"] : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  // 목록이 그려진 뒤 떠날 때의 스크롤 위치로 (한 번만). 대화 미리보기처럼 늦게 붙는 줄이 있어 한 번 더 맞춘다
+  const scrollRestored = useRef(!(savedView && savedView.scroll > 0));
+  useEffect(() => {
+    if (loading || scrollRestored.current) return;
+    scrollRestored.current = true;
+    const top = savedView.scroll;
+    const apply = () => {
+      const sc = scrollerOf(rootRef.current);
+      if (sc) sc.scrollTop = top; else window.scrollTo(0, top);
+    };
+    const raf = requestAnimationFrame(apply);
+    const t1 = setTimeout(apply, 200);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t1); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
@@ -580,6 +670,16 @@ export const MyOrdersContent = () => {
                     <CheckinHint>{`진행 중인 작업(${ck.busy.title || "다른 오더"})을 체크아웃한 뒤 체크인할 수 있습니다`}</CheckinHint>
                   </>
                 );
+                /* 소개수수료가 걸린 오더는 견적서를 보내 금액이 정해진 뒤에 체크인 (대표 리뷰 11/27).
+                   정률 소개수수료는 견적가가 있어야 계산된다 — 견적서 전 체크인하면 소개수수료 금액이 비어 보인다.
+                   (금액이 정해진 뒤의 입금 확인 여부로는 막지 않는다 — 대표 9/14 그대로) */
+                if (getReferralFeeAmount(order).pending) return (
+                  <>
+                    <ActionBtn $variant="off" disabled onClick={(e) => e.stopPropagation()}>체크인 불가</ActionBtn>
+                    <ActionBtn onClick={(e) => openDayChange(e, order)}>작업일 변경</ActionBtn>
+                    <CheckinHint>소개수수료가 있는 오더입니다. 견적서 전송 후 체크인할 수 있습니다</CheckinHint>
+                  </>
+                );
                 if (ck.kind === "notToday") return (
                   <>
                     <ActionBtn $variant="off" disabled onClick={(e) => e.stopPropagation()}>체크인 불가</ActionBtn>
@@ -671,6 +771,13 @@ export const MyOrdersContent = () => {
     return order.createdBy === uid && order.matchedProUid ? allChats.filter((c) => c.otherUid === order.matchedProUid) : allChats;
   };
 
+  // 카드에 그릴 대화 미리보기 — 수락자 본인에게 온 '배정되었습니다' 안내만 남은 방은 뺀다(새 대화가 오면 다시 보인다) (대표 리뷰 11/27)
+  const previewChatsOf = (order, chats) => chats.filter((c) => {
+    if (c.unreadCount > 0) return true;
+    if (c.hiddenForMe) return false;
+    return !(order.matchedProUid === uid && order.createdBy !== uid && ASSIGN_NOTICE_RE.test(c.lastMessage || ""));
+  });
+
   const periodSelect = (
     <select value={activePeriod} onChange={(e) => { setActivePeriod(e.target.value); setDateRange({ start: "", end: "" }); }}>
       {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p === "전체" ? "지난오더 조회" : p}</option>)}
@@ -678,7 +785,7 @@ export const MyOrdersContent = () => {
   );
 
   return (
-    <PageWrap>
+    <PageWrap ref={rootRef}>
       {pcWide ? (
         <PcBody>
           {/* 기간 조회 + 보기 전환 — 한 줄 필터 상자 */}
@@ -733,8 +840,9 @@ export const MyOrdersContent = () => {
                   const statusText = isUnselected(order) ? "미선정" : displayStatus;
                   const isOwner = order.createdBy === uid;
                   const chats = chatsOf(order);
-                  const ins = userData?.pgReview === true ? "" : insuranceLine(order); // PG 심사 계정에서는 보험 줄을 뺀다
-                  const meta = [matchLineOf(order), `접수 ${formatOrderTime(order.createdAt)}`].filter(Boolean).join(" · ");
+                  const chatRows = previewChatsOf(order, chats);
+                  const ins = insuranceHidden(userData) ? "" : insuranceLine(order); // PG 심사 계정에서는 보험 줄을 뺀다
+                  const meta = [matchLineOf(order), recruitLineOf(order, allOrders, uid), `접수 ${formatOrderTime(order.createdAt)}`].filter(Boolean).join(" · ");
                   const other = isOwner
                     ? (order.matchedProUid ? (chats[0]?.otherName || "배정된 프로") : (chats.length > 0 ? `견적 ${chats.length}명` : "-"))
                     : (order.writer || "-");
@@ -765,7 +873,7 @@ export const MyOrdersContent = () => {
                       <PcActionCell onClick={(e) => e.stopPropagation()}>
                         {renderActions(order, displayStatus, chats, cat)}
                       </PcActionCell>
-                      {(quoteSent || chats.length > 0 || refSt) && (
+                      {(quoteSent || chatRows.length > 0 || refSt) && (
                         <PcSubLine onClick={(e) => e.stopPropagation()}>
                           {refSt && (
                             <ReferralLine $done={!!refSt.done} $pc>
@@ -780,10 +888,10 @@ export const MyOrdersContent = () => {
                               {order.onsiteQuoteMessage ? ` — ${order.onsiteQuoteMessage}` : ""}
                             </PcSubText>
                           )}
-                          {chats.length > 0 && isOwner && (
+                          {chatRows.length > 0 && isOwner && (
                             <PcSubText><b>{order.matchedProUid ? "배정된 프로" : `견적 받은 프로 ${chats.length}명`}</b></PcSubText>
                           )}
-                          {chats.map((chat) => {
+                          {chatRows.map((chat) => {
                             const hasUnread = chat.unreadCount > 0;
                             return (
                               <PcChatLine key={chat.roomId} type="button" onClick={() => navigate(`/chat/${chat.roomId}`)}>
@@ -868,6 +976,7 @@ export const MyOrdersContent = () => {
             const chats = isOwnerCard && order.matchedProUid
               ? allChats.filter((c) => c.otherUid === order.matchedProUid)
               : allChats;
+            const chatRows = previewChatsOf(order, chats);
             // 오늘 작업 표시 · 시간 & 장소 줄 · 소개비 정산 줄 (대표 리뷰 11/02)
             const wDay = workDayOf(order);
             const isTodayWork = wDay === todayYmd && displayStatus !== "취소" && displayStatus !== "대기" && !isUnselected(order);
@@ -915,8 +1024,8 @@ export const MyOrdersContent = () => {
                     <BottomText>{typeof order.location === "string" ? order.location : [order.location?.sido, order.location?.gu].filter(Boolean).join(" ")}</BottomText>
                     <BottomText>{order.writer}</BottomText>
                     {/* 비교선정은 지원 현황까지 — "비교선정 1/3 지원" (대표 리뷰 11/22) */}
-                    <BottomText>{matchLineOf(order)}</BottomText>
-                    {userData?.pgReview !== true && insuranceLine(order) && <BottomText style={{ color: order.insurance?.applied ? "#15803d" : THEME.muted, fontWeight: order.insurance?.applied ? 700 : 400 }}>{insuranceLine(order)}</BottomText>}
+                    <BottomText>{[matchLineOf(order), recruitLineOf(order, allOrders, uid)].filter(Boolean).join(" · ")}</BottomText>
+                    {!insuranceHidden(userData) && insuranceLine(order) && <BottomText style={{ color: order.insurance?.applied ? "#15803d" : THEME.muted, fontWeight: order.insurance?.applied ? 700 : 400 }}>{insuranceLine(order)}</BottomText>}
                     {workDateText(order) && <BottomText>작업일 {workDateText(order)}</BottomText>}
                   </BottomLeft>
                   <PriceText>{formatPriceLine(order)}</PriceText>
@@ -931,7 +1040,7 @@ export const MyOrdersContent = () => {
                 )}
 
                 {/* 프로별 채팅 미리보기 목록 */}
-                {chats.length > 0 && (
+                {chatRows.length > 0 && (
                   <ChatListWrap>
                     {/* 홈프로 시점의 "견적 대화" 문구는 삭제 (대표 지시 7/24) */}
                     {isOwnerCard && (
@@ -939,7 +1048,7 @@ export const MyOrdersContent = () => {
                         {order.matchedProUid ? "배정된 프로" : `견적 받은 프로 ${chats.length}명`}
                       </ChatListTitle>
                     )}
-                    {chats.map((chat) => {
+                    {chatRows.map((chat) => {
                       const hasUnread = chat.unreadCount > 0;
                       return (
                         <ChatPreviewRow key={chat.roomId} $unread={hasUnread} onClick={(e) => { e.stopPropagation(); navigate(`/chat/${chat.roomId}`); }}>

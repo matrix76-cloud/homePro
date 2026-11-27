@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
+import { insuranceHidden } from "../../../config/featureFlags";
 import { useNavigate, useLocation } from "react-router-dom";
 import { IoHomeOutline, IoHome, IoChatbubbleEllipsesOutline, IoChatbubbleEllipses, IoPersonOutline, IoPerson, IoAddCircle, IoCreateOutline, IoSparklesOutline, IoBookOutline, IoBook, IoConstructOutline, IoConstruct, IoSwapHorizontal, IoSwapHorizontalOutline, IoBusiness, IoBusinessOutline, IoShieldCheckmark, IoShieldCheckmarkOutline } from "react-icons/io5";
 import { THEME } from "../../../config/homeproConfig";
@@ -134,7 +135,7 @@ const MobileFooter = ({ type }) => {
         <div className="buttonview">
           {/* 아이폰 앱에서는 결제가 걸린 안심케어 탭을 뺀다 (형 지시 2026-10-01) */}
           {/* PG 심사 계정(users.pgReview)에서도 보험을 뺀다 (형 2026-10-07 — PG사가 보험을 꺼림) */}
-          {TAB_LIST.filter((tab) => !(tab.key === "insurance" && (isIosApp() || userData?.pgReview === true))).map((tab) => {
+          {TAB_LIST.filter((tab) => !(tab.key === "insurance" && (isIosApp() || insuranceHidden(userData)))).map((tab) => {
             if (tab.isCenter) {
               return (
                 <button key={tab.key} className="button" onClick={() => handleTab(tab)} style={{ position: "relative", zIndex: showMenu ? 100 : 1 }}>

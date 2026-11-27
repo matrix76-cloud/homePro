@@ -43,7 +43,7 @@ const DeleteAccountPage = () => (
             <H2>문의</H2>
             <P>
                 계정 삭제 관련 문의는 고객센터로 연락해 주세요.<br />
-                이메일: support@homepro.app
+                이메일: support@tryhomepro.com
             </P>
         </Wrap>
     </SimpleBackLayout>

@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { getAccessTier, tierFullLabel } from "../../utility/tierUtils";
+import { insuranceHidden } from "../../config/featureFlags";
 import React, { useContext, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -1472,7 +1473,7 @@ const MobileConfigpage = () => {
           { t: "구독 회원등급", d: "등급별 오더 수락 시점", to: "/guide/7" },
           { t: "H-포인트", d: "획득 및 사용 안내", to: "/guide/8" },
           { t: "나의 오더 현황", d: "진행 상황 관리 안내", to: "/guide/9" },
-          userData?.pgReview !== true && { t: "도급배상책임보험", d: "가입 및 보장 안내", to: "/guide/10" },
+          !insuranceHidden(userData) && { t: "도급배상책임보험", d: "가입 및 보장 안내", to: "/guide/10" },
         ].filter(Boolean),
       },
       {
@@ -1487,7 +1488,7 @@ const MobileConfigpage = () => {
         title: "설정 · 고객지원",
         items: [
           { t: "앱 설정", d: "알림·방해 금지 시간·다크모드", to: "/mypage/app-settings" },
-          isBiz && (userData?.pgReview === true ? { t: "결제 내역 (구독)", d: "토스로 결제한 구독료", to: "/mypage/payments" } : { t: "결제 내역 (구독·보험)", d: "토스로 결제한 구독료와 보험료", to: "/mypage/payments" }),
+          isBiz && (insuranceHidden(userData) ? { t: "결제 내역 (구독)", d: "토스로 결제한 구독료", to: "/mypage/payments" } : { t: "결제 내역 (구독·보험)", d: "토스로 결제한 구독료와 보험료", to: "/mypage/payments" }),
           { t: "고객센터", d: "자주 묻는 질문과 1:1 문의", to: "/support" },
           { t: "이용약관", d: "홈프로 서비스 이용약관", to: "/legal/terms" },
           { t: "개인정보처리방침", d: "개인정보를 다루는 기준", to: "/legal/privacy" },
@@ -1712,7 +1713,7 @@ const MobileConfigpage = () => {
             <ConfigGuideIconWrap><IoChatbubbleOutline size={32} color="#059669" /></ConfigGuideIconWrap>
             <ConfigGuideText>나의 오더 현황{"\n"}관리 안내</ConfigGuideText>
           </ConfigGuideCard>
-{userData?.pgReview !== true && (
+{!insuranceHidden(userData) && (
                     <ConfigGuideCard $bg={THEME.purpleLight} onClick={() => navigate("/guide/10")}>
             <ConfigGuideIconWrap><IoCashOutline size={32} color={THEME.primaryDark} /></ConfigGuideIconWrap>
             <ConfigGuideText>도급배상책임보험{"\n"}가입 및 보장 안내</ConfigGuideText>
@@ -1765,7 +1766,7 @@ const MobileConfigpage = () => {
         <SupportList>
           {userData?.userType !== "customer" && !isIosApp() && (
           <SupportItem onClick={() => navigate("/mypage/payments")}>
-            <SupportLabel>{userData?.pgReview === true ? "결제 내역 (구독)" : "결제 내역 (구독·보험)"}</SupportLabel>
+            <SupportLabel>{insuranceHidden(userData) ? "결제 내역 (구독)" : "결제 내역 (구독·보험)"}</SupportLabel>
             <IoChevronForward size={18} color={THEME.muted} />
           </SupportItem>
           )}

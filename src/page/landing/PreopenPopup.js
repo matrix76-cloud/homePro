@@ -151,7 +151,7 @@ const PreopenPopup = () => {
             <span>{conf.openDateText}</span>
             <span>지금 사전예약 중</span>
           </Title>
-          <Desc>30개 전문 분야 · 300여 세부 종목 사장님과 기술자가 모이는 실시간 오더공유 · 현장구인 플랫폼이 열립니다.</Desc>
+          <Desc>30개 전문 분야 · 350여 이상의 세부 종목 사장님과 기술자가 모이는 실시간 오더공유 · 현장구인 플랫폼이 열립니다.</Desc>
 
           <SubTitle>사전예약 특별 혜택</SubTitle>
           <BenefitTable>

@@ -392,6 +392,8 @@ exports.onOrderCreated = onDocumentCreated(
         const order = snap.data();
         const categoryId = order.categoryId;
         if (!categoryId) return;
+        // 구인 모집 묶음 — 같은 내용의 오더가 모집 인원만큼 한꺼번에 올라온다(RecruitService). 알림은 첫 자리에서 한 번만 (대표 리뷰 11/24)
+        if (order.recruit && Number(order.recruit.slot) > 1) return;
 
         // 해당 카테고리의 승인된 Pro 조회
         const prosSnap = await db.collection("homepro_pros")

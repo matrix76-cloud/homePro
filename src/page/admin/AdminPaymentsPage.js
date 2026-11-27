@@ -73,7 +73,7 @@ export default function AdminPaymentsPage() {
       <PageHead>
         <div>
           <PageTitle>PG 결제 내역</PageTitle>
-          <PageDesc>토스페이먼츠로 들어온 월 구독료·보험료 전부. 회원 간 대금·소개수수료는 플랫폼이 받지 않으므로 여기 없습니다.</PageDesc>
+          <PageDesc>토스페이먼츠로 들어온 결제 전부(월 구독료 · 카드로 결제된 소개수수료 등). 계좌이체로 주고받은 대금 · 소개수수료는 플랫폼을 거치지 않아 여기 없습니다. 카드로 결제된 소개수수료의 정산은 'PG 결제 정산'에서 처리합니다.</PageDesc>
         </div>
         <HeadRight><SmallBtn type="button" onClick={downloadCsv} disabled={!filtered.length}>CSV 다운로드</SmallBtn></HeadRight>
       </PageHead>

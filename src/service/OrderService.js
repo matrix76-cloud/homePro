@@ -337,7 +337,9 @@ async function notifyStatusChange(before, newStatus, extra = {}) {
   }
 }
 
-/** 배정 알림 — 빠른배정 수락(접수자에게) · 비교선정 선정(선정된 홈프로에게) (대표 리뷰 11/02) */
+/** 배정 알림 — 빠른배정 수락(접수자에게) · 비교선정 선정(선정된 홈프로에게) (대표 리뷰 11/02)
+ *  수락(accept)은 수락자 본인이 방금 한 일이라 수락자에게는 알리지 않는다 — 푸시는 원래 접수자에게만 가고,
+ *  둘이 같이 쓰는 채팅방의 안내 글도 수락자 화면에서는 뺀다(chatHideFor, 대표 리뷰 11/27) */
 async function notifyAssigned(order, proUid, mode) {
   try {
     const o = { ...order, matchedProUid: proUid };
@@ -348,6 +350,7 @@ async function notifyAssigned(order, proUid, mode) {
         toUids: [o.createdBy], actorUid: proUid,
         title: "홈프로 배정", body: text, type: "order_assigned",
         chatText: `${text}\n작업 일정을 이 대화방에서 조율해 주세요.`,
+        chatHideFor: [proUid],
       });
     } else {
       const { name } = await getUserBrief(proUid);
@@ -358,6 +361,18 @@ async function notifyAssigned(order, proUid, mode) {
       });
     }
   } catch (e) { console.warn("[배정 알림]", e?.message); }
+}
+
+/** 카드로 결제된 소개수수료(referralPay.method "pg")가 있는 오더가 취소되거나 대기로 돌아가면 그 돈은 돌려줘야 한다.
+ *  자동 환불은 없다(토스 상점관리자에서 결제 취소) — 결제 요청에 표시만 해서 운영자 'PG 결제 정산' 화면에 '환불 필요'로 뜨게 한다 (11/28). */
+async function flagReferralPgRefund(order, reason) {
+  const rp = order?.referralPay;
+  if (!rp || rp.method !== "pg" || !rp.requestId) return;
+  try {
+    await updateDoc(doc(db, "pg_payment_requests", rp.requestId), {
+      refundNeeded: true, refundReason: reason, refundMarkedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+  } catch (e) { console.error("[소개수수료 환불 표시]", e); }
 }
 
 /** 오더 상태 변경 */
@@ -381,6 +396,7 @@ export async function updateOrderStatus(orderId, newStatus, extra = {}) {
   // 취소 전환 시 보관 H-포인트 환급
   if (newStatus === ORDER_STATUS.CANCELLED || newStatus === "취소") {
     try { await refundHpointEscrow(orderId); } catch (e) { console.error("[escrow refund]", e); }
+    await flagReferralPgRefund(before, "오더 취소");
   }
   // 상대에게 채팅 안내 + 푸시 — 실패해도 상태 변경은 이미 끝났다
   try { await notifyStatusChange(before, newStatus, extra); } catch (e) { console.warn("[상태 알림]", e?.message); }
@@ -577,8 +593,12 @@ export const setOrderWaiting = async (orderId, opts = {}) => {
     // 보험 적용은 배정 홈프로의 월 보험이었다 — 다음 홈프로에게 넘어가면 안 되니 비운다 (11/18).
     // 안 비우면 다음 홈프로가 보험 없이도 '보험 적용'으로 보이고 보험가입 필수 오더 체크인까지 통과했다. 예전 값은 revertedAssign 에 남긴다
     insurance: null,
-    ...(prevPro ? { revertedAssign: { proUid: prevPro, at: serverTimestamp(), by: opts.actorUid || before?.createdBy || "", insurance: before?.insurance || null } } : {}),
+    // 소개수수료 송금 · 결제 기록도 배정 홈프로의 것이다 — 남겨 두면 다음 홈프로가 이미 낸 것으로 보인다 (11/28). 예전 값은 revertedAssign 에 남긴다
+    referralPay: null,
+    referralPg: null,
+    ...(prevPro ? { revertedAssign: { proUid: prevPro, at: serverTimestamp(), by: opts.actorUid || before?.createdBy || "", insurance: before?.insurance || null, referralPay: before?.referralPay || null } } : {}),
   });
+  await flagReferralPgRefund(before, "대기 전환(배정 해제)");
   // applicants 서브컬렉션 전체 삭제 (재접수 시 새로 모집)
   const applicantsRef = collection(db, COLLECTIONS.ORDERS, orderId, "applicants");
   const snap = await getDocs(applicantsRef);

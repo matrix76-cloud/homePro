@@ -4,6 +4,7 @@
  *
  * 기간 규칙 (대표 리뷰 11/22 "개발팀 통일 규칙") — 전부 한국 시간 기준
  *   당일   : 오늘 00:00 ~ 지금          (비교: 전일 같은 시각까지)
+ *   어제   : 어제 00:00 ~ 24:00         (비교: 그 전날 하루) — 대표 리뷰 11/27
  *   1주일  : 오늘 포함 최근 7일
  *   1개월  : 최근 30일  또는  당월 1일 ~ 지금
  *   분기   : 최근 90일  또는  1~4분기
@@ -49,6 +50,7 @@ export const addDays = (d, n) => new Date(d.getTime() + n * DAY);
 
 export const PERIOD_TABS = [
     { key: "today", label: "당일" },
+    { key: "yesterday", label: "어제" },
     { key: "week", label: "1주일" },
     { key: "month", label: "1개월" },
     { key: "quarter", label: "분기" },
@@ -99,6 +101,10 @@ export function resolveRange(period, now = new Date()) {
     };
     const { y, m } = kstParts(now);
 
+    if (p.key === "yesterday") {
+        const start = addDays(today0, -1);
+        return build(start, today0, addDays(start, -1), start, "그 전날");
+    }
     if (p.key === "week") return recent(7, "직전 7일");
     if (p.key === "half") return recent(180, "직전 180일");
     if (p.key === "year") return recent(365, "직전 365일");

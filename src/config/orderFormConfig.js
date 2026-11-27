@@ -1000,6 +1000,10 @@ const ORDER_FORM_CONFIG = {
         { key: "pickup", label: "픽업위치", type: "text", placeholder: "픽업 장소 입력 (예: OO역 3번 출구)", hideWhenChecked: "direct", rowLabel: "픽업위치" },
       ] },
     ],
+    // 모집 인원 (대표 리뷰 11/21 · 11/24) — 접수폼이 '숙련도별 인원' 아래에 "작업 총 인원 [ ]명 중 모집 인원 [ ]명"을 그린다.
+    //  모집 인원 = 숙련도별 인원(crewSection) 합계. 숙련도별 인원을 안 적었으면 모집 인원을 직접 적는다.
+    //  모집 인원만큼 같은 내용의 오더가 올라간다 — 오더 한 건 = 모집 자리 하나 (src/service/RecruitService.js, 오더 문서 recruit)
+    recruit: { crewSection: "crew", skillAttr: "skillLevel", maxNeed: 20 },
     // 구인 조건 체크 문구 — '전화먼저 주세요!' 줄 아래, 여러 개 고를 수 있다 (대표 리뷰 11/21). 고른 것은 workerTags 로 저장되고 상세 요청내용에도 한 줄로 붙는다
     checkTags: ["초보X", "대타X", "펑크X", "한국어소통", "고정구인"],
     notice: "홈프로는 작업 인력 연결을 위한 중개 서비스만 제공하며, 실제 작업 계약·작업 대금지급·작업 안전 및 사고 책임은 작업 요청자와 작업자 간에 이루어집니다.",

@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React from "react";
+import { insuranceHidden } from "../../config/featureFlags";
 import { useParams, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import SimpleBackLayout from "../../screen/Layout/Layout/SimpleBackLayout";
@@ -79,7 +80,7 @@ const GuidePage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   // PG 심사 계정에서는 보험 안내를 열지 않는다 (형 2026-10-07)
-  const guide = userData?.pgReview === true && String(guideId) === "10" ? null : GUIDES[guideId];
+  const guide = insuranceHidden(userData) && String(guideId) === "10" ? null : GUIDES[guideId];
 
   if (!guide) {
     return (

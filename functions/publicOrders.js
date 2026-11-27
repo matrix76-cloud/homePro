@@ -26,6 +26,7 @@ const { SIDO, CATS, SIDO_BY_SLUG, CAT_BY_SLUG, CAT_BY_ID, sidoOf } = require("./
 const SITE = "https://www.tryhomepro.com";
 const WINDOW = 500;        // 한 번에 읽는 최근 오더 수 — 이 안에서 지역 · 업종별로 거른다
 const CACHE_MS = 120000;   // 함수 인스턴스 안에서 2분은 다시 읽지 않는다
+const INSURANCE_PUBLIC = false; // 공개 목록에 보험 관련 글을 싣나 — 앞단 featureFlags.INSURANCE_ENABLED 와 같은 값으로
 const OPEN_MAX = 60;       // 모집 중 목록
 const MATCHED_MAX = 10;    // 최근 매칭된 오더 (빈 페이지 방지)
 const OTHER_MAX = 10;      // 그 지역 · 업종에 한 건도 없을 때 보여 주는 다른 곳 최근 오더
@@ -34,7 +35,7 @@ const APP_LINK = "/app?from=orders";
 
 // 읽어 오는 필드 — 여기 없는 것(제목 · 설명 · 금액 · 연락처 · 접수자 이름)은 서버 메모리에도 올라오지 않는다
 const FIELDS = [
-  "orderStatus", "selfOrder", "createdBy", "isTest", "pgReview", "_isSeed", "_pgReview", "adminHidden", "createdAt",
+  "orderStatus", "selfOrder", "createdBy", "isTest", "pgReview", "_isSeed", "_pgReview", "adminHidden", "createdAt", "recruit",
   "categoryId", "categoryName", "subcategories", "subcategory", "region", "address", "location",
   "matchType", "applicantCount", "buildingType", "areaValue", "workDate", "workDatePicker", "workTime",
   "b2bPriceType", "wagePay.method", "wagePay.timing", "insurancePreferred",
@@ -113,6 +114,7 @@ async function loadRows() {
   const db = admin.firestore();
   const snap = await db.collection("homepro_orders").orderBy("createdAt", "desc").limit(WINDOW).select(...FIELDS).get();
   const rows = [];
+  const recruitRows = new Map(); // 구인 모집 묶음(같은 내용의 오더 여러 건)은 한 줄로 — groupId → 첫 줄
   for (const d of snap.docs) {
     const o = d.data() || {};
     const status = STATUS_PUBLIC[o.orderStatus];
@@ -131,8 +133,19 @@ async function loadRows() {
     const { sido, text: region } = regionOf(o);
     const open = status === "모집 중";
 
+    // 구인 모집 묶음 — 모집 인원만큼 올라온 같은 오더를 한 줄로 모은다. 한 자리라도 모집 중이면 모집 중으로 (대표 리뷰 11/24)
+    const rc = o.recruit && o.recruit.groupId ? o.recruit : null;
+    if (rc) {
+      const first = recruitRows.get(String(rc.groupId));
+      if (first) {
+        if (open && !first.open) { first.open = true; first.status = status; }
+        continue;
+      }
+    }
+
     // 한 줄 요약 — 건물유형 · 면적 · 작업일 · 작업시간
     const facts = [];
+    if (rc && Number(rc.total) > 0 && Number(rc.need) > 0) facts.push(`${Math.floor(Number(rc.total))}명 중 ${Math.floor(Number(rc.need))}명 모집`);
     const bt = safeText(o.buildingType, 12); if (bt) facts.push(bt);
     const area = areaOf(o); if (area) facts.push(area);
     const day = workDayOf(o, at); if (day) facts.push(`작업일 ${day}`);
@@ -147,14 +160,17 @@ async function loadRows() {
     if (pt) terms.push(`단가유형 ${pt}`);
     else if (wage) terms.push(`지급 방식 ${wage}`);
     if (PRICED_TYPES.includes(o.b2bPriceType) || (wage && wage !== "협의")) terms.push("금액은 로그인 후 확인");
-    if (o.insurancePreferred === true) terms.push("배상책임보험 가입 업체 선호");
+    // 보험을 감춘 동안에는 싣지 않는다 (대표 리뷰 11/27 "보험 삭제합니다(초기에는)" — 앞단 src/config/featureFlags.js 와 같이 푼다)
+    if (INSURANCE_PUBLIC && o.insurancePreferred === true) terms.push("배상책임보험 가입 업체 선호");
 
-    rows.push({
+    const row = {
       id: d.id,
       cat,
       category: cat ? cat.name : (safeText(o.categoryName, 20) || "기타"),
       sub, sido, region, status, open, facts, terms, at,
-    });
+    };
+    rows.push(row);
+    if (rc) recruitRows.set(String(rc.groupId), row);
   }
   return rows;
 }
@@ -176,14 +192,15 @@ const hrefOf = (sido, cat) => "/orders" + (sido ? "/" + sido.slug : "") + (cat ?
 
 /** 제목 · 설명 · H1 규칙 (지역 × 업종) */
 function pageMeta(sido, cat) {
-  const list = cat ? (cat.listName || `${cat.name} 실시간 오더공유 · 오더방 리스트`) : "실시간 오더공유 · 오더방 리스트";
+  // 제목 문구 "실시간 예약 오더공유 리스트" · 안내 끝 문장 (대표 리뷰 11/24)
+  const list = cat ? (cat.listName || `${cat.name} 실시간 예약 오더공유 리스트`) : "실시간 예약 오더공유 리스트";
   const where = sido ? `${sido.full}${sido.areas.length ? `(${sido.areas.join(" · ")} 등)` : ""} 지역` : "전국";
-  const tail = "연락처 · 상세 주소 · 금액은 앱에 로그인한 회원에게만 보입니다.";
+  const tail = "서비스 예약·견적 요청부터 작업 오더 수주까지, HomePro 앱에서 간편하게!";
   if (!sido && !cat) {
     return {
-      title: "실시간 오더공유 · 오더방 리스트 — 청소 · 설비 · 인테리어 · 현장구인 | 홈프로",
-      h1: "전국 실시간 오더공유 · 오더방 리스트",
-      desc: "홈프로에 지금 올라오는 청소 · 설비 · 인테리어 오더공유와 현장 기술자 구인 목록입니다. 지역 · 업종별로 모집 중인 오더를 확인하고 앱에서 바로 지원하세요.",
+      title: "실시간 예약 오더공유 리스트 — 청소 · 설비 · 인테리어 · 현장구인 | 홈프로",
+      h1: "전국 실시간 예약 오더공유 리스트",
+      desc: `홈프로에 지금 올라오는 청소 · 설비 · 인테리어 오더공유와 현장 기술자 구인 목록입니다. ${tail}`,
       lead: `홈프로에 올라오는 청소 · 설비 · 인테리어 오더와 현장 기술자 구인을 지역 · 업종별로 모은 실시간 오더공유(오더방) 리스트입니다. ${tail}`,
     };
   }
@@ -191,8 +208,8 @@ function pageMeta(sido, cat) {
   return {
     title: `${sido ? `[${sido.name}] ` : ""}${list} | 홈프로`,
     h1: `${sido ? sido.name + " " : ""}${list}`,
-    desc: `${where}의 ${what} 목록입니다. 모집 중인 오더와 최근 매칭된 오더를 확인하고 홈프로 앱에서 바로 지원하세요.`,
-    lead: `${where}의 ${what} 목록입니다. 모집 상태와 요청 방식을 보고 앱에서 바로 지원하세요. ${tail}`,
+    desc: `${where}의 ${what} 목록입니다. ${tail}`,
+    lead: `${where}의 ${what} 목록입니다. ${tail}`,
   };
 }
 
@@ -326,9 +343,8 @@ ${body}
 
 function renderList(rows, sido, cat) {
   const mine = rows.filter((r) => (!sido || r.sido === sido) && (!cat || r.cat === cat));
-  const open = mine.filter((r) => r.open);
-  const matched = mine.filter((r) => !r.open).slice(0, MATCHED_MAX);
-  const openShown = open.slice(0, OPEN_MAX);
+  // '모집 중인 오더 N건' 칸은 없앴다 (대표 리뷰 11/24) — 모집 중 · 매칭된 오더를 한 목록에 접수 최근 순으로, 상태는 줄 오른쪽 글씨로만
+  const listed = mine.slice(0, OPEN_MAX + MATCHED_MAX);
   const others = mine.length ? [] : rows.slice(0, OTHER_MAX);
   const meta = pageMeta(sido, cat);
   const path = hrefOf(sido, cat);
@@ -338,7 +354,7 @@ function renderList(rows, sido, cat) {
   if (sido) crumbs.push({ name: sido.name, href: hrefOf(sido, null) });
   if (cat) crumbs.push({ name: cat.name, href: hrefOf(sido, cat) });
 
-  const shown = [...openShown, ...matched];
+  const shown = listed;
   const ld = [
     {
       "@context": "https://schema.org",
@@ -359,7 +375,7 @@ function renderList(rows, sido, cat) {
   const about = [];
   if (cat) about.push(`<h2>${esc(cat.name)} 오더에 올라오는 작업</h2><p>${esc(cat.desc)}.</p><p>${esc(cat.items.join(" · "))}</p>`);
   if (sido) about.push(`<h2>${esc(sido.name)} 지역 오더</h2><p>${esc(sido.full)}${sido.areas.length ? `(${esc(sido.areas.join(" · "))} 등)` : ""} 전 지역에서 올라온 오더를 모읍니다.</p>`);
-  about.push(`<h2>홈프로 오더공유</h2><p>홈프로는 집(Home) 전문 사업자끼리 오더(일감)를 공유하고 하도급 · 협업 · 현장 구인을 연결하는 플랫폼입니다. 오더 지원과 수락, 연락처 · 상세 주소 · 금액 확인은 앱에 로그인한 뒤에 할 수 있습니다.</p>`);
+  about.push(`<h2>홈프로 오더공유 · 오더방</h2><p>홈프로는 집(Home) 전문 사업자끼리 오더(일감)를 공유하고 하도급 · 협업 · 현장 구인을 연결하는 플랫폼입니다. 오더 지원과 수락, 연락처 · 상세 주소 · 금액 확인은 앱에 로그인한 뒤에 할 수 있습니다.</p>`);
 
   const body = `
   <nav class="crumb" aria-label="현재 위치">${crumbs.map((c, i) => (i === crumbs.length - 1 ? `<span>${esc(c.name)}</span>` : `<a href="${c.href}">${esc(c.name)}</a>`)).join(" / ")}</nav>
@@ -367,15 +383,9 @@ function renderList(rows, sido, cat) {
   <p class="lead">${esc(meta.lead)}</p>
   <p class="now"><span>지역 <b>${esc(sido ? sido.name : "전국")}</b></span><span>업종 <b>${esc(cat ? cat.name : "전체")}</b></span><a href="#hub">지역 · 업종 바꾸기</a></p>
 
-  <section>
-    <h2>모집 중인 오더 ${open.length}건</h2>
-    ${openShown.length
-    ? `<ul class="list">${openShown.map(rowHtml).join("")}</ul>${open.length > openShown.length ? `<p class="more">최근 ${openShown.length}건을 보여 줍니다. 전체는 앱에서 볼 수 있습니다.</p>` : ""}`
-    : `<p class="note">지금 모집 중인 ${esc(label)}오더가 없습니다. 새 오더가 올라오면 이 자리에 바로 나옵니다.</p>`}
-  </section>
-  ${matched.length ? `<section>
-    <h2>최근 매칭된 ${esc(label)}오더</h2>
-    <ul class="list">${matched.map(rowHtml).join("")}</ul>
+  ${listed.length ? `<section>
+    <h2>최근 ${esc(label)}오더</h2>
+    <ul class="list">${listed.map(rowHtml).join("")}</ul>${mine.length > listed.length ? `<p class="more">최근 ${listed.length}건을 보여 줍니다. 전체는 앱에서 볼 수 있습니다.</p>` : ""}
   </section>` : ""}
   ${others.length ? `<section>
     <h2>다른 지역 · 업종의 최근 오더</h2>

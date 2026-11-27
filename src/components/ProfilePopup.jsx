@@ -23,6 +23,7 @@ import { hasBusinessLicense, bizStatusLabel, getCompletedOrderCount, formatUploa
 import { getMyProDocs } from "../service/ProService";
 import { findActivePolicy, INSURANCE_TYPE_LABEL } from "../service/OrderInsuranceService";
 import { formatDate } from "../service/InsuranceService";
+import { INSURANCE_ENABLED } from "../config/featureFlags";
 import { GRADE_SYSTEM_ENABLED } from "../utility/gradeUtils";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -221,11 +222,12 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = fals
 
               {/* 인증 · 보험 — 뱃지 대신 아이콘 + 글씨색 */}
               <Section>
-                <SectionTitle>인증 · 보험</SectionTitle>
+                <SectionTitle>{INSURANCE_ENABLED ? "인증 · 보험" : "인증"}</SectionTitle>
                 <StatusRow>
                   {bizStatusLabel(p).ok ? <IoCheckmarkCircle size={20} color={OK_COLOR} /> : <IoEllipseOutline size={20} color={THEME.muted} />}
                   <StatusText $ok={bizStatusLabel(p).ok}>{bizStatusLabel(p).text}</StatusText>
                 </StatusRow>
+                {INSURANCE_ENABLED && (
                 <StatusRow>
                   {insured ? <IoShieldCheckmark size={20} color={OK_COLOR} /> : <IoShieldOutline size={20} color={THEME.muted} />}
                   <StatusText $ok={insured}>
@@ -234,6 +236,7 @@ const ProfilePopup = ({ uid, fallbackName, fallbackPhoto, onClose, asPage = fals
                       : "도급배상책임보험 미가입"}
                   </StatusText>
                 </StatusRow>
+                )}
                 {brokerCertified && (
                   <StatusRow>
                     <IoCheckmarkCircle size={20} color={OK_COLOR} />

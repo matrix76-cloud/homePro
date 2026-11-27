@@ -1,5 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
+import { insuranceHidden } from "../../config/featureFlags";
+import { isLastMessageHiddenFor } from "../../service/OrderNotifyService";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { IoChatbubbleEllipsesOutline, IoPersonCircleOutline, IoPeopleOutline } from "react-icons/io5";
@@ -121,7 +123,7 @@ const MobileChatpage = () => {
   return (
     <MainListLayout NAME="채팅" footerType={MOBILEMAINMENU.CHAT} hideBack hideActions>
       {/* 채팅 상단 롤링 배너 — 기술전수 수강생 모집 · 거래장터 · 양도·매매 + 관리자가 올린 이벤트 · 공지 (대표 리뷰 11/19) */}
-      <ChatTopBanner hideInsurance={userData?.pgReview === true} />
+      <ChatTopBanner hideInsurance={insuranceHidden(userData)} />
       {activeTab === "open" ? (
         <CatTabRow>
           {OPEN_CATEGORIES.map((c) => (
@@ -132,7 +134,7 @@ const MobileChatpage = () => {
         </CatTabRow>
       ) : (
         <CatChipRow>
-          {NORMAL_CATEGORIES.filter((c) => c !== "전체" && !(c === "보험문의" && userData?.pgReview === true)).map((c) => {
+          {NORMAL_CATEGORIES.filter((c) => c !== "전체" && !(c === "보험문의" && insuranceHidden(userData))).map((c) => {
             const st = catStat(c);
             const on = normalCat === c;
             return (
@@ -247,7 +249,7 @@ const MobileChatpage = () => {
                   <RoomBottomLine>
                     <LastMessage>
                       {room.orderId && getOrderTitle(room.orderId) ? getRoomDisplayName(room) + " · " : ""}
-                      {room.lastMessage || "대화를 시작해보세요"}
+                      {(isLastMessageHiddenFor(room, myUid) ? "" : room.lastMessage) || "대화를 시작해보세요"}
                     </LastMessage>
                     {unread > 0 && <UnreadBadge>{unread > 99 ? "99+" : unread}</UnreadBadge>}
                   </RoomBottomLine>

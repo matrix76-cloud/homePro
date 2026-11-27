@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { insuranceHidden } from "../../config/featureFlags";
 import { useNavigate, useLocation } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { useAtom } from "jotai";
@@ -15,7 +16,7 @@ import { useForceReloadIfVersionChanged } from "../../hooks/useForceReloadIfVers
 import { IoAddCircle, IoPeopleOutline, IoSparklesOutline, IoGiftOutline, IoCheckmarkCircle, IoCloseOutline, IoCalendarOutline, IoAddOutline, IoChevronForward, IoChevronDown, IoDocumentTextOutline, IoSendOutline, IoStarOutline, IoChatbubbleOutline, IoWalletOutline, IoCashOutline, IoCameraOutline, IoPersonOutline, IoLocationOutline, IoTimeOutline, IoGridOutline, IoRefreshOutline, IoFunnelOutline, IoSearchOutline, IoTicketOutline, IoLockClosedOutline, IoListOutline } from "react-icons/io5";
 import { subscribeToAllOrders, formatOrderTime, hideOrder } from "../../service/OrderService";
 import { getAccessTier, TIER_LABEL, TIER_NAME, tierFullLabel } from "../../utility/tierUtils";
-import { MyOrdersContent } from "../order/MyOrdersPage";
+import { MyOrdersContent, MY_ORDERS_VIEW_KEY } from "../order/MyOrdersPage";
 import EmptyOrders from "../../components/EmptyOrders";
 import usePcWide from "../../hooks/usePcWide";
 import { PcTable, PcTHead, PcTRow, PcEmpty, PcCard, PcGhostBtn } from "../../pc/pcKit";
@@ -23,6 +24,7 @@ import { AIEstimateContent } from "../order/AIEstimatePage";
 import { OrderCreateContent } from "../order/OrderCreatePage";
 import { isIosApp } from "../../bridge/webviewBridge";
 import { formatPriceType as formatPriceTypeShared } from "../../service/PayFlowService";
+import { recruitProgressFromList } from "../../service/RecruitService";
 import { inviteMessageLines, buildInviteMessage, getInviteSignupPoints, INVITE_POINT_FALLBACK } from "../../service/ReferralService";
 
 /* ─── 포인트 내역 날짜 표기 ─── */
@@ -247,7 +249,10 @@ export const formatRegionLabel = (location) => {
 export const formatPriceType = formatPriceTypeShared;
 
 /* ─── 요청방식 표시 (사양: "0/3"=다중비교 / "빠른"=우선배정 / "지정"=지정배정) ─── */
-export const formatMatchType = (order) => {
+export const formatMatchType = (order, orders) => {
+  // 구인 모집 묶음 — 채워진 인원/총 인원 "3/4" (대표 리뷰 11/21 · 11/24). orders = 같은 묶음을 찾을 목록
+  const rp = order?.recruit?.groupId ? recruitProgressFromList(order, orders || []) : null;
+  if (rp) return rp.text;
   switch (order.matchType) {
     case "compare":  return `${order.applicantCount || 0}/3`;
     case "priority": return "빠른";
@@ -896,7 +901,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
   useEffect(() => {
     if (location.state?.resetTab) {
       setActiveTab("all_orders");
-      try { sessionStorage.removeItem(ACTIVE_TAB_STORAGE_KEY); } catch (e) { /* ignore */ }
+      try { sessionStorage.removeItem(ACTIVE_TAB_STORAGE_KEY); sessionStorage.removeItem(MY_ORDERS_VIEW_KEY); } catch (e) { /* ignore */ }
     }
   }, [location.state?.resetTab]);
 
@@ -1078,7 +1083,11 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
       {pcWide && <PcTabTitle>{(HOME_TABS.find((t) => t.key === activeTab) || {}).label}</PcTabTitle>}
       <HomeTabRow style={pcWide ? { display: "none" } : undefined}>
         {HOME_TABS.map((tab) => (
-          <HomeTabBtn key={tab.key} $wide={tab.wide} $active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
+          <HomeTabBtn key={tab.key} $wide={tab.wide} $active={activeTab === tab.key} onClick={() => {
+            // 탭을 직접 눌러 들어가면 나의오더현황은 처음 모습부터 — 보던 목록 되살리기는 상세 등에서 돌아올 때만 (대표 리뷰 11/27)
+            try { sessionStorage.removeItem(MY_ORDERS_VIEW_KEY); } catch (e) { /* ignore */ }
+            setActiveTab(tab.key);
+          }}>
             {tab.label}
             {tab.sub && <HomeTabSub $active={activeTab === tab.key}>{tab.sub}</HomeTabSub>}
           </HomeTabBtn>
@@ -1302,10 +1311,12 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
                 const isUrgent = isUrgentNow(order);
                 const regionLabel = formatRegionLabel(order.location);
                 const priceLabel = formatPriceType(order);
-                const matchLabel = formatMatchType(order);
+                const matchLabel = formatMatchType(order, allOrders);
                 return (
                   <TableRow key={order.id} $odd={rowIdx % 2 === 1} onClick={() => {
-                    if (status === "마감") { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
+                    // 내 오더(내가 접수했거나 내가 배정받은 오더)는 마감이어도 상세가 열린다 (대표 리뷰 11/27)
+                    const mine = !!uid && (order.createdBy === uid || order.matchedProUid === uid);
+                    if (status === "마감" && !mine) { showToast("이미 마감된 항목은 확인할 수 없습니다"); return; }
                     if (status === "대기" && order.createdBy !== uid) { showToast("접수자가 수정 중인 오더입니다"); return; }
                     if (order.createdBy !== uid && blockedUids.has(order.createdBy)) { showToast("거부등록된 오더입니다"); return; }
                     navigate(`/order/detail/${order.id}`, { state: { order, category: cat } });
@@ -1390,7 +1401,7 @@ const ProMain = ({ navigate, nickname, proCategories, uid }) => {
               <GuideIconWrap><IoChatbubbleOutline size={32} color={THEME.primary} /></GuideIconWrap>
               <GuideText>나의 오더 현황{"\n"}관리 안내</GuideText>
             </GuideCard>
-{userData?.pgReview !== true && (
+{!insuranceHidden(userData) && (
                         <GuideCard $bg={THEME.background} onClick={() => navigate("/guide/10")}>
               <GuideIconWrap><IoCashOutline size={32} color={THEME.primary} /></GuideIconWrap>
               <GuideText>도급배상책임보험{"\n"}가입 및 보장 안내</GuideText>
